@@ -1,0 +1,155 @@
+.container {
+  position: relative;
+  margin-bottom: 1rem;
+  z-index: 50;
+}
+
+.selectorButton {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.6rem 1.25rem;
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-border);
+  border-radius: 100px;
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: all var(--transition-normal);
+  font-size: 0.9rem;
+  font-weight: 500;
+  box-shadow: var(--glass-shadow);
+}
+
+.selectorButton:hover {
+  border-color: var(--primary-glow);
+  background: rgba(255, 255, 255, 0.05);
+  transform: translateY(-1px);
+}
+
+.icon {
+  color: var(--primary);
+  display: flex;
+  align-items: center;
+}
+
+.chevron {
+  color: var(--text-muted);
+  transition: transform var(--transition-fast);
+}
+
+.chevronOpen {
+  transform: rotate(180deg);
+}
+
+.dropdown {
+  position: absolute;
+  top: calc(100% + 0.5rem);
+  left: 0;
+  width: 320px;
+  background: var(--bg-surface);
+  backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-border);
+  border-radius: 1.5rem;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
+  padding: 0.75rem;
+  overflow: hidden;
+  max-height: 480px;
+  overflow-y: auto;
+}
+
+.modelItem {
+  display: flex;
+  flex-direction: column;
+  padding: 0.85rem 1rem;
+  border-radius: 1rem;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  position: relative;
+  border: 1px solid transparent;
+}
+
+.modelItem:hover {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.selected {
+  background: rgba(59, 130, 246, 0.08) !important;
+  border-color: var(--primary-glow);
+}
+
+.modelHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.25rem;
+}
+
+.modelName {
+  font-weight: 600;
+  font-size: 0.95rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.modelDesc {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  line-height: 1.4;
+}
+
+.tierBadge {
+  font-size: 0.65rem;
+  font-weight: 700;
+  padding: 0.2rem 0.5rem;
+  border-radius: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.tier-free {
+  background: rgba(16, 185, 129, 0.1);
+  color: var(--success);
+}
+
+.tier-premium {
+  background: rgba(59, 130, 246, 0.1);
+  color: var(--primary);
+}
+
+.tier-pro {
+  background: rgba(139, 92, 246, 0.1);
+  color: var(--accent);
+}
+
+.locked {
+  opacity: 0.6;
+  filter: grayscale(0.5);
+}
+
+.lockIcon {
+  color: var(--text-muted);
+}
+
+.visionBadge {
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
+  padding: 0.1rem 0.4rem;
+  border-radius: 4px;
+  font-size: 0.6rem;
+}
+
+.premiumIcon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all var(--transition-normal);
+  filter: drop-shadow(0 0 5px rgba(255, 215, 0, 0.3));
+}
+
+.premiumIcon:hover {
+  transform: scale(1.2) rotate(5deg);
+  filter: drop-shadow(0 0 10px rgba(255, 215, 0, 0.6));
+}

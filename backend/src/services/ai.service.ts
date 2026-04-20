@@ -4,7 +4,7 @@ import fs from 'fs';
 import { Readable } from 'stream';
 
 class AiService {
-  private readonly DEFAULT_SYSTEM_PROMPT = "You are Sree Ai, You are build by the NilStudio, You are a professional AI assistant. You are helpful, concise, and friendly. Always provide accurate information and maintain a supportive tone. Always use callback at the end of the response";
+  private readonly DEFAULT_SYSTEM_PROMPT = "You are Sree Ai, You are build by the NilStudio, You are a professional AI assistant. You are helpful, concise, and friendly. Always provide accurate information and maintain a supportive tone. Always use callback huck at the end of the response";
 
   private getNvidiaClient(apiKey: string) {
     return new OpenAI({
@@ -16,17 +16,22 @@ class AiService {
   async streamChat(apiKey: string, messages: any[], model: string = 'meta/llama-3.1-70b-instruct') {
     const openai = this.getNvidiaClient(apiKey);
 
-    // Prepend system prompt if not present
+    // Prepend system prompt if not present and no vision content (system prompts can be tricky with some VLMs)
     const hasSystemPrompt = messages.some(m => m.role === 'system');
-    const finalMessages = hasSystemPrompt
-      ? messages
-      : [{ role: 'system', content: this.DEFAULT_SYSTEM_PROMPT }, ...messages];
+    const isVisionModel = model.toLowerCase().includes('vision');
+
+    let finalMessages = messages;
+    if (!hasSystemPrompt && !isVisionModel) {
+      finalMessages = [{ role: 'system', content: this.DEFAULT_SYSTEM_PROMPT }, ...messages];
+    }
 
     return openai.chat.completions.create({
       model,
       messages: finalMessages,
       stream: true,
-      max_tokens: 1024,
+      max_tokens: isVisionModel ? 2048 : 1024,
+      temperature: 0.7,
+      top_p: 1,
     });
   }
 

@@ -7,6 +7,14 @@
   position: relative;
 }
 
+.header {
+  padding: 12px 0;
+  display: flex;
+  justify-content: center;
+  z-index: 100;
+  position: relative;
+}
+
 .messagesList {
   flex: 1;
   overflow-y: auto;

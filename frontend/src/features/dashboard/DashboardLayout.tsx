@@ -4,6 +4,7 @@ import { Sidebar } from '../../components/layout/Sidebar';
 import styles from './DashboardLayout.module.css';
 
 import { SettingsModal } from './SettingsModal';
+import { UpgradeModal } from '../../components/shared/UpgradeModal';
 
 export const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [isCollapsed, setIsCollapsed] = React.useState(false);
@@ -31,6 +32,8 @@ export const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ child
         isOpen={isSettingsOpen} 
         onClose={() => setIsSettingsOpen(false)} 
       />
+
+      <UpgradeModal />
     </div>
   );
 };

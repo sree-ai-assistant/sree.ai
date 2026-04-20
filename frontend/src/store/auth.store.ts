@@ -4,7 +4,7 @@ import { supabase } from '../lib/supabase';
 export interface User {
   id: string;
   email: string;
-  plan_type?: 'free' | 'basic' | 'pro';
+  plan_type?: 'free' | 'premium' | 'pro';
   requests_remaining?: number;
 }
 
@@ -42,7 +42,7 @@ export const useAuthStore = create<AuthState>((set) => ({
             user: {
               id: session.user.id,
               email: session.user.email || profile.email,
-              plan_type: profile.plan_type as 'free' | 'basic' | 'pro',
+              plan_type: profile.plan_type as 'free' | 'premium' | 'pro',
               requests_remaining: profile.requests_remaining
             }, 
             loading: false, 
@@ -77,7 +77,7 @@ export const useAuthStore = create<AuthState>((set) => ({
             user: {
               id: session.user.id,
               email: session.user.email || '',
-              plan_type: (profile?.plan_type as 'free' | 'basic' | 'pro') || 'free',
+              plan_type: (profile?.plan_type as 'free' | 'premium' | 'pro') || 'free',
               requests_remaining: profile?.requests_remaining
             }
           });

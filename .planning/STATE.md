@@ -2,18 +2,18 @@
 
 ## Current Position
 
-Phase: Not started (defining requirements)
-Plan: —
-Status: Initializing Milestone v2.0
-Last activity: 2026-04-20 — Milestone v2.0 started (NVIDIA NIM Integration)
+Phase: Phase 3: Dynamic Model Selector UI (Next)
+Plan: Researching UI patterns for glassmorphic selection
+Status: Backend NIM Integration & Tiered Access Complete
+Last activity: 2026-04-20 — Backend integration for 20 models finished.
 
 ## Active Focus
 - Milestone: v2.0
 - Goal: Integrated model selection with tiered access and paywalls.
 
 ## Progress (Milestone v2.0)
-- [ ] Phase 1: Research & API Schema (0%)
-- [ ] Phase 2: Backend NIM Integration (0%)
+- [x] Phase 1: Research & API Schema (100%)
+- [x] Phase 2: Backend NIM Integration (100%)
 - [ ] Phase 3: Dynamic Model Selector UI (0%)
 - [ ] Phase 4: Tiered Access & Paywall Logic (0%)
 - [ ] Phase 5: Polish & UX Continuity (0%)

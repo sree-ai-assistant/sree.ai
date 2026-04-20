@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { authMiddleware } from '../middleware/auth';
+import { tierCheckMiddleware } from '../middleware/tierCheck';
 import { aiService } from '../services/ai.service';
 import { ApiKeyService } from '../services/apiKey.service';
 import multer from 'multer';
@@ -9,7 +10,7 @@ const router = Router();
 const upload = multer({ dest: 'uploads/' });
 
 // Streaming Chat Completion
-router.post('/chat', authMiddleware, async (req: any, res) => {
+router.post('/chat', authMiddleware, tierCheckMiddleware, async (req: any, res) => {
   try {
     const { messages, model } = req.body;
     const userId = req.user.id;
@@ -52,7 +53,7 @@ router.post('/chat', authMiddleware, async (req: any, res) => {
 });
 
 // Image Generation
-router.post('/image', authMiddleware, async (req: any, res) => {
+router.post('/image', authMiddleware, tierCheckMiddleware, async (req: any, res) => {
   try {
     const { prompt, model } = req.body;
     const userId = req.user.id;

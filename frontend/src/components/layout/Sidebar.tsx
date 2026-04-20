@@ -322,7 +322,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, setIsCollapsed, o
               <span className={styles.name}>{user?.email?.split('@')[0]}</span>
               <div className={styles.badge}>
                 <Zap size={10} fill="currentColor" />
-                <span>{user?.plan_type === 'pro' ? 'Pro Member' : 'Free Plan'}</span>
+                <span>{user?.plan_type === 'pro' ? 'Pro Member' : user?.plan_type === 'premium' ? 'Premium Member' : 'Free Plan'}</span>
               </div>
             </div>
           </div>

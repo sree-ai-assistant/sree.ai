@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, User, Zap, Shield, Key, RefreshCw, CheckCircle2, AlertCircle, Trash2, Save } from 'lucide-react';
+import { X, User, Zap, Shield, RefreshCw, CheckCircle2, AlertCircle, Trash2, Save } from 'lucide-react';
 import { useAuthStore } from '../../store/auth.store';
 import api from '../../lib/api';
 import styles from './SettingsModal.module.css';

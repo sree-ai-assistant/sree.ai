@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Key, Save, CheckCircle2, AlertCircle, ShieldCheck, Trash2, RefreshCcw } from 'lucide-react';
+import { Save, ShieldCheck, Trash2, RefreshCcw } from 'lucide-react';
 import { DashboardLayout } from '../features/dashboard/DashboardLayout';
 import api from '../lib/api';
 

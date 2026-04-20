@@ -1,10 +1,10 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Mic, Square, Loader2, Volume2 } from 'lucide-react';
+import { X } from 'lucide-react';
 import { useChatStore } from '../../store/chat.store';
 import { useAuthStore } from '../../store/auth.store';
 import { supabase } from '../../lib/supabase';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { VoiceVisualizer } from './VoiceVisualizer';
 import { aiService } from '../../lib/api';
 import styles from './VoiceOverlay.module.css';
@@ -16,9 +16,8 @@ interface VoiceOverlayProps {
 
 export const VoiceOverlay: React.FC<VoiceOverlayProps> = ({ onClose, initialConversationId }) => {
   const { user } = useAuthStore();
-  const { messages, createConversation, addMessage, setActiveConversation } = useChatStore();
+  const { messages, createConversation, addMessage } = useChatStore();
   const navigate = useNavigate();
-  const location = useLocation();
 
   // Session State
   const [isSessionActive, setIsSessionActive] = useState(true);
@@ -40,13 +39,11 @@ export const VoiceOverlay: React.FC<VoiceOverlayProps> = ({ onClose, initialConv
   useEffect(() => { messagesRef.current = messages; }, [messages]);
 
   // Audio State
-  const [isRecording, setIsRecording] = useState(false);
   const [stream, setStream] = useState<MediaStream | null>(null);
   const [status, setStatus] = useState<'idle' | 'listening' | 'transcribing' | 'thinking' | 'speaking'>('idle');
 
   // Content State
   const [transcript, setTranscript] = useState('');
-  const [aiResponse, setAiResponse] = useState('');
   const [displayedAiResponse, setDisplayedAiResponse] = useState('');
   const [showFlyingTranscript, setShowFlyingTranscript] = useState(false);
   const [loadingMessage, setLoadingMessage] = useState('');
@@ -101,7 +98,6 @@ export const VoiceOverlay: React.FC<VoiceOverlayProps> = ({ onClose, initialConv
 
     try {
       setTranscript('');
-      setAiResponse('');
       setDisplayedAiResponse('');
 
       const audioStream = await navigator.mediaDevices.getUserMedia({
@@ -135,7 +131,7 @@ export const VoiceOverlay: React.FC<VoiceOverlayProps> = ({ onClose, initialConv
 
       recorder.start();
       recordingStartTimeRef.current = Date.now();
-      setIsRecording(true);
+      recordingStartTimeRef.current = Date.now();
       setStatus('listening');
 
       // VAD Implementation with Frequency Filtering
@@ -189,7 +185,6 @@ export const VoiceOverlay: React.FC<VoiceOverlayProps> = ({ onClose, initialConv
   const stopRecording = () => {
     if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
       mediaRecorderRef.current.stop();
-      setIsRecording(false);
       if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
       stream?.getTracks().forEach(track => track.stop());
       setStream(null);
@@ -224,7 +219,7 @@ export const VoiceOverlay: React.FC<VoiceOverlayProps> = ({ onClose, initialConv
         const userText = data.data.text?.trim() || '';
 
         if (!userText) {
-          const fallbackText = "can you say it again? if you are asking me anything, because, i can't hear anything!!!";
+          const fallbackText = "Can You Say it Again? If You Are Asking Me Anything, Because, I Can't Hear Anything !!!";
           setDisplayedAiResponse(fallbackText);
           setStatus('speaking');
 
@@ -263,7 +258,7 @@ export const VoiceOverlay: React.FC<VoiceOverlayProps> = ({ onClose, initialConv
         setTranscript('');
         setStatus('thinking');
         startLoadingMessages();
-        
+
         await typewriter(userText, setTranscript, 20);
 
         // Trigger "sent to AI" animation
@@ -278,10 +273,8 @@ export const VoiceOverlay: React.FC<VoiceOverlayProps> = ({ onClose, initialConv
         const reader = chatResponse.body?.getReader();
         const decoder = new TextDecoder();
         let fullAiText = '';
-        let typewriterActive = false;
         let readerDone = false;
 
-        const sentenceQueue: string[] = [];
         const audioQueue: { text: string; url: string | null; blob: Blob | null }[] = [];
         let isProcessingQueue = false;
 
@@ -311,7 +304,6 @@ export const VoiceOverlay: React.FC<VoiceOverlayProps> = ({ onClose, initialConv
                 audioRef.current.play();
 
                 // Type this specific sentence
-                const startText = fullAiText.slice(0, fullAiText.indexOf(item.text) + item.text.length);
                 const prevText = fullAiText.slice(0, fullAiText.indexOf(item.text));
 
                 // Update displayed response up to previous sentences if needed
@@ -413,7 +405,7 @@ export const VoiceOverlay: React.FC<VoiceOverlayProps> = ({ onClose, initialConv
           await new Promise(r => setTimeout(r, 100));
         }
 
-        setAiResponse(fullAiText);
+        // setAiResponse(fullAiText);
 
         if (user?.id) {
           let currentConvId = conversationIdRef.current;

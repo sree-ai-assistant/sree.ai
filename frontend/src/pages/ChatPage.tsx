@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Send, Bot, User, Sparkles, Loader2, Paperclip, Mic, Image as ImageIcon } from 'lucide-react';
+import { Bot, User, Sparkles } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { DashboardLayout } from '../features/dashboard/DashboardLayout';
@@ -11,10 +11,13 @@ import { useParams, useNavigate } from 'react-router-dom';
 import styles from './ChatPage.module.css';
 import { VoiceOverlay } from '../components/voice/VoiceOverlay';
 import { ChatInput } from '../components/chat/ChatInput';
+import { ModelSelector } from '../components/chat/ModelSelector';
+import { useModelStore } from '../store/model.store';
 import { useLocation } from 'react-router-dom';
 
 const ChatPage: React.FC = () => {
   const { user } = useAuthStore();
+  const { selectedModel } = useModelStore();
   const { 
     activeConversation, 
     messages, 
@@ -100,7 +103,7 @@ const ChatPage: React.FC = () => {
         },
         body: JSON.stringify({
           messages: [...messages.map(m => ({ role: m.role, content: m.content })), { role: 'user', content: messageContent }],
-          model: 'meta/llama-3.1-70b-instruct',
+          model: selectedModel?.model_id || 'meta/llama-3.1-70b-instruct',
         }),
       });
 
@@ -154,6 +157,10 @@ const ChatPage: React.FC = () => {
   return (
     <DashboardLayout>
       <div className={styles.container}>
+        <div className={styles.header}>
+          <ModelSelector />
+        </div>
+        
         <div className={styles.messagesList}>
           {messages.length === 0 && !chatLoading ? (
             <div className={styles.emptyState}>
