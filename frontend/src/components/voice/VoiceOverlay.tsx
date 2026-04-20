@@ -60,6 +60,15 @@ export const VoiceOverlay: React.FC<VoiceOverlayProps> = ({ onClose, initialConv
 
   const recordingStartTimeRef = useRef<number>(0);
 
+  const filterThinkingTags = (content: string) => {
+    if (!content) return '';
+    // Remove closed tags
+    let processed = content.replace(/<(think|thinking)>[\s\S]*?<\/\1>/gi, '');
+    // Remove open tags and everything after them (for streaming)
+    processed = processed.replace(/<(think|thinking)>[\s\S]*/gi, '');
+    return processed;
+  };
+
   const typewriter = (text: string, callback: (t: string) => void, speed = 5) => {
     return new Promise<void>((resolve) => {
       let i = 0;
@@ -307,8 +316,8 @@ export const VoiceOverlay: React.FC<VoiceOverlayProps> = ({ onClose, initialConv
                 const prevText = fullAiText.slice(0, fullAiText.indexOf(item.text));
 
                 // Update displayed response up to previous sentences if needed
-                setDisplayedAiResponse(prevText);
-                await typewriter(item.text, (val) => setDisplayedAiResponse(prevText + val), 20);
+                setDisplayedAiResponse(filterThinkingTags(prevText));
+                await typewriter(filterThinkingTags(item.text), (val) => setDisplayedAiResponse(filterThinkingTags(prevText) + val), 20);
 
                 await audioPromise;
               }
@@ -326,7 +335,8 @@ export const VoiceOverlay: React.FC<VoiceOverlayProps> = ({ onClose, initialConv
         };
 
         const cleanTextForTTS = (text: string) => {
-          return text.replace(/[*\/()]/g, '').trim();
+          const filtered = filterThinkingTags(text);
+          return filtered.replace(/[*\/()]/g, '').trim();
         };
 
         const fetchSentenceAudio = async (text: string, index: number) => {

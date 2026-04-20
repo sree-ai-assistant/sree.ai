@@ -4,7 +4,7 @@
   left: 0;
   right: 0;
   bottom: 0;
-  z-index: 50;
+  z-index: 2000;
   background: radial-gradient(circle at center, rgba(10, 20, 40, 0.4) 0%, rgba(5, 5, 5, 0.6) 100%);
   backdrop-filter: blur(12px) saturate(150%);
   display: flex;
@@ -16,6 +16,7 @@
   margin: 1rem;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
   border: 1px solid rgba(255, 255, 255, 0.05);
+  z-index: 45;
 }
 
 .visualizerWrapper {
@@ -82,10 +83,24 @@
   border-radius: 50%;
 }
 
-.statusDot.listening { background: #3b82f6; box-shadow: 0 0 10px #3b82f6; }
-.statusDot.thinking { background: #a855f7; box-shadow: 0 0 10px #a855f7; }
-.statusDot.speaking { background: #10b981; box-shadow: 0 0 10px #10b981; }
-.statusDot.idle { background: #6b7280; }
+.statusDot.listening {
+  background: #3b82f6;
+  box-shadow: 0 0 10px #3b82f6;
+}
+
+.statusDot.thinking {
+  background: #a855f7;
+  box-shadow: 0 0 10px #a855f7;
+}
+
+.statusDot.speaking {
+  background: #10b981;
+  box-shadow: 0 0 10px #10b981;
+}
+
+.statusDot.idle {
+  background: #6b7280;
+}
 
 .contentOverlay {
   position: relative;
@@ -167,11 +182,25 @@
 }
 
 @keyframes pulse {
-  0%, 100% { opacity: 0.3; }
-  50% { opacity: 1; }
+
+  0%,
+  100% {
+    opacity: 0.3;
+  }
+
+  50% {
+    opacity: 1;
+  }
 }
 
 @keyframes blink {
-  0%, 100% { opacity: 0; }
-  50% { opacity: 1; }
+
+  0%,
+  100% {
+    opacity: 0;
+  }
+
+  50% {
+    opacity: 1;
+  }
 }

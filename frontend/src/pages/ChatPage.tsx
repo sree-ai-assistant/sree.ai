@@ -14,6 +14,7 @@ import { ChatInput } from '../components/chat/ChatInput';
 import { ModelSelector } from '../components/chat/ModelSelector';
 import { useModelStore } from '../store/model.store';
 import { useLocation } from 'react-router-dom';
+import { CodeBlock } from '../components/chat/CodeBlock';
 
 const ChatPage: React.FC = () => {
   const { user } = useAuthStore();
@@ -42,6 +43,15 @@ const ChatPage: React.FC = () => {
   const [isGenerating, setIsGenerating] = useState(false);
   const [streamingMessage, setStreamingMessage] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  const filterThinkingTags = (content: string) => {
+    if (!content) return '';
+    // Remove closed tags
+    let processed = content.replace(/<(think|thinking)>[\s\S]*?<\/\1>/gi, '');
+    // Remove open tags and everything after them (for streaming)
+    processed = processed.replace(/<(think|thinking)>[\s\S]*/gi, '');
+    return processed;
+  };
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -204,8 +214,25 @@ const ChatPage: React.FC = () => {
                       className={styles.markdown}
                       style={m.metadata?.mode === 'voice' ? { fontStyle: 'italic' } : {}}
                     >
-                      <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                        {m.content}
+                      <ReactMarkdown 
+                        remarkPlugins={[remarkGfm]}
+                        components={{
+                          code({ node, inline, className, children, ...props }: any) {
+                            const match = /language-(\w+)/.exec(className || '');
+                            return !inline && match ? (
+                              <CodeBlock
+                                language={match[1]}
+                                value={String(children).replace(/\n$/, '')}
+                              />
+                            ) : (
+                              <code className={className} {...props}>
+                                {children}
+                              </code>
+                            );
+                          },
+                        }}
+                      >
+                        {filterThinkingTags(m.content)}
                       </ReactMarkdown>
                     </div>
                   </div>
@@ -220,10 +247,27 @@ const ChatPage: React.FC = () => {
                   <div className={`${styles.avatar} ${styles.ai}`}>
                     <Bot size={20} />
                   </div>
-                  <div className={`${styles.bubble} ${styles.ai}`}>
+                  <div className={`${styles.bubble} ${styles.ai} ${isGenerating ? styles.streaming : ''}`}>
                     <div className={styles.markdown}>
-                      <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                        {streamingMessage || 'Thinking...'}
+                      <ReactMarkdown 
+                        remarkPlugins={[remarkGfm]}
+                        components={{
+                          code({ node, inline, className, children, ...props }: any) {
+                            const match = /language-(\w+)/.exec(className || '');
+                            return !inline && match ? (
+                              <CodeBlock
+                                language={match[1]}
+                                value={String(children).replace(/\n$/, '')}
+                              />
+                            ) : (
+                              <code className={className} {...props}>
+                                {children}
+                              </code>
+                            );
+                          },
+                        }}
+                      >
+                        {filterThinkingTags(streamingMessage) || (streamingMessage ? '' : 'Thinking...')}
                       </ReactMarkdown>
                     </div>
                   </div>

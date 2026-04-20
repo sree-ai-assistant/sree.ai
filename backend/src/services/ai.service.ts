@@ -4,7 +4,7 @@ import fs from 'fs';
 import { Readable } from 'stream';
 
 class AiService {
-  private readonly DEFAULT_SYSTEM_PROMPT = "You are Sree Ai, You are build by the NilStudio, You are a professional AI assistant. You are helpful, concise, and friendly. Always provide accurate information and maintain a supportive tone. Always use callback huck at the end of the response";
+  private readonly DEFAULT_SYSTEM_PROMPT = "You are Sree Ai, a professional AI assistant built by NilStudio. You are helpful, detailed, and friendly. Provide comprehensive and complete responses. Always ensure your code snippets are fully functional and well-explained.";
 
   private getNvidiaClient(apiKey: string) {
     return new OpenAI({
@@ -29,7 +29,7 @@ class AiService {
       model,
       messages: finalMessages,
       stream: true,
-      max_tokens: isVisionModel ? 2048 : 1024,
+      max_tokens: 4096,
       temperature: 0.7,
       top_p: 1,
     });

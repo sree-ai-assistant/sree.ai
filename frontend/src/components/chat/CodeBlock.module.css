@@ -1,0 +1,57 @@
+.codeBlockContainer {
+  margin: 1.5rem 0;
+  border-radius: 12px;
+  background: var(--bg-surface);
+  position: relative;
+}
+
+.codeBlockHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.5rem 1rem;
+  background: var(--bg-surface-light);
+  color: var(--text-secondary);
+  font-size: 0.7rem;
+  font-family: var(--font-mono);
+  position: sticky;
+  top: -20px;
+  z-index: 10;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  border-top-left-radius: 12px;
+  border-top-right-radius: 12px;
+}
+
+.language {
+  text-transform: lowercase;
+  font-weight: 500;
+}
+
+.copyButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  color: #a9a9a9;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 6px;
+  transition: all 0.2s ease;
+}
+
+.copyButton:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #ffffff;
+}
+
+.copyButton.copied {
+  color: #4ade80;
+}
+
+.codeContent {
+  font-size: 0.85rem !important;
+  margin: 0 !important;
+  padding: 1.25rem !important;
+  background: transparent !important;
+}
