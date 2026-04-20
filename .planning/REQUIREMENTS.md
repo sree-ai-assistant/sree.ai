@@ -1,30 +1,32 @@
-# Milestone v1.2: Integrated Voice & Chat UX Requirements
+# Requirements: Milestone v2.0 Multi-Model Ecosystem
 
-## Core Objective
-Unify the "Immersive Voice" and "Detailed Chat" views into a single cohesive interface where voice interactions happen directly over the chat history.
+## 1. API Integration (NIM)
+- [ ] **NIM-01**: Backend must support connection to `https://integrate.api.nvidia.com/v1`.
+- [ ] **NIM-02**: `aiService` must allow passing a dynamic `modelId` from the frontend.
+- [ ] **NIM-03**: Backend must handle streaming responses from NVIDIA NIM using Server-Sent Events.
+- [ ] **NIM-04**: Implement error handling for invalid Model IDs or API rate limits.
 
-## Functional Requirements
-1. **Dynamic Navigation Transition**
-   - Start session at `/voice`.
-   - After the 1st voice transcription is processed and a conversation ID is generated, the URL must automatically update to `/voice/:id` without interrupting the audio/recording flow.
-   - Subsequent voice messages in the same session must persist on that same ID.
+## 2. Model Selection UI
+- [ ] **UI-01**: Create a `ModelSelector` component with a premium, glassmorphic design.
+- [ ] **UI-02**: Display model names and tooltips describing their strengths.
+- [ ] **UI-03**: Highlight the currently active model.
+- [ ] **UI-04**: Render a visible Lock icon next to models not available in the user's current tier.
 
-2. **UI Integration: Voice-over-Chat**
-   - The `/voice/:id` page should render the `ChatPage` content (messages list) as the background.
-   - The `VoiceVisualizer` and status overlays should be rendered as a glassmorphic or semi-transparent layer ON TOP of the chats.
-   - As voice is processed, messages should appear in real-time in the background chat log.
+## 3. Plan-Based Access Control
+- [ ] **AUTH-01**: Define a list of `FREE_MODELS` (5 specific models).
+- [ ] **AUTH-02**: Backend middleware must validate if the requested `modelId` is allowed for the user's tier (Sync with Supabase plan).
+- [ ] **AUTH-03**: Block unauthorized model requests with a 403 status and descriptive JSON message.
 
-3. **Session Management**
-   - Provide a "Reset Search" or "New Voice Session" button to quickly clear context and return to `/voice`.
-   - Support resuming any existing conversation in "Integrated Voice Mode" by navigating to `/voice/:id`.
+## 4. Subscription UX (Paywalls)
+- [ ] **SUBS-01**: Selecting a locked model must trigger the `PricingModal`.
+- [ ] **SUBS-02**: `PricingModal` must show a comparison table with prices (Free: $0, Basic: $9, Pro: $29).
+- [ ] **SUBS-03**: Modal must have a high-contrast "Upgrade" button and a clear dismissal (X).
+- [ ] **SUBS-04**: Apply backdrop blur (15px) to the app when modal is active.
 
-## Technical Constraints
-- **State Management**: Use `useChatStore` for message persistence.
-- **VAD Stability**: Ensure the active MediaRecorder session survives route/state changes if necessary (or re-initialize seamlessly).
-- **Z-Index Strategy**: Sidebar and header should stay accessible OR be dimmed during active voice interaction.
+## Future Requirements (Deferred)
+- Dynamic model listing via API (v1/models).
+- Custom model fine-tuning interface.
 
-## Success Criteria
-- [ ] Clicking "Mic" in Chat detail enters Integrated Mode.
-- [ ] URL updates from `/voice` to `/voice/:id` on 1st message.
-- [ ] User can see chat history scrolling behind the voice circle.
-- [ ] AI voice response is synced with the background message appearing.
+## Out of Scope
+- Integration with non-NVIDIA providers in this milestone.
+- Real payment processing (Stripe) - UI only with mock upgrade logic for now unless requested.
