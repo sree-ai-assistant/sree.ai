@@ -56,7 +56,7 @@ export const VoiceOverlay: React.FC<VoiceOverlayProps> = ({ onClose, initialConv
   const animationFrameRef = useRef<number | null>(null);
 
   const SILENCE_THRESHOLD = 20; // Increased from 5 to ignore more background noise
-  const SILENCE_DURATION = 2000; // 2 seconds as requested
+  const SILENCE_DURATION = 3000; // 3 seconds as requested
 
   const recordingStartTimeRef = useRef<number>(0);
 
@@ -156,7 +156,7 @@ export const VoiceOverlay: React.FC<VoiceOverlayProps> = ({ onClose, initialConv
         }
         const avgSpeechEnergy = speechEnergy / count;
 
-        if (avgSpeechEnergy > SILENCE_THRESHOLD + 70) {
+        if (avgSpeechEnergy > SILENCE_THRESHOLD + 80) {
           lastSpeakTime = Date.now();
           hasSpoken = true;
           // console.log(avgSpeechEnergy)
