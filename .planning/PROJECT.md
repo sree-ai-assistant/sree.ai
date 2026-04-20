@@ -1,14 +1,14 @@
 # Project: Sree AI
 
-## Current Milestone: v1.2 Integrated Voice & Chat UX
+## Current Milestone: v2.0 Multi-Model Ecosystem (NVIDIA NIM Integration)
 
-**Goal:** Merge the immersive voice visualizer with the chat history for a seamless, unified interaction experience with dynamic route transitions.
+**Goal:** Enable users to switch between 19+ NVIDIA NIM models with plan-based access controls and premium paywalls.
 
 **Target features:**
-- Consolidate Voice AI as an overlay within the chat interface.
-- Implement dynamic routing transition from `/voice` to `/voice/:id`.
-- Synchronized voice-activated chat logs (real-time message streaming behind the visualizer).
-- One-click "New Voice Session" reset.
+- NVIDIA NIM API integration for 19+ models.
+- Tiered model access (Free, Basic, Pro).
+- Interactive Model Selector UI with lock icons for premium assets.
+- Integrated upgrade pricing popup for locked models.
 
 ## Evolution
 This document evolves at phase transitions and milestone boundaries.
