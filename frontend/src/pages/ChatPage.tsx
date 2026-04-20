@@ -10,6 +10,7 @@ import { useAuthStore } from '../store/auth.store';
 import { useParams, useNavigate } from 'react-router-dom';
 import styles from './ChatPage.module.css';
 import { VoiceOverlay } from '../components/voice/VoiceOverlay';
+import { ChatInput } from '../components/chat/ChatInput';
 import { useLocation } from 'react-router-dom';
 
 const ChatPage: React.FC = () => {
@@ -226,40 +227,14 @@ const ChatPage: React.FC = () => {
           <div ref={messagesEndRef} />
         </div>
 
-        <div className={styles.inputWrapper}>
-          <div className={styles.inputContainer}>
-            <button className={styles.iconBtn}>
-              <Paperclip size={20} />
-            </button>
-            <input
-              className={styles.input}
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && handleSend()}
-              placeholder="Ask me anything..."
-              disabled={isGenerating}
-            />
-            <div className={styles.inputActions}>
-              <button 
-                className={styles.iconBtn}
-                title="Launch Voice Mode"
-                onClick={() => navigate(id ? `/voice/chat/${id}` : '/voice')}
-              >
-                <Mic size={20} />
-              </button>
-              <button className={styles.iconBtn}>
-                <ImageIcon size={20} />
-              </button>
-              <button 
-                className={styles.sendBtn}
-                onClick={() => handleSend()}
-                disabled={isGenerating || !input.trim()}
-              >
-                {isGenerating ? <Loader2 size={18} className="animate-spin" /> : <Send size={18} />}
-              </button>
-            </div>
-          </div>
-        </div>
+        <ChatInput 
+          value={input}
+          onChange={setInput}
+          onSend={handleSend}
+          isGenerating={isGenerating}
+          hasMessages={messages.length > 0}
+          onVoiceLaunch={() => navigate(id ? `/voice/chat/${id}` : '/voice')}
+        />
       </div>
 
       <AnimatePresence>
