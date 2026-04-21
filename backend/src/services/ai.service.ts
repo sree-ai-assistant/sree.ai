@@ -16,12 +16,16 @@ class AiService {
   async streamChat(apiKey: string, messages: any[], model: string = 'meta/llama-3.1-70b-instruct') {
     const openai = this.getNvidiaClient(apiKey);
 
-    // Prepend system prompt if not present and no vision content (system prompts can be tricky with some VLMs)
+    // Prepend system prompt if not present
     const hasSystemPrompt = messages.some(m => m.role === 'system');
-    const isVisionModel = model.toLowerCase().includes('vision');
+    const isVisionModel = model.toLowerCase().includes('vision') || 
+                          model.toLowerCase().includes('pixtral') || 
+                          model.toLowerCase().includes('qwen-vl');
 
     let finalMessages = messages;
-    if (!hasSystemPrompt && !isVisionModel) {
+    if (!hasSystemPrompt) {
+      // For most modern vision models, system prompt is fine. 
+      // Only skip if specifically known to be problematic, but generally keep it for consistency.
       finalMessages = [{ role: 'system', content: this.DEFAULT_SYSTEM_PROMPT }, ...messages];
     }
 

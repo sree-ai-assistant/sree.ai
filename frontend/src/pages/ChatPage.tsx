@@ -11,6 +11,8 @@ import { useParams, useNavigate } from 'react-router-dom';
 import styles from './ChatPage.module.css';
 import { VoiceOverlay } from '../components/voice/VoiceOverlay';
 import { ChatInput } from '../components/chat/ChatInput';
+import { ThinkingAnimation } from '../components/chat/ThinkingAnimation';
+import { MessageAttachment } from '../components/chat/MessageAttachment';
 import { ModelSelector } from '../components/chat/ModelSelector';
 import { useModelStore } from '../store/model.store';
 import { useLocation } from 'react-router-dom';
@@ -39,10 +41,20 @@ const ChatPage: React.FC = () => {
     setShowVoiceOverlay(location.pathname.startsWith('/voice'));
   }, [location.pathname]);
   
-  const [input, setInput] = useState('');
+  const [attachments, setAttachments] = useState<any[]>([]);
   const [isGenerating, setIsGenerating] = useState(false);
   const [streamingMessage, setStreamingMessage] = useState('');
+  const [streamingStatus, setStreamingStatus] = useState<string | null>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  const handleStop = () => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
+      setIsGenerating(false);
+    }
+  };
 
   const filterThinkingTags = (content: string) => {
     if (!content) return '';
@@ -77,8 +89,11 @@ const ChatPage: React.FC = () => {
   ];
 
   const handleSend = async (text?: string) => {
-    const messageContent = text || input;
-    if (!messageContent.trim() || isGenerating || !user?.id) return;
+    const messageContent = text || '';
+    const hasAttachments = attachments.length > 0;
+    
+    if (!messageContent.trim() && !hasAttachments) return;
+    if (isGenerating || !user?.id) return;
 
     let currentConvId = activeConversation?.id;
 
@@ -97,14 +112,46 @@ const ChatPage: React.FC = () => {
     }
 
     // 2. Add user message locally and to DB
-    await addMessage(currentConvId, 'user', messageContent, { mode: 'text' });
-    setInput('');
+    await addMessage(currentConvId, 'user', messageContent, { 
+      mode: 'text',
+      attachments: attachments.map(a => ({ 
+        name: a.file.name, 
+        type: a.type,
+        url: a.url
+      }))
+    });
+    
+    const currentAttachments = [...attachments];
+    setAttachments([]);
+    useModelStore.getState().setVisionRequired(false); // Reset vision requirement after send
+    
     setIsGenerating(true);
     setStreamingMessage('');
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
 
+    let assistantMessage = '';
     try {
       const { data: { session } } = await supabase.auth.getSession();
       
+      const apiMessages = messages.map(m => ({ 
+        role: m.role, 
+        content: m.content 
+      }));
+
+      // Construct current message payload
+      let currentMessageContent: any = messageContent;
+      const imageUrls = currentAttachments
+        .filter(a => a.type === 'image' && a.url)
+        .map(a => ({ type: 'image_url', image_url: { url: a.url } }));
+
+      if (imageUrls.length > 0) {
+        currentMessageContent = [
+          { type: 'text', text: messageContent || "What is in this image?" },
+          ...imageUrls
+        ];
+      }
+
       const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000/api'}/ai/chat`, {
         method: 'POST',
         headers: {
@@ -112,9 +159,15 @@ const ChatPage: React.FC = () => {
           'Authorization': `Bearer ${session?.access_token}`,
         },
         body: JSON.stringify({
-          messages: [...messages.map(m => ({ role: m.role, content: m.content })), { role: 'user', content: messageContent }],
-          model: selectedModel?.model_id || 'meta/llama-3.1-70b-instruct',
+          messages: [...apiMessages, { role: 'user', content: currentMessageContent }],
+          model: selectedModel?.model_id || 'meta/llama-3.1-405b-instruct',
+          attachments: currentAttachments.map(a => ({
+            name: a.file.name,
+            type: a.type,
+            url: a.url
+          }))
         }),
+        signal: controller.signal,
       });
 
       if (!response.ok) {
@@ -124,7 +177,7 @@ const ChatPage: React.FC = () => {
 
       const reader = response.body?.getReader();
       const decoder = new TextDecoder();
-      let assistantMessage = '';
+      let hasStartedStreaming = false;
 
       while (true) {
         const { done, value } = await reader!.read();
@@ -139,10 +192,22 @@ const ChatPage: React.FC = () => {
             if (dataStr === '[DONE]') break;
             
             try {
-              const { content, error } = JSON.parse(dataStr);
+              const { content, status, error } = JSON.parse(dataStr);
+              if (status) {
+                setStreamingStatus(status);
+                continue;
+              }
               if (error) throw new Error(error);
               if (content) {
+                setStreamingStatus(null); // Clear status once we start getting content
                 assistantMessage += content;
+                
+                // Add 0.1s smooth start delay
+                if (!hasStartedStreaming) {
+                  hasStartedStreaming = true;
+                  await new Promise(resolve => setTimeout(resolve, 100));
+                }
+                
                 setStreamingMessage(assistantMessage);
               }
             } catch (e) {
@@ -152,15 +217,32 @@ const ChatPage: React.FC = () => {
         }
       }
 
+      setStreamingStatus(null);
+
       // 3. Save assistant message to DB
       await addMessage(currentConvId, 'assistant', assistantMessage, { mode: 'text' });
 
+      // ONLY THEN reset loading to ensure no layout jump or button lag
+      setIsGenerating(false);
+      setStreamingMessage('');
+      abortControllerRef.current = null;
+
     } catch (error: any) {
+      if (error.name === 'AbortError') {
+        console.log('Stream aborted');
+        if (assistantMessage && currentConvId) {
+          await addMessage(currentConvId, 'assistant', assistantMessage, { mode: 'text' });
+        }
+        setStreamingMessage('');
+        setIsGenerating(false);
+        return;
+      }
       console.error('Chat Error:', error);
+      setIsGenerating(false);
       await addMessage(currentConvId, 'assistant', `⚠️ Error: ${error.message}. Please check your NVIDIA API key in settings.`);
     } finally {
       setIsGenerating(false);
-      setStreamingMessage('');
+      abortControllerRef.current = null;
     }
   };
 
@@ -214,6 +296,9 @@ const ChatPage: React.FC = () => {
                       className={styles.markdown}
                       style={m.metadata?.mode === 'voice' ? { fontStyle: 'italic' } : {}}
                     >
+                      {m.metadata?.attachments && (
+                        <MessageAttachment attachments={m.metadata.attachments} />
+                      )}
                       <ReactMarkdown 
                         remarkPlugins={[remarkGfm]}
                         components={{
@@ -249,26 +334,30 @@ const ChatPage: React.FC = () => {
                   </div>
                   <div className={`${styles.bubble} ${styles.ai} ${isGenerating ? styles.streaming : ''}`}>
                     <div className={styles.markdown}>
-                      <ReactMarkdown 
-                        remarkPlugins={[remarkGfm]}
-                        components={{
-                          code({ node, inline, className, children, ...props }: any) {
-                            const match = /language-(\w+)/.exec(className || '');
-                            return !inline && match ? (
-                              <CodeBlock
-                                language={match[1]}
-                                value={String(children).replace(/\n$/, '')}
-                              />
-                            ) : (
-                              <code className={className} {...props}>
-                                {children}
-                              </code>
-                            );
-                          },
-                        }}
-                      >
-                        {filterThinkingTags(streamingMessage) || (streamingMessage ? '' : 'Thinking...')}
-                      </ReactMarkdown>
+                      {(!streamingMessage || !filterThinkingTags(streamingMessage)) ? (
+                        <ThinkingAnimation status={streamingStatus} />
+                      ) : (
+                        <ReactMarkdown 
+                          remarkPlugins={[remarkGfm]}
+                          components={{
+                            code({ node, inline, className, children, ...props }: any) {
+                              const match = /language-(\w+)/.exec(className || '');
+                              return !inline && match ? (
+                                <CodeBlock
+                                  language={match[1]}
+                                  value={String(children).replace(/\n$/, '')}
+                                />
+                              ) : (
+                                <code className={className} {...props}>
+                                  {children}
+                                </code>
+                              );
+                            },
+                          }}
+                        >
+                          {filterThinkingTags(streamingMessage)}
+                        </ReactMarkdown>
+                      )}
                     </div>
                   </div>
                 </motion.div>
@@ -279,13 +368,15 @@ const ChatPage: React.FC = () => {
         </div>
 
         <ChatInput 
-          value={input}
-          onChange={setInput}
           onSend={handleSend}
+          onStop={handleStop}
           isGenerating={isGenerating}
           hasMessages={messages.length > 0}
           onVoiceLaunch={() => navigate(id ? `/voice/chat/${id}` : '/voice')}
+          attachments={attachments}
+          onAttachmentsChange={setAttachments}
         />
+
       </div>
 
       <AnimatePresence>

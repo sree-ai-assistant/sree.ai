@@ -9,15 +9,16 @@
 
 .inputContainer {
   display: flex;
-  align-items: center;
-  background: var(--bg-secondary, rgba(20, 20, 20, 0.6));
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 20px;
-  padding: 8px 16px;
-  gap: 12px;
+  flex-direction: column;
+  background: var(--bg-secondary, rgba(20, 20, 20, 0.7));
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 24px;
+  padding: 8px;
+  gap: 8px;
   position: relative;
-  transition: all 0.2s ease;
-  backdrop-filter: blur(10px);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  backdrop-filter: blur(20px);
+  width: 100%;
 }
 
 .inputContainer:focus-within {
@@ -172,40 +173,251 @@
   color: var(--text-primary, #fff);
 }
 
-.sendBtn {
-  width: 44px;
-  height: 44px;
+.inputInner {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 8px;
+  padding: 0 4px;
+}
+
+.attachmentsList {
+  display: flex;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  gap: 12px;
+  padding: 8px;
+  scrollbar-width: none;
+}
+
+.attachmentsList::-webkit-scrollbar {
+  display: none;
+}
+
+.attachmentCard {
+  display: flex;
+  align-items: center;
+  background: rgba(40, 40, 40, 0.5);
+  border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 14px;
-  background: var(--primary, #3b82f6);
+  padding: 8px 12px;
+  gap: 12px;
+  min-width: 200px;
+  max-width: 280px;
+  position: relative;
+  transition: transform 0.2s ease;
+}
+
+.cardIcon {
+  width: 36px;
+  height: 36px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   color: white;
+  flex-shrink: 0;
+  transition: all 0.3s ease;
+}
+
+.uploading {
+  background: #ff4757 !important;
+}
+
+.progressRing {
+  width: 20px;
+  height: 20px;
+  animation: rotateRing 1s linear infinite;
+}
+
+.progressRing svg {
+  width: 100%;
+  height: 100%;
+  transform: rotate(-90deg);
+}
+
+.progressRing circle {
+  stroke-dasharray: 62.8;
+  stroke-dashoffset: 20;
+}
+
+@keyframes rotateRing {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.cardInfo {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.cardFileName {
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: white;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cardFileType {
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.cardRemoveBtn {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.xCircle {
+  width: 20px;
+  height: 20px;
+  background: rgba(255, 255, 255, 0.2);
+  backdrop-filter: blur(4px);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  transition: all 0.2s ease;
+}
+
+.xCircle:hover {
+  background: white;
+  color: black;
+}
+
+.imageThumbContainer {
+  position: relative;
+  width: 50px;
+  height: 50px;
+  flex-shrink: 0;
+}
+
+.imageThumb {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 10px;
+  cursor: pointer;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  transition: opacity 0.2s ease;
+}
+
+.imageThumb:hover {
+  opacity: 0.8;
+}
+
+.imageRemoveBtn {
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  z-index: 2;
+}
+
+.lightbox {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.85);
+  backdrop-filter: blur(10px);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40px;
+}
+
+.lightboxContent {
+  position: relative;
+  max-width: 90vw;
+  max-height: 90vh;
+}
+
+.lightboxContent img {
+  max-width: 100%;
+  max-height: 80vh;
+  border-radius: 12px;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5);
+}
+
+.closeLightbox {
+  position: absolute;
+  top: -50px;
+  right: 0;
+  background: transparent;
+  border: none;
+  color: white;
+  cursor: pointer;
+  opacity: 0.7;
+  transition: opacity 0.2s ease;
+}
+
+.closeLightbox:hover {
+  opacity: 1;
+}
+
+.sendBtn {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: white;
+  color: black;
   border: none;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
   transition: all 0.2s ease;
+  flex-shrink: 0;
 }
 
 .sendBtn:hover:not(:disabled) {
   transform: scale(1.05);
-  background: #2563eb;
+  background: rgba(255, 255, 255, 0.9);
 }
 
 .sendBtn:disabled {
-  opacity: 0.5;
+  opacity: 0.3;
   cursor: not-allowed;
+  background: rgba(255, 255, 255, 0.1);
 }
 
-:global(.animate-spin) {
-  animation: spin 1s linear infinite;
+.stopBtn {
+  background: #ff4757 !important;
+  color: white !important;
+  box-shadow: 0 0 15px rgba(255, 71, 87, 0.3);
+  animation: pulseStop 2s infinite;
+  border: 1px solid rgba(255, 255, 255, 0.2) !important;
 }
 
-@keyframes spin {
-  from {
-    transform: rotate(0deg);
-  }
+.stopBtn:hover {
+  background: #ff6b81 !important;
+  transform: scale(1.05);
+}
 
-  to {
-    transform: rotate(360deg);
-  }
+.square {
+  width: 14px;
+  height: 14px;
+  background: currentColor;
+  border-radius: 3px;
+}
+
+@keyframes pulseStop {
+  0% { box-shadow: 0 0 0 0 rgba(255, 71, 87, 0.4); }
+  70% { box-shadow: 0 0 0 8px rgba(255, 71, 87, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(255, 71, 87, 0); }
 }

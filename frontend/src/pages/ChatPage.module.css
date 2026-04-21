@@ -20,7 +20,7 @@
 .messagesList {
   flex: 1;
   overflow-y: auto;
-  padding: 20px 0;
+  padding: 20px 5px;
   display: flex;
   flex-direction: column;
   gap: 12px;
@@ -281,7 +281,7 @@
   letter-spacing: 0.01em;
 }
 
-.markdown p + p {
+.markdown p+p {
   margin-top: 16px;
 }
 

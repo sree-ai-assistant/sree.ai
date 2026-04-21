@@ -16,10 +16,12 @@ interface ModelState {
   models: AIModel[];
   selectedModel: AIModel | null;
   loading: boolean;
+  visionRequired: boolean;
   
   // Actions
   fetchModels: () => Promise<void>;
   setSelectedModel: (modelId: string) => void;
+  setVisionRequired: (required: boolean) => void;
 }
 
 export const useModelStore = create<ModelState>()(
@@ -28,6 +30,7 @@ export const useModelStore = create<ModelState>()(
       models: [],
       selectedModel: null,
       loading: false,
+      visionRequired: false,
 
       fetchModels: async () => {
         set({ loading: true });
@@ -45,11 +48,17 @@ export const useModelStore = create<ModelState>()(
           if (data.success) {
             const models = data.data;
             const currentSelected = get().selectedModel;
+            const visionReq = get().visionRequired;
             
             // Re-sync the selected model with the freshly fetched list to get updated details
-            const updatedSelected = currentSelected 
+            let updatedSelected = currentSelected 
               ? models.find((m: AIModel) => m.model_id === currentSelected.model_id) 
               : null;
+
+            // If vision is required and current model isn't vision, auto-select a vision model
+            if (visionReq && (!updatedSelected || !updatedSelected.is_vision)) {
+              updatedSelected = models.find((m: AIModel) => m.is_vision) || updatedSelected;
+            }
 
             set({ 
               models,
@@ -67,6 +76,18 @@ export const useModelStore = create<ModelState>()(
         const model = get().models.find(m => m.model_id === modelId);
         if (model) {
           set({ selectedModel: model });
+        }
+      },
+
+      setVisionRequired: (required: boolean) => {
+        const { models, selectedModel } = get();
+        set({ visionRequired: required });
+
+        if (required && selectedModel && !selectedModel.is_vision) {
+          const visionModel = models.find(m => m.is_vision);
+          if (visionModel) {
+            set({ selectedModel: visionModel });
+          }
         }
       },
     }),

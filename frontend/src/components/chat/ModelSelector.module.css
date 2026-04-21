@@ -44,97 +44,101 @@
 
 .dropdown {
   position: absolute;
-  top: calc(100% + 0.5rem);
+  top: calc(100% + 8px);
   left: 0;
   width: 320px;
-  background: var(--bg-surface);
-  backdrop-filter: var(--glass-blur);
-  border: 1px solid var(--glass-border);
-  border-radius: 1.5rem;
-  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
-  padding: 0.75rem;
-  overflow: hidden;
-  max-height: 480px;
+  background: var(--bg-secondary, rgba(20, 20, 20, 0.95));
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 16px;
+  padding: 8px;
+  z-index: 100;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+  max-height: 400px;
   overflow-y: auto;
 }
 
 .modelItem {
-  display: flex;
-  flex-direction: column;
-  padding: 0.85rem 1rem;
-  border-radius: 1rem;
+  padding: 12px;
+  border-radius: 12px;
   cursor: pointer;
-  transition: all var(--transition-fast);
-  position: relative;
+  transition: all 0.2s ease;
   border: 1px solid transparent;
+  margin-bottom: 4px;
 }
 
-.modelItem:hover {
-  background: rgba(255, 255, 255, 0.03);
+.modelItem:last-child {
+  margin-bottom: 0;
 }
 
-.selected {
-  background: rgba(59, 130, 246, 0.08) !important;
-  border-color: var(--primary-glow);
+.modelItem:hover:not(.locked) {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+.modelItem.selected {
+  background: rgba(59, 130, 246, 0.1);
+  border-color: var(--primary, #3b82f6);
+}
+
+.modelItem.faded {
+  opacity: 0.4;
+  filter: grayscale(0.5);
+}
+
+.modelItem.locked {
+  cursor: default;
 }
 
 .modelHeader {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 0.25rem;
+  margin-bottom: 4px;
 }
 
 .modelName {
-  font-weight: 600;
-  font-size: 0.95rem;
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: 8px;
+  font-weight: 600;
+  color: var(--text-primary, #fff);
+  font-size: 0.95rem;
 }
 
 .modelDesc {
-  font-size: 0.75rem;
-  color: var(--text-secondary);
+  font-size: 0.8rem;
+  color: var(--text-muted, rgba(255, 255, 255, 0.5));
   line-height: 1.4;
 }
 
 .tierBadge {
-  font-size: 0.65rem;
-  font-weight: 700;
-  padding: 0.2rem 0.5rem;
+  font-size: 0.7rem;
+  padding: 2px 8px;
   border-radius: 4px;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
+  text-transform: capitalize;
 }
 
 .tier-free {
-  background: rgba(16, 185, 129, 0.1);
-  color: var(--success);
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
 }
 
 .tier-premium {
-  background: rgba(59, 130, 246, 0.1);
-  color: var(--primary);
+  background: rgba(255, 215, 0, 0.15);
+  color: #ffd700;
 }
 
 .tier-pro {
-  background: rgba(139, 92, 246, 0.1);
-  color: var(--accent);
-}
-
-.locked {
-  opacity: 0.6;
-  filter: grayscale(0.5);
+  background: rgba(168, 85, 247, 0.15);
+  color: #a855f7;
 }
 
 .lockIcon {
-  color: var(--text-muted);
+  color: var(--text-muted, rgba(255, 255, 255, 0.4));
 }
 
 .visionBadge {
-  background: rgba(255, 255, 255, 0.05);
-  color: var(--text-primary);
   border: 1px solid var(--border-color);
   padding: 0.1rem 0.4rem;
   border-radius: 4px;

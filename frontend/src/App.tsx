@@ -9,6 +9,8 @@ import ImageGenPage from './pages/ImageGenPage';
 import SettingsPage from './pages/SettingsPage';
 import ProtectedRoute from './components/auth/ProtectedRoute';
 
+import { Toaster } from 'react-hot-toast';
+
 function App() {
   const { initialize } = useAuthStore();
 
@@ -18,6 +20,7 @@ function App() {
 
   return (
     <Router>
+      <Toaster position="top-right" />
       <Routes>
         {/* Auth Routes */}
         <Route path="/login" element={<LoginPage />} />
