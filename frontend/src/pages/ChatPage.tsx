@@ -69,10 +69,37 @@ const ChatPage: React.FC = () => {
     }
   };
 
-  const filterThinkingTags = (content: string) => {
+  const filterThinkingTags = (content: any) => {
     if (!content) return '';
+    
+    let textContent = content;
+    
+    // Check if it's a stringified JSON array (e.g. from backend frame injection)
+    if (typeof content === 'string' && content.trim().startsWith('[') && content.trim().endsWith(']')) {
+      try {
+        const parsed = JSON.parse(content);
+        if (Array.isArray(parsed)) {
+          const textObj = parsed.find(item => item.type === 'text');
+          if (textObj) {
+            textContent = textObj.text;
+          }
+        }
+      } catch (e) {
+        // Not valid JSON, continue with original string
+      }
+    } else if (Array.isArray(content)) {
+      const textObj = content.find(item => item.type === 'text');
+      if (textObj) {
+        textContent = textObj.text;
+      }
+    }
+    
+    if (typeof textContent !== 'string') {
+      textContent = String(textContent);
+    }
+
     // Remove closed tags
-    let processed = content.replace(/<(think|thinking)>[\s\S]*?<\/\1>/gi, '');
+    let processed = textContent.replace(/<(think|thinking)>[\s\S]*?<\/\1>/gi, '');
     // Remove open tags and everything after them (for streaming)
     processed = processed.replace(/<(think|thinking)>[\s\S]*/gi, '');
     return processed;
@@ -179,6 +206,7 @@ const ChatPage: React.FC = () => {
     abortControllerRef.current = controller;
 
     let assistantMessage = '';
+    let inactivityTimeout: any = null;
     try {
       const { data: { session } } = await supabase.auth.getSession();
 
@@ -231,6 +259,24 @@ const ChatPage: React.FC = () => {
       let hasStartedStreaming = false;
 
       let isStreamFinished = false;
+      
+      const resetInactivityTimeout = () => {
+        if (inactivityTimeout) clearTimeout(inactivityTimeout);
+        if (hasStartedStreaming) {
+          inactivityTimeout = setTimeout(() => {
+            console.warn('Stream inactivity timeout reached, aborting stream to save partial data.');
+            controller.abort('timeout');
+          }, 45000); // 45 seconds timeout
+        }
+      };
+
+      // Global fallback timeout (5 minutes) in case the connection hangs completely
+      // before streaming starts or if the stream dies without closing.
+      const globalTimeout = setTimeout(() => {
+        console.warn('Global request timeout reached, aborting.');
+        controller.abort('timeout');
+      }, 5 * 60 * 1000);
+
       while (!isStreamFinished) {
         const { done, value } = await reader!.read();
         if (done) break;
@@ -239,8 +285,8 @@ const ChatPage: React.FC = () => {
         const lines = chunk.split('\n');
 
         for (const line of lines) {
-          if (line.startsWith('data: ')) {
-            const dataStr = line.replace('data: ', '');
+          if (line.startsWith('data:')) {
+            const dataStr = line.replace(/^data:\s*/, '').trim();
             if (dataStr === '[DONE]') {
               isStreamFinished = true;
               break;
@@ -250,8 +296,6 @@ const ChatPage: React.FC = () => {
               const { content, status, error, extractedContext } = JSON.parse(dataStr);
               
               if (extractedContext && userMsg) {
-                // Sync the local store with the extracted context so it persists in history
-                // but keep the content clean so it doesn't show in the UI
                 updateMessage(userMsg.id, userMsg.content, {
                   ...userMsg.metadata,
                   hasContext: true,
@@ -266,11 +310,10 @@ const ChatPage: React.FC = () => {
               }
               if (error) throw new Error(error);
               if (content) {
-                setStreamingStatus(null); // Clear status once we start getting content
+                setStreamingStatus(null);
                 assistantMessage += content;
                 assistantMessageRef.current = assistantMessage;
 
-                // Add 0.1s smooth start delay
                 if (!hasStartedStreaming) {
                   hasStartedStreaming = true;
                   await new Promise(resolve => setTimeout(resolve, 100));
@@ -283,8 +326,15 @@ const ChatPage: React.FC = () => {
             }
           }
         }
+        
+        // Reset the inactivity timeout after processing the chunk, 
+        // so it covers the wait time for the next reader.read()
+        resetInactivityTimeout();
       }
 
+      clearTimeout(globalTimeout);
+
+      if (inactivityTimeout) clearTimeout(inactivityTimeout);
       setStreamingStatus(null);
 
       const finalAssistantContent = assistantMessage;
@@ -299,8 +349,10 @@ const ChatPage: React.FC = () => {
       abortControllerRef.current = null;
 
     } catch (error: any) {
-      if (error.name === 'AbortError') {
-        console.log('Stream aborted');
+      if (inactivityTimeout) clearTimeout(inactivityTimeout);
+      
+      if (error === 'timeout' || error?.name === 'AbortError') {
+        console.log('Stream aborted or timed out');
         if (assistantMessage && currentConvId) {
           assistantMessageRef.current = ''; // Prevent double save
           await addMessage(currentConvId, 'assistant', assistantMessage, { mode: 'text' });
@@ -312,10 +364,10 @@ const ChatPage: React.FC = () => {
       console.error('Chat Error:', error);
       setIsGenerating(false);
 
-      const isTimeout = error.message?.includes('timeout') || error.name === 'TimeoutError' || error.message?.includes('timed out');
+      const isTimeout = error === 'timeout' || error?.message?.includes('timeout') || error?.name === 'TimeoutError' || error?.message?.includes('timed out');
       const errorMessage = isTimeout
         ? "💀 Something Went Wrong !!!\nPlease try again"
-        : `⚠️ Error: ${error.message}. Please check your NVIDIA API key in settings.`;
+        : `⚠️ Error: ${error?.message || error}. Please check your NVIDIA API key in settings.`;
 
       await addMessage(currentConvId, 'assistant', errorMessage, {
         mode: 'text',
