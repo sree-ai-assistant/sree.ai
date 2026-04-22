@@ -1,103 +1,130 @@
 import axios from 'axios';
-import { PDFParse } from 'pdf-parse';
 import mammoth from 'mammoth';
-import { r2Service } from './r2.service';
+import * as XLSX from 'xlsx';
 
 class FileService {
-  private readonly MAX_CHARS = 20000; // Limit per file to prevent context bloat and slow AI response
+  private readonly MAX_CHARS = 50000;
+  private readonly DOWNLOAD_TIMEOUT = 15000; // 15 seconds timeout
 
   async extractText(url: string, fileName: string): Promise<string> {
+    const extension = fileName.split('.').pop()?.toLowerCase();
+    console.log(`[FileService] Starting extraction for ${fileName} (${extension})`);
+
     try {
-      console.log(`Extracting text from: ${fileName} (${url})`);
-      
-      // If URL is already a public link, axios will handle it.
-      // If the bucket is private, this might fail with 403.
+      // Download the file with a timeout
       const response = await axios.get(url, { 
         responseType: 'arraybuffer',
-        timeout: 60000 // 60s timeout for stability
+        timeout: this.DOWNLOAD_TIMEOUT,
+        headers: {
+          'Accept': '*/*'
+        }
       });
-
+      
       const buffer = Buffer.from(response.data);
-      const extension = fileName.split('.').pop()?.toLowerCase();
-
+      console.log(`[FileService] Downloaded ${fileName}: ${buffer.length} bytes`);
+      
       let text = '';
+
       switch (extension) {
         case 'pdf':
+          console.log(`[FileService] Parsing PDF: ${fileName}`);
           text = await this.parsePdf(buffer);
           break;
         case 'docx':
+          console.log(`[FileService] Parsing DOCX: ${fileName}`);
           text = await this.parseDocx(buffer);
           break;
+        case 'xlsx':
+        case 'xls':
+        case 'xlsm':
+        case 'xlsb':
+        case 'csv':
+        case 'tsv':
+        case 'tab':
+        case 'prn':
+        case 'ods':
+          console.log(`[FileService] Parsing Excel/Spreadsheet: ${fileName}`);
+          const excelStart = Date.now();
+          text = this.parseExcel(buffer);
+          console.log(`[FileService] Excel parsed in ${Date.now() - excelStart}ms`);
+          break;
         case 'txt':
+        case 'md':
         case 'json':
         case 'js':
         case 'ts':
         case 'tsx':
-        case 'html':
         case 'css':
-        case 'md':
+        case 'html':
+        case 'py':
+        case 'sql':
+          console.log(`[FileService] Parsing Text file: ${fileName}`);
           text = buffer.toString('utf-8');
-          break;
-        case 'ipynb':
-          text = this.parseIpynb(buffer);
           break;
         default:
+          console.log(`[FileService] Unknown extension ${extension}, attempting UTF-8 conversion`);
           text = buffer.toString('utf-8');
+          // Basic check for binary content
+          if (text.includes('\u0000')) {
+            text = `[Binary file content for ${fileName} - Not readable as text]`;
+          }
       }
 
       if (text.length > this.MAX_CHARS) {
-        console.log(`Truncating ${fileName} from ${text.length} to ${this.MAX_CHARS} characters.`);
-        text = text.slice(0, this.MAX_CHARS) + `... [TRUNCATED - File too large]`;
+        console.log(`[FileService] Truncating ${fileName} from ${text.length} to ${this.MAX_CHARS} chars`);
+        text = text.slice(0, this.MAX_CHARS) + `\n... [TRUNCATED - File too large]`;
       }
 
-      return text || '[Empty File]';
+      console.log(`[FileService] Successfully extracted ${text.length} chars from ${fileName}`);
+      return text.trim() || `[No readable text found in ${fileName}]`;
     } catch (error: any) {
-      console.error(`Error extracting text from ${fileName}:`, error.response?.status || error.message);
-      if (error.response?.status === 403) {
-        return `[Access Denied: The document storage bucket may not be public. Please check R2 configuration.]`;
+      console.error(`[FileService] Extraction Error for ${fileName}:`, error.message);
+      if (error.code === 'ECONNABORTED') {
+        return `[Error: Download timed out for ${fileName}]`;
       }
-      return `[Error extracting text from ${fileName}: ${error.message}]`;
+      return `[Error processing ${fileName}: ${error.message}]`;
     }
   }
 
   private async parsePdf(buffer: Buffer): Promise<string> {
     try {
-      const parser = new PDFParse({ data: new Uint8Array(buffer) });
-      const result = await parser.getText();
-      // Clean up whitespace
-      return result.text.replace(/\s+/g, ' ').trim();
+      // Use require to avoid TS typing issues with pdf-parse
+      const pdf = require('pdf-parse');
+      const data = await pdf(buffer);
+      return data.text || '';
     } catch (error: any) {
       console.error('PDF Parse Error:', error.message);
-      return '[Failed to parse PDF content]';
-    }
-  }
-
-  private parseIpynb(buffer: Buffer): string {
-    try {
-      const data = JSON.parse(buffer.toString('utf-8'));
-      let text = '';
-      if (data.cells && Array.isArray(data.cells)) {
-        for (const cell of data.cells) {
-          if (cell.cell_type === 'markdown' || cell.cell_type === 'code') {
-            const source = Array.isArray(cell.source) ? cell.source.join('') : cell.source;
-            text += `\n--- ${cell.cell_type} ---\n${source}\n`;
-          }
-        }
-      }
-      return text || '[Empty Notebook]';
-    } catch (error: any) {
-      console.error('IPYNB Parse Error:', error.message);
-      return '[Failed to parse IPYNB content]';
+      return `[Failed to parse PDF content: ${error.message}]`;
     }
   }
 
   private async parseDocx(buffer: Buffer): Promise<string> {
     try {
       const result = await mammoth.extractRawText({ buffer });
-      return result.value;
-    } catch (error) {
-      console.error('DOCX Parse Error:', error);
-      return '[Failed to parse DOCX]';
+      return result.value || '';
+    } catch (error: any) {
+      console.error('DOCX Parse Error:', error.message);
+      return `[Failed to parse DOCX content: ${error.message}]`;
+    }
+  }
+
+  private parseExcel(buffer: Buffer): string {
+    try {
+      const workbook = XLSX.read(buffer, { type: 'buffer' });
+      let text = '';
+      
+      workbook.SheetNames.forEach(sheetName => {
+        const worksheet = workbook.Sheets[sheetName];
+        if (worksheet) {
+          text += `\nSheet: ${sheetName}\n`;
+          text += XLSX.utils.sheet_to_csv(worksheet);
+        }
+      });
+      
+      return text;
+    } catch (error: any) {
+      console.error('Excel Parse Error:', error.message);
+      return `[Failed to parse Excel content: ${error.message}]`;
     }
   }
 }

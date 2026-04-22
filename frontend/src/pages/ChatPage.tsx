@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Bot, User, Sparkles } from 'lucide-react';
+import { Bot, User, Sparkles, RefreshCw } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { DashboardLayout } from '../features/dashboard/DashboardLayout';
@@ -20,31 +20,44 @@ import { CodeBlock } from '../components/chat/CodeBlock';
 
 const ChatPage: React.FC = () => {
   const { user } = useAuthStore();
+  const [session, setSession] = useState<any>(null);
   const { selectedModel } = useModelStore();
-  const { 
-    activeConversation, 
-    messages, 
-    addMessage, 
+  const {
+    activeConversation,
+    messages,
+    addMessage,
+    updateMessage,
     loading: chatLoading,
     setActiveConversation,
-    createConversation 
+    createConversation
   } = useChatStore();
-  
+
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const location = useLocation();
-  
+
   const isVoiceRoute = location.pathname.startsWith('/voice');
   const [showVoiceOverlay, setShowVoiceOverlay] = useState(isVoiceRoute);
 
   useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => setSession(data.session));
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session);
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  useEffect(() => {
     setShowVoiceOverlay(location.pathname.startsWith('/voice'));
   }, [location.pathname]);
-  
+
   const [attachments, setAttachments] = useState<any[]>([]);
   const [isGenerating, setIsGenerating] = useState(false);
   const [streamingMessage, setStreamingMessage] = useState('');
   const [streamingStatus, setStreamingStatus] = useState<string | null>(null);
+  const assistantMessageRef = useRef<string>('');
   const abortControllerRef = useRef<AbortController | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -88,10 +101,45 @@ const ChatPage: React.FC = () => {
     { title: 'Debug my code', desc: 'Help find the memory leak' },
   ];
 
+  // Handle page reload/close during generation
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      if (isGenerating && assistantMessageRef.current && activeConversation?.id) {
+        const currentConvId = activeConversation.id;
+        const finalContent = assistantMessageRef.current;
+
+        // Use a background fetch with keepalive to save progress even if page closes
+        const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+        const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+
+        if (supabaseUrl && supabaseKey && session?.access_token) {
+          fetch(`${supabaseUrl}/rest/v1/messages`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'apikey': supabaseKey,
+              'Authorization': `Bearer ${session.access_token}`,
+            },
+            body: JSON.stringify({
+              conversation_id: currentConvId,
+              role: 'assistant',
+              content: finalContent,
+              metadata: { mode: 'text', interrupted: true }
+            }),
+            keepalive: true
+          }).catch(console.error);
+        }
+      }
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [isGenerating, activeConversation, session]);
+
   const handleSend = async (text?: string) => {
     const messageContent = text || '';
     const hasAttachments = attachments.length > 0;
-    
+
     if (!messageContent.trim() && !hasAttachments) return;
     if (isGenerating || !user?.id) return;
 
@@ -101,7 +149,7 @@ const ChatPage: React.FC = () => {
     if (!currentConvId) {
       const isVoice = location.pathname.startsWith('/voice');
       const newConv = await createConversation(
-        user.id, 
+        user.id,
         messageContent.slice(0, 40) + '...',
         isVoice ? 'voice' : 'chat'
       );
@@ -112,19 +160,19 @@ const ChatPage: React.FC = () => {
     }
 
     // 2. Add user message locally and to DB
-    await addMessage(currentConvId, 'user', messageContent, { 
+    const userMsg = await addMessage(currentConvId, 'user', messageContent, {
       mode: 'text',
-      attachments: attachments.map(a => ({ 
-        name: a.file.name, 
+      attachments: attachments.map(a => ({
+        name: a.file.name,
         type: a.type,
         url: a.url
       }))
     });
-    
+
     const currentAttachments = [...attachments];
     setAttachments([]);
     useModelStore.getState().setVisionRequired(false); // Reset vision requirement after send
-    
+
     setIsGenerating(true);
     setStreamingMessage('');
     const controller = new AbortController();
@@ -133,10 +181,11 @@ const ChatPage: React.FC = () => {
     let assistantMessage = '';
     try {
       const { data: { session } } = await supabase.auth.getSession();
-      
-      const apiMessages = messages.map(m => ({ 
-        role: m.role, 
-        content: m.content 
+
+      const apiMessages = messages.map(m => ({
+        role: m.role,
+        content: m.content,
+        metadata: m.metadata
       }));
 
       // Construct current message payload
@@ -164,8 +213,10 @@ const ChatPage: React.FC = () => {
           attachments: currentAttachments.map(a => ({
             name: a.file.name,
             type: a.type,
-            url: a.url
-          }))
+            url: a.url,
+            extractedText: a.extractedText
+          })),
+          messageId: userMsg?.id
         }),
         signal: controller.signal,
       });
@@ -190,9 +241,21 @@ const ChatPage: React.FC = () => {
           if (line.startsWith('data: ')) {
             const dataStr = line.replace('data: ', '');
             if (dataStr === '[DONE]') break;
-            
+
             try {
-              const { content, status, error } = JSON.parse(dataStr);
+              const { content, status, error, extractedContext } = JSON.parse(dataStr);
+              
+              if (extractedContext && userMsg) {
+                // Sync the local store with the extracted context so it persists in history
+                // but keep the content clean so it doesn't show in the UI
+                updateMessage(userMsg.id, userMsg.content, {
+                  ...userMsg.metadata,
+                  hasContext: true,
+                  extractedContext: extractedContext
+                });
+                continue;
+              }
+
               if (status) {
                 setStreamingStatus(status);
                 continue;
@@ -201,13 +264,14 @@ const ChatPage: React.FC = () => {
               if (content) {
                 setStreamingStatus(null); // Clear status once we start getting content
                 assistantMessage += content;
-                
+                assistantMessageRef.current = assistantMessage;
+
                 // Add 0.1s smooth start delay
                 if (!hasStartedStreaming) {
                   hasStartedStreaming = true;
                   await new Promise(resolve => setTimeout(resolve, 100));
                 }
-                
+
                 setStreamingMessage(assistantMessage);
               }
             } catch (e) {
@@ -219,8 +283,11 @@ const ChatPage: React.FC = () => {
 
       setStreamingStatus(null);
 
+      const finalAssistantContent = assistantMessage;
+      assistantMessageRef.current = ''; // Prevent double save on reload
+
       // 3. Save assistant message to DB
-      await addMessage(currentConvId, 'assistant', assistantMessage, { mode: 'text' });
+      await addMessage(currentConvId, 'assistant', finalAssistantContent, { mode: 'text' });
 
       // ONLY THEN reset loading to ensure no layout jump or button lag
       setIsGenerating(false);
@@ -231,6 +298,7 @@ const ChatPage: React.FC = () => {
       if (error.name === 'AbortError') {
         console.log('Stream aborted');
         if (assistantMessage && currentConvId) {
+          assistantMessageRef.current = ''; // Prevent double save
           await addMessage(currentConvId, 'assistant', assistantMessage, { mode: 'text' });
         }
         setStreamingMessage('');
@@ -239,7 +307,16 @@ const ChatPage: React.FC = () => {
       }
       console.error('Chat Error:', error);
       setIsGenerating(false);
-      await addMessage(currentConvId, 'assistant', `⚠️ Error: ${error.message}. Please check your NVIDIA API key in settings.`);
+
+      const isTimeout = error.message?.includes('timeout') || error.name === 'TimeoutError' || error.message?.includes('timed out');
+      const errorMessage = isTimeout
+        ? "💀 Something Went Wrong !!!\nPlease try again"
+        : `⚠️ Error: ${error.message}. Please check your NVIDIA API key in settings.`;
+
+      await addMessage(currentConvId, 'assistant', errorMessage, {
+        mode: 'text',
+        error: isTimeout ? 'timeout' : 'general'
+      });
     } finally {
       setIsGenerating(false);
       abortControllerRef.current = null;
@@ -252,11 +329,11 @@ const ChatPage: React.FC = () => {
         <div className={styles.header}>
           <ModelSelector />
         </div>
-        
+
         <div className={styles.messagesList}>
           {messages.length === 0 && !chatLoading ? (
             <div className={styles.emptyState}>
-              <motion.div 
+              <motion.div
                 initial={{ scale: 0.9, opacity: 0 }}
                 animate={{ scale: 1, opacity: 1 }}
                 className={styles.emptyIconBox}
@@ -265,11 +342,11 @@ const ChatPage: React.FC = () => {
               </motion.div>
               <h1 className={styles.title}>How can Sree AI help?</h1>
               <p className={styles.subtitle}>Our most powerful model is ready to assist you with writing, debugging, and brainstorming.</p>
-              
+
               <div className={styles.suggestionGrid}>
                 {suggestions.map((s) => (
-                  <button 
-                    key={s.title} 
+                  <button
+                    key={s.title}
                     className={styles.suggestionCard}
                     onClick={() => handleSend(s.title)}
                   >
@@ -292,14 +369,14 @@ const ChatPage: React.FC = () => {
                     {m.role === 'assistant' ? <Bot size={20} /> : <User size={20} />}
                   </div>
                   <div className={`${styles.bubble} ${m.role === 'assistant' ? styles.ai : styles.user}`}>
-                    <div 
+                    <div
                       className={styles.markdown}
                       style={m.metadata?.mode === 'voice' ? { fontStyle: 'italic' } : {}}
                     >
                       {m.metadata?.attachments && (
                         <MessageAttachment attachments={m.metadata.attachments} />
                       )}
-                      <ReactMarkdown 
+                      <ReactMarkdown
                         remarkPlugins={[remarkGfm]}
                         components={{
                           code({ node, inline, className, children, ...props }: any) {
@@ -319,6 +396,22 @@ const ChatPage: React.FC = () => {
                       >
                         {filterThinkingTags(m.content)}
                       </ReactMarkdown>
+
+                      {m.role === 'assistant' && m.metadata?.error === 'timeout' && (
+                        <button
+                          className={styles.retryButton}
+                          onClick={() => {
+                            // Find the last user message to retry
+                            const lastUserMsg = [...messages.slice(0, i)].reverse().find(msg => msg.role === 'user');
+                            if (lastUserMsg) {
+                              handleSend(lastUserMsg.content);
+                            }
+                          }}
+                        >
+                          <RefreshCw size={14} />
+                          Retry
+                        </button>
+                      )}
                     </div>
                   </div>
                 </motion.div>
@@ -337,7 +430,7 @@ const ChatPage: React.FC = () => {
                       {(!streamingMessage || !filterThinkingTags(streamingMessage)) ? (
                         <ThinkingAnimation status={streamingStatus} />
                       ) : (
-                        <ReactMarkdown 
+                        <ReactMarkdown
                           remarkPlugins={[remarkGfm]}
                           components={{
                             code({ node, inline, className, children, ...props }: any) {
@@ -367,7 +460,7 @@ const ChatPage: React.FC = () => {
           <div ref={messagesEndRef} />
         </div>
 
-        <ChatInput 
+        <ChatInput
           onSend={handleSend}
           onStop={handleStop}
           isGenerating={isGenerating}
@@ -381,9 +474,9 @@ const ChatPage: React.FC = () => {
 
       <AnimatePresence>
         {showVoiceOverlay && (
-          <VoiceOverlay 
-            initialConversationId={id} 
-            onClose={() => navigate(id ? `/chat/${id}` : '/chat')} 
+          <VoiceOverlay
+            initialConversationId={id}
+            onClose={() => navigate(id ? `/chat/${id}` : '/chat')}
           />
         )}
       </AnimatePresence>

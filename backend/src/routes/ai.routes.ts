@@ -7,6 +7,8 @@ import { r2Service } from '../services/r2.service';
 import { fileService } from '../services/file.service';
 import multer from 'multer';
 import fs from 'fs';
+import { TokenManager } from '../utils/tokenManager';
+import { supabaseAdmin } from '../lib/supabase';
 
 const router = Router();
 const upload = multer({ dest: 'uploads/' });
@@ -14,7 +16,7 @@ const upload = multer({ dest: 'uploads/' });
 // Streaming Chat Completion
 router.post('/chat', authMiddleware, tierCheckMiddleware, async (req: any, res) => {
   try {
-    const { messages, model, attachments } = req.body;
+    const { messages, model, attachments, messageId } = req.body;
     const userId = req.user.id;
 
     // Set headers for streaming early
@@ -22,22 +24,57 @@ router.post('/chat', authMiddleware, tierCheckMiddleware, async (req: any, res) 
     res.setHeader('Cache-Control', 'no-cache');
     res.setHeader('Connection', 'keep-alive');
 
-    // Extract text from attachments if any
+    // 1. Process incoming messages to include context from metadata for the AI
+    // but keep it hidden from the UI (which uses the clean content)
+    // 1. Shallow copy messages to avoid mutating the original array if needed
     let processedMessages = [...messages];
+
     if (attachments && attachments.length > 0) {
       const docAttachments = attachments.filter((a: any) => a.type === 'document');
       
       if (docAttachments.length > 0) {
-        res.write(`data: ${JSON.stringify({ status: 'Analyzing documents...' })}\n\n`);
+        console.log(`[AI Route] Processing ${docAttachments.length} document attachments`);
+        res.write(`data: ${JSON.stringify({ status: 'Preparing documents...' })}\n\n`);
         const startTime = Date.now();
         
         try {
-          const extractionPromises = docAttachments.map((doc: any) => 
-            fileService.extractText(doc.url, doc.name)
-              .then(text => ({ name: doc.name, text }))
-          );
+          const results: { name: string, text: string }[] = [];
+          const extractionPromises = docAttachments.map(async (doc: any) => {
+            if (doc.extractedText) {
+              console.log(`[AI Route] Using pre-extracted text for ${doc.name} (${doc.extractedText.length} chars)`);
+              return { name: doc.name, text: doc.extractedText };
+            }
+
+            console.log(`[AI Route] Backend extraction starting for ${doc.name}`);
+            res.write(`data: ${JSON.stringify({ status: `Reading ${doc.name}...` })}\n\n`);
+            
+            try {
+              const text = await Promise.race([
+                fileService.extractText(doc.url, doc.name),
+                new Promise<string>((_, reject) => 
+                  setTimeout(() => reject(new Error(`Timeout after 60s`)), 60000)
+                )
+              ]);
+              
+              const isSpreadsheet = ['xlsx', 'xls', 'xlsm', 'xlsb', 'ods', 'csv', 'tsv'].some(ext => doc.name.toLowerCase().endsWith(ext));
+              const statusText = isSpreadsheet ? `Analyzing Sheets in ${doc.name}...` : `Processing ${doc.name}...`;
+              res.write(`data: ${JSON.stringify({ status: statusText })}\n\n`);
+              
+              console.log(`[AI Route] Successfully extracted ${text.length} chars from ${doc.name}`);
+              return { name: doc.name, text };
+            } catch (err: any) {
+              console.error(`[AI Route] Failed extracting ${doc.name}:`, err.message);
+              return { name: doc.name, text: `[Extraction failed for ${doc.name}: ${err.message}]` };
+            }
+          });
           
-          const results = await Promise.all(extractionPromises);
+          console.log(`[AI Route] Waiting for all extractions to complete...`);
+          const extractionResults = await Promise.all(extractionPromises);
+          results.push(...extractionResults);
+          console.log(`[AI Route] Extraction phase complete. Total docs: ${results.length}`);
+          
+          res.write(`data: ${JSON.stringify({ status: 'Optimizing context for AI...' })}\n\n`);
+
           
           let contextText = "\n\n### CONTEXT FROM ATTACHED DOCUMENTS ###\n";
           contextText += "The user has provided the following documents as reference. Please analyze them and use the information to answer questions or perform requested tasks. If the documents contain data, refer to specific document names if relevant.\n\n";
@@ -46,30 +83,65 @@ router.post('/chat', authMiddleware, tierCheckMiddleware, async (req: any, res) 
             contextText += `${result.text}\n`;
             contextText += `#### END OF ${result.name}\n\n`;
           }
+
+
+          // Use TokenManager for truncation
+          contextText = TokenManager.truncateDocumentText(contextText, 100000);
           contextText += "### END OF DOCUMENT CONTEXT ###\n\n";
 
-          console.log(`Extraction completed in ${Date.now() - startTime}ms`);
+          console.log(`[AI Route] Document processing completed in ${Date.now() - startTime}ms`);
 
-          // Add document context to the last user message
-          const lastMessage = processedMessages[processedMessages.length - 1];
-          if (lastMessage && lastMessage.role === 'user') {
-            if (Array.isArray(lastMessage.content)) {
-              const textContent = lastMessage.content.find((c: any) => c.type === 'text');
-              if (textContent) {
-                textContent.text = (textContent.text || "") + contextText;
-              } else {
-                lastMessage.content.push({ type: 'text', text: contextText });
+          // Persist context to DB if messageId is provided
+          // IMPORTANT: We store it in metadata.extractedContext instead of appending to content
+          // so it remains hidden from the frontend UI.
+          if (messageId) {
+            console.log(`[AI Route] Persisting extracted context to message ${messageId} metadata`);
+            try {
+              const { data: currentMsg } = await supabaseAdmin
+                .from('messages')
+                .select('content, metadata')
+                .eq('id', messageId)
+                .single();
+              
+              if (currentMsg) {
+                const updatedMetadata = { 
+                  ...(currentMsg.metadata || {}), 
+                  hasContext: true,
+                  extractedContext: contextText
+                };
+                
+                await supabaseAdmin
+                  .from('messages')
+                  .update({ 
+                    metadata: updatedMetadata 
+                  })
+                  .eq('id', messageId);
+                
+                console.log(`[AI Route] Message ${messageId} metadata updated with context`);
               }
-            } else {
-              lastMessage.content += contextText;
+            } catch (dbError) {
+              console.error('[AI Route] Error persisting context to DB:', dbError);
             }
           }
+
+          // Update processedMessages with metadata so TokenManager/AiService see it
+          const lastMessage = processedMessages[processedMessages.length - 1];
+          if (lastMessage && lastMessage.role === 'user') {
+            lastMessage.metadata = { 
+              ...lastMessage.metadata, 
+              extractedContext: contextText 
+            };
+          }
+          
+          res.write(`data: ${JSON.stringify({ extractedContext: contextText })}\n\n`);
+          res.write(`data: ${JSON.stringify({ status: 'Thinking...' })}\n\n`);
         } catch (error) {
-          console.error('Error during parallel extraction:', error);
-          res.write(`data: ${JSON.stringify({ error: 'Failed to extract text from documents' })}\n\n`);
+          console.error('[AI Route] Error during document extraction:', error);
+          res.write(`data: ${JSON.stringify({ error: 'Failed to process some documents. Attempting to continue anyway...' })}\n\n`);
         }
       }
     }
+
 
     // Get API key with user overrides
     const nvidiaApiKey = await ApiKeyService.getUserApiKey(userId, 'nvidia');
@@ -87,7 +159,10 @@ router.post('/chat', authMiddleware, tierCheckMiddleware, async (req: any, res) 
       }
     }
 
-    const stream = await aiService.streamChat(nvidiaApiKey, processedMessages, model);
+    // Optimize token usage by compressing history
+    const optimizedMessages = TokenManager.compressMessages(processedMessages);
+
+    const stream = await aiService.streamChat(nvidiaApiKey, optimizedMessages, model);
 
     for await (const chunk of stream) {
       const content = chunk.choices[0]?.delta?.content || '';

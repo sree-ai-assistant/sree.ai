@@ -30,7 +30,8 @@ interface ChatState {
   setActiveConversation: (conversationId: string | null) => Promise<void>;
   createConversation: (userId: string, title: string, type?: 'chat' | 'voice' | 'image') => Promise<Conversation | null>;
   deleteConversation: (conversationId: string) => Promise<void>;
-  addMessage: (conversationId: string, role: 'user' | 'assistant' | 'system', content: string, metadata?: any) => Promise<void>;
+  addMessage: (conversationId: string, role: 'user' | 'assistant' | 'system', content: string, metadata?: any) => Promise<Message | null>;
+  updateMessage: (messageId: string, content: string, metadata?: any) => Promise<void>;
   clearActiveConversation: () => void;
 }
 
@@ -143,7 +144,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
     if (error) {
        console.error('Error adding message:', error);
-       return;
+       return null;
     }
 
     set(state => ({
@@ -154,6 +155,27 @@ export const useChatStore = create<ChatState>((set, get) => ({
       .from('conversations')
       .update({ updated_at: new Date().toISOString() })
       .eq('id', conversationId);
+
+    return data;
+  },
+
+  updateMessage: async (messageId: string, content: string, metadata?: any) => {
+    const updateData: any = { content };
+    if (metadata) updateData.metadata = metadata;
+
+    const { error } = await supabase
+      .from('messages')
+      .update(updateData)
+      .eq('id', messageId);
+
+    if (error) {
+      console.error('Error updating message:', error);
+      return;
+    }
+
+    set(state => ({
+      messages: state.messages.map(m => m.id === messageId ? { ...m, content, metadata: metadata || m.metadata } : m),
+    }));
   },
 
   clearActiveConversation: () => {
