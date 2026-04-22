@@ -1,5 +1,5 @@
 import React, { useRef } from 'react';
-import { Plus, Mic, Image as ImageIcon, ArrowUp, Loader2, X, FileText, Table, Maximize2 } from 'lucide-react';
+import { Plus, Mic, ArrowUp, X, FileText, Table, Music, Video } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { motion, AnimatePresence } from 'framer-motion';
 import styles from './ChatInput.module.css';
@@ -10,7 +10,7 @@ export interface Attachment {
   file: File;
   preview: string;
   url?: string;
-  type: 'image' | 'document';
+  type: 'image' | 'document' | 'audio' | 'video';
   isUploading?: boolean;
   extractedText?: string;
 }
@@ -89,9 +89,11 @@ export const ChatInput: React.FC<ChatInputProps> = ({
 
     const newAttachments: Attachment[] = await Promise.all(validFiles.map(async file => {
       const isImage = file.type.startsWith('image/');
+      const isAudio = file.type.startsWith('audio/');
+      const isVideo = file.type.startsWith('video/');
       let extractedText = '';
       
-      if (!isImage) {
+      if (!isImage && !isAudio && !isVideo) {
         try {
           const textFiles = ['txt', 'md', 'js', 'ts', 'tsx', 'json', 'css', 'html', 'py', 'c', 'cpp', 'rs', 'go', 'sh', 'yaml', 'yml', 'sql', 'xml', 'log'];
           const extension = file.name.split('.').pop()?.toLowerCase();
@@ -109,16 +111,14 @@ export const ChatInput: React.FC<ChatInputProps> = ({
             }
           } else if (extension === 'pdf') {
             try {
-              // Load pdfjs dynamically
               const pdfjs = await import('pdfjs-dist');
-              // Use unpkg for more reliable version-matched assets, specifically .mjs for v5+
               pdfjs.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
               
               const arrayBuffer = await file.arrayBuffer();
               const pdf = await pdfjs.getDocument({ data: arrayBuffer }).promise;
               let fullText = '';
               
-              for (let i = 1; i <= Math.min(pdf.numPages, 10); i++) { // Limit to 10 pages for speed/context
+              for (let i = 1; i <= Math.min(pdf.numPages, 10); i++) {
                 const page = await pdf.getPage(i);
                 const content = await page.getTextContent();
                 const pageText = content.items.map((item: any) => item.str).join(' ');
@@ -155,10 +155,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
                     blankrows: false 
                   });
                   if (sheetCsv.trim()) {
-                    // Only add sheet headers if it's actually an Excel file (multiple possible sheets)
-                    // For CSV/TSV, we can skip the header if there's only one sheet and it's named 'Sheet1'
                     const isMultiSheet = workbook.SheetNames.length > 1 || !['Sheet1', 'sheet1', file.name].includes(sheetName);
-                    
                     if (isMultiSheet) {
                       excelText += `\n--- SHEET ${index + 1}: ${sheetName} ---\n`;
                     }
@@ -175,7 +172,6 @@ export const ChatInput: React.FC<ChatInputProps> = ({
             }
           }
           
-          // Truncate if very large to prevent browser lag
           if (extractedText.length > 50000) {
             extractedText = extractedText.slice(0, 50000) + '... [TRUNCATED]';
           }
@@ -184,10 +180,15 @@ export const ChatInput: React.FC<ChatInputProps> = ({
         }
       }
 
+      let type: 'image' | 'document' | 'audio' | 'video' = 'document';
+      if (isImage) type = 'image';
+      else if (isAudio) type = 'audio';
+      else if (isVideo) type = 'video';
+
       return {
         file,
-        preview: URL.createObjectURL(file),
-        type: isImage ? 'image' : 'document',
+        preview: isImage ? URL.createObjectURL(file) : '',
+        type,
         isUploading: true,
         extractedText: extractedText || undefined
       };
@@ -195,9 +196,8 @@ export const ChatInput: React.FC<ChatInputProps> = ({
 
     const updated = [...attachments, ...newAttachments];
     onAttachmentsChange(updated);
-    setVisionRequired(updated.some(a => a.type === 'image'));
+    setVisionRequired(updated.some(a => a.type === 'image' || a.type === 'video'));
 
-    // Perform actual uploads
     newAttachments.forEach(async (atl, idx) => {
       const globalIdx = attachments.length + idx;
       
@@ -216,7 +216,6 @@ export const ChatInput: React.FC<ChatInputProps> = ({
       });
     });
 
-    // Reset inputs
     if (fileInputRef.current) fileInputRef.current.value = '';
     if (imageInputRef.current) imageInputRef.current.value = '';
   };
@@ -224,7 +223,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
   const removeAttachment = (index: number) => {
     const updated = attachments.filter((_, i) => i !== index);
     onAttachmentsChange(updated);
-    setVisionRequired(updated.length > 0);
+    setVisionRequired(updated.some(a => a.type === 'image' || a.type === 'video'));
   };
 
   return (
@@ -253,46 +252,41 @@ export const ChatInput: React.FC<ChatInputProps> = ({
         {attachments.length > 0 && (
           <div className={styles.attachmentsList}>
             {attachments.map((atl, idx) => (
-              atl.type === 'document' ? (
-                <div key={idx} className={styles.attachmentCard}>
-                  <div className={`${styles.cardIcon} ${atl.isUploading ? styles.uploading : ''}`}>
-                    {atl.isUploading ? (
-                      <div className={styles.progressRing}>
-                        <svg viewBox="0 0 24 24">
-                          <circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" strokeWidth="3" strokeDasharray="60" strokeDashoffset="40" />
-                        </svg>
-                      </div>
-                    ) : (
-                      ['xlsx', 'xls', 'xlsm', 'xlsb', 'ods', 'csv', 'tsv', 'tab', 'prn'].includes(atl.file.name.split('.').pop()?.toLowerCase() || '') ? (
-                        <Table size={18} />
-                      ) : (
-                        <FileText size={18} />
-                      )
-                    )}
-                  </div>
-                  <div className={styles.cardInfo}>
-                    <span className={styles.cardFileName}>{atl.file.name}</span>
-                    <span className={styles.cardFileType}>
-                      {atl.file.name.split('.').pop()?.toUpperCase() || 'File'}
-                    </span>
-                  </div>
-                  <button className={styles.cardRemoveBtn} onClick={() => removeAttachment(idx)}>
-                    <div className={styles.xCircle}><X size={12} /></div>
-                  </button>
+              <div key={idx} className={styles.attachmentCard}>
+                <div className={`${styles.cardIcon} ${atl.isUploading ? styles.uploading : ''}`}>
+                  {atl.isUploading ? (
+                    <div className={styles.progressRing}>
+                      <svg viewBox="0 0 24 24">
+                        <circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" strokeWidth="3" strokeDasharray="60" strokeDashoffset="40" />
+                      </svg>
+                    </div>
+                  ) : atl.type === 'image' ? (
+                    <img 
+                      src={atl.preview} 
+                      alt="thumb" 
+                      className={styles.imageThumb} 
+                      onClick={() => setPreviewImage(atl.preview)}
+                    />
+                  ) : atl.type === 'audio' ? (
+                    <Music size={18} />
+                  ) : atl.type === 'video' ? (
+                    <Video size={18} />
+                  ) : ['xlsx', 'xls', 'xlsm', 'xlsb', 'ods', 'csv', 'tsv', 'tab', 'prn'].includes(atl.file.name.split('.').pop()?.toLowerCase() || '') ? (
+                    <Table size={18} />
+                  ) : (
+                    <FileText size={18} />
+                  )}
                 </div>
-              ) : (
-                <div key={idx} className={styles.imageThumbContainer}>
-                  <img 
-                    src={atl.preview} 
-                    alt="thumb" 
-                    className={styles.imageThumb} 
-                    onClick={() => setPreviewImage(atl.preview)}
-                  />
-                  <button className={styles.imageRemoveBtn} onClick={() => removeAttachment(idx)}>
-                    <div className={styles.xCircle}><X size={12} /></div>
-                  </button>
+                <div className={styles.cardInfo}>
+                  <span className={styles.cardFileName}>{atl.file.name}</span>
+                  <span className={styles.cardFileType}>
+                    {atl.file.name.split('.').pop()?.toUpperCase() || 'File'}
+                  </span>
                 </div>
-              )
+                <button className={styles.cardRemoveBtn} onClick={() => removeAttachment(idx)}>
+                  <div className={styles.xCircle}><X size={12} /></div>
+                </button>
+              </div>
             ))}
           </div>
         )}

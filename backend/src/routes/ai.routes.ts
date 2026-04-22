@@ -9,13 +9,48 @@ import multer from 'multer';
 import fs from 'fs';
 import { TokenManager } from '../utils/tokenManager';
 import { supabaseAdmin } from '../lib/supabase';
+import { videoService } from '../services/video.service';
+import path from 'path';
+// Removed static uuid import due to ESM/CJS compatibility issues
+
 
 const router = Router();
 const upload = multer({ dest: 'uploads/' });
 
+async function updateMessageInDb(messageId: string, updates: { content?: any, metadata?: any }) {
+  try {
+    const { data: currentMsg } = await supabaseAdmin
+      .from('messages')
+      .select('content, metadata')
+      .eq('id', messageId)
+      .single();
+    
+    if (currentMsg) {
+      const payload: any = {};
+      if (updates.content) payload.content = updates.content;
+      if (updates.metadata) {
+        payload.metadata = {
+          ...(currentMsg.metadata || {}),
+          ...updates.metadata
+        };
+      }
+      
+      await supabaseAdmin
+        .from('messages')
+        .update(payload)
+        .eq('id', messageId);
+      
+      console.log(`[AI Route] Message ${messageId} updated in DB`);
+    }
+  } catch (dbError) {
+    console.error('[AI Route] Error updating message in DB:', dbError);
+  }
+}
+
 // Streaming Chat Completion
 router.post('/chat', authMiddleware, tierCheckMiddleware, async (req: any, res) => {
   try {
+    const { v4: uuidv4 } = await import('uuid');
     const { messages, model, attachments, messageId } = req.body;
     const userId = req.user.id;
 
@@ -92,36 +127,14 @@ router.post('/chat', authMiddleware, tierCheckMiddleware, async (req: any, res) 
           console.log(`[AI Route] Document processing completed in ${Date.now() - startTime}ms`);
 
           // Persist context to DB if messageId is provided
-          // IMPORTANT: We store it in metadata.extractedContext instead of appending to content
-          // so it remains hidden from the frontend UI.
           if (messageId) {
             console.log(`[AI Route] Persisting extracted context to message ${messageId} metadata`);
-            try {
-              const { data: currentMsg } = await supabaseAdmin
-                .from('messages')
-                .select('content, metadata')
-                .eq('id', messageId)
-                .single();
-              
-              if (currentMsg) {
-                const updatedMetadata = { 
-                  ...(currentMsg.metadata || {}), 
-                  hasContext: true,
-                  extractedContext: contextText
-                };
-                
-                await supabaseAdmin
-                  .from('messages')
-                  .update({ 
-                    metadata: updatedMetadata 
-                  })
-                  .eq('id', messageId);
-                
-                console.log(`[AI Route] Message ${messageId} metadata updated with context`);
+            await updateMessageInDb(messageId, {
+              metadata: {
+                hasContext: true,
+                extractedContext: contextText
               }
-            } catch (dbError) {
-              console.error('[AI Route] Error persisting context to DB:', dbError);
-            }
+            });
           }
 
           // Update processedMessages with metadata so TokenManager/AiService see it
@@ -138,6 +151,110 @@ router.post('/chat', authMiddleware, tierCheckMiddleware, async (req: any, res) 
         } catch (error) {
           console.error('[AI Route] Error during document extraction:', error);
           res.write(`data: ${JSON.stringify({ error: 'Failed to process some documents. Attempting to continue anyway...' })}\n\n`);
+        }
+      }
+
+      const audioAttachments = attachments.filter((a: any) => a.type === 'audio');
+      const videoAttachments = attachments.filter((a: any) => a.type === 'video');
+
+      // Process Audio
+      if (audioAttachments.length > 0) {
+        const deepgramApiKey = await ApiKeyService.getUserApiKey(userId, 'deepgram');
+        if (deepgramApiKey) {
+          for (const audio of audioAttachments) {
+            res.write(`data: ${JSON.stringify({ status: `Transcribing ${audio.name}...` })}\n\n`);
+            try {
+              const tempPath = path.join(process.cwd(), 'uploads', `temp-audio-${uuidv4()}-${audio.name}`);
+              await fileService.downloadFile(audio.url, tempPath);
+              const transcript = await aiService.transcribeAudio(deepgramApiKey, tempPath);
+              if (fs.existsSync(tempPath)) fs.unlinkSync(tempPath);
+              
+              const lastMessage = processedMessages[processedMessages.length - 1];
+              if (lastMessage && lastMessage.role === 'user') {
+                const audioContext = `\n\n### TRANSCRIPT FOR AUDIO: ${audio.name} ###\n${transcript}\n### END OF TRANSCRIPT ###\n`;
+                lastMessage.metadata = { 
+                  ...lastMessage.metadata, 
+                  extractedContext: (lastMessage.metadata?.extractedContext || '') + audioContext 
+                };
+
+                // Persist audio transcript to DB
+                if (messageId) {
+                  await updateMessageInDb(messageId, {
+                    metadata: {
+                      extractedContext: lastMessage.metadata.extractedContext
+                    }
+                  });
+                }
+              }
+            } catch (err) {
+              console.error(`[AI Route] Audio transcription failed for ${audio.name}:`, err);
+            }
+          }
+        }
+      }
+
+      // Process Video
+      if (videoAttachments.length > 0) {
+        console.log(`[AI Route] Found ${videoAttachments.length} video attachments`);
+        for (const video of videoAttachments) {
+          console.log(`[AI Route] Processing video: ${video.name}`);
+          res.write(`data: ${JSON.stringify({ status: `Downloading ${video.name}...` })}\n\n`);
+          try {
+            const tempVideoPath = path.join(process.cwd(), 'uploads', `temp-video-${uuidv4()}-${video.name}`);
+            await fileService.downloadFile(video.url, tempVideoPath);
+            console.log(`[AI Route] Downloaded ${video.name} to ${tempVideoPath}`);
+
+            res.write(`data: ${JSON.stringify({ status: `Extracting frames from ${video.name}...` })}\n\n`);
+            const framePaths = await videoService.extractFrames(tempVideoPath, 3);
+            console.log(`[AI Route] Extracted ${framePaths.length} frames from ${video.name}`);
+            if (framePaths.length === 0) {
+              console.warn(`[AI Route] No frames were extracted from ${video.name}`);
+              res.write(`data: ${JSON.stringify({ status: `Warning: No frames could be extracted from ${video.name}` })}\n\n`);
+            } else {
+              res.write(`data: ${JSON.stringify({ status: `Uploading frames from ${video.name}...` })}\n\n`);
+              // Upload frames to R2 and inject into message content
+              const lastMessage = processedMessages[processedMessages.length - 1];
+              if (lastMessage && lastMessage.role === 'user') {
+                if (typeof lastMessage.content === 'string') {
+                  lastMessage.content = [{ type: 'text', text: lastMessage.content }];
+                }
+                
+                for (let i = 0; i < framePaths.length; i++) {
+                  const framePath = framePaths[i];
+                  if (!framePath) continue;
+                  
+                  console.log(`[AI Route] Uploading frame ${i + 1}/${framePaths.length}: ${framePath}`);
+                  const frameUrl = await r2Service.uploadFile(framePath, path.basename(framePath), 'image/png');
+                  (lastMessage.content as any[]).push({
+                    type: 'image_url',
+                    image_url: { url: frameUrl }
+                  });
+                }
+
+                // Persist injected frames to DB
+                if (messageId) {
+                  console.log(`[AI Route] Persisting injected frames to message ${messageId}`);
+                  await updateMessageInDb(messageId, {
+                    content: lastMessage.content
+                  });
+                }
+              }
+              res.write(`data: ${JSON.stringify({ status: `Frames extracted and uploaded for ${video.name}` })}\n\n`);
+            }
+            
+            
+
+            // Cleanup
+            if (fs.existsSync(tempVideoPath)) {
+              console.log(`[AI Route] Cleaning up temp video: ${tempVideoPath}`);
+              fs.unlinkSync(tempVideoPath);
+            }
+            console.log(`[AI Route] Cleaning up ${framePaths.length} temp frames`);
+            videoService.cleanup(framePaths);
+          } catch (err: any) {
+            console.error(`[AI Route] Video processing failed for ${video.name}:`, err);
+            res.write(`data: ${JSON.stringify({ status: `Error processing ${video.name}: ${err.message || 'Unknown error'}` })}\n\n`);
+          }
         }
       }
     }

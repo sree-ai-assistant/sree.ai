@@ -38,43 +38,61 @@ export class TokenManager {
     return baseTokens;
   }
 
-  static pruneMessages(messages: any[]): any[] {
-    let totalTokens = messages.reduce((sum, msg) => sum + this.countTokens(msg.content, msg.metadata), 0);
+  static pruneMessages(messages: any[], maxTokens: number = 64000): any[] {
+    let totalTokens = messages.reduce((sum, msg) => sum + this.countTokens(msg.content), 0);
     
-    if (totalTokens < this.MAX_CONTEXT_TOKENS * this.TOKEN_PRUNE_THRESHOLD) {
+    // Prune when near the model's specific limit
+    if (totalTokens < maxTokens * this.TOKEN_PRUNE_THRESHOLD) {
       return messages;
     }
 
-    console.log(`[TokenManager] Pruning messages. Current tokens: ${totalTokens}`);
+    console.log(`[TokenManager] Pruning messages. Current tokens: ${totalTokens}, Target: ${maxTokens}`);
     
-    // Always keep system message and the last few messages
-    const systemMessage = messages.find(m => m.role === 'system');
-    const systemTokens = systemMessage ? this.countTokens(systemMessage.content, systemMessage.metadata) : 0;
+    // Always keep system message
+    const systemMsg = messages.find(m => m.role === 'system');
+    const systemTokens = systemMsg ? TokenManager.countTokens(systemMsg.content, systemMsg.metadata) : 0;
     
     let currentTokens = systemTokens;
     const result: any[] = [];
-    if (systemMessage) result.push(systemMessage);
+    if (systemMsg) result.push(systemMsg);
 
     // Keep the most recent messages first
     const nonSystemMessages = messages.filter(m => m.role !== 'system');
     const recentMessages = [...nonSystemMessages].reverse();
     
     for (let i = 0; i < recentMessages.length; i++) {
-      const msg = recentMessages[i];
-      const tokens = this.countTokens(msg.content, msg.metadata);
+      const msg = { ...recentMessages[i] }; // Clone to avoid modifying original store if referenced
+      let tokens = TokenManager.countTokens(msg.content, msg.metadata);
       
-      // Always keep the most recent message
-      if (i === 0) {
-        result.splice(systemMessage ? 1 : 0, 0, msg);
-        currentTokens += tokens;
-        continue;
+      // Safety: If this is the most recent message and it alone exceeds the limit
+      // we must compress/truncate it to fit, otherwise the API will crash.
+      if (i === 0 && currentTokens + tokens >= maxTokens) {
+        console.log(`[TokenManager] Most recent message too large (${tokens} tokens). Compressing to fit limit.`);
+        const allowedTokensForThisMessage = Math.max(100, maxTokens - currentTokens - 20);
+        
+        if (msg.metadata?.extractedContext) {
+          // If we have extracted context, split the budget between content and context
+          const contentTokens = TokenManager.countTokens(msg.content);
+          const contextTokens = TokenManager.countTokens(msg.metadata.extractedContext);
+          const total = Math.max(1, contentTokens + contextTokens);
+          
+          const contentRatio = contentTokens / total;
+          const contentLimit = Math.floor(allowedTokensForThisMessage * Math.max(0.2, contentRatio));
+          const contextLimit = allowedTokensForThisMessage - contentLimit;
+          
+          msg.content = TokenManager.compressContent(msg.content, contentLimit);
+          msg.metadata.extractedContext = TokenManager.compressContent(msg.metadata.extractedContext, contextLimit) as string;
+        } else {
+          msg.content = TokenManager.compressContent(msg.content, allowedTokensForThisMessage);
+        }
+        tokens = TokenManager.countTokens(msg.content, msg.metadata);
       }
 
       // If adding this message exceeds the limit, stop
-      if (currentTokens + tokens < this.MAX_CONTEXT_TOKENS) {
-        result.splice(systemMessage ? 1 : 0, 0, msg);
+      if (currentTokens + tokens < maxTokens) {
+        result.splice(systemMsg ? 1 : 0, 0, msg);
         currentTokens += tokens;
-      } else {
+      } else if (i > 0) {
         // Stop adding older messages once we hit the limit
         console.log(`[TokenManager] Limit reached. Skipping ${recentMessages.length - i} older messages.`);
         break;
@@ -86,17 +104,18 @@ export class TokenManager {
   }
 
   static compressContent(content: string | any[], maxTokens: number = 2000): string | any[] {
-    const tokens = this.countTokens(content);
+    if (!content) return "";
+    const tokens = TokenManager.countTokens(content);
     if (tokens <= maxTokens) return content;
 
     if (typeof content === 'string') {
-      // Keep more at the beginning and end
-      const start = Math.floor(maxTokens * 0.4);
-      const end = Math.floor(maxTokens * 0.4);
       const encoded = encoding.encode(content);
-      
       if (encoded.length <= maxTokens) return content;
 
+      // Keep more at the beginning and end
+      const start = Math.floor(maxTokens * 0.45);
+      const end = Math.floor(maxTokens * 0.45);
+      
       const compressed = new Uint32Array(start + end);
       compressed.set(encoded.slice(0, start), 0);
       compressed.set(encoded.slice(-end), start);
@@ -108,7 +127,8 @@ export class TokenManager {
       // Compress only text parts in the array
       return content.map(part => {
         if (part.type === 'text') {
-          return { ...part, text: this.compressContent(part.text, Math.floor(maxTokens / content.length)) };
+          const perPartLimit = Math.floor(maxTokens / content.filter(p => p.type === 'text').length);
+          return { ...part, text: TokenManager.compressContent(part.text, perPartLimit) };
         }
         return part;
       });
@@ -132,23 +152,28 @@ export class TokenManager {
         return msg;
       }
 
-      const tokens = this.countTokens(msg.content, msg.metadata);
+      const tokens = TokenManager.countTokens(msg.content, msg.metadata);
       
-      // If message has extracted context, allow a much higher threshold
-      const limit = msg.metadata?.hasContext ? 8000 : 2000;
+      // If message has extracted context, allow a higher threshold
+      const limit = msg.metadata?.hasContext ? 12000 : 4000;
       
       if (tokens > limit) {
         console.log(`[TokenManager] Compressing large message at index ${index} (${tokens} tokens)`);
         
         // If it's a context message, we want to be less aggressive
-        const compressTo = msg.metadata?.hasContext ? 4000 : 1000;
+        const compressTo = msg.metadata?.hasContext ? 8000 : 2000;
         
-        // Note: We are compressing the visible content here. 
-        // In the route, extractedContext is appended AFTER this or separately.
-        return {
-          ...msg,
-          content: this.compressContent(msg.content, compressTo)
-        };
+        const newMsg = { ...msg };
+        newMsg.content = TokenManager.compressContent(msg.content, compressTo);
+        
+        if (msg.metadata?.extractedContext) {
+           newMsg.metadata = {
+             ...msg.metadata,
+              extractedContext: TokenManager.compressContent(msg.metadata.extractedContext, compressTo)
+           };
+        }
+        
+        return newMsg;
       }
       return msg;
     });

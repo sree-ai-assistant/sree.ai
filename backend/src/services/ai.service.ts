@@ -3,6 +3,7 @@ import { DeepgramClient } from '@deepgram/sdk';
 import fs from 'fs';
 import { Readable } from 'stream';
 import { TokenManager } from '../utils/tokenManager';
+import { supabaseAdmin } from '../lib/supabase';
 
 class AiService {
   private readonly DEFAULT_SYSTEM_PROMPT = "You are Sree Ai, a professional AI assistant built by NilStudio. You are helpful, detailed, and friendly. Provide comprehensive and complete responses. Always ensure your code snippets are fully functional and well-explained.";
@@ -17,51 +18,99 @@ class AiService {
   async streamChat(apiKey: string, messages: any[], model: string = 'meta/llama-3.1-70b-instruct') {
     const openai = this.getNvidiaClient(apiKey);
 
-    // Prepend system prompt if not present
-    let finalMessages = messages;
+    // 1. Fetch model configuration from DB
+    const { data: modelInfo } = await supabaseAdmin
+      .from('ai_models')
+      .select('max_tokens, context_window, is_vision')
+      .eq('model_id', model)
+      .single();
+
+    // Use DB limits, or fallback to reasonable defaults
+    const modelMaxTokens = modelInfo?.max_tokens || (model.includes('qwen') ? 16384 : 4096);
+    const contextWindow = modelInfo?.context_window || (model.includes('llama') ? 131072 : 32768);
+
+    // 2. Prepend system prompt if not present
+    let finalMessages = [...messages];
     const hasSystemPrompt = messages.some(m => m.role === 'system');
     if (!hasSystemPrompt) {
       finalMessages = [{ role: 'system', content: this.DEFAULT_SYSTEM_PROMPT }, ...messages];
     }
 
-    // Prune messages to optimize context
-    finalMessages = TokenManager.pruneMessages(finalMessages);
-    
-    // Model-specific configurations
-    const isVisionModel = model.toLowerCase().includes('vision') || 
-                          model.toLowerCase().includes('pixtral') || 
-                          model.toLowerCase().includes('qwen-vl');
-    
-    const isQwen = model.toLowerCase().includes('qwen');
-    
-    // Use the user-suggested 16384 for Qwen 3.5 or other large models
-    const maxTokens = (isQwen || model.includes('3.5')) ? 16384 : 4096;
-
-    // Last step: Hydrate messages with context from metadata for the LLM to see
-    const hydratedMessages = finalMessages.map(m => {
-      if (!m.metadata?.extractedContext) return m;
-      
-      let content = m.content;
-      if (Array.isArray(content)) {
-        const textPart = content.find((c: any) => c.type === 'text');
-        if (textPart) {
-          content = content.map((c: any) => 
-            c.type === 'text' ? { ...c, text: (c.text || "") + "\n\n" + m.metadata.extractedContext } : c
-          );
+    // 3. Ensure alternating roles (Consolidate consecutive roles)
+    // Most APIs require user/assistant/user/assistant...
+    const consolidatedMessages: any[] = [];
+    for (const msg of finalMessages) {
+      const last = consolidatedMessages[consolidatedMessages.length - 1];
+      if (last && last.role === msg.role && msg.role !== 'system') {
+        if (typeof last.content === 'string' && typeof msg.content === 'string') {
+          last.content += '\n\n' + msg.content;
         } else {
-          content = [...content, { type: 'text', text: m.metadata.extractedContext }];
+          consolidatedMessages[consolidatedMessages.length - 1] = msg;
         }
       } else {
-        content = (content || "") + "\n\n" + m.metadata.extractedContext;
+        consolidatedMessages.push({ ...msg });
       }
-      return { role: m.role, content };
+    }
+
+    // 3. Hydrate messages with document context BEFORE pruning
+    // This ensures TokenManager sees the ACTUAL final content
+    const hydratedMessages = consolidatedMessages.map(m => {
+      let content = m.content;
+      
+      if (m.metadata?.extractedContext) {
+        const contextStr = `\n\n### DOCUMENT CONTEXT ###\n${m.metadata.extractedContext}\n### END OF DOCUMENT CONTEXT ###`;
+        
+        if (Array.isArray(content)) {
+          content = content.map((c: any) => 
+            c.type === 'text' ? { ...c, text: (c.text || "") + contextStr } : c
+          );
+        } else {
+          content = (content || "") + contextStr;
+        }
+      }
+
+      return { ...m, content };
     });
+
+    // 4. Prune messages based on hydrated content
+    const pruneThreshold = Math.max(1000, contextWindow - modelMaxTokens - 500);
+    const prunedMessages = TokenManager.pruneMessages(hydratedMessages, pruneThreshold);
+
+    // 5. Strictly sanitize for the final API call
+    const sanitizedMessages = prunedMessages.map(m => {
+      let content = m.content;
+      
+      // Convert array content to string for non-vision models OR if it's just one text part
+      if (Array.isArray(content)) {
+        const hasImages = content.some((part: any) => part.type === 'image_url');
+        if (!modelInfo?.is_vision || !hasImages) {
+          // Flatten to string if model doesn't support vision or if there are no images anyway
+          content = content
+            .filter((part: any) => part.type === 'text')
+            .map((part: any) => part.text)
+            .join('\n');
+        }
+      }
+
+      // NVIDIA/OpenAI APIs are extremely strict about extra fields like 'metadata'
+      const cleanMsg: any = { 
+        role: m.role, 
+        content: content || "" 
+      };
+
+      // Optional: Add 'name' if present (some APIs use it for system/multi-user)
+      if (m.name) cleanMsg.name = m.name;
+
+      return cleanMsg;
+    });
+
+    console.log(`[AiService] Final sanitized messages for ${model}:`, JSON.stringify(sanitizedMessages.map(m => ({ role: m.role, contentLength: typeof m.content === 'string' ? m.content.length : 'array' }))));
 
     return openai.chat.completions.create({
       model,
-      messages: hydratedMessages,
+      messages: sanitizedMessages as any,
       stream: true,
-      max_tokens: maxTokens,
+      max_tokens: modelMaxTokens,
       temperature: 0.7,
       top_p: 1,
     });

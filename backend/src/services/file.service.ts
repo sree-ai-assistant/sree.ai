@@ -1,6 +1,9 @@
 import axios from 'axios';
 import mammoth from 'mammoth';
 import * as XLSX from 'xlsx';
+import fs from 'fs';
+import path from 'path';
+import { pipeline } from 'stream/promises';
 
 class FileService {
   private readonly MAX_CHARS = 50000;
@@ -12,15 +15,24 @@ class FileService {
 
     try {
       // Download the file with a timeout
-      const response = await axios.get(url, { 
-        responseType: 'arraybuffer',
-        timeout: this.DOWNLOAD_TIMEOUT,
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), this.DOWNLOAD_TIMEOUT);
+
+      const response = await fetch(url, { 
+        signal: controller.signal,
         headers: {
           'Accept': '*/*'
         }
       });
       
-      const buffer = Buffer.from(response.data);
+      clearTimeout(timeoutId);
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const arrayBuffer = await response.arrayBuffer();
+      const buffer = Buffer.from(arrayBuffer);
       console.log(`[FileService] Downloaded ${fileName}: ${buffer.length} bytes`);
       
       let text = '';
@@ -79,7 +91,7 @@ class FileService {
       return text.trim() || `[No readable text found in ${fileName}]`;
     } catch (error: any) {
       console.error(`[FileService] Extraction Error for ${fileName}:`, error.message);
-      if (error.code === 'ECONNABORTED') {
+      if (error.code === 'ECONNABORTED' || error.name === 'AbortError') {
         return `[Error: Download timed out for ${fileName}]`;
       }
       return `[Error processing ${fileName}: ${error.message}]`;
@@ -125,6 +137,60 @@ class FileService {
     } catch (error: any) {
       console.error('Excel Parse Error:', error.message);
       return `[Failed to parse Excel content: ${error.message}]`;
+    }
+  }
+
+  async downloadFile(url: string, localPath: string, retries = 3): Promise<void> {
+    const timeout = 120000; // 120 seconds per attempt
+    const uploadsDir = path.dirname(localPath);
+
+    if (!fs.existsSync(uploadsDir)) {
+      fs.mkdirSync(uploadsDir, { recursive: true });
+    }
+
+    for (let i = 0; i < retries; i++) {
+      try {
+        console.log(`[FileService] Downloading file (Attempt ${i + 1}/${retries}): ${url}`);
+        
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), timeout);
+
+        const response = await fetch(url, { 
+          signal: controller.signal,
+          headers: {
+            'Accept': '*/*',
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+          }
+        });
+
+        clearTimeout(timeoutId);
+
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        if (!response.body) {
+          throw new Error('Response body is null');
+        }
+
+        const writer = fs.createWriteStream(localPath);
+        
+        // Node.js 18+ supports stream.Readable.fromWeb
+        const { Readable } = require('stream');
+        await pipeline(Readable.fromWeb(response.body as any), writer);
+        console.log(`[FileService] Successfully downloaded file to ${localPath}`);
+        return;
+      } catch (error: any) {
+        console.error(`[FileService] Download attempt ${i + 1} failed:`, error.message);
+        
+        if (i === retries - 1) {
+          throw error;
+        }
+
+        const backoff = Math.pow(2, i) * 1000; // Exponential backoff: 1s, 2s, 4s
+        console.log(`[FileService] Retrying in ${backoff}ms...`);
+        await new Promise(resolve => setTimeout(resolve, backoff));
+      }
     }
   }
 }

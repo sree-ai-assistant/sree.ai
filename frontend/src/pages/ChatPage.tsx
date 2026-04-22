@@ -230,7 +230,8 @@ const ChatPage: React.FC = () => {
       const decoder = new TextDecoder();
       let hasStartedStreaming = false;
 
-      while (true) {
+      let isStreamFinished = false;
+      while (!isStreamFinished) {
         const { done, value } = await reader!.read();
         if (done) break;
 
@@ -240,7 +241,10 @@ const ChatPage: React.FC = () => {
         for (const line of lines) {
           if (line.startsWith('data: ')) {
             const dataStr = line.replace('data: ', '');
-            if (dataStr === '[DONE]') break;
+            if (dataStr === '[DONE]') {
+              isStreamFinished = true;
+              break;
+            }
 
             try {
               const { content, status, error, extractedContext } = JSON.parse(dataStr);
