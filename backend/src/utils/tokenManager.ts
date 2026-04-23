@@ -3,8 +3,13 @@ import { get_encoding } from "tiktoken";
 const encoding = get_encoding("cl100k_base");
 
 export class TokenManager {
-  private static readonly MAX_CONTEXT_TOKENS = 64000; // Large window for documents
-  private static readonly TOKEN_PRUNE_THRESHOLD = 0.95; // Prune when 95% full
+  private static readonly MAX_CONTEXT_TOKENS = 64000;
+  private static readonly TOKEN_PRUNE_THRESHOLD = 0.90; // Prune earlier (90% instead of 95%)
+  private static readonly SAFETY_FACTOR = 1.2; // 20% safety margin for different tokenizers
+
+  static countMessagesTokens(messages: any[]): number {
+    return messages.reduce((sum, msg) => sum + this.countTokens(msg.content, msg.metadata) + 5, 0);
+  }
 
   static countTokens(content: string | any[], metadata?: any): number {
     let baseTokens = 0;
@@ -35,14 +40,16 @@ export class TokenManager {
       }
     }
 
-    return baseTokens;
+    const result = Math.ceil(baseTokens * this.SAFETY_FACTOR) + 5;
+    return result;
   }
 
   static pruneMessages(messages: any[], maxTokens: number = 64000): any[] {
-    let totalTokens = messages.reduce((sum, msg) => sum + this.countTokens(msg.content), 0);
+    // Add 5 tokens overhead per message for framing
+    let totalTokens = messages.reduce((sum, msg) => sum + this.countTokens(msg.content, msg.metadata) + 5, 0);
     
-    // Prune when near the model's specific limit
-    if (totalTokens < maxTokens * this.TOKEN_PRUNE_THRESHOLD) {
+    // Prune when near the requested limit
+    if (totalTokens < maxTokens) {
       return messages;
     }
 
@@ -50,7 +57,7 @@ export class TokenManager {
     
     // Always keep system message
     const systemMsg = messages.find(m => m.role === 'system');
-    const systemTokens = systemMsg ? TokenManager.countTokens(systemMsg.content, systemMsg.metadata) : 0;
+    const systemTokens = systemMsg ? TokenManager.countTokens(systemMsg.content, systemMsg.metadata) + 5 : 0;
     
     let currentTokens = systemTokens;
     const result: any[] = [];
@@ -61,40 +68,25 @@ export class TokenManager {
     const recentMessages = [...nonSystemMessages].reverse();
     
     for (let i = 0; i < recentMessages.length; i++) {
-      const msg = { ...recentMessages[i] }; // Clone to avoid modifying original store if referenced
-      let tokens = TokenManager.countTokens(msg.content, msg.metadata);
+      const msg = { ...recentMessages[i] };
+      let tokens = TokenManager.countTokens(msg.content, msg.metadata) + 5;
       
-      // Safety: If this is the most recent message and it alone exceeds the limit
-      // we must compress/truncate it to fit, otherwise the API will crash.
-      if (i === 0 && currentTokens + tokens >= maxTokens) {
-        console.log(`[TokenManager] Most recent message too large (${tokens} tokens). Compressing to fit limit.`);
-        const allowedTokensForThisMessage = Math.max(100, maxTokens - currentTokens - 20);
-        
-        if (msg.metadata?.extractedContext) {
-          // If we have extracted context, split the budget between content and context
-          const contentTokens = TokenManager.countTokens(msg.content);
-          const contextTokens = TokenManager.countTokens(msg.metadata.extractedContext);
-          const total = Math.max(1, contentTokens + contextTokens);
-          
-          const contentRatio = contentTokens / total;
-          const contentLimit = Math.floor(allowedTokensForThisMessage * Math.max(0.2, contentRatio));
-          const contextLimit = allowedTokensForThisMessage - contentLimit;
-          
-          msg.content = TokenManager.compressContent(msg.content, contentLimit);
-          msg.metadata.extractedContext = TokenManager.compressContent(msg.metadata.extractedContext, contextLimit) as string;
-        } else {
-          msg.content = TokenManager.compressContent(msg.content, allowedTokensForThisMessage);
-        }
-        tokens = TokenManager.countTokens(msg.content, msg.metadata);
-      }
-
-      // If adding this message exceeds the limit, stop
+      // If adding this message exceeds the limit, skip it
       if (currentTokens + tokens < maxTokens) {
         result.splice(systemMsg ? 1 : 0, 0, msg);
         currentTokens += tokens;
-      } else if (i > 0) {
-        // Stop adding older messages once we hit the limit
-        console.log(`[TokenManager] Limit reached. Skipping ${recentMessages.length - i} older messages.`);
+      } else if (i === 0) {
+        // If the very last message is too big, we MUST truncate it
+        const allowed = maxTokens - currentTokens - 10;
+        if (allowed > 100) {
+           msg.content = TokenManager.compressContent(msg.content, allowed);
+           tokens = TokenManager.countTokens(msg.content, msg.metadata) + 5;
+           result.splice(systemMsg ? 1 : 0, 0, msg);
+           currentTokens += tokens;
+        }
+        break;
+      } else {
+        // Stop adding older messages
         break;
       }
     }

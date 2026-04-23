@@ -86,8 +86,25 @@
   filter: grayscale(0.5);
 }
 
-.modelItem.locked {
+.modelItem.locked,
+.modelItem.maintenance {
   cursor: default;
+}
+
+.maintenanceBadge {
+  font-size: 0.9rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.maintenanceText {
+  font-size: 0.7rem;
+  padding: 2px 8px;
+  border-radius: 4px;
+  background: rgba(255, 171, 0, 0.15);
+  color: #ffab00;
+  font-weight: 500;
 }
 
 .modelHeader {

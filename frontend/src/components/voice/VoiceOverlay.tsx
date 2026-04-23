@@ -66,7 +66,9 @@ export const VoiceOverlay: React.FC<VoiceOverlayProps> = ({ onClose, initialConv
     let processed = content.replace(/<(think|thinking)>[\s\S]*?<\/\1>/gi, '');
     // Remove open tags and everything after them (for streaming)
     processed = processed.replace(/<(think|thinking)>[\s\S]*/gi, '');
-    return processed;
+    // Remove system instructions
+    processed = processed.replace(/\[SYSTEM INSTRUCTION: [\s\S]*?\]/gi, '');
+    return processed.trim();
   };
 
   const typewriter = (text: string, callback: (t: string) => void, speed = 5) => {
@@ -357,26 +359,31 @@ export const VoiceOverlay: React.FC<VoiceOverlayProps> = ({ onClose, initialConv
         };
 
         let currentSentence = '';
+        let buffer = '';
         const processStream = async () => {
           try {
             while (true) {
               const { done, value } = await reader!.read();
-              if (done) {
-                readerDone = true;
-                // Process final sentence if any
-                if (currentSentence.trim()) {
-                  const s = currentSentence.trim();
-                  audioQueue.push({ text: s, url: null, blob: null });
-                  fetchSentenceAudio(s, audioQueue.length - 1);
-                }
-                break;
+
+              if (value) {
+                buffer += decoder.decode(value, { stream: true });
               }
 
-              const chunk = decoder.decode(value, { stream: true });
-              const lines = chunk.split('\n');
+              if (done) {
+                buffer += decoder.decode(new Uint8Array(), { stream: false });
+              }
+
+              const lines = buffer.split('\n');
+              if (!done) {
+                buffer = lines.pop() || '';
+              }
+              
               for (const line of lines) {
-                if (line.startsWith('data: ')) {
-                  const dataStr = line.replace('data: ', '');
+                const trimmedLine = line.trim();
+                if (!trimmedLine) continue;
+                
+                if (trimmedLine.startsWith('data:')) {
+                  const dataStr = trimmedLine.replace(/^data:\s*/, '').trim();
                   if (dataStr === '[DONE]') break;
                   try {
                     const parsed = JSON.parse(dataStr);
@@ -399,6 +406,17 @@ export const VoiceOverlay: React.FC<VoiceOverlayProps> = ({ onClose, initialConv
                     }
                   } catch (e) { }
                 }
+              }
+
+              if (done) {
+                readerDone = true;
+                // Process final sentence if any
+                if (currentSentence.trim()) {
+                  const s = currentSentence.trim();
+                  audioQueue.push({ text: s, url: null, blob: null });
+                  fetchSentenceAudio(s, audioQueue.length - 1);
+                }
+                break;
               }
             }
           } catch (err) {

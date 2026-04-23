@@ -15,106 +15,136 @@ class AiService {
     });
   }
 
-  async streamChat(apiKey: string, messages: any[], model: string = 'meta/llama-3.1-70b-instruct') {
+  async streamChat(apiKey: string, messages: any[], model: string = 'meta/llama-3.1-70b-instruct', onStatus?: (status: string) => void) {
     const openai = this.getNvidiaClient(apiKey);
 
-    // 1. Fetch model configuration from DB
+    // 1. Fetch model configuration
     const { data: modelInfo } = await supabaseAdmin
       .from('ai_models')
       .select('max_tokens, context_window, is_vision')
       .eq('model_id', model)
       .single();
 
-    // Use DB limits, or fallback to reasonable defaults
-    const modelMaxTokens = modelInfo?.max_tokens || (model.includes('qwen') ? 16384 : 4096);
-    const contextWindow = modelInfo?.context_window || (model.includes('llama') ? 131072 : 32768);
+    const contextLimit = modelInfo?.context_window || 4096;
+    const modelMaxOutputTokens = modelInfo?.max_tokens || 4096;
 
-    // 2. Prepend system prompt if not present
-    let finalMessages = [...messages];
-    const hasSystemPrompt = messages.some(m => m.role === 'system');
-    if (!hasSystemPrompt) {
-      finalMessages = [{ role: 'system', content: this.DEFAULT_SYSTEM_PROMPT }, ...messages];
+    // 2. Prepend system prompt if missing
+    let processedMessages = [...messages];
+    if (!messages.some(m => m.role === 'system')) {
+      processedMessages = [{ role: 'system', content: this.DEFAULT_SYSTEM_PROMPT }, ...messages];
     }
 
-    // 3. Ensure alternating roles (Consolidate consecutive roles)
-    // Most APIs require user/assistant/user/assistant...
-    const consolidatedMessages: any[] = [];
-    for (const msg of finalMessages) {
-      const last = consolidatedMessages[consolidatedMessages.length - 1];
+    // 3. Consolidate consecutive roles
+    const consolidated: any[] = [];
+    for (const msg of processedMessages) {
+      const last = consolidated[consolidated.length - 1];
       if (last && last.role === msg.role && msg.role !== 'system') {
-        if (typeof last.content === 'string' && typeof msg.content === 'string') {
-          last.content += '\n\n' + msg.content;
-        } else {
-          consolidatedMessages[consolidatedMessages.length - 1] = msg;
-        }
+        last.content = (typeof last.content === 'string' ? last.content : JSON.stringify(last.content)) + 
+                       '\n\n' + 
+                       (typeof msg.content === 'string' ? msg.content : JSON.stringify(msg.content));
       } else {
-        consolidatedMessages.push({ ...msg });
+        consolidated.push({ ...msg });
       }
     }
 
-    // 3. Hydrate messages with document context BEFORE pruning
-    // This ensures TokenManager sees the ACTUAL final content
-    const hydratedMessages = consolidatedMessages.map(m => {
-      let content = m.content;
-      
+    // 4. Hydrate messages with document context
+    const hydrated = consolidated.map(m => {
       if (m.metadata?.extractedContext) {
         const contextStr = `\n\n### DOCUMENT CONTEXT ###\n${m.metadata.extractedContext}\n### END OF DOCUMENT CONTEXT ###`;
-        
-        if (Array.isArray(content)) {
-          content = content.map((c: any) => 
-            c.type === 'text' ? { ...c, text: (c.text || "") + contextStr } : c
-          );
-        } else {
-          content = (content || "") + contextStr;
-        }
+        const content = typeof m.content === 'string' ? m.content : JSON.stringify(m.content);
+        return { ...m, content: content + contextStr };
       }
-
-      return { ...m, content };
+      return m;
     });
 
-    // 4. Prune messages based on hydrated content
-    const pruneThreshold = Math.max(1000, contextWindow - modelMaxTokens - 500);
-    const prunedMessages = TokenManager.pruneMessages(hydratedMessages, pruneThreshold);
+    let retryCount = 0;
+    const maxRetries = 2; // Increase to 2 for more resilience against cold starts
+    let currentLimit = contextLimit;
+    // Cap initial reserved tokens to 2048 to prevent gateway timeouts on large reservations
+    let currentMaxOutputTokens = Math.min(modelMaxOutputTokens, 2048); 
+    let workingMessages = [...hydrated];
 
-    // 5. Strictly sanitize for the final API call
-    const sanitizedMessages = prunedMessages.map(m => {
-      let content = m.content;
+    while (retryCount <= maxRetries) {
+      const safePruneThreshold = 100; // Buffer for safety
       
-      // Convert array content to string for non-vision models OR if it's just one text part
-      if (Array.isArray(content)) {
-        const hasImages = content.some((part: any) => part.type === 'image_url');
-        if (!modelInfo?.is_vision || !hasImages) {
-          // Flatten to string if model doesn't support vision or if there are no images anyway
-          content = content
-            .filter((part: any) => part.type === 'text')
-            .map((part: any) => part.text)
-            .join('\n');
+      try {
+        // Step A: Calculate current request token size
+        let promptTokens = TokenManager.countMessagesTokens(workingMessages);
+        
+        // Step B: Define a safe reservation for generation
+        // If it's a retry, we use a fixed 1024 for stability
+        const reservedTokens = retryCount > 0 ? 1024 : currentMaxOutputTokens;
+        const totalRequested = promptTokens + reservedTokens;
+
+        // Step C: Strict comparison and pruning
+        let finalMessages = [...workingMessages];
+        if (totalRequested > currentLimit) {
+          const targetPromptTokens = currentLimit - reservedTokens - safePruneThreshold;
+          console.warn(`[AiService] Token limit exceeded. Pruning context to target: ${targetPromptTokens}`);
+          finalMessages = TokenManager.pruneMessages(workingMessages, targetPromptTokens);
+          promptTokens = TokenManager.countMessagesTokens(finalMessages);
         }
+        
+        const finalVerificationTotal = promptTokens + reservedTokens;
+        console.log(`[AiService] Final verification: Prompt=${promptTokens}, Reserved=${reservedTokens}, Total=${finalVerificationTotal}, Limit=${currentLimit}`);
+
+        // Step D: Final Sanitization for API
+        const sanitized = finalMessages.map(m => {
+          let content = m.content;
+          if (Array.isArray(content)) {
+            const hasImages = content.some((p: any) => p.type === 'image_url');
+            if (!modelInfo?.is_vision || !hasImages) {
+              content = content.filter((p: any) => p.type === 'text').map((p: any) => p.text).join('\n');
+            }
+          }
+          return { role: m.role, content: content || "" };
+        });
+
+        return await openai.chat.completions.create({
+          model,
+          messages: sanitized as any,
+          stream: true,
+          max_tokens: reservedTokens,
+          temperature: 0.7,
+        });
+
+      } catch (error: any) {
+        const errorMsg = error.message?.toLowerCase() || '';
+        const isTimeout = error.status === 504 || error.status === 502 || error.status === 408 || errorMsg.includes('timeout') || errorMsg.includes('gateway');
+        const isTokenLimit = errorMsg.includes('token') || errorMsg.includes('limit') || error.status === 400;
+
+        if ((isTimeout || isTokenLimit) && retryCount < maxRetries) {
+          retryCount++;
+          console.warn(`[AiService] Attempt ${retryCount} failed (${isTimeout ? 'Timeout' : 'Token Limit'}). Retrying with reduced context...`);
+          
+          if (onStatus) {
+            onStatus(isTimeout ? `Connection slow (Retry ${retryCount}/${maxRetries}). Optimizing...` : 'Optimizing context size...');
+          }
+
+          if (isTimeout) {
+            // Drastic reduction for timeouts: keep system + last 2 messages only
+            const systemMsg = workingMessages.find(m => m.role === 'system');
+            const otherMsgs = workingMessages.filter(m => m.role !== 'system').slice(-2);
+            workingMessages = systemMsg ? [systemMsg, ...otherMsgs] : otherMsgs;
+            
+            // Reduction limit
+            currentLimit = Math.floor(currentLimit * 0.7);
+          } else {
+            // Token limit hit: reduce limit and try pruning
+            currentLimit = Math.floor(currentLimit * 0.8);
+          }
+
+          continue; 
+        }
+
+        console.error(`[AiService] Final failure after ${retryCount + 1} attempts: ${error.message}`);
+        throw error;
       }
+    }
 
-      // NVIDIA/OpenAI APIs are extremely strict about extra fields like 'metadata'
-      const cleanMsg: any = { 
-        role: m.role, 
-        content: content || "" 
-      };
-
-      // Optional: Add 'name' if present (some APIs use it for system/multi-user)
-      if (m.name) cleanMsg.name = m.name;
-
-      return cleanMsg;
-    });
-
-    console.log(`[AiService] Final sanitized messages for ${model}:`, JSON.stringify(sanitizedMessages.map(m => ({ role: m.role, contentLength: typeof m.content === 'string' ? m.content.length : 'array' }))));
-
-    return openai.chat.completions.create({
-      model,
-      messages: sanitizedMessages as any,
-      stream: true,
-      max_tokens: modelMaxTokens,
-      temperature: 0.7,
-      top_p: 1,
-    });
+    throw new Error('Chat completion failed after maximum retries');
   }
+
 
   async generateImage(apiKey: string, prompt: string, model: string = 'stabilityai/stable-diffusion-xl-base-1.0') {
     const openai = this.getNvidiaClient(apiKey);

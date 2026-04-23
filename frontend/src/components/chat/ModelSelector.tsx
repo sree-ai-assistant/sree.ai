@@ -89,13 +89,26 @@ export const ModelSelector: React.FC = () => {
             {sortedModels.map((model) => {
               const accessible = canAccess(model.tier_required);
               const isSelected = selectedModel?.model_id === model.model_id;
-              const isFaded = visionRequired && !model.is_vision;
+              const isFaded = (visionRequired && !model.is_vision) || model.in_maintenance;
+              const inMaintenance = model.in_maintenance;
 
               return (
                 <div 
                   key={model.model_id}
-                  className={`${styles.modelItem} ${isSelected ? styles.selected : ''} ${!accessible ? styles.locked : ''} ${isFaded ? styles.faded : ''}`}
+                  className={`${styles.modelItem} ${isSelected ? styles.selected : ''} ${!accessible ? styles.locked : ''} ${isFaded ? styles.faded : ''} ${inMaintenance ? styles.maintenance : ''}`}
                   onClick={() => {
+                    if (inMaintenance) {
+                      toast.error('This model is currently in maintenance.', {
+                        icon: '⚠️',
+                        style: {
+                          background: '#1a1a1a',
+                          color: '#fff',
+                          border: '1px solid rgba(255, 255, 255, 0.1)'
+                        }
+                      });
+                      return;
+                    }
+
                     if (!accessible) {
                       openUpgradeModal(model.tier_required as 'premium' | 'pro');
                       return;
@@ -120,9 +133,12 @@ export const ModelSelector: React.FC = () => {
                   <div className={styles.modelHeader}>
                     <div className={styles.modelName}>
                       {model.is_vision && <span className={styles.visionBadge}>Vision</span>}
+                      {inMaintenance && <span className={styles.maintenanceBadge} title="In Maintenance">⚠️</span>}
                       {model.name}
                     </div>
-                    {!accessible ? (
+                    {inMaintenance ? (
+                      <span className={styles.maintenanceText}>Maintenance</span>
+                    ) : !accessible ? (
                       <Lock size={14} className={styles.lockIcon} />
                     ) : model.tier_required.toLowerCase() === 'premium' ? (
                       <div className={styles.premiumIcon} title="Premium">
@@ -135,7 +151,7 @@ export const ModelSelector: React.FC = () => {
                     )}
                   </div>
                   <div className={styles.modelDesc}>
-                    {model.description}
+                    {inMaintenance ? 'Currently undergoing maintenance. Please check back later.' : model.description}
                   </div>
                 </div>
               );

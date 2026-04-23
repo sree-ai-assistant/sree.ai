@@ -148,6 +148,7 @@
   flex-shrink: 0;
   background: var(--bg-surface);
   border: 1px solid var(--border-color);
+  margin-top: 16px;
 }
 
 .avatar.ai {
@@ -158,7 +159,7 @@
 
 .bubble {
   max-width: 85%;
-  padding: 16px 20px;
+  padding: 16px 8px;
   border-radius: 20px;
   font-size: 0.95rem;
   line-height: 1.6;
@@ -197,6 +198,60 @@
   color: white;
   padding: 12px 20px;
   border-radius: 24px;
+}
+
+.bubble.error {
+  background: rgba(239, 68, 68, 0.08);
+  border: 1px solid rgba(239, 68, 68, 0.2);
+  color: #f87171;
+  font-size: 0.95rem;
+  padding: 16px 20px;
+  max-width: 90%;
+  border-radius: 20px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.errorBubbleContent {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.errorHeader {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 700;
+  color: #ef4444;
+  font-size: 0.9rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.errorText {
+  color: var(--text-secondary);
+  line-height: 1.5;
+  margin: 0;
+}
+
+.lockoutMessage {
+  text-align: center;
+  color: #ef4444;
+  font-size: 0.85rem;
+  margin-top: 8px;
+  animation: fadeIn 0.3s ease-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-5px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .inputWrapper {
@@ -354,25 +409,33 @@
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  background: rgba(255, 255, 255, 0.05);
+  background: var(--bg-surface-light);
   border: 1px solid var(--border-color);
   color: var(--text-primary);
-  padding: 8px 16px;
+  padding: 8px 18px;
   border-radius: 12px;
   font-size: 0.85rem;
-  font-weight: 500;
+  font-weight: 600;
   cursor: pointer;
-  transition: var(--transition-fast);
+  transition: all 0.2s ease;
 }
 
 .retryButton:hover {
-  background: rgba(255, 255, 255, 0.1);
+  background: var(--primary);
   border-color: var(--primary);
+  color: white;
   transform: translateY(-1px);
+  box-shadow: 0 4px 12px var(--primary-glow);
 }
 
 .retryButton svg {
   color: var(--primary);
+  transition: transform 0.4s ease, color 0.2s ease;
+}
+
+.retryButton:hover svg {
+  transform: rotate(180deg);
+  color: white;
 }
 
 .markdown h1 {
@@ -385,6 +448,13 @@
 
 .markdown h3 {
   font-size: 1.05rem;
+}
+
+.errorContainer {
+  margin-top: 12px;
+  display: flex;
+  justify-content: flex-start;
+  animation: fadeIn 0.4s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .inputActions {
@@ -411,4 +481,4 @@
 .iconBtn:hover {
   background: rgba(255, 255, 255, 0.05);
   color: var(--text-primary);
-}
+}

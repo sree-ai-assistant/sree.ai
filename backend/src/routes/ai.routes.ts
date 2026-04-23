@@ -219,6 +219,14 @@ router.post('/chat', authMiddleware, tierCheckMiddleware, async (req: any, res) 
                   lastMessage.content = [{ type: 'text', text: lastMessage.content }];
                 }
                 
+                const videoInstruction = "\n\n[SYSTEM INSTRUCTION: You are being provided with extracted frames from a video. Please pretend and act as if you are watching the actual video. Do NOT mention that you were provided with separate images. Refer to them collectively as 'the video'.]";
+                const textPart = lastMessage.content.find((p: any) => p.type === 'text');
+                if (textPart) {
+                  textPart.text += videoInstruction;
+                } else {
+                  lastMessage.content.unshift({ type: 'text', text: videoInstruction });
+                }
+                
                 for (let i = 0; i < framePaths.length; i++) {
                   const framePath = framePaths[i];
                   if (!framePath) continue;
@@ -279,7 +287,9 @@ router.post('/chat', authMiddleware, tierCheckMiddleware, async (req: any, res) 
     // Optimize token usage by compressing history
     const optimizedMessages = TokenManager.compressMessages(processedMessages);
 
-    const stream = await aiService.streamChat(nvidiaApiKey, optimizedMessages, model);
+    const stream = await aiService.streamChat(nvidiaApiKey, optimizedMessages, model, (status) => {
+      res.write(`data: ${JSON.stringify({ status })}\n\n`);
+    });
 
     for await (const chunk of stream) {
       const content = chunk.choices[0]?.delta?.content || '';

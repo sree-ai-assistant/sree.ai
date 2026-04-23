@@ -10,6 +10,9 @@ export interface AIModel {
   tier_required: 'free' | 'premium' | 'pro';
   is_vision: boolean;
   description: string;
+  max_tokens: number;
+  context_window: number;
+  in_maintenance: boolean;
 }
 
 interface ModelState {
@@ -55,14 +58,22 @@ export const useModelStore = create<ModelState>()(
               ? models.find((m: AIModel) => m.model_id === currentSelected.model_id) 
               : null;
 
+            // If the selected model is now in maintenance, we need to pick a new one
+            if (updatedSelected?.in_maintenance) {
+              updatedSelected = null;
+            }
+
             // If vision is required and current model isn't vision, auto-select a vision model
             if (visionReq && (!updatedSelected || !updatedSelected.is_vision)) {
-              updatedSelected = models.find((m: AIModel) => m.is_vision) || updatedSelected;
+              updatedSelected = models.find((m: AIModel) => m.is_vision && !m.in_maintenance) || updatedSelected;
             }
 
             set({ 
               models,
-              selectedModel: updatedSelected || models.find((m: AIModel) => m.model_id === 'meta/llama-3.1-70b-instruct') || models[0],
+              selectedModel: updatedSelected || 
+                             models.find((m: AIModel) => m.model_id === 'meta/llama-3.1-70b-instruct' && !m.in_maintenance) || 
+                             models.find((m: AIModel) => !m.in_maintenance) || 
+                             models[0],
               loading: false 
             });
           }
@@ -75,6 +86,9 @@ export const useModelStore = create<ModelState>()(
       setSelectedModel: (modelId: string) => {
         const model = get().models.find(m => m.model_id === modelId);
         if (model) {
+          if (model.in_maintenance) {
+            return; // Prevent selection of maintenance models
+          }
           set({ selectedModel: model });
         }
       },
@@ -84,7 +98,7 @@ export const useModelStore = create<ModelState>()(
         set({ visionRequired: required });
 
         if (required && selectedModel && !selectedModel.is_vision) {
-          const visionModel = models.find(m => m.is_vision);
+          const visionModel = models.find(m => m.is_vision && !m.in_maintenance);
           if (visionModel) {
             set({ selectedModel: visionModel });
           }

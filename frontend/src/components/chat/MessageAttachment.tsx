@@ -62,21 +62,8 @@ export const MessageAttachment: React.FC<MessageAttachmentProps> = ({ attachment
           );
         }
 
-        if (atl.type === 'video' && atl.url) {
-          return (
-            <div key={idx} className={styles.mediaCard}>
-              <div className={styles.mediaHeader}>
-                <div className={styles.cardIcon} style={{ backgroundColor: '#ec489915', color: '#ec4899' }}>
-                  <Video size={18} />
-                </div>
-                <span className={styles.mediaTitle}>{atl.name}</span>
-              </div>
-              <video controls src={atl.url} className={styles.videoPlayer} />
-            </div>
-          );
-        }
-
-        const Icon = FileText;
+        const Icon = atl.type === 'video' ? Video : 
+                     atl.type === 'audio' ? Music : FileText;
 
         return (
           <div key={idx} className={styles.attachmentCard}>

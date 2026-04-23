@@ -23,6 +23,8 @@ interface ChatInputProps {
   onStop?: () => void;
   attachments: Attachment[];
   onAttachmentsChange: React.Dispatch<React.SetStateAction<Attachment[]>>;
+  disabled?: boolean;
+  placeholderText?: string;
 }
 
 export const ChatInput: React.FC<ChatInputProps> = ({
@@ -32,7 +34,9 @@ export const ChatInput: React.FC<ChatInputProps> = ({
   hasMessages,
   onVoiceLaunch,
   attachments,
-  onAttachmentsChange
+  onAttachmentsChange,
+  disabled = false,
+  placeholderText
 }) => {
   const [internalValue, setInternalValue] = React.useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -41,6 +45,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
   const { setVisionRequired } = useModelStore();
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (disabled) return;
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       if (isGenerating) {
@@ -52,6 +57,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
   };
 
   const handleAction = () => {
+    if (disabled) return;
     if (isGenerating) {
       onStop?.();
     } else {
@@ -236,6 +242,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
         style={{ display: 'none' }} 
         onChange={handleFileChange}
         multiple
+        disabled={disabled}
       />
       <input 
         type="file" 
@@ -244,6 +251,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
         accept="image/*"
         onChange={handleFileChange}
         multiple
+        disabled={disabled}
       />
 
       <div className={styles.inputContainer}>
@@ -292,7 +300,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
         )}
 
         <div className={styles.inputInner}>
-          <button className={styles.iconBtn} onClick={() => fileInputRef.current?.click()}>
+          <button className={styles.iconBtn} onClick={() => !disabled && fileInputRef.current?.click()} disabled={disabled} style={disabled ? { opacity: 0.5, cursor: 'not-allowed' } : {}}>
             <Plus size={22} />
           </button>
           
@@ -301,22 +309,25 @@ export const ChatInput: React.FC<ChatInputProps> = ({
             value={internalValue}
             onChange={(e) => setInternalValue(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="Ask anything"
+            placeholder={placeholderText || "Ask anything"}
+            disabled={disabled}
           />
           
           <div className={styles.inputActions}>
             <button 
               className={styles.iconBtn}
               title="Launch Voice Mode"
-              onClick={onVoiceLaunch}
+              onClick={disabled ? undefined : onVoiceLaunch}
+              disabled={disabled}
+              style={disabled ? { opacity: 0.5, cursor: 'not-allowed' } : {}}
             >
               <Mic size={20} />
             </button>
             <button 
               className={`${styles.sendBtn} ${isGenerating ? styles.stopBtn : ''}`}
               onClick={handleAction}
-              disabled={attachments.some(a => a.isUploading) || (!isGenerating && !internalValue.trim() && attachments.length === 0)}
-              style={attachments.some(a => a.isUploading) ? { opacity: 0.4, cursor: 'not-allowed' } : {}}
+              disabled={disabled || attachments.some(a => a.isUploading) || (!isGenerating && !internalValue.trim() && attachments.length === 0)}
+              style={disabled || attachments.some(a => a.isUploading) ? { opacity: 0.4, cursor: 'not-allowed' } : {}}
             >
               <AnimatePresence mode="wait">
                 {isGenerating ? (

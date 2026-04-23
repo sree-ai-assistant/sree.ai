@@ -150,12 +150,6 @@
   margin-top: 8px;
 }
 
-.videoPlayer {
-  width: 100%;
-  border-radius: 12px;
-  margin-top: 8px;
-  aspect-ratio: 16 / 9;
-}
 
 .mediaHeader {
   display: flex;
