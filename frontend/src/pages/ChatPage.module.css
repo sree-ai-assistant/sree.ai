@@ -369,6 +369,12 @@
   margin-bottom: 0.25rem;
 }
 
+.tableWrapper {
+  overflow: hidden;
+  overflow-x: scroll;
+  /* max-width: 85%; */
+}
+
 .markdown table {
   width: 100%;
   border-collapse: collapse;
@@ -481,4 +487,4 @@
 .iconBtn:hover {
   background: rgba(255, 255, 255, 0.05);
   color: var(--text-primary);
-}
+}

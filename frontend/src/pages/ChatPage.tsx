@@ -460,6 +460,13 @@ const ChatPage: React.FC = () => {
                                 </code>
                               );
                             },
+                            table({ children }) {
+                              return (
+                                <div className={styles.tableWrapper}>
+                                  <table>{children}</table>
+                                </div>
+                              );
+                            },
                           }}
                         >
                           {filterThinkingTags(m.content)}
@@ -497,6 +504,13 @@ const ChatPage: React.FC = () => {
                                 <code className={className} {...props}>
                                   {children}
                                 </code>
+                              );
+                            },
+                            table({ children }) {
+                              return (
+                                <div className={styles.tableWrapper}>
+                                  <table>{children}</table>
+                                </div>
                               );
                             },
                           }}
