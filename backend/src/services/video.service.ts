@@ -7,11 +7,19 @@ import crypto from 'crypto';
 
 
 if (ffmpegInstaller) {
-  ffmpeg.setFfmpegPath(ffmpegInstaller);
+  const ffmpegPath = typeof ffmpegInstaller === 'string' ? ffmpegInstaller : (ffmpegInstaller as any).path;
+  if (ffmpegPath) {
+    ffmpeg.setFfmpegPath(ffmpegPath);
+    console.log(`[VideoService] Set FFmpeg path: ${ffmpegPath}`);
+  }
 }
 
-if (ffprobeInstaller && ffprobeInstaller.path) {
-  ffmpeg.setFfprobePath(ffprobeInstaller.path);
+if (ffprobeInstaller) {
+  const ffprobePath = typeof ffprobeInstaller === 'string' ? ffprobeInstaller : (ffprobeInstaller as any).path;
+  if (ffprobePath) {
+    ffmpeg.setFfprobePath(ffprobePath);
+    console.log(`[VideoService] Set FFprobe path: ${ffprobePath}`);
+  }
 }
 
 class VideoService {
@@ -29,7 +37,7 @@ class VideoService {
    * @param frameCount Number of frames to extract
    * @returns Array of local paths to extracted frames
    */
-  async extractFrames(videoPath: string, frameCount: number = 3): Promise<string[]> {
+  async extractFrames(videoPath: string, frameCount: number = 5): Promise<string[]> {
     console.log(`[VideoService] Starting frame extraction for: ${videoPath}`);
     
     if (!fs.existsSync(videoPath)) {
@@ -37,31 +45,38 @@ class VideoService {
       throw new Error(`Video file not found at ${videoPath}`);
     }
 
+    const stats = fs.statSync(videoPath);
+    console.log(`[VideoService] Video file size: ${stats.size} bytes`);
+
     return new Promise((resolve, reject) => {
       const framePaths: string[] = [];
       const prefix = crypto.randomUUID();
       console.log(`[VideoService] Using prefix ${prefix} for frames in ${this.tempDir}`);
       
-      ffmpeg(videoPath)
+      const command = ffmpeg(videoPath)
+        .on('start', (commandLine) => {
+          console.log(`[VideoService] FFmpeg process started with command: ${commandLine}`);
+        })
         .on('filenames', (filenames: string[]) => {
-          console.log(`[VideoService] FFmpeg generated filenames: ${filenames.join(', ')}`);
+          console.log(`[VideoService] FFmpeg will generate: ${filenames.join(', ')}`);
           filenames.forEach(file => framePaths.push(path.join(this.tempDir, file)));
         })
         .on('progress', (progress) => {
-          if (progress.percent) {
-            console.log(`[VideoService] Extraction progress: ${Math.round(progress.percent)}%`);
-          }
+          console.log(`[VideoService] Extraction progress: ${JSON.stringify(progress)}`);
         })
         .on('end', () => {
-          console.log(`[VideoService] Successfully extracted ${framePaths.length} frames`);
-          // Verify files actually exist
-          const existingFrames = framePaths.filter(p => fs.existsSync(p));
-          console.log(`[VideoService] Verified ${existingFrames.length}/${framePaths.length} frame files on disk`);
-          resolve(existingFrames);
+          console.log(`[VideoService] FFmpeg finished successfully`);
+          // Give the OS a moment to sync files to disk (sometimes needed on Windows)
+          setTimeout(() => {
+            const existingFrames = framePaths.filter(p => fs.existsSync(p));
+            console.log(`[VideoService] Verified ${existingFrames.length}/${framePaths.length} frame files on disk`);
+            resolve(existingFrames);
+          }, 500);
         })
-        .on('error', (err) => {
+        .on('error', (err, stdout, stderr) => {
           console.error('[VideoService] FFmpeg Error:', err.message);
-          reject(err);
+          console.error('[VideoService] FFmpeg Stderr:', stderr);
+          reject(new Error(`FFmpeg failed: ${err.message}`));
         })
         .screenshots({
           count: frameCount,

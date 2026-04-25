@@ -370,9 +370,14 @@
 }
 
 .tableWrapper {
-  overflow: hidden;
-  overflow-x: scroll;
-  /* max-width: 85%; */
+  overflow-x: auto;
+  max-width: 100%;
+  width: 100%;
+  margin-top: 10px;
+  margin-bottom: 10px;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.1);
+  border: 1px solid var(--border-color);
 }
 
 .markdown table {

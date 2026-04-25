@@ -17,6 +17,77 @@ import path from 'path';
 const router = Router();
 const upload = multer({ dest: 'uploads/' });
 
+/**
+ * Stores a video reference (name + url) in the conversations.videos_in_conversation column.
+ */
+async function storeVideoInConversation(conversationId: string, videoName: string, videoUrl: string) {
+  try {
+    // Fetch current videos array
+    const { data: conv } = await supabaseAdmin
+      .from('conversations')
+      .select('videos_in_conversation')
+      .eq('id', conversationId)
+      .single();
+
+    const existingVideos: { name: string; url: string }[] = conv?.videos_in_conversation || [];
+
+    // Don't add duplicates
+    if (existingVideos.some(v => v.name === videoName)) {
+      console.log(`[AI Route] Video "${videoName}" already stored in conversation ${conversationId}`);
+      return;
+    }
+
+    existingVideos.push({ name: videoName, url: videoUrl });
+
+    await supabaseAdmin
+      .from('conversations')
+      .update({ videos_in_conversation: existingVideos })
+      .eq('id', conversationId);
+
+    console.log(`[AI Route] Stored video "${videoName}" in conversation ${conversationId}. Total videos: ${existingVideos.length}`);
+  } catch (err) {
+    console.error('[AI Route] Error storing video in conversation:', err);
+  }
+}
+
+/**
+ * Checks if the user's latest message text references any previously uploaded video by filename.
+ * Returns matched video references from the conversation.
+ */
+async function findReferencedVideos(conversationId: string, userMessageText: string): Promise<{ name: string; url: string }[]> {
+  try {
+    if (!conversationId || !userMessageText) return [];
+
+    const { data: conv } = await supabaseAdmin
+      .from('conversations')
+      .select('videos_in_conversation')
+      .eq('id', conversationId)
+      .single();
+
+    const storedVideos: { name: string; url: string }[] = conv?.videos_in_conversation || [];
+    if (storedVideos.length === 0) return [];
+
+    const lowerMessage = userMessageText.toLowerCase();
+
+    // Match if the user's message includes any stored video filename
+    const matched = storedVideos.filter(v => {
+      const lowerName = v.name.toLowerCase();
+      // Check exact name, or name without extension
+      const nameWithoutExt = lowerName.replace(/\.[^.]+$/, '');
+      return lowerMessage.includes(lowerName) || lowerMessage.includes(nameWithoutExt);
+    });
+
+    if (matched.length > 0) {
+      console.log(`[AI Route] User message references ${matched.length} previous video(s): ${matched.map(v => v.name).join(', ')}`);
+    }
+
+    return matched;
+  } catch (err) {
+    console.error('[AI Route] Error finding referenced videos:', err);
+    return [];
+  }
+}
+
 async function updateMessageInDb(messageId: string, updates: { content?: any, metadata?: any }) {
   try {
     const { data: currentMsg } = await supabaseAdmin
@@ -51,7 +122,7 @@ async function updateMessageInDb(messageId: string, updates: { content?: any, me
 router.post('/chat', authMiddleware, tierCheckMiddleware, async (req: any, res) => {
   try {
     const { v4: uuidv4 } = await import('uuid');
-    const { messages, model, attachments, messageId } = req.body;
+    const { messages, model, attachments, messageId, conversationId } = req.body;
     const userId = req.user.id;
 
     // Set headers for streaming early
@@ -156,6 +227,11 @@ router.post('/chat', authMiddleware, tierCheckMiddleware, async (req: any, res) 
 
       const audioAttachments = attachments.filter((a: any) => a.type === 'audio');
       const videoAttachments = attachments.filter((a: any) => a.type === 'video');
+      
+      console.log(`[AI Route] Processing attachments: Total=${attachments.length}, Audio=${audioAttachments.length}, Video=${videoAttachments.length}`);
+      if (attachments.length > 0) {
+        console.log(`[AI Route] Attachment types: ${attachments.map((a: any) => `${a.name}(${a.type})`).join(', ')}`);
+      }
 
       // Process Audio
       if (audioAttachments.length > 0) {
@@ -197,71 +273,171 @@ router.post('/chat', authMiddleware, tierCheckMiddleware, async (req: any, res) 
       if (videoAttachments.length > 0) {
         console.log(`[AI Route] Found ${videoAttachments.length} video attachments`);
         for (const video of videoAttachments) {
-          console.log(`[AI Route] Processing video: ${video.name}`);
-          res.write(`data: ${JSON.stringify({ status: `Downloading ${video.name}...` })}\n\n`);
-          try {
-            const tempVideoPath = path.join(process.cwd(), 'uploads', `temp-video-${uuidv4()}-${video.name}`);
-            await fileService.downloadFile(video.url, tempVideoPath);
-            console.log(`[AI Route] Downloaded ${video.name} to ${tempVideoPath}`);
+          const videoName = video.name || 'video.mp4';
+          console.log(`[AI Route] Processing video: ${videoName}`);
+          res.write(`data: ${JSON.stringify({ status: `Downloading ${videoName}...` })}\n\n`);
+            const sanitizedName = videoName.replace(/[^a-z0-9.]/gi, '_');
+            const tempVideoPath = path.join(process.cwd(), 'uploads', `temp-video-${uuidv4()}-${sanitizedName}`);
+            
+            try {
+              await fileService.downloadFile(video.url, tempVideoPath);
+              console.log(`[AI Route] Downloaded ${video.name} to ${tempVideoPath}`);
 
-            res.write(`data: ${JSON.stringify({ status: `Extracting frames from ${video.name}...` })}\n\n`);
-            const framePaths = await videoService.extractFrames(tempVideoPath, 3);
-            console.log(`[AI Route] Extracted ${framePaths.length} frames from ${video.name}`);
-            if (framePaths.length === 0) {
-              console.warn(`[AI Route] No frames were extracted from ${video.name}`);
-              res.write(`data: ${JSON.stringify({ status: `Warning: No frames could be extracted from ${video.name}` })}\n\n`);
-            } else {
-              res.write(`data: ${JSON.stringify({ status: `Uploading frames from ${video.name}...` })}\n\n`);
-              // Upload frames to R2 and inject into message content
-              const lastMessage = processedMessages[processedMessages.length - 1];
-              if (lastMessage && lastMessage.role === 'user') {
-                if (typeof lastMessage.content === 'string') {
-                  lastMessage.content = [{ type: 'text', text: lastMessage.content }];
-                }
-                
-                const videoInstruction = "\n\n[SYSTEM INSTRUCTION: You are being provided with extracted frames from a video. Please pretend and act as if you are watching the actual video. Do NOT mention that you were provided with separate images. Refer to them collectively as 'the video'.]";
-                const textPart = lastMessage.content.find((p: any) => p.type === 'text');
-                if (textPart) {
-                  textPart.text += videoInstruction;
-                } else {
-                  lastMessage.content.unshift({ type: 'text', text: videoInstruction });
-                }
-                
-                for (let i = 0; i < framePaths.length; i++) {
-                  const framePath = framePaths[i];
-                  if (!framePath) continue;
+              res.write(`data: ${JSON.stringify({ status: `Extracting 5 key frames from ${video.name}...` })}\n\n`);
+              const framePaths = await videoService.extractFrames(tempVideoPath, 5);
+              console.log(`[AI Route] Extracted ${framePaths.length} frames from ${video.name}`);
+              
+              if (framePaths.length === 0) {
+                console.warn(`[AI Route] No frames were extracted from ${video.name}`);
+                res.write(`data: ${JSON.stringify({ status: `Warning: No frames could be extracted from ${video.name}. This might be due to video format or length.` })}\n\n`);
+              } else {
+                res.write(`data: ${JSON.stringify({ status: `Uploading ${framePaths.length} visual frames...` })}\n\n`);
+                // Upload frames to R2 and inject into message content
+                const lastMessage = processedMessages[processedMessages.length - 1];
+                if (lastMessage && lastMessage.role === 'user') {
+                  if (typeof lastMessage.content === 'string') {
+                    lastMessage.content = [{ type: 'text', text: lastMessage.content }];
+                  }
                   
-                  console.log(`[AI Route] Uploading frame ${i + 1}/${framePaths.length}: ${framePath}`);
-                  const frameUrl = await r2Service.uploadFile(framePath, path.basename(framePath), 'image/png');
-                  (lastMessage.content as any[]).push({
-                    type: 'image_url',
-                    image_url: { url: frameUrl }
-                  });
-                }
+                  const videoInstruction = "\n\n[SYSTEM INSTRUCTION: You are being provided with extracted frames from a video. Please pretend and act as if you are watching the actual video. Do NOT mention that you were provided with separate images. Refer to them collectively as 'the video'. Use the frames to understand the context, movement, and visual details of the video.]";
+                  const textPart = lastMessage.content.find((p: any) => p.type === 'text');
+                  if (textPart) {
+                    textPart.text += videoInstruction;
+                  } else {
+                    lastMessage.content.unshift({ type: 'text', text: videoInstruction });
+                  }
+                  
+                  for (let i = 0; i < framePaths.length; i++) {
+                    const framePath = framePaths[i];
+                    if (!framePath) continue;
+                    
+                    console.log(`[AI Route] Uploading frame ${i + 1}/${framePaths.length}: ${framePath}`);
+                    try {
+                      const frameUrl = await r2Service.uploadFile(framePath, path.basename(framePath), 'image/png');
+                      (lastMessage.content as any[]).push({
+                        type: 'image_url',
+                        image_url: { url: frameUrl }
+                      });
+                    } catch (uploadErr) {
+                      console.error(`[AI Route] Failed to upload frame ${i + 1}:`, uploadErr);
+                    }
+                  }
 
-                // Persist injected frames to DB
-                if (messageId) {
-                  console.log(`[AI Route] Persisting injected frames to message ${messageId}`);
-                  await updateMessageInDb(messageId, {
-                    content: lastMessage.content
-                  });
+                  // Persist injected frames to DB
+                  if (messageId) {
+                    console.log(`[AI Route] Persisting injected frames to message ${messageId}`);
+                    await updateMessageInDb(messageId, {
+                      content: lastMessage.content
+                    });
+                  }
+                }
+                res.write(`data: ${JSON.stringify({ status: `Frames extracted and uploaded for ${video.name}` })}\n\n`);
+
+                // Store video reference in conversation for future context
+                if (conversationId) {
+                  await storeVideoInConversation(conversationId, video.name, video.url);
                 }
               }
-              res.write(`data: ${JSON.stringify({ status: `Frames extracted and uploaded for ${video.name}` })}\n\n`);
+              
+              // Cleanup frames immediately after processing
+              console.log(`[AI Route] Cleaning up ${framePaths.length} temp frames`);
+              videoService.cleanup(framePaths);
+            } catch (err: any) {
+              console.error(`[AI Route] Video processing failed for ${video.name}:`, err);
+              res.write(`data: ${JSON.stringify({ status: `Error processing ${video.name}: ${err.message || 'Unknown error'}` })}\n\n`);
+            } finally {
+              // Always cleanup the temp video file
+              if (fs.existsSync(tempVideoPath)) {
+                console.log(`[AI Route] Final cleanup of temp video: ${tempVideoPath}`);
+                try {
+                  fs.unlinkSync(tempVideoPath);
+                } catch (unlinkErr) {
+                  console.error(`[AI Route] Failed to delete temp video ${tempVideoPath}:`, unlinkErr);
+                }
+              }
             }
-            
-            
 
-            // Cleanup
-            if (fs.existsSync(tempVideoPath)) {
-              console.log(`[AI Route] Cleaning up temp video: ${tempVideoPath}`);
-              fs.unlinkSync(tempVideoPath);
+        }
+      }
+    }
+
+
+    // --- VIDEO CONTEXT RECALL: Check if user references a previously uploaded video ---
+    if (conversationId) {
+      const lastMessage = processedMessages[processedMessages.length - 1];
+      const userText = typeof lastMessage?.content === 'string'
+        ? lastMessage.content
+        : Array.isArray(lastMessage?.content)
+          ? (lastMessage.content.find((p: any) => p.type === 'text')?.text || '')
+          : '';
+
+      // Only check for video references if we did NOT just upload new videos in this request
+      const hasNewVideoAttachments = attachments?.some((a: any) => a.type === 'video');
+      if (!hasNewVideoAttachments && userText.trim()) {
+        const referencedVideos = await findReferencedVideos(conversationId, userText);
+
+        if (referencedVideos.length > 0) {
+          console.log(`[AI Route] Re-processing ${referencedVideos.length} previously uploaded video(s) for context`);
+          res.write(`data: ${JSON.stringify({ status: `Recalling ${referencedVideos.length} previous video(s)...` })}\n\n`);
+
+          for (const refVideo of referencedVideos) {
+            const sanitizedName = refVideo.name.replace(/[^a-z0-9.]/gi, '_');
+            const { v4: uuidv4Recall } = await import('uuid');
+            const tempVideoPath = path.join(process.cwd(), 'uploads', `temp-recall-${uuidv4Recall()}-${sanitizedName}`);
+
+            try {
+              res.write(`data: ${JSON.stringify({ status: `Downloading ${refVideo.name} from history...` })}\n\n`);
+              await fileService.downloadFile(refVideo.url, tempVideoPath);
+
+              res.write(`data: ${JSON.stringify({ status: `Extracting frames from ${refVideo.name}...` })}\n\n`);
+              const framePaths = await videoService.extractFrames(tempVideoPath, 5);
+
+              if (framePaths.length > 0) {
+                if (lastMessage && lastMessage.role === 'user') {
+                  if (typeof lastMessage.content === 'string') {
+                    lastMessage.content = [{ type: 'text', text: lastMessage.content }];
+                  }
+
+                  const recallInstruction = `\n\n[SYSTEM INSTRUCTION: The user is referencing a previously uploaded video named "${refVideo.name}". You are being provided with extracted frames from this video. Please pretend and act as if you are watching the actual video. Do NOT mention that you were provided with separate images. Refer to them collectively as 'the video'. Use the frames to understand the context, movement, and visual details of the video.]`;
+                  const textPart = lastMessage.content.find((p: any) => p.type === 'text');
+                  if (textPart) {
+                    textPart.text += recallInstruction;
+                  } else {
+                    lastMessage.content.unshift({ type: 'text', text: recallInstruction });
+                  }
+
+                  res.write(`data: ${JSON.stringify({ status: `Uploading recalled frames for ${refVideo.name}...` })}\n\n`);
+                  for (let i = 0; i < framePaths.length; i++) {
+                    const framePath = framePaths[i];
+                    if (!framePath) continue;
+                    try {
+                      const frameUrl = await r2Service.uploadFile(framePath, path.basename(framePath), 'image/png');
+                      (lastMessage.content as any[]).push({
+                        type: 'image_url',
+                        image_url: { url: frameUrl }
+                      });
+                    } catch (uploadErr) {
+                      console.error(`[AI Route] Failed to upload recalled frame ${i + 1}:`, uploadErr);
+                    }
+                  }
+
+                  if (messageId) {
+                    await updateMessageInDb(messageId, { content: lastMessage.content });
+                  }
+                }
+
+                res.write(`data: ${JSON.stringify({ status: `Video "${refVideo.name}" recalled successfully` })}\n\n`);
+              }
+
+              videoService.cleanup(framePaths);
+            } catch (err: any) {
+              console.error(`[AI Route] Failed to recall video ${refVideo.name}:`, err);
+              res.write(`data: ${JSON.stringify({ status: `Could not recall ${refVideo.name}: ${err.message}` })}\n\n`);
+            } finally {
+              if (fs.existsSync(tempVideoPath)) {
+                try { fs.unlinkSync(tempVideoPath); } catch (_) {}
+              }
             }
-            console.log(`[AI Route] Cleaning up ${framePaths.length} temp frames`);
-            videoService.cleanup(framePaths);
-          } catch (err: any) {
-            console.error(`[AI Route] Video processing failed for ${video.name}:`, err);
-            res.write(`data: ${JSON.stringify({ status: `Error processing ${video.name}: ${err.message || 'Unknown error'}` })}\n\n`);
           }
         }
       }

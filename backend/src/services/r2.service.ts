@@ -11,7 +11,7 @@ class R2Service {
 
   constructor() {
     this.bucketName = process.env.CLOUDFLARE_R2_BUCKET_NAME || 'chat-files';
-    this.publicUrl = process.env.CLOUDFLARE_R2_PUBLIC_URL || '';
+    this.publicUrl = (process.env.CLOUDFLARE_R2_PUBLIC_URL || '').split('#')[0]?.trim() ?? '';
     
     const s3Config: any = {
       region: 'auto',

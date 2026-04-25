@@ -1,4 +1,6 @@
 import axios from 'axios';
+import http from 'http';
+import https from 'https';
 import mammoth from 'mammoth';
 import * as XLSX from 'xlsx';
 import fs from 'fs';
@@ -151,33 +153,28 @@ class FileService {
     for (let i = 0; i < retries; i++) {
       try {
         console.log(`[FileService] Downloading file (Attempt ${i + 1}/${retries}): ${url}`);
-        
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), timeout);
 
-        const response = await fetch(url, { 
-          signal: controller.signal,
+        // Use axios instead of native fetch — Node.js undici fetch has IPv6
+        // resolution issues on Windows that cause ETIMEDOUT against Cloudflare.
+        // Axios uses Node's http/https modules which handle dual-stack correctly.
+        const response = await axios({
+          method: 'GET',
+          url,
+          responseType: 'stream',
+          timeout,
           headers: {
             'Accept': '*/*',
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
-          }
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+          },
+          // Force IPv4 to avoid IPv6 timeout issues with Cloudflare on Windows
+          httpAgent: new http.Agent({ family: 4 }),
+          httpsAgent: new https.Agent({ family: 4 }),
         });
 
-        clearTimeout(timeoutId);
-
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
-
-        if (!response.body) {
-          throw new Error('Response body is null');
-        }
+        console.log(`[FileService] Response received. Content-Type: ${response.headers['content-type']}, Content-Length: ${response.headers['content-length']}`);
 
         const writer = fs.createWriteStream(localPath);
-        
-        // Node.js 18+ supports stream.Readable.fromWeb
-        const { Readable } = require('stream');
-        await pipeline(Readable.fromWeb(response.body as any), writer);
+        await pipeline(response.data, writer);
         console.log(`[FileService] Successfully downloaded file to ${localPath}`);
         return;
       } catch (error: any) {

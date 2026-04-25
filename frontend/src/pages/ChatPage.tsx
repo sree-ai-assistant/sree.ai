@@ -196,6 +196,7 @@ const ChatPage: React.FC = () => {
     }
     
     setIsGenerating(true);
+    setIsProcessingVideo(currentAttachments.some(a => a.type === 'video'));
     setStreamingMessage('');
     if (!isRetry) setStreamingStatus(null);
     const abortController = new AbortController();
@@ -264,8 +265,9 @@ const ChatPage: React.FC = () => {
         body: JSON.stringify({
           messages: finalMessagesForRequest,
           model: selectedModel?.model_id,
-          attachments: currentAttachments,
-          messageId: userMsg?.id
+          attachments: currentAttachments.map(a => ({ name: a.file?.name || a.name, type: a.type, url: a.url, extractedText: a.extractedText })),
+          messageId: userMsg?.id,
+          conversationId: currentConvId
         }),
         signal: abortController.signal,
       });
@@ -365,6 +367,7 @@ const ChatPage: React.FC = () => {
       });
     } finally {
       setIsGenerating(false);
+      setIsProcessingVideo(false);
       setStreamingMessage('');
       setStreamingStatus(null);
     }

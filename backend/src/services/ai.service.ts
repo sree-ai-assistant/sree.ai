@@ -39,9 +39,19 @@ class AiService {
     for (const msg of processedMessages) {
       const last = consolidated[consolidated.length - 1];
       if (last && last.role === msg.role && msg.role !== 'system') {
-        last.content = (typeof last.content === 'string' ? last.content : JSON.stringify(last.content)) + 
-                       '\n\n' + 
-                       (typeof msg.content === 'string' ? msg.content : JSON.stringify(msg.content));
+        // Merge content properly
+        if (typeof last.content === 'string' && typeof msg.content === 'string') {
+          last.content += '\n\n' + msg.content;
+        } else {
+          // Handle mixed content (string and array)
+          const lastParts = typeof last.content === 'string' 
+            ? [{ type: 'text', text: last.content }] 
+            : last.content;
+          const msgParts = typeof msg.content === 'string' 
+            ? [{ type: 'text', text: msg.content }] 
+            : msg.content;
+          last.content = [...lastParts, ...msgParts];
+        }
       } else {
         consolidated.push({ ...msg });
       }
@@ -51,8 +61,20 @@ class AiService {
     const hydrated = consolidated.map(m => {
       if (m.metadata?.extractedContext) {
         const contextStr = `\n\n### DOCUMENT CONTEXT ###\n${m.metadata.extractedContext}\n### END OF DOCUMENT CONTEXT ###`;
-        const content = typeof m.content === 'string' ? m.content : JSON.stringify(m.content);
-        return { ...m, content: content + contextStr };
+        
+        if (typeof m.content === 'string') {
+          return { ...m, content: m.content + contextStr };
+        } else if (Array.isArray(m.content)) {
+          // Add context to the first text part, or unshift a new text part
+          const newContent = [...m.content];
+          const textPart = newContent.find((p: any) => p.type === 'text');
+          if (textPart) {
+            textPart.text += contextStr;
+          } else {
+            newContent.unshift({ type: 'text', text: contextStr });
+          }
+          return { ...m, content: newContent };
+        }
       }
       return m;
     });

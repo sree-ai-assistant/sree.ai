@@ -8,6 +8,7 @@ export interface Conversation {
   type: 'chat' | 'voice' | 'image';
   created_at: string;
   updated_at: string;
+  videos_in_conversation?: { name: string; url: string }[];
 }
 
 export interface Message {
