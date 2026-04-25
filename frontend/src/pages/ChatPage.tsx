@@ -167,7 +167,7 @@ const ChatPage: React.FC = () => {
     { title: 'Debug my code', desc: 'Help find the memory leak' },
   ];
 
-  const handleSend = async (text?: string, isRetry: boolean = false, retryAttachments: any[] = [], autoRetryCount: number = 0, errorToReplaceId?: string) => {
+  const handleSend = async (text?: string, isRetry: boolean = false, retryAttachments: any[] = [], autoRetryCount: number = 0) => {
     if (lockTimeRemaining > 0) return;
 
     const messageContent = text || '';
@@ -322,11 +322,6 @@ const ChatPage: React.FC = () => {
               
               const data = JSON.parse(dataString);
               if (data.content) {
-                // If this is a retry and we just got the first chunk of content, remove the error message
-                if (errorToReplaceId) {
-                  removeMessage(errorToReplaceId);
-                  errorToReplaceId = undefined; // Ensure we only call it once
-                }
                 assistantMessage += data.content;
                 setStreamingMessage(assistantMessage);
               } else if (data.status) {
@@ -343,21 +338,35 @@ const ChatPage: React.FC = () => {
         if (isStreamFinishedLocal) break;
       }
 
-      if (currentConvId && assistantMessage.trim() && !isSaved) {
+      if (currentConvId && !isSaved) {
         isSaved = true;
-        await addMessage(currentConvId, 'assistant', assistantMessage, { mode: 'text' });
+        // Ensure no assistant response is blank
+        const finalContent = assistantMessage.trim() || "😓🫠";
+        await addMessage(currentConvId, 'assistant', finalContent, { mode: 'text' });
       }
 
     } catch (error: any) {
       console.error('[ChatPage] Error in handleSend:', error);
       
-      if (error?.name === 'AbortError') return;
+      if (error?.name === 'AbortError') {
+        const content = 'The request was terminated by the user.';
+        const metadata = { 
+          error: true, 
+          aborted: true,
+          timestamp: Date.now()
+        };
+        
+        if (currentConvId) {
+          await addMessage(currentConvId, 'assistant', content, metadata);
+        }
+        return;
+      }
 
       // Automatic Retry Logic
       if (autoRetryCount < 1) {
         console.warn(`[ChatPage] Error occurred. Initiating automatic retry 1/1...`);
         setStreamingStatus('Retrying with optimized context...');
-        return handleSend(text, true, currentAttachments, autoRetryCount + 1, errorToReplaceId);
+        return handleSend(text, true, currentAttachments, autoRetryCount + 1);
       }
 
       // If we reach here, retries failed or it's the second error
@@ -419,80 +428,105 @@ const ChatPage: React.FC = () => {
           ) : (
             <AnimatePresence initial={false}>
               {messages.map((m, i) => (
-                <motion.div
-                  key={m.id || i}
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className={`${styles.messageRow} ${m.role === 'user' ? styles.user : ''}`}
-                >
-                  <div className={`${styles.avatar} ${m.role === 'assistant' ? styles.ai : ''}`}>
-                    {m.role === 'assistant' ? <Bot size={20} /> : <User size={20} />}
-                  </div>
-                  <div className={`${styles.bubble} ${m.role === 'assistant' ? styles.ai : styles.user} ${m.metadata?.error ? styles.error : ''}`}>
-                    <div
-                      className={styles.markdown}
-                      style={m.metadata?.mode === 'voice' ? { fontStyle: 'italic' } : {}}
-                    >
-                      {m.metadata?.attachments && (
-                        <MessageAttachment attachments={m.metadata.attachments} />
-                      )}
-                      {m.role === 'assistant' && m.metadata?.error ? (
-                        <div className={styles.errorBubbleContent}>
-                          <div className={styles.errorHeader}>
-                            <AlertCircle size={16} />
-                            <span>Request Failed</span>
-                          </div>
-                          <p className={styles.errorText}>{m.content}</p>
-                          <div className={styles.errorContainer}>
-                            <button
-                              className={styles.retryButton}
-                              onClick={() => {
-                                // Find the last user message to retry
-                                const allMessages = useChatStore.getState().messages;
-                                const lastUserMsg = [...allMessages.slice(0, i + 1)].reverse().find(msg => msg.role === 'user');
-                                if (lastUserMsg) {
-                                  // Pass the error ID to handleSend to remove it only upon successful response
-                                  handleSend(lastUserMsg.content, true, lastUserMsg.metadata?.attachments || [], 0, m.id);
-                                }
-                              }}
-                            >
-                              <RefreshCw size={14} />
-                              Retry Message
-                            </button>
-                          </div>
-                        </div>
-                      ) : (
-                        <ReactMarkdown
-                          remarkPlugins={[remarkGfm]}
-                          components={{
-                            code({ node, inline, className, children, ...props }: any) {
-                              const match = /language-(\w+)/.exec(className || '');
-                              return !inline && match ? (
-                                <CodeBlock
-                                  language={match[1]}
-                                  value={String(children).replace(/\n$/, '')}
-                                />
-                              ) : (
-                                <code className={className} {...props}>
-                                  {children}
-                                </code>
-                              );
-                            },
-                            table({ children }) {
-                              return (
-                                <div className={styles.tableWrapper}>
-                                  <table>{children}</table>
-                                </div>
-                              );
-                            },
-                          }}
-                        >
-                          {filterThinkingTags(m.content)}
-                        </ReactMarkdown>
-                      )}
+                <React.Fragment key={m.id || i}>
+                  <motion.div
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className={`${styles.messageRow} ${m.role === 'user' ? styles.user : ''}`}
+                  >
+                    <div className={`${styles.avatar} ${m.role === 'assistant' ? styles.ai : ''}`}>
+                      {m.role === 'assistant' ? <Bot size={20} /> : <User size={20} />}
                     </div>
-                  </div>
-                </motion.div>
+                    <div className={`${styles.bubble} ${m.role === 'assistant' ? styles.ai : styles.user} ${m.metadata?.error ? styles.error : ''}`}>
+                      <div
+                        className={styles.markdown}
+                        style={m.metadata?.mode === 'voice' ? { fontStyle: 'italic' } : {}}
+                      >
+                        {m.metadata?.attachments && (
+                          <MessageAttachment attachments={m.metadata.attachments} />
+                        )}
+                        {m.role === 'assistant' && m.metadata?.error ? (
+                          <div className={styles.errorBubbleContent}>
+                            <div className={styles.errorHeader}>
+                              <AlertCircle size={16} />
+                              <span>Request Failed</span>
+                            </div>
+                            <p className={styles.errorText}>{m.content}</p>
+                            <div className={styles.errorContainer}>
+                              <button
+                                className={styles.retryButton}
+                                onClick={async () => {
+                                  // Find the last user message to retry
+                                  const allMessages = useChatStore.getState().messages;
+                                  const lastUserMsg = [...allMessages.slice(0, i + 1)].reverse().find(msg => msg.role === 'user');
+                                  
+                                  if (lastUserMsg && activeConversation?.id) {
+                                    // 1. Truncate history starting from this error message (deletes from DB and UI)
+                                    await useChatStore.getState().truncateHistory(activeConversation.id, m.id);
+                                    
+                                    // 2. Trigger send with the last user message's content
+                                    handleSend(lastUserMsg.content, true, lastUserMsg.metadata?.attachments || [], 0);
+                                  }
+                                }}
+                              >
+                                <RefreshCw size={14} />
+                                Retry Message
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <ReactMarkdown
+                            remarkPlugins={[remarkGfm]}
+                            components={{
+                              code({ node, inline, className, children, ...props }: any) {
+                                const match = /language-(\w+)/.exec(className || '');
+                                return !inline && match ? (
+                                  <CodeBlock
+                                    language={match[1]}
+                                    value={String(children).replace(/\n$/, '')}
+                                  />
+                                ) : (
+                                  <code className={className} {...props}>
+                                    {children}
+                                  </code>
+                                );
+                              },
+                              table({ children }) {
+                                return (
+                                  <div className={styles.tableWrapper}>
+                                    <table>{children}</table>
+                                  </div>
+                                );
+                              },
+                            }}
+                          >
+                            {filterThinkingTags(m.content)}
+                          </ReactMarkdown>
+                        )}
+                      </div>
+                    </div>
+                  </motion.div>
+
+                  {/* Fallback for consecutive user messages */}
+                  {m.role === 'user' && 
+                   i < messages.length - 1 && 
+                   messages[i+1].role === 'user' && (
+                    <motion.div
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className={styles.messageRow}
+                    >
+                      <div className={`${styles.avatar} ${styles.ai}`}>
+                        <Bot size={20} />
+                      </div>
+                      <div className={`${styles.bubble} ${styles.ai}`}>
+                        <div className={styles.markdown}>
+                          😓🫠
+                        </div>
+                      </div>
+                    </motion.div>
+                  )}
+                </React.Fragment>
               ))}
               {isGenerating && (
                 <motion.div

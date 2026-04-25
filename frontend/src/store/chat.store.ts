@@ -35,6 +35,7 @@ interface ChatState {
   updateMessage: (messageId: string, content: string, metadata?: any) => Promise<void>;
   removeMessage: (messageId: string) => Promise<void>;
   removeLastMessage: () => void;
+  truncateHistory: (conversationId: string, fromMessageId: string) => Promise<void>;
   clearActiveConversation: () => void;
   setMessages: (messages: Message[]) => void;
 }
@@ -99,7 +100,8 @@ export const useChatStore = create<ChatState>((set, get) => ({
     }
     
     // Filter out messages that have error metadata to ensure they don't persist on refresh
-    const cleanMessages = (messages || []).filter(m => !m.metadata?.error);
+    // Filter out messages that have error metadata, UNLESS it was a manual termination
+    const cleanMessages = (messages || []).filter(m => !m.metadata?.error || m.metadata?.aborted);
     
     set({ messages: cleanMessages, loading: false });
   },
@@ -210,6 +212,34 @@ export const useChatStore = create<ChatState>((set, get) => ({
     set(state => ({
       messages: state.messages.slice(0, -1)
     }));
+  },
+
+  truncateHistory: async (conversationId: string, fromMessageId: string) => {
+    const messages = get().messages;
+    const index = messages.findIndex(m => m.id === fromMessageId);
+    if (index === -1) return;
+
+    const messagesToProcess = messages.slice(index);
+    // Real IDs are UUIDs (persisted). Ephemeral IDs start with 'error-' or 'abort-'
+    const idsToDelete = messagesToProcess
+      .filter(m => m.id && !m.id.startsWith('error-') && !m.id.startsWith('abort-'))
+      .map(m => m.id);
+
+    // Optimistic update
+    set(state => ({
+      messages: state.messages.slice(0, index)
+    }));
+
+    if (idsToDelete.length > 0) {
+      const { error } = await supabase
+        .from('messages')
+        .delete()
+        .in('id', idsToDelete);
+
+      if (error) {
+        console.error('Error truncating history:', error);
+      }
+    }
   },
 
   clearActiveConversation: () => {
