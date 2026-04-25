@@ -31,7 +31,8 @@ const ChatPage: React.FC = () => {
     removeMessage,
     loading: chatLoading,
     setActiveConversation,
-    createConversation
+    createConversation,
+    setMessages
   } = useChatStore();
 
   const { id } = useParams<{ id: string }>();
@@ -166,7 +167,7 @@ const ChatPage: React.FC = () => {
     { title: 'Debug my code', desc: 'Help find the memory leak' },
   ];
 
-  const handleSend = async (text?: string, isRetry: boolean = false, retryAttachments: any[] = [], autoRetryCount: number = 0) => {
+  const handleSend = async (text?: string, isRetry: boolean = false, retryAttachments: any[] = [], autoRetryCount: number = 0, errorToReplaceId?: string) => {
     if (lockTimeRemaining > 0) return;
 
     const messageContent = text || '';
@@ -321,6 +322,11 @@ const ChatPage: React.FC = () => {
               
               const data = JSON.parse(dataString);
               if (data.content) {
+                // If this is a retry and we just got the first chunk of content, remove the error message
+                if (errorToReplaceId) {
+                  removeMessage(errorToReplaceId);
+                  errorToReplaceId = undefined; // Ensure we only call it once
+                }
                 assistantMessage += data.content;
                 setStreamingMessage(assistantMessage);
               } else if (data.status) {
@@ -351,7 +357,7 @@ const ChatPage: React.FC = () => {
       if (autoRetryCount < 1) {
         console.warn(`[ChatPage] Error occurred. Initiating automatic retry 1/1...`);
         setStreamingStatus('Retrying with optimized context...');
-        return handleSend(text, true, currentAttachments, autoRetryCount + 1);
+        return handleSend(text, true, currentAttachments, autoRetryCount + 1, errorToReplaceId);
       }
 
       // If we reach here, retries failed or it's the second error
@@ -360,11 +366,23 @@ const ChatPage: React.FC = () => {
         displayError = 'The server is currently overloaded or taking too long to respond. This can happen with very complex queries or high traffic.';
       }
       
-      await addMessage(currentConvId!, 'assistant', displayError, { 
-        error: true,
-        originalError: error.message,
-        timestamp: Date.now()
-      });
+      // Instead of persisting the error to Supabase, we only add it to the local state
+      // This ensures that error cards don't reappear upon page refresh.
+      const errorId = `error-${Date.now()}`;
+      const errorMessage = {
+        id: errorId,
+        conversation_id: currentConvId!,
+        role: 'assistant' as const,
+        content: displayError,
+        metadata: { 
+          error: true,
+          originalError: error.message,
+          timestamp: Date.now()
+        },
+        created_at: new Date().toISOString()
+      };
+      
+      setMessages([...useChatStore.getState().messages, errorMessage]);
     } finally {
       setIsGenerating(false);
       setIsProcessingVideo(false);
@@ -432,12 +450,9 @@ const ChatPage: React.FC = () => {
                                 // Find the last user message to retry
                                 const allMessages = useChatStore.getState().messages;
                                 const lastUserMsg = [...allMessages.slice(0, i + 1)].reverse().find(msg => msg.role === 'user');
-                                
                                 if (lastUserMsg) {
-                                  // Remove this specific error message bubble
-                                  removeMessage(m.id);
-                                  // Retry with the last user message's content and attachments
-                                  handleSend(lastUserMsg.content, true, lastUserMsg.metadata?.attachments || []);
+                                  // Pass the error ID to handleSend to remove it only upon successful response
+                                  handleSend(lastUserMsg.content, true, lastUserMsg.metadata?.attachments || [], 0, m.id);
                                 }
                               }}
                             >

@@ -23,7 +23,7 @@ export class TokenManager {
           return sum + encoding.encode(part.text || '').length;
         }
         if (part.type === 'image_url') {
-          return sum + 85; // Standard token cost for vision models (estimated)
+          return sum + 300; // More realistic token cost for high-res images in many vision models
         }
         return sum;
       }, 0);

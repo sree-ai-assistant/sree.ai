@@ -36,6 +36,7 @@ interface ChatState {
   removeMessage: (messageId: string) => Promise<void>;
   removeLastMessage: () => void;
   clearActiveConversation: () => void;
+  setMessages: (messages: Message[]) => void;
 }
 
 export const useChatStore = create<ChatState>((set, get) => ({
@@ -55,6 +56,8 @@ export const useChatStore = create<ChatState>((set, get) => ({
     set({ conversations: data || [], loading: false });
   },
 
+  setMessages: (messages: Message[]) => set({ messages }),
+  
   setActiveConversation: async (conversationId: string | null) => {
     if (!conversationId) {
       set({ activeConversation: null, messages: [] });
@@ -77,7 +80,6 @@ export const useChatStore = create<ChatState>((set, get) => ({
       if (error || !data) {
         console.error('Conversation not found:', error);
         set({ activeConversation: null, messages: [], loading: false });
-        // Optional: navigate back or show error
         return;
       }
       conv = data;
@@ -85,7 +87,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
     set({ activeConversation: conv });
 
-    // Fetch messages for this conversation
+    // Fetch messages for this conversation, filtering out saved error messages
     const { data: messages, error: msgError } = await supabase
       .from('messages')
       .select('*')
@@ -96,7 +98,10 @@ export const useChatStore = create<ChatState>((set, get) => ({
       console.error('Error fetching messages:', msgError);
     }
     
-    set({ messages: messages || [], loading: false });
+    // Filter out messages that have error metadata to ensure they don't persist on refresh
+    const cleanMessages = (messages || []).filter(m => !m.metadata?.error);
+    
+    set({ messages: cleanMessages, loading: false });
   },
 
   createConversation: async (userId: string, title: string, type: 'chat' | 'voice' | 'image' = 'chat') => {
@@ -182,6 +187,12 @@ export const useChatStore = create<ChatState>((set, get) => ({
   },
 
   removeMessage: async (messageId: string) => {
+    // Optimistic update
+    const previousMessages = get().messages;
+    set(state => ({
+      messages: state.messages.filter(m => m.id !== messageId)
+    }));
+
     const { error } = await supabase
       .from('messages')
       .delete()
@@ -189,12 +200,10 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
     if (error) {
       console.error('Error removing message:', error);
+      // Rollback on error
+      set({ messages: previousMessages });
       return;
     }
-
-    set(state => ({
-      messages: state.messages.filter(m => m.id !== messageId)
-    }));
   },
 
   removeLastMessage: () => {

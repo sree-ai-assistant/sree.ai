@@ -28,37 +28,54 @@ class AiService {
     const contextLimit = modelInfo?.context_window || 4096;
     const modelMaxOutputTokens = modelInfo?.max_tokens || 4096;
 
-    // 2. Prepend system prompt if missing
-    let processedMessages = [...messages];
-    if (!messages.some(m => m.role === 'system')) {
-      processedMessages = [{ role: 'system', content: this.DEFAULT_SYSTEM_PROMPT }, ...messages];
-    }
+    // 1. Extract and merge all system messages
+    const systemMessages = messages.filter(m => m.role === 'system');
+    const nonSystemMessages = messages.filter(m => m.role !== 'system');
+    
+    let systemContent = systemMessages.length > 0 
+      ? systemMessages.map(m => m.content).join('\n\n')
+      : this.DEFAULT_SYSTEM_PROMPT;
 
-    // 3. Consolidate consecutive roles
-    const consolidated: any[] = [];
-    for (const msg of processedMessages) {
-      const last = consolidated[consolidated.length - 1];
-      if (last && last.role === msg.role && msg.role !== 'system') {
-        // Merge content properly
+    // 2. Start with the single merged system message
+    const processedMessages: any[] = [{ role: 'system', content: systemContent }];
+
+    // 3. Consolidate consecutive non-system roles
+    for (const msg of nonSystemMessages) {
+      const last = processedMessages[processedMessages.length - 1];
+      
+      // If same role as last message (and not system), merge them
+      if (last && last.role === msg.role) {
         if (typeof last.content === 'string' && typeof msg.content === 'string') {
           last.content += '\n\n' + msg.content;
         } else {
-          // Handle mixed content (string and array)
-          const lastParts = typeof last.content === 'string' 
-            ? [{ type: 'text', text: last.content }] 
-            : last.content;
-          const msgParts = typeof msg.content === 'string' 
-            ? [{ type: 'text', text: msg.content }] 
-            : msg.content;
+          // Handle complex content (arrays of parts)
+          const lastParts = Array.isArray(last.content) ? last.content : [{ type: 'text', text: last.content }];
+          const msgParts = Array.isArray(msg.content) ? msg.content : [{ type: 'text', text: msg.content }];
           last.content = [...lastParts, ...msgParts];
         }
+        
+        // Merge attachments if present
+        if (msg.metadata?.attachments) {
+          last.metadata = last.metadata || {};
+          last.metadata.attachments = [
+            ...(last.metadata.attachments || []),
+            ...msg.metadata.attachments
+          ];
+        }
       } else {
-        consolidated.push({ ...msg });
+        // Different role, add as new message
+        processedMessages.push({ ...msg });
       }
     }
 
+    // 4. Ensure the conversation starts with a user message (after system)
+    // Some APIs require the first message after system to be 'user'
+    while (processedMessages.length > 1 && processedMessages[1].role === 'assistant') {
+      processedMessages.splice(1, 1);
+    }
+
     // 4. Hydrate messages with document context
-    const hydrated = consolidated.map(m => {
+    const hydrated = processedMessages.map(m => {
       if (m.metadata?.extractedContext) {
         const contextStr = `\n\n### DOCUMENT CONTEXT ###\n${m.metadata.extractedContext}\n### END OF DOCUMENT CONTEXT ###`;
         
@@ -133,7 +150,11 @@ class AiService {
       } catch (error: any) {
         const errorMsg = error.message?.toLowerCase() || '';
         const isTimeout = error.status === 504 || error.status === 502 || error.status === 408 || errorMsg.includes('timeout') || errorMsg.includes('gateway');
-        const isTokenLimit = errorMsg.includes('token') || errorMsg.includes('limit') || error.status === 400;
+        const isTokenLimit = errorMsg.includes('token') || 
+                            errorMsg.includes('limit') || 
+                            errorMsg.includes('prompt') || 
+                            errorMsg.includes('supported') || 
+                            error.status === 400;
 
         if ((isTimeout || isTokenLimit) && retryCount < maxRetries) {
           retryCount++;
@@ -143,7 +164,12 @@ class AiService {
             onStatus(isTimeout ? `Connection slow (Retry ${retryCount}/${maxRetries}). Optimizing...` : 'Optimizing context size...');
           }
 
-          if (isTimeout) {
+          // Extract suggested limit if provided in the error message
+          const limitMatch = errorMsg.match(/only (\d+) is supported/);
+          if (limitMatch && limitMatch[1]) {
+            currentLimit = parseInt(limitMatch[1], 10);
+            console.log(`[AiService] Dynamically adjusted limit to ${currentLimit} based on API feedback`);
+          } else if (isTimeout) {
             // Drastic reduction for timeouts: keep system + last 2 messages only
             const systemMsg = workingMessages.find(m => m.role === 'system');
             const otherMsgs = workingMessages.filter(m => m.role !== 'system').slice(-2);

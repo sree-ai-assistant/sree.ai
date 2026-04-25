@@ -46,15 +46,21 @@ export const ThinkingAnimation: React.FC<{ status?: string | null, isVideo?: boo
   }, []);
 
   useEffect(() => {
-    if (isVideo && status?.includes('Frames extracted and uploaded')) {
+    const isVideoStatus = status?.toLowerCase().includes('video') || status?.toLowerCase().includes('frames');
+    if ((isVideo || isVideoStatus) && (status?.includes('Frames extracted and uploaded') || status?.includes('recalled successfully'))) {
       setIsVideoPhase(true);
       setIndex(0); // Reset index for new terms
     }
   }, [status, isVideo]);
 
   useEffect(() => {
-    // If we have a status that is NOT the video completion one, show it statically
-    if (status && !status.includes('Frames extracted and uploaded')) {
+    // If we have a status that is a "transitional" status (not a "done" or "cycling" status), show it statically
+    const isTransitional = status && 
+      !status.includes('Frames extracted and uploaded') && 
+      !status.includes('recalled successfully') &&
+      status !== 'Thinking...';
+
+    if (isTransitional) {
       setIsVideoPhase(false);
       return;
     }
@@ -73,7 +79,7 @@ export const ThinkingAnimation: React.FC<{ status?: string | null, isVideo?: boo
 
   if (showSpecialMessage) {
     displayContent = "You have chosen a Thinking Model, So Be Patient & Let it Cook !";
-  } else if (status && !isVideoPhase) {
+  } else if (status && !isVideoPhase && status !== 'Thinking...') {
     displayContent = status;
   } else {
     displayContent = currentTerms[index];
