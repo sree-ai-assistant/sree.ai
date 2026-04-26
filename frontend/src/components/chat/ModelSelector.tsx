@@ -52,7 +52,7 @@ export const ModelSelector: React.FC = () => {
       if (a.is_vision && !b.is_vision) return -1;
       if (!a.is_vision && b.is_vision) return 1;
     }
-    
+
     const ranks = { 'free': 0, 'premium': 1, 'pro': 2 };
     const rankA = ranks[a.tier_required.toLowerCase() as keyof typeof ranks] ?? 0;
     const rankB = ranks[b.tier_required.toLowerCase() as keyof typeof ranks] ?? 0;
@@ -61,7 +61,7 @@ export const ModelSelector: React.FC = () => {
 
   return (
     <div className={styles.container} ref={dropdownRef}>
-      <button 
+      <button
         className={styles.selectorButton}
         onClick={() => setIsOpen(!isOpen)}
         aria-haspopup="listbox"
@@ -70,16 +70,16 @@ export const ModelSelector: React.FC = () => {
         <div className={styles.icon}>
           {selectedModel?.is_vision ? <Eye size={18} /> : <Cpu size={18} />}
         </div>
-        <span>{selectedModel?.name || 'Select Model'}</span>
-        <ChevronDown 
-          className={`${styles.chevron} ${isOpen ? styles.chevronOpen : ''}`} 
-          size={16} 
+        <span title='Fast Model'>{selectedModel?.name || 'Select Model'}{selectedModel?.is_fast && ' ⚡'}</span>
+        <ChevronDown
+          className={`${styles.chevron} ${isOpen ? styles.chevronOpen : ''}`}
+          size={16}
         />
       </button>
 
       <AnimatePresence>
         {isOpen && (
-          <motion.div 
+          <motion.div
             initial={{ opacity: 0, y: 10, scale: 0.95 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 10, scale: 0.95 }}
@@ -93,7 +93,7 @@ export const ModelSelector: React.FC = () => {
               const inMaintenance = model.in_maintenance;
 
               return (
-                <div 
+                <div
                   key={model.model_id}
                   className={`${styles.modelItem} ${isSelected ? styles.selected : ''} ${!accessible ? styles.locked : ''} ${isFaded ? styles.faded : ''} ${inMaintenance ? styles.maintenance : ''}`}
                   onClick={() => {
@@ -134,7 +134,7 @@ export const ModelSelector: React.FC = () => {
                     <div className={styles.modelName}>
                       {model.is_vision && <span className={styles.visionBadge}>Vision</span>}
                       {inMaintenance && <span className={styles.maintenanceBadge} title="In Maintenance">⚠️</span>}
-                      {model.name}
+                      {model.name} <span title='Faster Model'> {model.is_fast && ' ⚡'}</span>
                     </div>
                     {inMaintenance ? (
                       <span className={styles.maintenanceText}>Maintenance</span>
