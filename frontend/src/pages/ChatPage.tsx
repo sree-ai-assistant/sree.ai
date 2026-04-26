@@ -215,7 +215,7 @@ const ChatPage: React.FC = () => {
       // Strict Context Cleanup: Filter out error messages and aborted messages
       // We also filter out any message that is the currently "active" user message if it's already in the store (to avoid duplicates)
       const messageHistory = useChatStore.getState().messages
-        .filter(m => !m.metadata?.error && !m.metadata?.aborted && m.id !== userMsg?.id)
+        .filter(m => !m.metadata?.error && m.id !== userMsg?.id)
         .map(m => ({ 
           role: m.role, 
           content: m.content, 
@@ -349,10 +349,12 @@ const ChatPage: React.FC = () => {
       console.error('[ChatPage] Error in handleSend:', error);
       
       if (error?.name === 'AbortError') {
-        const content = 'The request was terminated by the user.';
+        const hasPartialContent = assistantMessage.trim().length > 0;
+        const content = hasPartialContent ? assistantMessage.trim() : 'The request was terminated by the user.';
         const metadata = { 
-          error: true, 
+          error: !hasPartialContent, 
           aborted: true,
+          interrupted: hasPartialContent,
           timestamp: Date.now()
         };
         
@@ -367,6 +369,15 @@ const ChatPage: React.FC = () => {
         console.warn(`[ChatPage] Error occurred. Initiating automatic retry 1/1...`);
         setStreamingStatus('Retrying with optimized context...');
         return handleSend(text, true, currentAttachments, autoRetryCount + 1);
+      }
+
+      // If we have partial content, save it as a message before showing the error card
+      const hasPartialContent = assistantMessage.trim().length > 0;
+      if (hasPartialContent && currentConvId) {
+        await addMessage(currentConvId, 'assistant', assistantMessage.trim(), { 
+          interrupted: true,
+          timestamp: Date.now()
+        });
       }
 
       // If we reach here, retries failed or it's the second error
@@ -475,33 +486,41 @@ const ChatPage: React.FC = () => {
                             </div>
                           </div>
                         ) : (
-                          <ReactMarkdown
-                            remarkPlugins={[remarkGfm]}
-                            components={{
-                              code({ node, inline, className, children, ...props }: any) {
-                                const match = /language-(\w+)/.exec(className || '');
-                                return !inline && match ? (
-                                  <CodeBlock
-                                    language={match[1]}
-                                    value={String(children).replace(/\n$/, '')}
-                                  />
-                                ) : (
-                                  <code className={className} {...props}>
-                                    {children}
-                                  </code>
-                                );
-                              },
-                              table({ children }) {
-                                return (
-                                  <div className={styles.tableWrapper}>
-                                    <table>{children}</table>
-                                  </div>
-                                );
-                              },
-                            }}
-                          >
-                            {filterThinkingTags(m.content)}
-                          </ReactMarkdown>
+                          <>
+                            <ReactMarkdown
+                              remarkPlugins={[remarkGfm]}
+                              components={{
+                                code({ node, className, children, ...props }: any) {
+                                  const match = /language-(\w+)/.exec(className || '');
+                                  return match ? (
+                                    <CodeBlock
+                                      language={match[1]}
+                                      value={String(children).replace(/\n$/, '')}
+                                    />
+                                  ) : (
+                                    <code className={className} {...props}>
+                                      {children}
+                                    </code>
+                                  );
+                                },
+                                table({ children }) {
+                                  return (
+                                    <div className={styles.tableWrapper}>
+                                      <table>{children}</table>
+                                    </div>
+                                  );
+                                },
+                              }}
+                            >
+                              {filterThinkingTags(m.content)}
+                            </ReactMarkdown>
+                            {m.metadata?.interrupted && (
+                              <div className={styles.interruptedTag}>
+                                <AlertCircle size={12} />
+                                <span>Interrupted</span>
+                              </div>
+                            )}
+                          </>
                         )}
                       </div>
                     </div>
@@ -545,9 +564,9 @@ const ChatPage: React.FC = () => {
                         <ReactMarkdown
                           remarkPlugins={[remarkGfm]}
                           components={{
-                            code({ node, inline, className, children, ...props }: any) {
+                            code({ node, className, children, ...props }: any) {
                               const match = /language-(\w+)/.exec(className || '');
-                              return !inline && match ? (
+                              return match ? (
                                 <CodeBlock
                                   language={match[1]}
                                   value={String(children).replace(/\n$/, '')}

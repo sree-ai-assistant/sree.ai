@@ -234,6 +234,25 @@
   margin: 0;
 }
 
+.interruptedTag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 12px;
+  padding: 4px 10px;
+  background: rgba(239, 68, 68, 0.05);
+  border: 1px solid rgba(239, 68, 68, 0.2);
+  border-radius: 8px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #ef4444;
+  animation: fadeIn 0.3s ease-out;
+}
+
+.interruptedTag svg {
+  flex-shrink: 0;
+}
+
 .lockoutMessage {
   text-align: center;
   color: #ef4444;
