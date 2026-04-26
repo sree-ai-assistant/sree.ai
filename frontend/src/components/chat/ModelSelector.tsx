@@ -45,14 +45,19 @@ export const ModelSelector: React.FC = () => {
   }
 
   // Sorting logic: 
-  // 1. If visionRequired, Vision models first.
-  // 2. Otherwise, by tier rank.
+  // 1. Maintenance models always at the bottom.
+  // 2. If visionRequired, Vision models first.
+  // 3. Otherwise, by tier rank.
   const sortedModels = [...models].sort((a, b) => {
+    // Maintenance models last
+    if (a.in_maintenance && !b.in_maintenance) return 1;
+    if (!a.in_maintenance && b.in_maintenance) return -1;
+
     if (visionRequired) {
       if (a.is_vision && !b.is_vision) return -1;
       if (!a.is_vision && b.is_vision) return 1;
     }
-
+    
     const ranks = { 'free': 0, 'premium': 1, 'pro': 2 };
     const rankA = ranks[a.tier_required.toLowerCase() as keyof typeof ranks] ?? 0;
     const rankB = ranks[b.tier_required.toLowerCase() as keyof typeof ranks] ?? 0;
