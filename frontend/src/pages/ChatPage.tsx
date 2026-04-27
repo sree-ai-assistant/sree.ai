@@ -170,8 +170,14 @@ const ChatPage: React.FC = () => {
   const handleSend = async (text?: string, isRetry: boolean = false, retryAttachments: any[] = [], autoRetryCount: number = 0) => {
     if (lockTimeRemaining > 0) return;
 
-    const messageContent = text || '';
     const currentAttachments = isRetry ? retryAttachments : [...attachments];
+    
+    // Prevent sending if any file is still uploading
+    if (currentAttachments.some(a => a.isUploading)) {
+      return;
+    }
+
+    const messageContent = text || '';
     if (!messageContent.trim() && currentAttachments.length === 0) return;
     if (isGenerating || !user?.id) return;
 

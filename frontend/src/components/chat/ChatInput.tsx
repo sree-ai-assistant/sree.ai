@@ -61,6 +61,10 @@ export const ChatInput: React.FC<ChatInputProps> = ({
     if (isGenerating) {
       onStop?.();
     } else {
+      // Prevent sending if any file is still uploading
+      const isUploading = attachments.some(a => a.isUploading);
+      if (isUploading) return;
+
       if (internalValue.trim() || attachments.length > 0) {
         onSend(internalValue);
         setInternalValue(''); // Clear local state after sending
