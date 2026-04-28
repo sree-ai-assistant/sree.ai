@@ -4,9 +4,67 @@ import fs from 'fs';
 import { Readable } from 'stream';
 import { TokenManager } from '../utils/tokenManager';
 import { supabaseAdmin } from '../lib/supabase';
+import axios from 'axios';
 
 class AiService {
-  private readonly DEFAULT_SYSTEM_PROMPT = "You are Sree Ai, a professional AI assistant built by NilStudio. You are helpful, detailed, and friendly. Provide comprehensive and complete responses. Always ensure your code snippets are fully functional and well-explained.";
+  private readonly DEFAULT_SYSTEM_PROMPT = `
+  You are Sree AI, a helpful and sophisticated AI assistant developed by NilStudio. 
+  Your purpose is to provide detailed, comprehensive, and high-quality responses to user queries across a wide range of topics.
+  
+  CORE CHARACTERISTICS:
+  - Professional and well-spoken
+  - Friendly and engaging tone
+  - Detailed and thorough explanations
+  - Creative and versatile
+  - Safe and ethical
+  
+  ACADEMIC INTEGRITY (CRITICAL):
+  - You MUST NOT generate, provide, or assist with any content that could be considered academic dishonesty, cheating, or plagiarism.
+  - This explicitly includes:
+    - Writing essays, papers, or reports for the user
+    - Completing homework or assignments
+    - Providing answers to tests, quizzes, or examinations
+    - Generating code intended to be submitted as the user's own work without proper attribution
+    - Creating exam keys or solutions
+  
+  SAFE RESPONSE HANDLING:
+  - Always prioritize safety and academic honesty in your responses.
+  - If a user's query is ambiguous or could be interpreted as a request for academic dishonesty, default to providing educational support only.
+  - Examples of acceptable support:
+    - Explaining underlying concepts
+    - Teaching study methods and strategies
+    - Offering research approaches and resources
+    - Guiding through problem-solving processes without giving final answers
+    - Providing templates or frameworks for academic work
+  
+  OUTPUT GUIDELINES:
+  - Provide comprehensive and complete responses that fully address the user's query
+  - Ensure all code snippets are fully functional, well-explained, and follow best practices
+  - When code is requested, include:
+    - The complete code block
+    - Clear explanations of how it works
+    - Usage examples
+    - Any necessary setup or dependencies
+  - If a user requests content that violates academic integrity, politely decline and explain that you are programmed to uphold academic honesty and provide educational support only.
+  - When declining a request, do so politely and offer alternative, academically appropriate assistance.
+  
+  TONE AND STYLE:
+  - Be conversational yet professional
+  - Use clear and concise language
+  - Structure responses logically with headings and bullet points when appropriate
+  - Adapt your tone based on the user's query while maintaining your core characteristics
+  
+  EXAMPLE RESPONSES:
+  - If asked "Write a 500-word essay on climate change": 
+    "I can't write the essay for you, but I can help you create a strong outline, find reliable sources, and understand the key concepts of climate change."
+  - If asked "Solve this math problem":
+    "I can't give you the final answer, but I can walk you through the steps to solve it yourself. Let's start with the first part of the problem..."
+  - If asked "Generate Python code for X":
+    "Here's a complete, functional Python solution for X with detailed explanations..."
+  
+  REMEMBER: Your goal is to be a helpful AI assistant while strictly maintaining academic integrity and promoting ethical behavior.
+  `
+
 
   private getNvidiaClient(apiKey: string) {
     return new OpenAI({
@@ -21,7 +79,7 @@ class AiService {
     // 1. Fetch model configuration
     const { data: modelInfo } = await supabaseAdmin
       .from('ai_models')
-      .select('max_tokens, context_window, is_vision, is_fast')
+      .select('max_tokens, context_window, is_vision, is_fast, img_no_can_process')
       .eq('model_id', model)
       .single();
 
@@ -155,19 +213,107 @@ class AiService {
 
         const finalVerificationTotal = promptTokens + reservedTokens;
         console.log(`[AiService] Final allocation: Prompt=${promptTokens}, Reserved=${reservedTokens}, Total=${finalVerificationTotal}, Limit=${currentLimit}`);
-
-        // Step D: Final Sanitization for API
-        const sanitized = finalMessages.map(m => {
-          let content = m.content;
-          if (Array.isArray(content)) {
-            const hasImages = content.some((p: any) => p.type === 'image_url');
-            if (!modelInfo?.is_vision || !hasImages) {
-              content = content.filter((p: any) => p.type === 'text').map((p: any) => p.text).join('\n');
+        
+        // Enforce image count limit based on model's img_no_can_process setting
+        const imgLimit = modelInfo?.img_no_can_process; // NULL = no limit
+        if (imgLimit != null && imgLimit > 0) {
+          // Step 1: Collect all image locations across the conversation (in order)
+          const imageLocations: { msgIdx: number; partIdx: number }[] = [];
+          for (let i = 0; i < finalMessages.length; i++) {
+            if (Array.isArray(finalMessages[i].content)) {
+              const parts = finalMessages[i].content as any[];
+              for (let j = 0; j < parts.length; j++) {
+                if (parts[j].type === 'image_url') {
+                  imageLocations.push({ msgIdx: i, partIdx: j });
+                }
+              }
             }
           }
-          return { role: m.role, content: content || "" };
-        });
 
+          // Step 2: If we exceed the limit, keep only the latest N images
+          if (imageLocations.length > imgLimit) {
+            const toRemove = new Set(
+              imageLocations.slice(0, imageLocations.length - imgLimit)
+                .map(loc => `${loc.msgIdx}-${loc.partIdx}`)
+            );
+            console.log(`[AiService] Image limit is ${imgLimit} for model ${model}. Found ${imageLocations.length} images, pruning ${toRemove.size}.`);
+
+            for (let i = 0; i < finalMessages.length; i++) {
+              if (Array.isArray(finalMessages[i].content)) {
+                finalMessages[i].content = (finalMessages[i].content as any[]).filter(
+                  (part: any, j: number) => !(part.type === 'image_url' && toRemove.has(`${i}-${j}`))
+                );
+              }
+            }
+          }
+        }
+
+        console.log(`[AiService] Request for model: ${model} | Found in DB: ${!!modelInfo} | Is Vision: ${modelInfo?.is_vision} | Img limit: ${imgLimit ?? 'none'}`);
+
+        // Convert messages to a format the API expects
+        // and sanitize content (ensure no vision parts reach non-vision models)
+        const sanitized = await Promise.all(finalMessages.map(async (m) => {
+          let content = m.content;
+
+          if (Array.isArray(content)) {
+            const imageParts = content.filter((part: any) => part.type === 'image_url');
+            const hasImages = imageParts.length > 0;
+
+            if (!modelInfo?.is_vision || !hasImages) {
+              if (hasImages) {
+                console.warn(`[AiService] Stripping images from message for non-vision model: ${model}`);
+              }
+              content = content.filter((part: any) => part.type !== 'image_url');
+              // If only text remains, convert back to string for better compatibility
+              if (content.length === 1 && content[0].type === 'text') {
+                content = content[0].text;
+              } else if (content.length === 0) {
+                content = "";
+              }
+            } else {
+              // Image delivery strategy based on model capacity:
+              // 1. Single-image models (limit === 1): Always send base64 for best compatibility.
+              // 2. Multi-image models (limit > 1 or none): Always send URLs to keep payload size low (critical for video frames).
+              const imgLimit = modelInfo?.img_no_can_process;
+              const forceBase64 = imgLimit === 1;
+
+              content = await Promise.all(content.map(async (part: any) => {
+                if (part.type === 'image_url' && part.image_url?.url && part.image_url.url.startsWith('http')) {
+                  const url = part.image_url.url;
+
+                  if (forceBase64) {
+                    try {
+                      console.log(`[AiService] Single-image model detected (${model}). Converting to base64 for compatibility...`);
+                      const base64 = await this.urlToBase64(url);
+                      return {
+                        type: 'image_url',
+                        image_url: { url: base64 }
+                      };
+                    } catch (err: any) {
+                      console.error(`[AiService] Failed to convert image to base64: ${err.message}`);
+                      return part; // Fallback to original URL
+                    }
+                  } else {
+                    console.log(`[AiService] Multi-image model detected (${model}). Sending URL directly: ${url.substring(0, 60)}...`);
+                    return part;
+                  }
+                }
+                return part;
+              }));
+            }
+          }
+
+          return { role: m.role, content: content || "" };
+        }));
+
+        console.log(`[AiService] Final sanitized messages count: ${sanitized.length}`);
+        const lastMsg = sanitized[sanitized.length - 1];
+        if (lastMsg) {
+          const isMultimodal = Array.isArray(lastMsg.content);
+          console.log(`[AiService] Last message role: ${lastMsg.role} | Content type: ${typeof lastMsg.content} | Multimodal: ${isMultimodal}`);
+        }
+        
+        console.log(`[AiService] Sending request to model ${model} with ${sanitized.length} messages.`);
         return await openai.chat.completions.create({
           model,
           messages: sanitized as any,
@@ -187,7 +333,7 @@ class AiService {
 
         if ((isTimeout || isTokenLimit) && retryCount < maxRetries) {
           retryCount++;
-          console.warn(`[AiService] Attempt ${retryCount} failed (${isTimeout ? 'Timeout' : 'Token Limit'}). Retrying with reduced context...`);
+          console.warn(`[AiService] Attempt ${retryCount} failed (${isTimeout ? 'Timeout' : 'Token Limit'}). Retrying with reduced context...${errorMsg}`);
 
           if (onStatus) {
             onStatus(isTimeout ? `Connection slow (Retry ${retryCount}/${maxRetries}). Optimizing...` : 'Optimizing context size...');
@@ -274,6 +420,22 @@ class AiService {
       return { text: transcript };
     } catch (error: any) {
       console.error('Deepgram Transcription Error:', error.message);
+      throw error;
+    }
+  }
+
+  /**
+   * Helper to convert a remote image URL to a base64 string
+   * This is useful for multimodal models that might have trouble fetching external URLs
+   */
+  private async urlToBase64(url: string): Promise<string> {
+    try {
+      const response = await axios.get(url, { responseType: 'arraybuffer' });
+      const buffer = Buffer.from(response.data, 'binary');
+      const contentType = response.headers['content-type'] || 'image/jpeg';
+      return `data:${contentType};base64,${buffer.toString('base64')}`;
+    } catch (error: any) {
+      console.error(`[AiService] Error fetching image for base64 conversion: ${error.message}`);
       throw error;
     }
   }

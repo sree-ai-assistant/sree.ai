@@ -9,7 +9,7 @@ import multer from 'multer';
 import fs from 'fs';
 import { TokenManager } from '../utils/tokenManager';
 import { supabaseAdmin } from '../lib/supabase';
-import { videoService } from '../services/video.service';
+import { videoService, VideoService } from '../services/video.service';
 import path from 'path';
 // Removed static uuid import due to ESM/CJS compatibility issues
 
@@ -283,8 +283,20 @@ router.post('/chat', authMiddleware, tierCheckMiddleware, async (req: any, res) 
             await fileService.downloadFile(video.url, tempVideoPath);
             console.log(`[AI Route] Downloaded ${video.name} to ${tempVideoPath}`);
 
-            res.write(`data: ${JSON.stringify({ status: `Extracting 5 key frames from ${video.name}...` })}\n\n`);
-            const framePaths = await videoService.extractFrames(tempVideoPath, 5);
+            res.write(`data: ${JSON.stringify({ status: `Analyzing ${video.name} duration...` })}\n\n`);
+
+            // Determine optimal frame count based on video duration
+            let frameCount = 5;
+            try {
+              const duration = await videoService.getDuration(tempVideoPath);
+              frameCount = VideoService.optimalFrameCount(duration);
+              console.log(`[AI Route] Video duration: ${duration}s → extracting ${frameCount} frames`);
+            } catch (durationErr: any) {
+              console.warn(`[AI Route] Could not read duration, defaulting to ${frameCount} frames:`, durationErr.message);
+            }
+
+            res.write(`data: ${JSON.stringify({ status: `Extracting ${frameCount} key frames from ${video.name}...` })}\n\n`);
+            const framePaths = await videoService.extractFrames(tempVideoPath, frameCount);
             console.log(`[AI Route] Extracted ${framePaths.length} frames from ${video.name}`);
 
             if (framePaths.length === 0) {
@@ -444,6 +456,42 @@ router.post('/chat', authMiddleware, tierCheckMiddleware, async (req: any, res) 
     }
 
 
+    // --- IMAGE ATTACHMENTS: Process all messages for multimodal content ---
+    // We create a specific copy for the API call to avoid corrupting the DB version with JSON arrays
+    let apiMessages = processedMessages.map((msg: any, index: number) => {
+      // 1. Get images from message metadata (for history)
+      const msgAttachments = msg.metadata?.attachments || [];
+      const msgImages = msgAttachments.filter((a: any) => a.type === 'image' || a.type?.startsWith('image/'));
+      
+      // 2. For the last message, also include the top-level attachments if they aren't already there
+      if (index === processedMessages.length - 1 && attachments && attachments.length > 0) {
+        const topLevelImages = attachments.filter((a: any) => a.type === 'image' || a.type?.startsWith('image/'));
+        topLevelImages.forEach((img: any) => {
+          if (!msgImages.some((existing: any) => existing.url === img.url)) {
+            msgImages.push(img);
+          }
+        });
+      }
+
+      if (msgImages.length > 0) {
+        console.log(`[AI Route] Converting message ${index} to multimodal (${msgImages.length} images)`);
+        const textContent = typeof msg.content === 'string' ? msg.content : '';
+        return {
+          role: msg.role,
+          content: [
+            { type: 'text', text: textContent },
+            ...msgImages.map((img: any) => ({
+              type: 'image_url',
+              image_url: { url: img.url }
+            }))
+          ]
+        };
+      }
+      
+      return { role: msg.role, content: msg.content };
+    });
+
+
     // Get API key with user overrides
     const nvidiaApiKey = await ApiKeyService.getUserApiKey(userId, 'nvidia');
 
@@ -461,7 +509,7 @@ router.post('/chat', authMiddleware, tierCheckMiddleware, async (req: any, res) 
     }
 
     // Optimize token usage by compressing history
-    const optimizedMessages = TokenManager.compressMessages(processedMessages);
+    const optimizedMessages = TokenManager.compressMessages(apiMessages);
 
     const stream = await aiService.streamChat(nvidiaApiKey, optimizedMessages, model, (status) => {
       res.write(`data: ${JSON.stringify({ status })}\n\n`);
