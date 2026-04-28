@@ -323,17 +323,24 @@ class AiService {
         });
 
       } catch (error: any) {
-        const errorMsg = error.message?.toLowerCase() || '';
+        const errorResponse = error.response?.data || error.data || error;
+        const errorMsg = (error.message || '').toLowerCase();
+        const detailMsg = typeof errorResponse === 'object' ? JSON.stringify(errorResponse) : String(errorResponse);
+        
+        console.error(`[AiService] AI Provider Error: ${errorMsg} | Details: ${detailMsg.substring(0, 500)}`);
+
         const isTimeout = error.status === 504 || error.status === 502 || error.status === 408 || errorMsg.includes('timeout') || errorMsg.includes('gateway');
         const isTokenLimit = errorMsg.includes('token') ||
           errorMsg.includes('limit') ||
           errorMsg.includes('prompt') ||
           errorMsg.includes('supported') ||
-          error.status === 400;
+          error.status === 400 ||
+          detailMsg.toLowerCase().includes('token') ||
+          detailMsg.toLowerCase().includes('limit');
 
         if ((isTimeout || isTokenLimit) && retryCount < maxRetries) {
           retryCount++;
-          console.warn(`[AiService] Attempt ${retryCount} failed (${isTimeout ? 'Timeout' : 'Token Limit'}). Retrying with reduced context...${errorMsg}`);
+          console.warn(`[AiService] Attempt ${retryCount} failed. Retrying with reduced context...`);
 
           if (onStatus) {
             onStatus(isTimeout ? `Connection slow (Retry ${retryCount}/${maxRetries}). Optimizing...` : 'Optimizing context size...');
@@ -349,8 +356,6 @@ class AiService {
             const systemMsg = workingMessages.find(m => m.role === 'system');
             const otherMsgs = workingMessages.filter(m => m.role !== 'system').slice(-2);
             workingMessages = systemMsg ? [systemMsg, ...otherMsgs] : otherMsgs;
-
-            // Reduction limit
             currentLimit = Math.floor(currentLimit * 0.7);
           } else {
             // Token limit hit: reduce limit and try pruning
