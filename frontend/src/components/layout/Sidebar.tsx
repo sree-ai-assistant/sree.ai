@@ -248,7 +248,20 @@ export const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, setIsCollapsed, o
                 </div>
               )}
               {loading && conversations.length === 0 ? (
-                <div className={styles.loadingState}>Loading...</div>
+                <div className={styles.historyList} style={{ padding: isCollapsed ? '0' : '0 8px', display: 'flex', flexDirection: 'column', alignItems: isCollapsed ? 'center' : 'stretch' }}>
+                  {Array.from({ length: 8 }).map((_, i) => (
+                    <div 
+                      key={`sidebar-skeleton-${i}`} 
+                      className="skeleton" 
+                      style={{ 
+                        height: isCollapsed ? '32px' : '36px', 
+                        width: isCollapsed ? '32px' : '100%', 
+                        marginBottom: '12px', 
+                        borderRadius: isCollapsed ? '50%' : '8px' 
+                      }}
+                    ></div>
+                  ))}
+                </div>
               ) : chatConversations.length === 0 ? (
                 !isCollapsed && <div className={styles.emptyState}>No chats yet</div>
               ) : renderList(chatConversations)}
@@ -283,7 +296,20 @@ export const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, setIsCollapsed, o
               </div>
             )}
             {loading && conversations.length === 0 ? (
-              <div className={styles.loadingState}>Loading...</div>
+              <div className={styles.historyList} style={{ padding: isCollapsed ? '0' : '0 8px', display: 'flex', flexDirection: 'column', alignItems: isCollapsed ? 'center' : 'stretch' }}>
+                {Array.from({ length: 5 }).map((_, i) => (
+                  <div 
+                    key={`voice-skeleton-${i}`} 
+                    className="skeleton" 
+                    style={{ 
+                      height: isCollapsed ? '32px' : '36px', 
+                      width: isCollapsed ? '32px' : '100%', 
+                      marginBottom: '12px', 
+                      borderRadius: isCollapsed ? '50%' : '8px' 
+                    }}
+                  ></div>
+                ))}
+              </div>
             ) : voiceConversations.length === 0 ? (
               !isCollapsed && <div className={styles.emptyState}>No recordings yet</div>
             ) : renderList(voiceConversations)}

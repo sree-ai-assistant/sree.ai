@@ -121,95 +121,102 @@ const ImageGenPage: React.FC = () => {
           gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', 
           gap: '24px' 
         }}>
-          <AnimatePresence>
-            {isGenerating && (
-              <motion.div
-                initial={{ opacity: 0, scale: 0.9 }}
-                animate={{ opacity: 1, scale: 1 }}
-                className="glass"
-                style={{ 
-                  aspectRatio: '1/1', 
-                  borderRadius: '20px', 
-                  display: 'flex', 
-                  flexDirection: 'column',
-                  alignItems: 'center', 
-                  justifyContent: 'center',
-                  gap: '16px',
-                  border: '1px dashed var(--primary)'
-                }}
-              >
-                <div className="animate-spin">
-                  <Loader2 size={40} color="var(--primary)" />
-                </div>
-                <p style={{ fontSize: '0.9rem', color: 'var(--primary)' }}>Synthesizing Vision...</p>
-              </motion.div>
-            )}
-
-            {imageHistory.map(img => (
-              <motion.div
-                key={img.id}
-                layout
-                initial={{ opacity: 0, scale: 0.9 }}
-                animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0, scale: 0.9 }}
-                className="glass glow-border"
-                style={{ 
-                  position: 'relative', 
-                  borderRadius: '20px', 
-                  overflow: 'hidden', 
-                  cursor: 'pointer',
-                  minHeight: '200px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center'
-                }}
-              >
-                <div style={{ padding: '20px', textAlign: 'center' }}>
-                    <Clock size={24} style={{ marginBottom: '8px', opacity: 0.5 }} />
-                    <p style={{ fontSize: '0.85rem' }}>{img.title}</p>
-                    <p style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>
-                        {new Date(img.created_at).toLocaleDateString()}
-                    </p>
-                </div>
-                <div style={{
-                  position: 'absolute',
-                  inset: 0,
-                  background: 'linear-gradient(to top, rgba(0,0,0,0.8), transparent)',
-                  opacity: 0,
-                  transition: 'opacity 0.3s ease',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  justifyContent: 'flex-end',
-                  padding: '16px'
-                }} 
-                className="gallery-overlay"
-                onMouseEnter={(e) => (e.currentTarget.style.opacity = '1')}
-                onMouseLeave={(e) => (e.currentTarget.style.opacity = '0')}
+          {loading && imageHistory.length === 0 ? (
+            Array.from({ length: 6 }).map((_, i) => (
+              <div key={`img-skeleton-${i}`} className="skeleton" style={{ aspectRatio: '1/1', borderRadius: '20px' }}></div>
+            ))
+          ) : (
+            <AnimatePresence>
+              {isGenerating && (
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.9 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  className="glass"
+                  style={{ 
+                    aspectRatio: '1/1', 
+                    borderRadius: '20px', 
+                    display: 'flex', 
+                    flexDirection: 'column',
+                    alignItems: 'center', 
+                    justifyContent: 'center',
+                    gap: '16px',
+                    border: '1px dashed var(--primary)'
+                  }}
                 >
-                  <div style={{ display: 'flex', gap: '8px' }}>
-                    <button style={{ 
-                       background: 'rgba(239, 68, 68, 0.2)', 
-                       border: 'none', 
-                       color: '#EF4444', 
-                       width: '100%',
-                       height: '32px',
-                       borderRadius: '8px',
-                       display: 'flex',
-                       alignItems: 'center',
-                       justifyContent: 'center',
-                       gap: '8px'
-                    }} onClick={(e) => {
-                        e.stopPropagation();
-                        if(confirm('Delete this generation?')) deleteConversation(img.id);
-                    }}>
-                      <Trash2 size={14} />
-                      <span>Delete</span>
-                    </button>
+                  <div className="animate-spin">
+                    <Loader2 size={40} color="var(--primary)" />
                   </div>
-                </div>
-              </motion.div>
-            ))}
-          </AnimatePresence>
+                  <p style={{ fontSize: '0.9rem', color: 'var(--primary)' }}>Synthesizing Vision...</p>
+                </motion.div>
+              )}
+
+              {imageHistory.map(img => (
+                <motion.div
+                  key={img.id}
+                  layout
+                  initial={{ opacity: 0, scale: 0.9 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.9 }}
+                  className="glass glow-border"
+                  style={{ 
+                    position: 'relative', 
+                    borderRadius: '20px', 
+                    overflow: 'hidden', 
+                    cursor: 'pointer',
+                    minHeight: '200px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center'
+                  }}
+                >
+                  <div style={{ padding: '20px', textAlign: 'center' }}>
+                      <Clock size={24} style={{ marginBottom: '8px', opacity: 0.5 }} />
+                      <p style={{ fontSize: '0.85rem' }}>{img.title}</p>
+                      <p style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>
+                          {new Date(img.created_at).toLocaleDateString()}
+                      </p>
+                  </div>
+                  <div style={{
+                    position: 'absolute',
+                    inset: 0,
+                    background: 'linear-gradient(to top, rgba(0,0,0,0.8), transparent)',
+                    opacity: 0,
+                    transition: 'opacity 0.3s ease',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    justifyContent: 'flex-end',
+                    padding: '16px'
+                  }} 
+                  className="gallery-overlay"
+                  onMouseEnter={(e) => (e.currentTarget.style.opacity = '1')}
+                  onMouseLeave={(e) => (e.currentTarget.style.opacity = '0')}
+                  >
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                      <button style={{ 
+                         background: 'rgba(239, 68, 68, 0.2)', 
+                         border: 'none', 
+                         color: '#EF4444', 
+                         width: '100%',
+                         height: '32px',
+                         borderRadius: '8px',
+                         display: 'flex',
+                         alignItems: 'center',
+                         justifyContent: 'center',
+                         gap: '8px'
+                      }} onClick={(e) => {
+                          e.stopPropagation();
+                          if(confirm('Delete this generation?')) deleteConversation(img.id);
+                      }}>
+                        <Trash2 size={14} />
+                        <span>Delete</span>
+                      </button>
+                    </div>
+                  </div>
+                </motion.div>
+              ))}
+            </AnimatePresence>
+          )}
+
         </div>
       </div>
     </DashboardLayout>

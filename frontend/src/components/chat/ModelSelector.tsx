@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ChevronDown, Lock, Cpu, Eye, Zap, Crown } from 'lucide-react';
+import { ChevronDown, Lock, Cpu, Eye, Zap, Crown, Search } from 'lucide-react';
 import { useModelStore } from '../../store/model.store';
 import { useAuthStore } from '../../store/auth.store';
 import { useUIStore } from '../../store/ui.store';
@@ -12,7 +12,18 @@ export const ModelSelector: React.FC = () => {
   const { user } = useAuthStore();
   const { openUpgradeModal } = useUIStore();
   const [isOpen, setIsOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (isOpen && searchInputRef.current) {
+      searchInputRef.current.focus();
+    }
+    if (!isOpen) {
+      setSearchQuery('');
+    }
+  }, [isOpen]);
 
   useEffect(() => {
     fetchModels();
@@ -37,18 +48,18 @@ export const ModelSelector: React.FC = () => {
 
   if (loading && !selectedModel) {
     return (
-      <div className={styles.selectorButton}>
-        <Zap className={styles.icon} size={18} />
-        <span>Loading Models...</span>
+      <div className={`${styles.selectorButton} skeleton`} style={{ width: '160px', height: '38px', border: 'none' }}>
       </div>
     );
   }
 
-  // Sorting logic: 
-  // 1. Maintenance models always at the bottom.
-  // 2. If visionRequired, Vision models first.
-  // 3. Otherwise, by tier rank.
-  const sortedModels = [...models].sort((a, b) => {
+  // Search and Sorting logic: 
+  const filteredModels = models.filter(model => 
+    model.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    model.description.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  const sortedModels = [...filteredModels].sort((a, b) => {
     // Maintenance models last
     if (a.in_maintenance && !b.in_maintenance) return 1;
     if (!a.in_maintenance && b.in_maintenance) return -1;
@@ -91,76 +102,108 @@ export const ModelSelector: React.FC = () => {
             transition={{ duration: 0.2, ease: "easeOut" }}
             className={styles.dropdown}
           >
-            {sortedModels.map((model) => {
-              const accessible = canAccess(model.tier_required);
-              const isSelected = selectedModel?.model_id === model.model_id;
-              const isFaded = (visionRequired && !model.is_vision) || model.in_maintenance;
-              const inMaintenance = model.in_maintenance;
-
-              return (
-                <div
-                  key={model.model_id}
-                  className={`${styles.modelItem} ${isSelected ? styles.selected : ''} ${!accessible ? styles.locked : ''} ${isFaded ? styles.faded : ''} ${inMaintenance ? styles.maintenance : ''}`}
-                  onClick={() => {
-                    if (inMaintenance) {
-                      toast.error('This model is currently in maintenance.', {
-                        icon: '⚠️',
-                        style: {
-                          background: '#1a1a1a',
-                          color: '#fff',
-                          border: '1px solid rgba(255, 255, 255, 0.1)'
-                        }
-                      });
-                      return;
-                    }
-
-                    if (!accessible) {
-                      openUpgradeModal(model.tier_required as 'premium' | 'pro');
-                      return;
-                    }
-
-                    if (visionRequired && !model.is_vision) {
-                      toast.error('This model does not support file attachments. Please select a Vision model.', {
-                        icon: '🎬',
-                        style: {
-                          background: '#1a1a1a',
-                          color: '#fff',
-                          border: '1px solid rgba(255, 255, 255, 0.1)'
-                        }
-                      });
-                      return;
-                    }
-
-                    setSelectedModel(model.model_id);
-                    setIsOpen(false);
-                  }}
-                >
+            <div className={styles.searchContainer}>
+              <Search size={14} className={styles.searchIcon} />
+              <input
+                ref={searchInputRef}
+                type="text"
+                className={styles.searchInput}
+                placeholder="Search models..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                onClick={(e) => e.stopPropagation()}
+              />
+            </div>
+            {loading ? (
+              // Skeleton loading for models list
+              Array.from({ length: 5 }).map((_, i) => (
+                <div key={`skeleton-${i}`} className={styles.modelItem} style={{ border: 'none' }}>
                   <div className={styles.modelHeader}>
-                    <div className={styles.modelName}>
-                      {model.is_vision && <span className={styles.visionBadge}>Vision</span>}
-                      {inMaintenance && <span className={styles.maintenanceBadge} title="In Maintenance">⚠️</span>}
-                      {model.name} <span title='Faster Model'> {model.is_fast && ' ⚡'}</span>
-                    </div>
-                    {inMaintenance ? (
-                      <span className={styles.maintenanceText}>Maintenance</span>
-                    ) : !accessible ? (
-                      <Lock size={14} className={styles.lockIcon} />
-                    ) : model.tier_required.toLowerCase() === 'premium' ? (
-                      <div className={styles.premiumIcon} title="Premium">
-                        <Crown size={16} fill="#FFD700" color="#B8860B" />
-                      </div>
-                    ) : (
-                      <span className={`${styles.tierBadge} ${styles[`tier-${model.tier_required.toLowerCase()}`]}`}>
-                        {model.tier_required}
-                      </span>
-                    )}
+                    <div className="skeleton" style={{ width: '120px', height: '18px', borderRadius: '4px' }}></div>
+                    <div className="skeleton" style={{ width: '50px', height: '18px', borderRadius: '4px' }}></div>
                   </div>
-                  <div className={styles.modelDesc}>
-                    {inMaintenance ? 'Currently undergoing maintenance. Please check back later.' : model.description}
-                  </div>
+                  <div className="skeleton" style={{ width: '100%', height: '14px', marginTop: '8px', borderRadius: '4px' }}></div>
                 </div>
-              );
-            })}
+              ))
+            ) : (
+              sortedModels.length > 0 ? (
+                sortedModels.map((model) => {
+                  const accessible = canAccess(model.tier_required);
+                  const isSelected = selectedModel?.model_id === model.model_id;
+                  const isFaded = (visionRequired && !model.is_vision) || model.in_maintenance;
+                  const inMaintenance = model.in_maintenance;
+
+                  return (
+                    <div
+                      key={model.model_id}
+                      className={`${styles.modelItem} ${isSelected ? styles.selected : ''} ${!accessible ? styles.locked : ''} ${isFaded ? styles.faded : ''} ${inMaintenance ? styles.maintenance : ''}`}
+                      onClick={() => {
+                        if (inMaintenance) {
+                          toast.error('This model is currently in maintenance.', {
+                            icon: '⚠️',
+                            style: {
+                              background: '#1a1a1a',
+                              color: '#fff',
+                              border: '1px solid rgba(255, 255, 255, 0.1)'
+                            }
+                          });
+                          return;
+                        }
+
+                        if (!accessible) {
+                          openUpgradeModal(model.tier_required as 'premium' | 'pro');
+                          return;
+                        }
+
+                        if (visionRequired && !model.is_vision) {
+                          toast.error('This model does not support file attachments. Please select a Vision model.', {
+                            icon: '🎬',
+                            style: {
+                              background: '#1a1a1a',
+                              color: '#fff',
+                              border: '1px solid rgba(255, 255, 255, 0.1)'
+                            }
+                          });
+                          return;
+                        }
+
+                        setSelectedModel(model.model_id);
+                        setIsOpen(false);
+                      }}
+                    >
+                      <div className={styles.modelHeader}>
+                        <div className={styles.modelName}>
+                          {model.is_vision && <span className={styles.visionBadge}>Vision</span>}
+                          {inMaintenance && <span className={styles.maintenanceBadge} title="In Maintenance">⚠️</span>}
+                          {model.name} <span title='Faster Model'> {model.is_fast && ' ⚡'}</span>
+                        </div>
+                        {inMaintenance ? (
+                          <span className={styles.maintenanceText}>Maintenance</span>
+                        ) : !accessible ? (
+                          <Lock size={14} className={styles.lockIcon} />
+                        ) : model.tier_required.toLowerCase() === 'premium' ? (
+                          <div className={styles.premiumIcon} title="Premium">
+                            <Crown size={16} fill="#FFD700" color="#B8860B" />
+                          </div>
+                        ) : (
+                          <span className={`${styles.tierBadge} ${styles[`tier-${model.tier_required.toLowerCase()}`]}`}>
+                            {model.tier_required}
+                          </span>
+                        )}
+                      </div>
+                      <div className={styles.modelDesc}>
+                        {inMaintenance ? 'Currently undergoing maintenance. Please check back later.' : model.description}
+                      </div>
+                    </div>
+                  );
+                })
+              ) : (
+                <div className={styles.noResults}>
+                  No models found matching "{searchQuery}"
+                </div>
+              )
+            )}
+
           </motion.div>
         )}
       </AnimatePresence>

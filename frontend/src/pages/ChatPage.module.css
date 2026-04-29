@@ -26,6 +26,13 @@
   gap: 12px;
 }
 
+.loadingState {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 8px 0;
+}
+
 /* Custom Scrollbar for Chat */
 .messagesList::-webkit-scrollbar {
   width: 6px;
