@@ -16,7 +16,7 @@
   font-family: var(--font-mono);
   position: sticky;
   top: -20px;
-  z-index: 10;
+  z-index: 9;
   border-bottom: 1px solid rgba(255, 255, 255, 0.05);
   border-top-left-radius: 12px;
   border-top-right-radius: 12px;

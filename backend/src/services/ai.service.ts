@@ -263,13 +263,12 @@ class AiService {
               if (hasImages) {
                 console.warn(`[AiService] Stripping images from message for non-vision model: ${model}`);
               }
-              content = content.filter((part: any) => part.type !== 'image_url');
-              // If only text remains, convert back to string for better compatibility
-              if (content.length === 1 && content[0].type === 'text') {
-                content = content[0].text;
-              } else if (content.length === 0) {
-                content = "";
-              }
+              // Always flatten to string for non-vision models or text-only messages
+              // This fixes errors where the API expects a string but receives an array of text parts
+              content = content
+                .filter((part: any) => part.type === 'text')
+                .map((part: any) => part.text)
+                .join('\n\n');
             } else {
               // Image delivery strategy based on model capacity:
               // 1. Single-image models (limit === 1): Always send base64 for best compatibility.
@@ -303,7 +302,9 @@ class AiService {
             }
           }
 
-          return { role: m.role, content: content || "" };
+          // Ensure content is never truly empty as some APIs (like NVIDIA NIM) reject empty strings
+          // Use a single space as a safe placeholder
+          return { role: m.role, content: content || " " };
         }));
 
         console.log(`[AiService] Final sanitized messages count: ${sanitized.length}`);
