@@ -8,6 +8,7 @@ import ChatPage from './pages/ChatPage';
 import ImageGenPage from './pages/ImageGenPage';
 import SettingsPage from './pages/SettingsPage';
 import ProtectedRoute from './components/auth/ProtectedRoute';
+import { supabase } from './lib/supabase';
 
 import { Toaster } from 'react-hot-toast';
 
@@ -17,6 +18,23 @@ function App() {
   useEffect(() => {
     initialize();
   }, [initialize]);
+
+  // Handle visibility change to prevent Supabase auth lock bug on tab switch
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        supabase.auth.startAutoRefresh();
+      } else {
+        supabase.auth.stopAutoRefresh();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, []);
 
   return (
     <Router>

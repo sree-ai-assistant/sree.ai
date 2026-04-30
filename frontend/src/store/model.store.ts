@@ -39,7 +39,16 @@ export const useModelStore = create<ModelState>()(
       fetchModels: async () => {
         set({ loading: true });
         try {
-          const { data: { session } } = await supabase.auth.getSession();
+          let session = null;
+          try {
+            const { data } = await Promise.race([
+              supabase.auth.getSession(),
+              new Promise<any>((_, reject) => setTimeout(() => reject(new Error('Session fetch timeout')), 3000))
+            ]);
+            session = data?.session;
+          } catch (e) {
+            console.warn('Model store session fetch timeout');
+          }
           
           const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000/api'}/models`, {
             headers: {

@@ -8,7 +8,16 @@ export interface UploadResponse {
 
 export const uploadFile = async (file: File): Promise<UploadResponse> => {
   try {
-    const { data: { session } } = await supabase.auth.getSession();
+    let session = null;
+    try {
+      const { data } = await Promise.race([
+        supabase.auth.getSession(),
+        new Promise<any>((_, reject) => setTimeout(() => reject(new Error('Session fetch timeout')), 3000))
+      ]);
+      session = data?.session;
+    } catch (e) {
+      console.warn('Storage upload session fetch timeout');
+    }
     
     const formData = new FormData();
     formData.append('file', file);

@@ -309,7 +309,16 @@ const ChatPage: React.FC = () => {
     let isSaved = false;
 
     try {
-      const { data: { session } } = await supabase.auth.getSession();
+      let currentSession = session;
+      try {
+        const { data } = await Promise.race([
+          supabase.auth.getSession(),
+          new Promise<{data: {session: any}}>((_, reject) => setTimeout(() => reject(new Error('timeout')), 3000))
+        ]);
+        if (data?.session) currentSession = data.session;
+      } catch (e) {
+        console.warn('Session fetch timeout, using cached session');
+      }
 
       const messageHistory = useChatStore.getState().messages
         .filter(m => !m.metadata?.error && m.id !== userMsg?.id)
@@ -349,7 +358,7 @@ const ChatPage: React.FC = () => {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session?.access_token}`,
+          'Authorization': `Bearer ${currentSession?.access_token}`,
         },
         body: JSON.stringify({
           messages: finalMessagesForRequest,

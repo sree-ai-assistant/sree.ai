@@ -251,7 +251,10 @@ export const VoiceOverlay: React.FC<VoiceOverlayProps> = ({ onClose, initialConv
 
         // 1. Start AI Request in parallel
         const chatRequestPromise = (async () => {
-          const { data: { session } } = await supabase.auth.getSession();
+          const { data: { session } } = await Promise.race([
+            supabase.auth.getSession(),
+            new Promise<any>((_, reject) => setTimeout(() => reject(new Error('Session fetch timeout')), 3000))
+          ]);
           return fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000/api'}/ai/chat`, {
             method: 'POST',
             headers: {

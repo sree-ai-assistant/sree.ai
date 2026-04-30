@@ -7,7 +7,17 @@ const api = axios.create({
 
 // Add auth token to every request
 api.interceptors.request.use(async (config) => {
-  const { data: { session } } = await supabase.auth.getSession();
+  let session = null;
+  try {
+    const { data } = await Promise.race([
+      supabase.auth.getSession(),
+      new Promise<any>((_, reject) => setTimeout(() => reject(new Error('Session fetch timeout')), 3000))
+    ]);
+    session = data?.session;
+  } catch (e) {
+    console.warn('API interceptor session fetch timeout');
+  }
+  
   if (session?.access_token) {
     config.headers.Authorization = `Bearer ${session.access_token}`;
   }
