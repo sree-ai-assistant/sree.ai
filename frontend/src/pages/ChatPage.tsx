@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo, useDeferredValue } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Bot, User, Sparkles, RefreshCw, AlertCircle } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
@@ -83,15 +83,45 @@ const ChatPage: React.FC = () => {
     return () => clearInterval(interval);
   }, []);
 
-  const [attachments, setAttachments] = useState<any[]>([]);
   const [isGenerating, setIsGenerating] = useState(false);
-  const [isProcessingVideo, setIsProcessingVideo] = useState(false);
   const [streamingMessage, setStreamingMessage] = useState('');
+  const [displayedStreamingMessage, setDisplayedStreamingMessage] = useState('');
   const [streamingStatus, setStreamingStatus] = useState<string | null>(null);
   const [isStreamFinished, setIsStreamFinished] = useState(false);
-  const assistantMessageRef = useRef<string>('');
-  const abortControllerRef = useRef<AbortController | null>(null);
+  const [isProcessingVideo, setIsProcessingVideo] = useState(false);
+  const [attachments, setAttachments] = useState<any[]>([]);
+  const [autoScrollEnabled, setAutoScrollEnabled] = useState(true);
+
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const typewriterRafRef = useRef<number | null>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
+  const typewriterIntervalRef = useRef<number | null>(null);
+  const fullContentRef = useRef('');
+
+  // Performance: Memoize Markdown components to prevent heavy re-renders
+  const markdownComponents = useMemo(() => ({
+    code({ node, className, children, ...props }: any) {
+      const match = /language-(\w+)/.exec(className || '');
+      return match ? (
+        <CodeBlock
+          language={match[1]}
+          value={String(children).replace(/\n$/, '')}
+        />
+      ) : (
+        <code className={className} {...props}>
+          {children}
+        </code>
+      );
+    },
+    table({ children }: any) {
+      return (
+        <div className={styles.tableWrapper}>
+          <table>{children}</table>
+        </div>
+      );
+    },
+  }), []);
 
   const handleStop = () => {
     if (abortControllerRef.current) {
@@ -103,49 +133,36 @@ const ChatPage: React.FC = () => {
 
   const filterThinkingTags = (content: any) => {
     if (!content) return '';
-    
-    let textContent = content;
-    
-    if (typeof content === 'string' && content.trim().startsWith('[') && content.trim().endsWith(']')) {
-      try {
-        const parsed = JSON.parse(content);
-        if (Array.isArray(parsed)) {
-          const textObj = parsed.find(item => item.type === 'text');
-          if (textObj) {
-            textContent = textObj.text;
-          }
-        }
-      } catch (e) {}
-    } else if (Array.isArray(content)) {
-      const textObj = content.find(item => item.type === 'text');
-      if (textObj) {
-        textContent = textObj.text;
-      }
-    }
-    
-    if (typeof textContent !== 'string') {
-      textContent = String(textContent);
+    if (typeof content !== 'string') return String(content);
+
+    // Fast check if there are even any tags to process
+    if (!content.includes('<think') && !content.includes('[SYSTEM')) {
+      return content.trim();
     }
 
-    let processed = textContent.replace(/<(think|thinking)>[\s\S]*?<\/\1>/gi, '');
+    let processed = content.replace(/<(think|thinking)>[\s\S]*?<\/\1>/gi, '');
     processed = processed.replace(/<(think|thinking)>[\s\S]*/gi, '');
     processed = processed.replace(/\[SYSTEM INSTRUCTION[\s\S]*?(?:\]|$)/gi, '');
     return processed.trim();
   };
 
+  // Performance: Throttle the heavy thinking-tag filtering
+  const filteredStreamingMessage = useMemo(() => 
+    filterThinkingTags(displayedStreamingMessage), 
+    [displayedStreamingMessage]
+  );
+
+  // Performance: Use deferred value for the heavy Markdown rendering
+  // This lets React prioritize scrolling and user input over text updates
+  const deferredStreamingMessage = useDeferredValue(filteredStreamingMessage);
+
   const estimateTokens = (messages: any[]) => {
-    // Standard heuristic: 1 token approx 3.5-4 chars for English
-    // We use 3.5 for a safer (more conservative) estimate
     let totalChars = 0;
     messages.forEach(m => {
       const content = typeof m.content === 'string' ? m.content : JSON.stringify(m.content);
-      totalChars += (m.role?.length || 0) + content.length + 20; // 20 chars for JSON formatting overhead
+      totalChars += (m.role?.length || 0) + content.length + 20;
     });
     return Math.ceil(totalChars / 3.5);
-  };
-
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
   useEffect(() => {
@@ -156,9 +173,86 @@ const ChatPage: React.FC = () => {
     }
   }, [id, setActiveConversation]);
 
+  const scrollToBottom = (behavior: ScrollBehavior = 'smooth') => {
+    if (autoScrollEnabled && scrollContainerRef.current) {
+      const container = scrollContainerRef.current;
+      if (behavior === 'smooth') {
+        container.scrollTo({ top: container.scrollHeight, behavior: 'smooth' });
+      } else {
+        container.scrollTop = container.scrollHeight;
+      }
+    }
+  };
+
+  const onScroll = () => {
+    if (!scrollContainerRef.current) return;
+    const { scrollTop, scrollHeight, clientHeight } = scrollContainerRef.current;
+
+    // Check if user is near bottom (within 100px)
+    const isAtBottom = scrollHeight - scrollTop - clientHeight < 100;
+
+    if (isGenerating) {
+      // If user scrolls up, disable auto-scroll
+      if (!isAtBottom && autoScrollEnabled) {
+        setAutoScrollEnabled(false);
+      }
+      // If user scrolls back to bottom, re-enable
+      else if (isAtBottom && !autoScrollEnabled) {
+        setAutoScrollEnabled(true);
+      }
+    }
+  };
+
+  // Separate effect for message list updates (new messages)
   useEffect(() => {
-    scrollToBottom();
-  }, [messages, isGenerating, streamingMessage]);
+    scrollToBottom('smooth');
+  }, [messages]);
+
+  // High-frequency scroll for streaming (instant to avoid lag)
+  useEffect(() => {
+    if (isGenerating && autoScrollEnabled) {
+      scrollToBottom('auto');
+    }
+  }, [displayedStreamingMessage, isGenerating, autoScrollEnabled]);
+
+  useEffect(() => {
+    if (!isGenerating) {
+      if (typewriterIntervalRef.current) clearInterval(typewriterIntervalRef.current);
+      setDisplayedStreamingMessage('');
+      fullContentRef.current = '';
+      return;
+    }
+
+    const typewriterInterval = 25; // 40fps - sweet spot for performance vs smoothness
+    
+    typewriterIntervalRef.current = window.setInterval(() => {
+      setDisplayedStreamingMessage(prev => {
+        if (fullContentRef.current.length > prev.length) {
+          const bufferSize = fullContentRef.current.length - prev.length;
+          
+          // Ultra-fast adaptive scaling:
+          // Small buffer: 10 chars (~400 chars/sec)
+          // Medium buffer: 40 chars (~1600 chars/sec)
+          // Large buffer: 150 chars (~6000 chars/sec)
+          // This keeps the "live" feeling while clearing huge responses instantly.
+          const increment = bufferSize > 800 ? 150 : bufferSize > 200 ? 40 : 10;
+          
+          return fullContentRef.current.slice(0, prev.length + increment);
+        }
+        return prev;
+      });
+    }, typewriterInterval);
+
+    return () => {
+      if (typewriterIntervalRef.current) clearInterval(typewriterIntervalRef.current);
+    };
+  }, [isGenerating]);
+
+  useEffect(() => {
+    if (isGenerating) {
+      setAutoScrollEnabled(true);
+    }
+  }, [isGenerating]);
 
   const suggestions = [
     { title: 'Write a technical blog', desc: 'About React 19 features' },
@@ -171,11 +265,8 @@ const ChatPage: React.FC = () => {
     if (lockTimeRemaining > 0) return;
 
     const currentAttachments = isRetry ? retryAttachments : [...attachments];
-    
-    // Prevent sending if any file is still uploading
-    if (currentAttachments.some(a => a.isUploading)) {
-      return;
-    }
+
+    if (currentAttachments.some(a => a.isUploading)) return;
 
     const messageContent = text || '';
     if (!messageContent.trim() && currentAttachments.length === 0) return;
@@ -201,15 +292,17 @@ const ChatPage: React.FC = () => {
     } else {
       userMsg = useChatStore.getState().messages.filter(m => m.role === 'user').pop();
     }
-    
+
     setIsGenerating(true);
     setIsProcessingVideo(currentAttachments.some(a => a.type === 'video'));
     setStreamingMessage('');
+    setDisplayedStreamingMessage('');
+    fullContentRef.current = '';
+    setAutoScrollEnabled(true);
     if (!isRetry) setStreamingStatus(null);
     const abortController = new AbortController();
     abortControllerRef.current = abortController;
 
-    setIsGenerating(true);
     setIsStreamFinished(false);
     let assistantMessage = '';
     let isStreamFinishedLocal = false;
@@ -217,21 +310,18 @@ const ChatPage: React.FC = () => {
 
     try {
       const { data: { session } } = await supabase.auth.getSession();
-      
-      // Strict Context Cleanup: Filter out error messages and aborted messages
-      // We also filter out any message that is the currently "active" user message if it's already in the store (to avoid duplicates)
+
       const messageHistory = useChatStore.getState().messages
         .filter(m => !m.metadata?.error && m.id !== userMsg?.id)
-        .map(m => ({ 
-          role: m.role, 
-          content: m.content, 
+        .map(m => ({
+          role: m.role,
+          content: m.content,
           metadata: {
             ...m.metadata,
             attachments: m.metadata?.attachments || []
           }
         }));
 
-      // Add the current user message to the history
       messageHistory.push({
         role: 'user',
         content: userMsg.content,
@@ -241,27 +331,19 @@ const ChatPage: React.FC = () => {
         }
       });
 
-      // Token Logic: Calculate and compare with model limits
       const contextWindow = selectedModel?.context_window || 4096;
-      const reservedTokens = 1024; // Space for the AI response
-      const safeThreshold = contextWindow - reservedTokens - 50; // Tighter threshold
-      
+      const reservedTokens = 1024;
+      const safeThreshold = contextWindow - reservedTokens - 50;
+
       let finalMessagesForRequest = [...messageHistory];
       const requestTokenSize = estimateTokens(finalMessagesForRequest);
-      
-      console.log(`[Token Logic] Request Size: ${requestTokenSize} tokens | Limit: ${safeThreshold} tokens (Reserved: ${reservedTokens})`);
-      
+
       if (requestTokenSize > safeThreshold) {
-        console.warn(`[Token Logic] Request exceeds threshold. Reducing context size...`);
-        // Remove oldest messages (skipping system) until within threshold
         while (estimateTokens(finalMessagesForRequest) > safeThreshold && finalMessagesForRequest.length > 2) {
           const indexToRemove = finalMessagesForRequest[0].role === 'system' ? 1 : 0;
           finalMessagesForRequest.splice(indexToRemove, 1);
         }
-        console.log(`[Token Logic] Reduced Request Size: ${estimateTokens(finalMessagesForRequest)} tokens`);
       }
-
-      console.log(`[Chat] Sending request to AI with model: ${selectedModel?.model_id}`);
 
       const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000/api'}/ai/chat`, {
         method: 'POST',
@@ -288,19 +370,11 @@ const ChatPage: React.FC = () => {
       const decoder = new TextDecoder();
       let buffer = '';
 
-      console.log('[Streaming] Stream started...');
-
       while (true) {
         const { done, value } = await reader!.read();
-        
-        // Console log comparison for stopping
-        console.log(`[Streaming] Chunk read. done=${done}`);
-        
-        if (done) {
-          console.log('[Streaming] Reader returned done=true. Stopping stream.');
-          break;
-        }
-        
+
+        if (done) break;
+
         buffer += decoder.decode(value, { stream: true });
         const lines = buffer.split('\n');
         buffer = lines.pop() || '';
@@ -308,9 +382,8 @@ const ChatPage: React.FC = () => {
         for (const line of lines) {
           const trimmedLine = line.trim();
           if (!trimmedLine) continue;
-          
+
           if (trimmedLine === 'data: [DONE]') {
-            console.log('[Streaming] STOP SIGNAL detected: data: [DONE]. Terminating loop.');
             isStreamFinishedLocal = true;
             setIsStreamFinished(true);
             break;
@@ -320,99 +393,97 @@ const ChatPage: React.FC = () => {
             try {
               const dataString = trimmedLine.substring(6);
               if (dataString === '[DONE]') {
-                console.log('[Streaming] JSON Stop signal detected. Terminating.');
                 isStreamFinishedLocal = true;
                 setIsStreamFinished(true);
                 break;
               }
-              
+
               const data = JSON.parse(dataString);
               if (data.content) {
                 assistantMessage += data.content;
+                fullContentRef.current = assistantMessage;
                 setStreamingMessage(assistantMessage);
               } else if (data.status) {
                 setStreamingStatus(data.status);
               } else if (data.error) {
                 throw new Error(data.error);
               }
-            } catch (e) {
-              console.warn('[Streaming] Parse warning:', trimmedLine);
-            }
+            } catch (e) { }
           }
         }
-        
+
         if (isStreamFinishedLocal) break;
       }
 
       if (currentConvId && !isSaved) {
         isSaved = true;
-        // Ensure no assistant response is blank
         const finalContent = assistantMessage.trim() || "😓🫠";
+        
+        // Clear generation state BEFORE adding to store to avoid "doubling" flicker
+        setIsGenerating(false);
+        setStreamingMessage('');
+        setDisplayedStreamingMessage('');
+        fullContentRef.current = '';
+        
         await addMessage(currentConvId, 'assistant', finalContent, { mode: 'text' });
       }
 
     } catch (error: any) {
-      console.error('[ChatPage] Error in handleSend:', error);
-      
       if (error?.name === 'AbortError') {
         const hasPartialContent = assistantMessage.trim().length > 0;
         const content = hasPartialContent ? assistantMessage.trim() : 'The request was terminated by the user.';
-        const metadata = { 
-          error: !hasPartialContent, 
+        const metadata = {
+          error: !hasPartialContent,
           aborted: true,
           interrupted: hasPartialContent,
           timestamp: Date.now()
         };
-        
+
         if (currentConvId) {
           await addMessage(currentConvId, 'assistant', content, metadata);
         }
         return;
       }
 
-      // Automatic Retry Logic
       if (autoRetryCount < 1) {
-        console.warn(`[ChatPage] Error occurred. Initiating automatic retry 1/1...`);
         setStreamingStatus('Retrying with optimized context...');
         return handleSend(text, true, currentAttachments, autoRetryCount + 1);
       }
 
-      // If we have partial content, save it as a message before showing the error card
       const hasPartialContent = assistantMessage.trim().length > 0;
       if (hasPartialContent && currentConvId) {
-        await addMessage(currentConvId, 'assistant', assistantMessage.trim(), { 
+        await addMessage(currentConvId, 'assistant', assistantMessage.trim(), {
           interrupted: true,
           timestamp: Date.now()
         });
       }
 
-      // If we reach here, retries failed or it's the second error
       let displayError = error.message || 'encountered a service interruption.';
       if (displayError.includes('504') || displayError.toLowerCase().includes('gateway') || displayError.toLowerCase().includes('timeout')) {
         displayError = 'The server is currently overloaded or taking too long to respond. This can happen with very complex queries or high traffic.';
       }
-      
-      // Instead of persisting the error to Supabase, we only add it to the local state
-      // This ensures that error cards don't reappear upon page refresh.
+
       const errorId = `error-${Date.now()}`;
       const errorMessage = {
         id: errorId,
         conversation_id: currentConvId!,
         role: 'assistant' as const,
         content: displayError,
-        metadata: { 
+        metadata: {
           error: true,
           originalError: error.message,
           timestamp: Date.now()
         },
         created_at: new Date().toISOString()
       };
-      
+
       setMessages([...useChatStore.getState().messages, errorMessage]);
     } finally {
       setIsGenerating(false);
       setIsProcessingVideo(false);
       setStreamingMessage('');
+      setDisplayedStreamingMessage('');
+      fullContentRef.current = '';
       setStreamingStatus(null);
     }
   };
@@ -422,219 +493,178 @@ const ChatPage: React.FC = () => {
     <DashboardLayout>
       <>
         <div className={styles.container}>
-        <div className={styles.header}>
-          <ModelSelector />
-        </div>
+          <div className={styles.header}>
+            <ModelSelector />
+          </div>
 
-        <div className={styles.messagesList}>
-          {chatLoading && messages.length === 0 ? (
-            <div className={styles.loadingState}>
-              {Array.from({ length: 3 }).map((_, i) => (
-                <div key={`msg-skeleton-${i}`} className={`${styles.messageRow} ${i % 2 === 0 ? '' : styles.user}`}>
-                  <div className={`${styles.avatar} skeleton skeleton-circle`} style={{ width: '32px', height: '32px' }}></div>
-                  <div className={`${styles.bubble} skeleton`} style={{ width: i % 2 === 0 ? '60%' : '40%', height: '80px', border: 'none' }}></div>
-                </div>
-              ))}
-            </div>
-          ) : messages.length === 0 && !chatLoading ? (
-            <div className={styles.emptyState}>
-              <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className={styles.emptyIconBox}>
-                <Sparkles size={40} />
-              </motion.div>
-              <h1 className={styles.title}>How can Sree AI help?</h1>
-              <div className={styles.suggestionGrid}>
-                {suggestions.map((s) => (
-                  <button key={s.title} className={styles.suggestionCard} onClick={() => handleSend(s.title)}>
-                    <span className={styles.suggestionTitle}>{s.title}</span>
-                    <span className={styles.suggestionDesc}>{s.desc}</span>
-                  </button>
+          <div
+            className={styles.messagesList}
+            ref={scrollContainerRef}
+            onScroll={onScroll}
+          >
+            {chatLoading && messages.length === 0 ? (
+              <div className={styles.loadingState}>
+                {Array.from({ length: 3 }).map((_, i) => (
+                  <div key={`msg-skeleton-${i}`} className={`${styles.messageRow} ${i % 2 === 0 ? '' : styles.user}`}>
+                    <div className={`${styles.avatar} skeleton skeleton-circle`} style={{ width: '32px', height: '32px' }}></div>
+                    <div className={`${styles.bubble} skeleton`} style={{ width: i % 2 === 0 ? '60%' : '40%', height: '80px', border: 'none' }}></div>
+                  </div>
                 ))}
               </div>
-            </div>
-          ) : (
-            <AnimatePresence initial={false}>
-              {messages.map((m, i) => (
-                <React.Fragment key={m.id || i}>
-                  <motion.div
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className={`${styles.messageRow} ${m.role === 'user' ? styles.user : ''}`}
-                  >
-                    <div className={`${styles.avatar} ${m.role === 'assistant' ? styles.ai : ''}`}>
-                      {m.role === 'assistant' ? <Bot size={20} /> : <User size={20} />}
-                    </div>
-                    <div className={`${styles.bubble} ${m.role === 'assistant' ? styles.ai : styles.user} ${m.metadata?.error ? styles.error : ''}`}>
-                      <div
-                        className={styles.markdown}
-                        style={m.metadata?.mode === 'voice' ? { fontStyle: 'italic' } : {}}
-                      >
-                        {m.metadata?.attachments && (
-                          <MessageAttachment attachments={m.metadata.attachments} />
-                        )}
-                        {m.role === 'assistant' && m.metadata?.error ? (
-                          <div className={styles.errorBubbleContent}>
-                            <div className={styles.errorHeader}>
-                              <AlertCircle size={16} />
-                              <span>Request Failed</span>
-                            </div>
-                            <p className={styles.errorText}>{m.content}</p>
-                            <div className={styles.errorContainer}>
-                              <button
-                                className={styles.retryButton}
-                                onClick={async () => {
-                                  // Find the last user message to retry
-                                  const allMessages = useChatStore.getState().messages;
-                                  const lastUserMsg = [...allMessages.slice(0, i + 1)].reverse().find(msg => msg.role === 'user');
-                                  
-                                  if (lastUserMsg && activeConversation?.id) {
-                                    // 1. Truncate history starting from this error message (deletes from DB and UI)
-                                    await useChatStore.getState().truncateHistory(activeConversation.id, m.id);
-                                    
-                                    // 2. Trigger send with the last user message's content
-                                    handleSend(lastUserMsg.content, true, lastUserMsg.metadata?.attachments || [], 0);
-                                  }
-                                }}
-                              >
-                                <RefreshCw size={14} />
-                                Retry Message
-                              </button>
-                            </div>
-                          </div>
-                        ) : (
-                          <>
-                            <ReactMarkdown
-                              remarkPlugins={[remarkGfm]}
-                              components={{
-                                code({ node, className, children, ...props }: any) {
-                                  const match = /language-(\w+)/.exec(className || '');
-                                  return match ? (
-                                    <CodeBlock
-                                      language={match[1]}
-                                      value={String(children).replace(/\n$/, '')}
-                                    />
-                                  ) : (
-                                    <code className={className} {...props}>
-                                      {children}
-                                    </code>
-                                  );
-                                },
-                                table({ children }) {
-                                  return (
-                                    <div className={styles.tableWrapper}>
-                                      <table>{children}</table>
-                                    </div>
-                                  );
-                                },
-                              }}
-                            >
-                              {filterThinkingTags(m.content)}
-                            </ReactMarkdown>
-                            {m.metadata?.interrupted && (
-                              <div className={styles.interruptedTag}>
-                                <AlertCircle size={12} />
-                                <span>Interrupted</span>
-                              </div>
-                            )}
-                          </>
-                        )}
-                      </div>
-                    </div>
-                  </motion.div>
-
-                  {/* Fallback for consecutive user messages */}
-                  {m.role === 'user' && 
-                   i < messages.length - 1 && 
-                   messages[i+1].role === 'user' && (
+            ) : messages.length === 0 && !chatLoading ? (
+              <div className={styles.emptyState}>
+                <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className={styles.emptyIconBox}>
+                  <Sparkles size={40} />
+                </motion.div>
+                <h1 className={styles.title}>How can Sree AI help?</h1>
+                <div className={styles.suggestionGrid}>
+                  {suggestions.map((s) => (
+                    <button key={s.title} className={styles.suggestionCard} onClick={() => handleSend(s.title)}>
+                      <span className={styles.suggestionTitle}>{s.title}</span>
+                      <span className={styles.suggestionDesc}>{s.desc}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <AnimatePresence initial={false}>
+                {messages.map((m, i) => (
+                  <React.Fragment key={m.id || i}>
                     <motion.div
                       initial={{ opacity: 0, y: 10 }}
                       animate={{ opacity: 1, y: 0 }}
-                      className={styles.messageRow}
+                      className={`${styles.messageRow} ${m.role === 'user' ? styles.user : ''}`}
                     >
-                      <div className={`${styles.avatar} ${styles.ai}`}>
-                        <Bot size={20} />
+                      <div className={`${styles.avatar} ${m.role === 'assistant' ? styles.ai : ''}`}>
+                        {m.role === 'assistant' ? <Bot size={20} /> : <User size={20} />}
                       </div>
-                      <div className={`${styles.bubble} ${styles.ai}`}>
-                        <div className={styles.markdown}>
-                          😓🫠
+                      <div className={`${styles.bubble} ${m.role === 'assistant' ? styles.ai : styles.user} ${m.metadata?.error ? styles.error : ''}`}>
+                        <div
+                          className={styles.markdown}
+                          style={m.metadata?.mode === 'voice' ? { fontStyle: 'italic' } : {}}
+                        >
+                          {m.metadata?.attachments && (
+                            <MessageAttachment attachments={m.metadata.attachments} />
+                          )}
+                          {m.role === 'assistant' && m.metadata?.error ? (
+                            <div className={styles.errorBubbleContent}>
+                              <div className={styles.errorHeader}>
+                                <AlertCircle size={16} />
+                                <span>Request Failed</span>
+                              </div>
+                              <p className={styles.errorText}>{m.content}</p>
+                              <div className={styles.errorContainer}>
+                                <button
+                                  className={styles.retryButton}
+                                  onClick={async () => {
+                                    const allMessages = useChatStore.getState().messages;
+                                    const lastUserMsg = [...allMessages.slice(0, i + 1)].reverse().find(msg => msg.role === 'user');
+
+                                    if (lastUserMsg && activeConversation?.id) {
+                                      await useChatStore.getState().truncateHistory(activeConversation.id, m.id);
+                                      handleSend(lastUserMsg.content, true, lastUserMsg.metadata?.attachments || [], 0);
+                                    }
+                                  }}
+                                >
+                                  <RefreshCw size={14} />
+                                  Retry Message
+                                </button>
+                              </div>
+                            </div>
+                          ) : (
+                            <>
+                              <ReactMarkdown
+                                remarkPlugins={[remarkGfm]}
+                                components={markdownComponents}
+                              >
+                                {filterThinkingTags(m.content)}
+                              </ReactMarkdown>
+
+                              {m.metadata?.interrupted && (
+                                <div className={styles.interruptedTag}>
+                                  <AlertCircle size={12} />
+                                  <span>Interrupted</span>
+                                </div>
+                              )}
+                            </>
+                          )}
                         </div>
                       </div>
                     </motion.div>
-                  )}
-                </React.Fragment>
-              ))}
-              {isGenerating && messages[messages.length - 1]?.role !== 'assistant' && (
-                <motion.div
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className={styles.messageRow}
-                >
-                  <div className={`${styles.avatar} ${styles.ai}`}>
-                    <Bot size={20} />
-                  </div>
-                  <div className={`${styles.bubble} ${styles.ai} ${isGenerating ? styles.streaming : ''}`}>
-                    <div className={styles.markdown}>
-                      {(!streamingMessage || !filterThinkingTags(streamingMessage)) ? (
-                        <ThinkingAnimation status={streamingStatus} isVideo={isProcessingVideo} />
-                      ) : (
-                        <ReactMarkdown
-                          remarkPlugins={[remarkGfm]}
-                          components={{
-                            code({ node, className, children, ...props }: any) {
-                              const match = /language-(\w+)/.exec(className || '');
-                              return match ? (
-                                <CodeBlock
-                                  language={match[1]}
-                                  value={String(children).replace(/\n$/, '')}
-                                />
-                              ) : (
-                                <code className={className} {...props}>
-                                  {children}
-                                </code>
-                              );
-                            },
-                            table({ children }) {
-                              return (
-                                <div className={styles.tableWrapper}>
-                                  <table>{children}</table>
-                                </div>
-                              );
-                            },
-                          }}
+
+                    {m.role === 'user' &&
+                      i < messages.length - 1 &&
+                      messages[i + 1].role === 'user' && (
+                        <motion.div
+                          initial={{ opacity: 0, y: 10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          className={styles.messageRow}
                         >
-                          {filterThinkingTags(streamingMessage)}
-                        </ReactMarkdown>
+                          <div className={`${styles.avatar} ${styles.ai}`}>
+                            <Bot size={20} />
+                          </div>
+                          <div className={`${styles.bubble} ${styles.ai}`}>
+                            <div className={styles.markdown}>
+                              😓🫠
+                            </div>
+                          </div>
+                        </motion.div>
                       )}
+                  </React.Fragment>
+                ))}
+                {isGenerating && messages[messages.length - 1]?.role !== 'assistant' && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className={styles.messageRow}
+                  >
+                    <div className={`${styles.avatar} ${styles.ai}`}>
+                      <Bot size={20} />
                     </div>
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
-          )}
-          <div ref={messagesEndRef} />
+                    <div className={`${styles.bubble} ${styles.ai} ${isGenerating ? styles.streaming : ''}`}>
+                      <div className={styles.markdown}>
+                        {!deferredStreamingMessage ? (
+                          <ThinkingAnimation status={streamingStatus} isVideo={isProcessingVideo} />
+                        ) : (
+                          <ReactMarkdown
+                            remarkPlugins={[remarkGfm]}
+                            components={markdownComponents}
+                          >
+                            {deferredStreamingMessage}
+                          </ReactMarkdown>
+                        )}
+
+                      </div>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            )}
+            <div ref={messagesEndRef} />
+          </div>
+
+          <ChatInput
+            onSend={(text) => handleSend(text, false)}
+            onStop={handleStop}
+            isGenerating={isGenerating}
+            hasMessages={messages.length > 0}
+            onVoiceLaunch={() => navigate(id ? `/voice/chat/${id}` : '/voice')}
+            attachments={attachments}
+            onAttachmentsChange={setAttachments}
+            disabled={lockTimeRemaining > 0}
+            placeholderText={lockTimeRemaining > 0 ? `Try After ${formatTime(lockTimeRemaining * 1000)}...` : undefined}
+          />
+
         </div>
 
-        <ChatInput
-          onSend={(text) => handleSend(text, false)}
-          onStop={handleStop}
-          isGenerating={isGenerating}
-          hasMessages={messages.length > 0}
-          onVoiceLaunch={() => navigate(id ? `/voice/chat/${id}` : '/voice')}
-          attachments={attachments}
-          onAttachmentsChange={setAttachments}
-          disabled={lockTimeRemaining > 0}
-          placeholderText={lockTimeRemaining > 0 ? `Try After ${formatTime(lockTimeRemaining * 1000)}...` : undefined}
-        />
-
-      </div>
-
-      <AnimatePresence>
-        {showVoiceOverlay && (
-          <VoiceOverlay
-            initialConversationId={id}
-            onClose={() => navigate(id ? `/chat/${id}` : '/chat')}
-          />
-        )}
-      </AnimatePresence>
+        <AnimatePresence>
+          {showVoiceOverlay && (
+            <VoiceOverlay
+              initialConversationId={id}
+              onClose={() => navigate(id ? `/chat/${id}` : '/chat')}
+            />
+          )}
+        </AnimatePresence>
       </>
     </DashboardLayout>
   );

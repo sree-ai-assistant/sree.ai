@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, memo } from 'react';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import { Check, Copy } from 'lucide-react';
@@ -9,7 +9,7 @@ interface CodeBlockProps {
   value: string;
 }
 
-export const CodeBlock: React.FC<CodeBlockProps> = ({ language, value }) => {
+export const CodeBlock: React.FC<CodeBlockProps> = memo(({ language, value }) => {
   const [copied, setCopied] = useState(false);
 
   const handleCopy = async () => {
@@ -49,4 +49,5 @@ export const CodeBlock: React.FC<CodeBlockProps> = ({ language, value }) => {
       </SyntaxHighlighter>
     </div>
   );
-};
+});
+
