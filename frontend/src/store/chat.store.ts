@@ -84,9 +84,15 @@ export const useChatStore = create<ChatState>((set, get) => ({
         return;
       }
       conv = data;
+      
+      // Add to local conversations list if not present
+      set(state => ({
+        conversations: [conv!, ...state.conversations.filter(c => c.id !== conversationId)],
+        activeConversation: conv
+      }));
+    } else {
+      set({ activeConversation: conv });
     }
-
-    set({ activeConversation: conv });
 
     // Fetch messages for this conversation, filtering out saved error messages
     const { data: messages, error: msgError } = await supabase
@@ -100,7 +106,6 @@ export const useChatStore = create<ChatState>((set, get) => ({
     }
     
     // Filter out messages that have error metadata to ensure they don't persist on refresh
-    // Filter out messages that have error metadata, UNLESS it was a manual termination
     const cleanMessages = (messages || []).filter(m => !m.metadata?.error || m.metadata?.aborted);
     
     set({ messages: cleanMessages, loading: false });
@@ -157,13 +162,26 @@ export const useChatStore = create<ChatState>((set, get) => ({
        return null;
     }
 
-    set(state => ({
-      messages: [...state.messages, data],
-    }));
+    const now = new Date().toISOString();
+    set(state => {
+      const updatedConversations = [...state.conversations];
+      const convIndex = updatedConversations.findIndex(c => c.id === conversationId);
+      
+      if (convIndex !== -1) {
+        const updatedConv = { ...updatedConversations[convIndex], updated_at: now };
+        updatedConversations.splice(convIndex, 1);
+        updatedConversations.unshift(updatedConv);
+      }
+
+      return {
+        messages: [...state.messages, data],
+        conversations: updatedConversations
+      };
+    });
 
     await supabase
       .from('conversations')
-      .update({ updated_at: new Date().toISOString() })
+      .update({ updated_at: now })
       .eq('id', conversationId);
 
     return data;

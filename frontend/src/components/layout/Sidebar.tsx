@@ -98,7 +98,12 @@ export const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, setIsCollapsed, o
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
     const now = new Date();
-    const diffDays = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60 * 24));
+    
+    // Create dates with only year, month, day for calendar comparison
+    const dDate = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+    const dNow = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const diffTime = dNow.getTime() - dDate.getTime();
+    const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
 
     if (diffDays === 0) return 'Today';
     if (diffDays === 1) return 'Yesterday';
@@ -113,8 +118,13 @@ export const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, setIsCollapsed, o
       'Previous Days': []
     };
 
-    convs.forEach(c => {
-      const label = formatDate(c.created_at);
+    // Sort by updated_at just in case
+    const sortedConvs = [...convs].sort((a, b) => 
+      new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()
+    );
+
+    sortedConvs.forEach(c => {
+      const label = formatDate(c.updated_at);
       if (label === 'Today') groups['Today'].push(c);
       else if (label === 'Yesterday') groups['Yesterday'].push(c);
       else groups['Previous Days'].push(c);
