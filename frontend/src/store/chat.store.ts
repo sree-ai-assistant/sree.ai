@@ -101,6 +101,11 @@ export const useChatStore = create<ChatState>((set, get) => ({
       .eq('conversation_id', conversationId)
       .order('created_at', { ascending: true });
     
+    // Race condition check: only update if this is still the active conversation
+    if (get().activeConversation?.id !== conversationId) {
+      return;
+    }
+
     if (msgError) {
       console.error('Error fetching messages:', msgError);
     }
@@ -234,29 +239,29 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
   truncateHistory: async (conversationId: string, fromMessageId: string) => {
     const messages = get().messages;
+    const targetMsg = messages.find(m => m.id === fromMessageId);
+    if (!targetMsg) return;
+
+    // 1. Permanent deletion from DB for this conversation from this timestamp onwards
+    // Using created_at ensures we catch messages that might have been filtered out of the local state
+    const { error } = await supabase
+      .from('messages')
+      .delete()
+      .eq('conversation_id', conversationId)
+      .gte('created_at', targetMsg.created_at);
+
+    if (error) {
+      console.error('Error truncating history:', error);
+      // Even if DB delete fails, we should still update local state for a better UX
+      // but maybe we should return early? For now let's proceed to local update.
+    }
+
+    // 2. Local state update (optimistic)
     const index = messages.findIndex(m => m.id === fromMessageId);
-    if (index === -1) return;
-
-    const messagesToProcess = messages.slice(index);
-    // Real IDs are UUIDs (persisted). Ephemeral IDs start with 'error-' or 'abort-'
-    const idsToDelete = messagesToProcess
-      .filter(m => m.id && !m.id.startsWith('error-') && !m.id.startsWith('abort-'))
-      .map(m => m.id);
-
-    // Optimistic update
-    set(state => ({
-      messages: state.messages.slice(0, index)
-    }));
-
-    if (idsToDelete.length > 0) {
-      const { error } = await supabase
-        .from('messages')
-        .delete()
-        .in('id', idsToDelete);
-
-      if (error) {
-        console.error('Error truncating history:', error);
-      }
+    if (index !== -1) {
+      set(state => ({
+        messages: state.messages.slice(0, index)
+      }));
     }
   },
 

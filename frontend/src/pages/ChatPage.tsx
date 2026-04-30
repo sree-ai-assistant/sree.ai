@@ -98,6 +98,7 @@ const ChatPage: React.FC = () => {
   const typewriterRafRef = useRef<number | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
   const typewriterIntervalRef = useRef<number | null>(null);
+  const streamingIdRef = useRef<string | null>(null);
   const fullContentRef = useRef('');
 
   // Performance: Memoize Markdown components to prevent heavy re-renders
@@ -167,12 +168,37 @@ const ChatPage: React.FC = () => {
   };
 
   useEffect(() => {
+    // If ID changes, clear the UI streaming state for the NEW conversation
+    // but don't abort the background request so it can finish in its own chat
+    if (id !== streamingIdRef.current) {
+      setIsGenerating(false);
+      setStreamingMessage('');
+      setDisplayedStreamingMessage('');
+      setStreamingStatus(null);
+      setIsStreamFinished(false);
+      fullContentRef.current = '';
+      streamingIdRef.current = null;
+    }
+
     if (id && id !== activeConversation?.id) {
       setActiveConversation(id);
     } else if (!id) {
       setActiveConversation(null);
     }
+    
+    return () => {
+      // Clean up on unmount
+      if (typewriterIntervalRef.current) clearInterval(typewriterIntervalRef.current);
+    };
   }, [id, setActiveConversation]);
+
+  useEffect(() => {
+    return () => {
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+    };
+  }, []);
 
   const scrollToBottom = (behavior: ScrollBehavior = 'smooth') => {
     if (autoScrollEnabled && scrollContainerRef.current) {
@@ -302,6 +328,7 @@ const ChatPage: React.FC = () => {
 
     setIsGenerating(true);
     setIsProcessingVideo(currentAttachments.some(a => a.type === 'video'));
+    streamingIdRef.current = currentConvId;
     setStreamingMessage('');
     setDisplayedStreamingMessage('');
     fullContentRef.current = '';
@@ -401,7 +428,9 @@ const ChatPage: React.FC = () => {
 
           if (trimmedLine === 'data: [DONE]') {
             isStreamFinishedLocal = true;
-            setIsStreamFinished(true);
+            if (streamingIdRef.current === currentConvId) {
+              setIsStreamFinished(true);
+            }
             break;
           }
 
@@ -410,17 +439,23 @@ const ChatPage: React.FC = () => {
               const dataString = trimmedLine.substring(6);
               if (dataString === '[DONE]') {
                 isStreamFinishedLocal = true;
-                setIsStreamFinished(true);
+                if (streamingIdRef.current === currentConvId) {
+                  setIsStreamFinished(true);
+                }
                 break;
               }
 
               const data = JSON.parse(dataString);
               if (data.content) {
                 assistantMessage += data.content;
-                fullContentRef.current = assistantMessage;
-                setStreamingMessage(assistantMessage);
+                if (streamingIdRef.current === currentConvId) {
+                  fullContentRef.current = assistantMessage;
+                  setStreamingMessage(assistantMessage);
+                }
               } else if (data.status) {
-                setStreamingStatus(data.status);
+                if (streamingIdRef.current === currentConvId) {
+                  setStreamingStatus(data.status);
+                }
               } else if (data.error) {
                 throw new Error(data.error);
               }
@@ -436,8 +471,9 @@ const ChatPage: React.FC = () => {
         const finalContent = assistantMessage.trim() || "😓🫠";
         
         // Wait for typewriter to fully catch up before saving to prevent content jump/flash
+        // Only wait if we are still looking at the same conversation
         let waitCount = 0;
-        while (fullContentRef.current.length > displayedStreamingMessage.length && waitCount < 50) {
+        while (streamingIdRef.current === currentConvId && fullContentRef.current.length > displayedStreamingMessage.length && waitCount < 50) {
           await new Promise(r => setTimeout(r, 50));
           waitCount++;
         }
@@ -503,12 +539,16 @@ const ChatPage: React.FC = () => {
 
       setMessages([...useChatStore.getState().messages, errorMessage]);
     } finally {
-      setIsGenerating(false);
-      setIsProcessingVideo(false);
-      setStreamingMessage('');
-      setDisplayedStreamingMessage('');
-      fullContentRef.current = '';
-      setStreamingStatus(null);
+      // Only clear local UI state if this was the active request for this conversation
+      if (streamingIdRef.current === currentConvId) {
+        setIsGenerating(false);
+        setIsProcessingVideo(false);
+        setStreamingMessage('');
+        setDisplayedStreamingMessage('');
+        fullContentRef.current = '';
+        setStreamingStatus(null);
+        streamingIdRef.current = null;
+      }
     }
   };
 
@@ -559,14 +599,50 @@ const ChatPage: React.FC = () => {
                     index={i}
                     markdownComponents={markdownComponents}
                     filterThinkingTags={filterThinkingTags}
-                    onRetry={async (index, content, attachments, id) => {
-                      if (activeConversation?.id && id) {
+                    onRetry={async (index, _content, _attachments, id) => {
+                      if (activeConversation?.id) {
                         const allMessages = useChatStore.getState().messages;
-                        const lastUserMsg = [...allMessages.slice(0, index + 1)].reverse().find(msg => msg.role === 'user');
+                        
+                        // 1. Find the start of the "error chain" (consecutive assistant errors/interruptions)
+                        let firstErrorIndex = index;
+                        while (firstErrorIndex > 0) {
+                          const prevMsg = allMessages[firstErrorIndex - 1];
+                          if (prevMsg.role === 'assistant' && (prevMsg.metadata?.error || prevMsg.metadata?.interrupted || prevMsg.metadata?.aborted)) {
+                            firstErrorIndex--;
+                          } else {
+                            break;
+                          }
+                        }
 
-                        if (lastUserMsg) {
-                          await useChatStore.getState().truncateHistory(activeConversation.id, id);
-                          handleSend(lastUserMsg.content, true, lastUserMsg.metadata?.attachments || [], 0);
+                        // 2. Find the user message that preceded this error chain
+                        let userMsgIndex = -1;
+                        for (let j = firstErrorIndex - 1; j >= 0; j--) {
+                          if (allMessages[j].role === 'user') {
+                            userMsgIndex = j;
+                            break;
+                          }
+                        }
+
+                        if (userMsgIndex !== -1) {
+                          const userMsg = allMessages[userMsgIndex];
+                          const userContent = userMsg.content;
+                          // Ensure we use the full attachments metadata from the message
+                          const userAttachments = userMsg.metadata?.attachments || [];
+                          
+                          // Map back to the format handleSend expects if necessary
+                          // handleSend expects an array of attachments with { url, type, name, extractedText }
+                          // which matches what's stored in userMsg.metadata.attachments
+                          
+                          // 3. Truncate from the user message ID onwards
+                          // This permanently deletes the user message, the error(s), and everything after
+                          await useChatStore.getState().truncateHistory(activeConversation.id, userMsg.id);
+                          
+                          // 4. Re-send as a fresh turn (isRetry=false to ensure it gets re-added to DB)
+                          handleSend(userContent, false, userAttachments, 0);
+                        } else {
+                          // Fallback: if no user message found, truncate from the clicked error message
+                          const targetId = allMessages[firstErrorIndex]?.id || id;
+                          await useChatStore.getState().truncateHistory(activeConversation.id, targetId);
                         }
                       }
                     }}
