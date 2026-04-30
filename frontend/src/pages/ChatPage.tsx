@@ -562,7 +562,7 @@ const ChatPage: React.FC = () => {
                   )}
                 </React.Fragment>
               ))}
-              {isGenerating && (
+              {isGenerating && messages[messages.length - 1]?.role !== 'assistant' && (
                 <motion.div
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
