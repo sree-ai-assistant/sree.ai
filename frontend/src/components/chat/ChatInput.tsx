@@ -1,5 +1,5 @@
-import React, { useRef } from 'react';
-import { Plus, Mic, ArrowUp, X, FileText, Table, Music, Video } from 'lucide-react';
+import React, { useRef, useState } from 'react';
+import { Plus, Mic, ArrowUp, X, FileText, Table, Music, Video, Image as ImageIcon } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { motion, AnimatePresence } from 'framer-motion';
 import styles from './ChatInput.module.css';
@@ -26,6 +26,20 @@ interface ChatInputProps {
   disabled?: boolean;
   placeholderText?: string;
 }
+
+const ImageThumb: React.FC<{ src: string; onClick: () => void }> = ({ src, onClick }) => {
+  const [hasError, setHasError] = useState(false);
+  if (hasError) return <ImageIcon size={18} />;
+  return (
+    <img 
+      src={src} 
+      alt="thumb" 
+      className={styles.imageThumb} 
+      onClick={onClick} 
+      onError={() => setHasError(true)} 
+    />
+  );
+};
 
 export const ChatInput: React.FC<ChatInputProps> = ({
   onSend,
@@ -277,12 +291,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
                       </svg>
                     </div>
                   ) : atl.type === 'image' ? (
-                    <img 
-                      src={atl.preview} 
-                      alt="thumb" 
-                      className={styles.imageThumb} 
-                      onClick={() => setPreviewImage(atl.preview)}
-                    />
+                    <ImageThumb src={atl.preview} onClick={() => setPreviewImage(atl.preview)} />
                   ) : atl.type === 'audio' ? (
                     <Music size={18} />
                   ) : atl.type === 'video' ? (

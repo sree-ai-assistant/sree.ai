@@ -1,5 +1,6 @@
-import React from 'react';
-import { FileText, Image as ImageIcon, Music, Video } from 'lucide-react';
+import React, { useState } from 'react';
+import { FileText, Image as ImageIcon, Music, Video, X } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 import styles from './MessageAttachment.module.css';
 
 interface MessageAttachmentProps {
@@ -25,7 +26,45 @@ const getFileColor = (name: string) => {
   }
 };
 
+const ImageAttachment: React.FC<{ url?: string; name: string; onClick: () => void }> = ({ url, name, onClick }) => {
+  const [hasError, setHasError] = useState(false);
+  const extension = name.split('.').pop()?.toUpperCase() || 'IMAGE';
+
+  if (hasError || !url) {
+    return (
+      <div className={styles.attachmentCard}>
+        <div className={styles.cardIcon} style={{ backgroundColor: '#3b82f615', color: '#3b82f6' }}>
+          <ImageIcon size={20} strokeWidth={2.5} />
+        </div>
+        <div className={styles.cardInfo}>
+          <span className={styles.cardFileName} title={name}>{name}</span>
+          <span className={styles.cardFileType} style={{ color: '#3b82f6' }}>
+            {extension}
+          </span>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className={styles.imageCard} onClick={onClick}>
+      <img 
+        src={url} 
+        alt={name} 
+        className={styles.imageContent} 
+        onError={() => setHasError(true)}
+      />
+      <div className={styles.imageOverlay}>
+        <ImageIcon size={14} />
+        <span>IMAGE</span>
+      </div>
+    </div>
+  );
+};
+
 export const MessageAttachment: React.FC<MessageAttachmentProps> = ({ attachments }) => {
+  const [previewImage, setPreviewImage] = useState<string | null>(null);
+
   if (!attachments || attachments.length === 0) return null;
 
   return (
@@ -38,13 +77,12 @@ export const MessageAttachment: React.FC<MessageAttachmentProps> = ({ attachment
         
         if (atl.type === 'image') {
           return (
-            <div key={idx} className={styles.imageCard}>
-              <img src={atl.url} alt={atl.name} className={styles.imageContent} />
-              <div className={styles.imageOverlay}>
-                <ImageIcon size={14} />
-                <span>IMAGE</span>
-              </div>
-            </div>
+            <ImageAttachment 
+              key={idx} 
+              url={atl.url} 
+              name={atl.name} 
+              onClick={() => atl.url && setPreviewImage(atl.url)}
+            />
           );
         }
 
@@ -79,6 +117,31 @@ export const MessageAttachment: React.FC<MessageAttachmentProps> = ({ attachment
           </div>
         );
       })}
+
+      <AnimatePresence>
+        {previewImage && (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className={styles.lightbox}
+            onClick={() => setPreviewImage(null)}
+          >
+            <motion.div 
+              initial={{ scale: 0.9, y: 20 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.9, y: 20 }}
+              className={styles.lightboxContent}
+              onClick={e => e.stopPropagation()}
+            >
+              <img src={previewImage} alt="Full preview" />
+              <button className={styles.closeLightbox} onClick={() => setPreviewImage(null)}>
+                <X size={24} />
+              </button>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };
