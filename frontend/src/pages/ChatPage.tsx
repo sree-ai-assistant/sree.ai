@@ -588,7 +588,7 @@ const ChatPage: React.FC = () => {
             ref={scrollContainerRef}
             onScroll={onScroll}
           >
-            {chatLoading && messages.length === 0 ? (
+            {(chatLoading || (id && activeConversation?.id !== id)) ? (
               <div className={styles.loadingState}>
                 {Array.from({ length: 3 }).map((_, i) => (
                   <div key={`msg-skeleton-${i}`} className={`${styles.messageRow} ${i % 2 === 0 ? '' : styles.user}`}>
@@ -597,7 +597,7 @@ const ChatPage: React.FC = () => {
                   </div>
                 ))}
               </div>
-            ) : messages.length === 0 && !chatLoading ? (
+            ) : !id && messages.length === 0 ? (
               <div className={styles.emptyState}>
                 <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className={styles.emptyIconBox}>
                   <Sparkles size={40} />
