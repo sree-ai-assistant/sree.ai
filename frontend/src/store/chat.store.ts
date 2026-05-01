@@ -156,18 +156,19 @@ export const useChatStore = create<ChatState>((set, get) => ({
   },
 
   addMessage: async (conversationId: string, role: 'user' | 'assistant' | 'system', content: string, metadata: any = {}) => {
-    const { data, error } = await supabase
-      .from('messages')
-      .insert([{ conversation_id: conversationId, role, content, metadata }])
-      .select()
-      .single();
-
-    if (error) {
-       console.error('Error adding message:', error);
-       return null;
-    }
-
+    const optimisticId = metadata.optimisticId || `temp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     const now = new Date().toISOString();
+    
+    const tempMessage: Message = {
+      id: optimisticId,
+      conversation_id: conversationId,
+      role,
+      content,
+      metadata: { ...metadata, optimisticId },
+      created_at: now
+    };
+
+    // 1. Optimistic Update
     set(state => {
       const updatedConversations = [...state.conversations];
       const convIndex = updatedConversations.findIndex(c => c.id === conversationId);
@@ -179,22 +180,55 @@ export const useChatStore = create<ChatState>((set, get) => ({
       }
 
       return {
-        messages: [...state.messages, data],
+        messages: [...state.messages, tempMessage],
         conversations: updatedConversations
       };
     });
 
-    await supabase
+    // 2. Persist to DB
+    const { data, error } = await supabase
+      .from('messages')
+      .insert([{ conversation_id: conversationId, role, content, metadata: { ...metadata, optimisticId } }])
+      .select()
+      .single();
+
+    if (error) {
+       console.error('Error adding message:', error);
+       // Rollback on error
+       set(state => ({
+         messages: state.messages.filter(m => m.id !== optimisticId)
+       }));
+       return null;
+    }
+
+    // 3. Replace temp message with real one, preserving the optimisticId for stable React keys
+    const finalMessage = { 
+      ...data, 
+      metadata: { ...data.metadata, optimisticId } 
+    };
+
+    set(state => ({
+      messages: state.messages.map(m => m.id === optimisticId ? finalMessage : m)
+    }));
+
+    // Update conversation timestamp in background
+    supabase
       .from('conversations')
       .update({ updated_at: now })
-      .eq('id', conversationId);
+      .eq('id', conversationId)
+      .then(({ error }) => {
+        if (error) console.error('Error updating conversation timestamp:', error);
+      });
 
-    return data;
+    return finalMessage;
   },
 
   updateMessage: async (messageId: string, content: string, metadata?: any) => {
+    const currentMessage = get().messages.find(m => m.id === messageId);
+    const newMetadata = metadata ? { ...(currentMessage?.metadata || {}), ...metadata } : currentMessage?.metadata;
+    
     const updateData: any = { content };
-    if (metadata) updateData.metadata = metadata;
+    if (newMetadata) updateData.metadata = newMetadata;
 
     const { error } = await supabase
       .from('messages')
@@ -207,7 +241,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
     }
 
     set(state => ({
-      messages: state.messages.map(m => m.id === messageId ? { ...m, content, metadata: metadata || m.metadata } : m),
+      messages: state.messages.map(m => m.id === messageId ? { ...m, content, metadata: newMetadata } : m),
     }));
   },
 

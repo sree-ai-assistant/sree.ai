@@ -55,8 +55,8 @@ export const ThinkingAnimation: React.FC<{ status?: string | null, isVideo?: boo
 
   useEffect(() => {
     // If we have a status that is a "transitional" status (not a "done" or "cycling" status), show it statically
-    const isTransitional = status && 
-      !status.includes('Frames extracted and uploaded') && 
+    const isTransitional = status &&
+      !status.includes('Frames extracted and uploaded') &&
       !status.includes('recalled successfully') &&
       status !== 'Thinking...';
 
@@ -86,25 +86,25 @@ export const ThinkingAnimation: React.FC<{ status?: string | null, isVideo?: boo
   }
 
   const textVariants: Variants = {
-    hidden: { 
+    hidden: {
       opacity: 0,
       x: -30,
       filter: 'blur(8px)'
     },
-    visible: { 
-      opacity: 1, 
+    visible: {
+      opacity: 1,
       x: 0,
       filter: 'blur(0px)',
-      transition: { 
+      transition: {
         duration: 1.5,
         ease: [0.22, 1, 0.36, 1]
       }
     },
-    exit: { 
-      opacity: 0, 
+    exit: {
+      opacity: 0,
       x: 30,
       filter: 'blur(8px)',
-      transition: { 
+      transition: {
         duration: 1.5,
         ease: [0.64, 0, 0.78, 0]
       }

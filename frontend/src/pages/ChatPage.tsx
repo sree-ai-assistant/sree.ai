@@ -99,6 +99,7 @@ const ChatPage: React.FC = () => {
   const abortControllerRef = useRef<AbortController | null>(null);
   const typewriterIntervalRef = useRef<number | null>(null);
   const streamingIdRef = useRef<string | null>(null);
+  const streamingOptimisticIdRef = useRef<string | null>(null);
   const fullContentRef = useRef('');
 
   // Performance: Memoize Markdown components to prevent heavy re-renders
@@ -250,7 +251,7 @@ const ChatPage: React.FC = () => {
       return;
     }
 
-    const typewriterInterval = 25; // 40fps - sweet spot for performance vs smoothness
+    const typewriterInterval = 16; // ~60fps for maximum smoothness
     
     typewriterIntervalRef.current = window.setInterval(() => {
       setDisplayedStreamingMessage(prev => {
@@ -258,17 +259,18 @@ const ChatPage: React.FC = () => {
           const bufferSize = fullContentRef.current.length - prev.length;
           
           // Adaptive scaling:
-          // If stream is finished, dump everything faster but still in chunks to avoid UI lockup
+          // If stream is finished, dump everything much faster
           if (isStreamFinished) {
-            if (bufferSize < 200) return fullContentRef.current;
-            return fullContentRef.current.slice(0, prev.length + Math.max(100, Math.floor(bufferSize / 2)));
+            if (bufferSize < 400) return fullContentRef.current;
+            return fullContentRef.current.slice(0, prev.length + Math.max(200, Math.floor(bufferSize / 1.5)));
           }
 
           // Dynamic increments for "live" feel while handling bursts
-          const increment = bufferSize > 2000 ? 500 :
-                            bufferSize > 1000 ? 200 : 
-                            bufferSize > 400 ? 80 : 
-                            bufferSize > 100 ? 30 : 10;
+          // Increased values for a "snappier" feel
+          const increment = bufferSize > 2000 ? 800 :
+                            bufferSize > 1000 ? 400 : 
+                            bufferSize > 400 ? 150 : 
+                            bufferSize > 100 ? 60 : 25;
           
           return fullContentRef.current.slice(0, prev.length + increment);
         }
@@ -307,33 +309,46 @@ const ChatPage: React.FC = () => {
 
     let currentConvId = activeConversation?.id;
 
+    // Set generating state early to show immediate feedback
+    setIsGenerating(true);
+    setStreamingMessage('');
+    setDisplayedStreamingMessage('');
+    fullContentRef.current = '';
+    setAutoScrollEnabled(true);
+    if (!isRetry) setStreamingStatus(null);
+    setAttachments([]); // Clear attachments immediately
+
     if (!currentConvId) {
       const isVoice = location.pathname.startsWith('/voice');
       const newConv = await createConversation(user.id, messageContent.slice(0, 40) + '...', isVoice ? 'voice' : 'chat');
-      if (!newConv) return;
+      if (!newConv) {
+        setIsGenerating(false);
+        return;
+      }
       currentConvId = newConv.id;
       navigate(isVoice ? `/voice/chat/${newConv.id}` : `/chat/${newConv.id}`, { replace: true });
     }
 
     let userMsg: any = null;
     if (!isRetry) {
+      // addMessage is now optimistic, so it will update the UI immediately
+      const userOptimisticId = `temp_user_${Date.now()}`;
       userMsg = await addMessage(currentConvId, 'user', messageContent, {
+        optimisticId: userOptimisticId,
         mode: 'text',
         attachments: currentAttachments.map(a => ({ name: a.file?.name || a.name, type: a.type, url: a.url, extractedText: a.extractedText }))
       });
-      setAttachments([]);
     } else {
       userMsg = useChatStore.getState().messages.filter(m => m.role === 'user').pop();
     }
 
-    setIsGenerating(true);
+    if (!userMsg) {
+      setIsGenerating(false);
+      return;
+    }
+
     setIsProcessingVideo(currentAttachments.some(a => a.type === 'video'));
     streamingIdRef.current = currentConvId;
-    setStreamingMessage('');
-    setDisplayedStreamingMessage('');
-    fullContentRef.current = '';
-    setAutoScrollEnabled(true);
-    if (!isRetry) setStreamingStatus(null);
     const abortController = new AbortController();
     abortControllerRef.current = abortController;
 
@@ -341,6 +356,8 @@ const ChatPage: React.FC = () => {
     let assistantMessage = '';
     let isStreamFinishedLocal = false;
     let isSaved = false;
+    const assistantOptimisticId = `temp_assistant_${Date.now()}`;
+    streamingOptimisticIdRef.current = assistantOptimisticId;
 
     try {
       let currentSession = session;
@@ -473,16 +490,21 @@ const ChatPage: React.FC = () => {
         // Wait for typewriter to fully catch up before saving to prevent content jump/flash
         // Only wait if we are still looking at the same conversation
         let waitCount = 0;
-        while (streamingIdRef.current === currentConvId && fullContentRef.current.length > displayedStreamingMessage.length && waitCount < 50) {
-          await new Promise(r => setTimeout(r, 50));
+        while (streamingIdRef.current === currentConvId && fullContentRef.current.length > displayedStreamingMessage.length && waitCount < 30) {
+          await new Promise(r => setTimeout(r, 30));
           waitCount++;
         }
         
         // Final catch up
         setDisplayedStreamingMessage(finalContent);
         
-        // Add to store
-        await addMessage(currentConvId, 'assistant', finalContent, { mode: 'text' });
+        // Add to store with the same optimistic ID used for streaming
+        await addMessage(currentConvId, 'assistant', finalContent, { 
+          optimisticId: assistantOptimisticId,
+          mode: 'text' 
+        });
+        
+        streamingOptimisticIdRef.current = null;
         
         // Wait a tiny bit more for store sync before clearing streaming state
         await new Promise(r => setTimeout(r, 100));
@@ -594,7 +616,7 @@ const ChatPage: React.FC = () => {
               <AnimatePresence initial={false}>
                 {messages.map((m, i) => (
                   <ChatMessage
-                    key={m.id || i}
+                    key={m.metadata?.optimisticId || m.id || `msg-${i}`}
                     message={m}
                     index={i}
                     markdownComponents={markdownComponents}
@@ -650,12 +672,16 @@ const ChatPage: React.FC = () => {
                 ))}
                 {isGenerating && (messages.length === 0 || messages[messages.length - 1]?.role !== 'assistant' || messages[messages.length - 1]?.content !== streamingMessage) && (
                   <ChatMessage
+                    key={streamingOptimisticIdRef.current || 'streaming-assistant'}
                     isStreaming
                     index={messages.length}
                     message={{ 
                       role: 'assistant', 
                       content: deferredStreamingMessage,
-                      metadata: { mode: 'text' }
+                      metadata: { 
+                        mode: 'text',
+                        optimisticId: streamingOptimisticIdRef.current 
+                      }
                     }}
                     streamingStatus={streamingStatus}
                     isProcessingVideo={isProcessingVideo}

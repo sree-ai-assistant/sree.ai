@@ -44,6 +44,12 @@ export const ChatInput: React.FC<ChatInputProps> = ({
   const [previewImage, setPreviewImage] = React.useState<string | null>(null);
   const { setVisionRequired } = useModelStore();
 
+  React.useEffect(() => {
+    // Automatically sync vision requirement with current attachments
+    const requiresVision = attachments.some(a => a.type === 'image' || a.type === 'video');
+    setVisionRequired(requiresVision);
+  }, [attachments, setVisionRequired]);
+
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (disabled) return;
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -206,7 +212,6 @@ export const ChatInput: React.FC<ChatInputProps> = ({
 
     const updated = [...attachments, ...newAttachments];
     onAttachmentsChange(updated);
-    setVisionRequired(updated.some(a => a.type === 'image' || a.type === 'video'));
 
     newAttachments.forEach(async (atl, idx) => {
       const globalIdx = attachments.length + idx;
@@ -233,7 +238,6 @@ export const ChatInput: React.FC<ChatInputProps> = ({
   const removeAttachment = (index: number) => {
     const updated = attachments.filter((_, i) => i !== index);
     onAttachmentsChange(updated);
-    setVisionRequired(updated.some(a => a.type === 'image' || a.type === 'video'));
   };
 
   return (
