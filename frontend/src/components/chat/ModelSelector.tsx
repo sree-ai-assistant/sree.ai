@@ -69,6 +69,9 @@ export const ModelSelector: React.FC = () => {
       if (!a.is_vision && b.is_vision) return 1;
     }
     
+    if (a.is_new && !b.is_new) return -1;
+    if (!a.is_new && b.is_new) return 1;
+    
     const ranks = { 'free': 0, 'premium': 1, 'pro': 2 };
     const rankA = ranks[a.tier_required.toLowerCase() as keyof typeof ranks] ?? 0;
     const rankB = ranks[b.tier_required.toLowerCase() as keyof typeof ranks] ?? 0;
@@ -176,6 +179,7 @@ export const ModelSelector: React.FC = () => {
                           {model.is_vision && <span className={styles.visionBadge}>Vision</span>}
                           {inMaintenance && <span className={styles.maintenanceBadge} title="In Maintenance">⚠️</span>}
                           {model.name} <span title='Faster Model'> {model.is_fast && ' ⚡'}</span>
+                          {model.is_new && <span className={styles.newBadge}>NEW</span>}
                         </div>
                         {inMaintenance ? (
                           <span className={styles.maintenanceText}>Maintenance</span>

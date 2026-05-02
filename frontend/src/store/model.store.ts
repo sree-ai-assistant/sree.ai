@@ -14,6 +14,7 @@ export interface AIModel {
   context_window: number;
   in_maintenance: boolean;
   is_fast: boolean;
+  is_new: boolean;
 }
 
 interface ModelState {
