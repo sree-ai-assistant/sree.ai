@@ -55,8 +55,8 @@ export const ModelSelector: React.FC = () => {
 
   // Search and Sorting logic: 
   const filteredModels = models.filter(model => 
-    model.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    model.description.toLowerCase().includes(searchQuery.toLowerCase())
+    (model.name?.toLowerCase() || '').includes(searchQuery.toLowerCase()) ||
+    (model.description?.toLowerCase() || '').includes(searchQuery.toLowerCase())
   );
 
   const sortedModels = [...filteredModels].sort((a, b) => {
@@ -73,8 +73,8 @@ export const ModelSelector: React.FC = () => {
     if (!a.is_new && b.is_new) return 1;
     
     const ranks = { 'free': 0, 'premium': 1, 'pro': 2 };
-    const rankA = ranks[a.tier_required.toLowerCase() as keyof typeof ranks] ?? 0;
-    const rankB = ranks[b.tier_required.toLowerCase() as keyof typeof ranks] ?? 0;
+    const rankA = ranks[(a.tier_required?.toLowerCase() || 'free') as keyof typeof ranks] ?? 0;
+    const rankB = ranks[(b.tier_required?.toLowerCase() || 'free') as keyof typeof ranks] ?? 0;
     return rankA - rankB;
   });
 
