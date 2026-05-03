@@ -308,6 +308,7 @@ const ChatPage: React.FC = () => {
     if (isGenerating || !user?.id) return;
 
     let currentConvId = activeConversation?.id;
+    const assistantOptimisticId = `temp_assistant_${Date.now()}`;
 
     // Set generating state early to show immediate feedback
     setIsGenerating(true);
@@ -318,6 +319,12 @@ const ChatPage: React.FC = () => {
     if (!isRetry) setStreamingStatus(null);
     setAttachments([]); // Clear attachments immediately
 
+    // Initialize streaming refs early to prevent UI reset on navigation
+    streamingOptimisticIdRef.current = assistantOptimisticId;
+    if (currentConvId) {
+      streamingIdRef.current = currentConvId;
+    }
+
     if (!currentConvId) {
       const isVoice = location.pathname.startsWith('/voice');
       const newConv = await createConversation(user.id, messageContent.slice(0, 40) + '...', isVoice ? 'voice' : 'chat');
@@ -326,6 +333,7 @@ const ChatPage: React.FC = () => {
         return;
       }
       currentConvId = newConv.id;
+      streamingIdRef.current = currentConvId;
       navigate(isVoice ? `/voice/chat/${newConv.id}` : `/chat/${newConv.id}`, { replace: true });
     }
 
@@ -348,7 +356,6 @@ const ChatPage: React.FC = () => {
     }
 
     setIsProcessingVideo(currentAttachments.some(a => a.type === 'video'));
-    streamingIdRef.current = currentConvId;
     const abortController = new AbortController();
     abortControllerRef.current = abortController;
 
@@ -356,8 +363,6 @@ const ChatPage: React.FC = () => {
     let assistantMessage = '';
     let isStreamFinishedLocal = false;
     let isSaved = false;
-    const assistantOptimisticId = `temp_assistant_${Date.now()}`;
-    streamingOptimisticIdRef.current = assistantOptimisticId;
 
     try {
       let currentSession = session;
