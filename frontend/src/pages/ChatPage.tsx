@@ -1,8 +1,6 @@
 import React, { useState, useRef, useEffect, useMemo, useDeferredValue } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Bot, User, Sparkles, RefreshCw, AlertCircle } from 'lucide-react';
-import ReactMarkdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
+import { Sparkles } from 'lucide-react';
 import { DashboardLayout } from '../features/dashboard/DashboardLayout';
 import { supabase } from '../lib/supabase';
 import { useChatStore } from '../store/chat.store';
@@ -11,8 +9,6 @@ import { useParams, useNavigate } from 'react-router-dom';
 import styles from './ChatPage.module.css';
 import { VoiceOverlay } from '../components/voice/VoiceOverlay';
 import { ChatInput } from '../components/chat/ChatInput';
-import { ThinkingAnimation } from '../components/chat/ThinkingAnimation';
-import { MessageAttachment } from '../components/chat/MessageAttachment';
 import { ModelSelector } from '../components/chat/ModelSelector';
 import { useModelStore } from '../store/model.store';
 import { useLocation } from 'react-router-dom';
@@ -28,8 +24,6 @@ const ChatPage: React.FC = () => {
     activeConversation,
     messages,
     addMessage,
-    updateMessage,
-    removeMessage,
     loading: chatLoading,
     setActiveConversation,
     createConversation,
@@ -42,7 +36,6 @@ const ChatPage: React.FC = () => {
 
   const isVoiceRoute = location.pathname.startsWith('/voice');
   const [showVoiceOverlay, setShowVoiceOverlay] = useState(isVoiceRoute);
-  const { removeLastMessage } = useChatStore();
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => setSession(data.session));
@@ -95,7 +88,6 @@ const ChatPage: React.FC = () => {
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
-  const typewriterRafRef = useRef<number | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
   const typewriterIntervalRef = useRef<number | null>(null);
   const streamingIdRef = useRef<string | null>(null);
@@ -669,7 +661,9 @@ const ChatPage: React.FC = () => {
                         } else {
                           // Fallback: if no user message found, truncate from the clicked error message
                           const targetId = allMessages[firstErrorIndex]?.id || id;
-                          await useChatStore.getState().truncateHistory(activeConversation.id, targetId);
+                          if (targetId) {
+                            await useChatStore.getState().truncateHistory(activeConversation.id, targetId);
+                          }
                         }
                       }
                     }}

@@ -375,15 +375,138 @@ class AiService {
   }
 
 
-  async generateImage(apiKey: string, prompt: string, model: string = 'stabilityai/stable-diffusion-xl-base-1.0') {
-    const openai = this.getNvidiaClient(apiKey);
+  async generateImage(
+    apiKey: string, 
+    prompt: string, 
+    model: string = 'black-forest-labs/flux-1-schnell',
+    options: {
+      negative_prompt?: string;
+      seed?: number;
+      steps?: number;
+      width?: number;
+      height?: number;
+      cfg_scale?: number;
+    } = {}
+  ) {
+    const {
+      negative_prompt,
+      seed = 0,
+      steps = 30,
+      width = 1024,
+      height = 1024,
+      cfg_scale = 5,
+    } = options;
 
-    return openai.images.generate({
-      model,
-      prompt,
-      n: 1,
-      size: '1024x1024',
-    });
+    // NVIDIA NIM endpoints are model-specific.
+    let modelPath = model;
+    
+    // Mapping for known models that have different internal paths on NVIDIA API
+    const modelMapping: Record<string, string> = {
+      'stabilityai/stable-diffusion-xl-base-1.0': 'stabilityai/stable-diffusion-xl',
+      'stabilityai/stable-diffusion-3-5-large': 'stabilityai/stable-diffusion-3.5-large',
+      'black-forest-labs/flux-1-schnell': 'black-forest-labs/flux.1-schnell',
+      'black-forest-labs/flux-1-1-schnell': 'black-forest-labs/flux.1.1-schnell',
+      'black-forest-labs/flux-1-dev': 'black-forest-labs/flux.1-dev',
+      'black-forest-labs/flux-1-dev-canny': 'black-forest-labs/flux.1-dev-canny',
+      'black-forest-labs/flux-1-dev-depth': 'black-forest-labs/flux.1-dev-depth',
+      'black-forest-labs/flux-2-klein-4b': 'black-forest-labs/flux.2-klein-4b',
+      'black-forest-labs/flux-1-kontext-dev': 'black-forest-labs/flux.1-kontext-dev',
+    };
+
+    if (modelMapping[model]) {
+      modelPath = modelMapping[model];
+    }
+
+    const url = `https://ai.api.nvidia.com/v1/genai/${modelPath}`;
+
+    // Build model-specific payload
+    let payload: any = {
+      seed,
+      steps,
+      width,
+      height,
+    };
+
+    // SDXL and some older models require 'text_prompts' instead of 'prompt'
+    const isSDXL = modelPath.includes('stable-diffusion-xl');
+    const isFlux = modelPath.includes('flux');
+    const isSD35 = modelPath.includes('stable-diffusion-3.5');
+    
+    if (isSDXL) {
+      payload.width = 1024;
+      payload.height = 1024;
+      payload.text_prompts = [{ text: prompt, weight: 1.0 }];
+      if (negative_prompt) {
+        payload.text_prompts.push({ text: negative_prompt, weight: -1.0 });
+      }
+      payload.cfg_scale = cfg_scale;
+      payload.sampler = 'K_EULER_ANCESTRAL';
+    } else {
+      payload.prompt = prompt;
+      
+      if (isFlux) {
+        if (modelPath.includes('schnell')) {
+          payload.steps = Math.min(steps, 4);
+          payload.width = 1024;
+          payload.height = 1024;
+        } else if (modelPath.includes('klein')) {
+          payload.steps = Math.min(steps || 4, 4);
+          payload.width = 1024;
+          payload.height = 1024;
+        }
+      } else if (isSD35) {
+        if (negative_prompt) payload.negative_prompt = negative_prompt;
+      } else {
+        if (negative_prompt) payload.negative_prompt = negative_prompt;
+        if (cfg_scale) payload.cfg_scale = cfg_scale;
+        payload.sampler = 'DPM++ 2M';
+      }
+    }
+
+    console.log(`[AiService] Generating image with model: ${modelPath}`);
+    console.log(`[AiService] URL: ${url}`);
+    console.log(`[AiService] Image params: ${payload.width}x${payload.height}, steps=${payload.steps}, seed=${seed}`);
+
+    try {
+      const response = await axios.post(url, payload, {
+        headers: {
+          'Authorization': `Bearer ${apiKey}`,
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+        },
+        timeout: 120000,
+      });
+
+      let artifacts = response.data?.artifacts;
+      
+      if (!artifacts && response.data?.data) {
+        artifacts = response.data.data.map((item: any) => ({
+          base64: item.b64_json || item.url,
+          seed: seed
+        }));
+      } else if (!artifacts && response.data?.image) {
+        artifacts = [{ base64: response.data.image, seed: seed }];
+      }
+
+      if (!artifacts || artifacts.length === 0) {
+        console.error(`[AiService] Unexpected response structure:`, JSON.stringify(response.data));
+        throw new Error('No image data returned from NVIDIA API');
+      }
+
+      return {
+        artifacts: artifacts.map((a: any) => ({
+          base64: a.base64,
+          seed: a.seed || seed,
+        })),
+      };
+    } catch (error: any) {
+      const errMsg = error.response?.data?.detail || error.response?.data?.message || error.message;
+      console.error(`[AiService] Image generation failed for ${modelPath}: ${errMsg}`);
+      if (error.response?.data) {
+        console.error(`[AiService] Error body:`, JSON.stringify(error.response.data));
+      }
+      throw new Error(`Image generation failed: ${errMsg}`);
+    }
   }
 
   async generateSpeech(apiKey: string, input: string, model: string = 'aura-2-thalia-en') {
@@ -429,6 +552,9 @@ class AiService {
       throw error;
     }
   }
+
+  // uploadNvidiaAsset removed — NVCF Asset API requires enterprise access.
+  // NVIDIA NIM image endpoints accept inline base64 data URIs directly.
 
   /**
    * Helper to convert a remote image URL to a base64 string

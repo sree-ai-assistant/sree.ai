@@ -1,223 +1,532 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Image as ImageIcon, Wand2, Trash2, Loader2, Sparkles, Clock } from 'lucide-react';
+import {
+  Image as ImageIcon, Wand2, Trash2, Loader2, Sparkles,
+  Download, Settings2, ChevronDown, Zap, X, RotateCcw, Copy, LayoutGrid, Plus,
+  Maximize2, History, Layers, Sliders, Palette
+} from 'lucide-react';
 import { DashboardLayout } from '../features/dashboard/DashboardLayout';
-import { useChatStore } from '../store/chat.store';
 import { useAuthStore } from '../store/auth.store';
-import { useNavigate } from 'react-router-dom';
+import { useModelStore } from '../store/model.store';
 import api from '../lib/api';
+import toast from 'react-hot-toast';
+import styles from './ImageGenPage.module.css';
+
+// Aspect ratio presets
+const ASPECT_RATIOS = [
+  { label: '1:1', w: 1024, h: 1024, iconSize: { w: 24, h: 24 } },
+  { label: '16:9', w: 1344, h: 768, iconSize: { w: 32, h: 18 } },
+  { label: '9:16', w: 768, h: 1344, iconSize: { w: 18, h: 32 } },
+  { label: '4:3', w: 1152, h: 896, iconSize: { w: 28, h: 21 } },
+  { label: '3:4', w: 896, h: 1152, iconSize: { w: 21, h: 28 } },
+  { label: '3:2', w: 1216, h: 832, iconSize: { w: 30, h: 20 } },
+];
+
+const PROMPT_STYLERS = [
+  { label: 'Cinematic', suffix: ', cinematic shot, highly detailed, 8k, masterwork', icon: '🎬' },
+  { label: 'Anime', suffix: ', anime style, vibrant colors, expressive lighting', icon: '🎨' },
+  { label: '3D Render', suffix: ', 3d render, octane render, unreal engine 5, volumetric lighting', icon: '🧊' },
+  { label: 'Digital Art', suffix: ', digital art, sharp lines, clean composition, trending on artstation', icon: '✨' },
+  { label: 'Cyberpunk', suffix: ', cyberpunk aesthetic, neon lights, futuristic city, dark moody atmosphere', icon: '🌃' },
+  { label: 'Portrait', suffix: ', professional portrait photography, sharp focus, bokeh background', icon: '👤' },
+  { label: 'Minimalist', suffix: ', minimalist style, clean background, sharp focus, elegant', icon: '⚪' },
+  { label: 'Fantasy', suffix: ', epic fantasy, ethereal lighting, magical atmosphere', icon: '🧙' },
+];
+
+interface GeneratedImage {
+  id: string;
+  url: string;
+  prompt: string;
+  model: string;
+  seed?: number;
+  created_at: string;
+}
 
 const ImageGenPage: React.FC = () => {
   const { user } = useAuthStore();
-  const { conversations, fetchConversations, createConversation, addMessage, deleteConversation, loading } = useChatStore();
-  const navigate = useNavigate();
+  const { models, fetchModels } = useModelStore();
+
   const [prompt, setPrompt] = useState('');
+  const [negativePrompt, setNegativePrompt] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
+  const [selectedRatio, setSelectedRatio] = useState(0);
+  const [steps, setSteps] = useState(30);
+  const [seed, setSeed] = useState(0);
+  const [cfgScale, setCfgScale] = useState(5);
+  const [generatedPreview, setGeneratedPreview] = useState<{ url: string; seed?: number } | null>(null);
+  const [selectedModelId, setSelectedModelId] = useState('');
+  const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
+  const [imageHistory, setImageHistory] = useState<GeneratedImage[]>([]);
+  const [activeTab, setActiveTab] = useState<'generate' | 'gallery'>('generate');
+  const [isFetchingHistory, setIsFetchingHistory] = useState(false);
+  const [isDeleting, setIsDeleting] = useState<string | null>(null);
+  
+  const [isModelDropdownOpen, setIsModelDropdownOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+  const promptRef = useRef<HTMLTextAreaElement>(null);
+
+  // Close dropdown on click outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setIsModelDropdownOpen(false);
+      }
+    };
+
+    if (isModelDropdownOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isModelDropdownOpen]);
+
+  // Get image-capable models
+  const imageModels = models.filter(m => m.is_image && !m.in_maintenance);
+
+  const fetchHistory = useCallback(async () => {
+    if (!user?.id) return;
+    setIsFetchingHistory(true);
+    try {
+      const response = await api.get('/ai/images');
+      if (response.data.success) {
+        setImageHistory(response.data.data);
+      }
+    } catch (error) {
+      console.error('History fetch error:', error);
+    } finally {
+      setIsFetchingHistory(false);
+    }
+  }, [user?.id]);
 
   useEffect(() => {
-    if (user?.id) {
-      fetchConversations(user.id);
+    fetchModels();
+  }, [fetchModels]);
+
+  useEffect(() => {
+    fetchHistory();
+  }, [fetchHistory]);
+
+  // Auto-select first image model
+  useEffect(() => {
+    if (imageModels.length > 0 && !selectedModelId) {
+      const fast = imageModels.find(m => m.is_fast) || imageModels[0];
+      setSelectedModelId(fast.model_id);
     }
-  }, [user?.id, fetchConversations]);
+  }, [imageModels, selectedModelId]);
 
-  const imageHistory = conversations
-    .filter(c => c.type === 'image')
-    .map(c => ({
-      id: c.id,
-      title: c.title,
-      // We'll store the URL in the first assistant message for this conversation
-      // In a real app, we might have a separate table or metadata, but this fits the current schema
-      url: '', 
-      created_at: c.created_at
-    }));
+  const selectedModel = imageModels.find(m => m.model_id === selectedModelId);
+  const isFlux = selectedModelId.includes('flux');
+  const ratio = ASPECT_RATIOS[selectedRatio];
 
-  const handleGenerate = async () => {
+  const handleGenerate = useCallback(async () => {
     if (!prompt.trim() || isGenerating || !user?.id) return;
 
     setIsGenerating(true);
+    setGeneratedPreview(null);
+    setActiveTab('generate');
+
     try {
       const response = await api.post('/ai/image', {
         prompt,
-        model: 'stabilityai/stable-diffusion-xl-base-1.0'
+        model: selectedModelId,
+        negative_prompt: isFlux ? undefined : negativePrompt || undefined,
+        seed: seed || 0,
+        steps,
+        width: ratio.w,
+        height: ratio.h,
+        cfg_scale: isFlux ? undefined : cfgScale,
       });
 
       if (response.data.success) {
-        const url = response.data.data.data[0].url;
-        
-        // 1. Create a conversation entry
-        const newConv = await createConversation(user.id, prompt.slice(0, 30) + '...', 'image');
-        if (newConv) {
-          // 2. Add the URL as an assistant message
-          await addMessage(newConv.id, 'assistant', url);
-          // 3. Add the prompt as a user message
-          await addMessage(newConv.id, 'user', prompt);
-          // Navigate to the image session
-          navigate(`/images/${newConv.id}`);
+        const img = response.data.data.images[0];
+        if (img) {
+          setGeneratedPreview({ url: img.url, seed: img.seed });
+          toast.success('Image generated!');
+          fetchHistory();
         }
-        
-        setPrompt('');
       }
     } catch (error: any) {
       console.error('Image Generation Error:', error);
-      alert(error.response?.data?.message || 'Failed to generate image. Ensure your NVIDIA API key is valid.');
+      toast.error(error.response?.data?.message || 'Failed to generate image');
     } finally {
       setIsGenerating(false);
     }
+  }, [prompt, isGenerating, user?.id, selectedModelId, negativePrompt, seed, steps, ratio, cfgScale, isFlux, fetchHistory]);
+
+  const handleDelete = async (id: string) => {
+    if (confirm('Delete this generation?')) {
+      setIsDeleting(id);
+      try {
+        await api.delete(`/ai/image/${id}`);
+        setImageHistory(prev => prev.filter(i => i.id !== id));
+        toast.success('Deleted');
+      } catch {
+        toast.error('Failed to delete');
+      } finally {
+        setIsDeleting(null);
+      }
+    }
   };
 
-  // We need to fetch the actual image URLs for the gallery
-  // Since our messages are fetched when a conversation is ACTIVE, 
-  // and here we want to see ALL images, we might need a specialized fetch 
-  // or store the URL in the conversation title/metadata.
-  // For now, let's assume we'll just show the latest ones or the user has to click.
-  // Actually, let's make it better: 
-  // We'll update the ChatStore to allow fetching messages for multiple convs or just use a dedicated gallery page.
-  
-  // SIMPLIFICATION: We'll just display the list and let them click, 
-  // OR we can do a quick check if conversations have the URL.
-  
+  const handleDownload = async (url: string, name?: string) => {
+    try {
+      const res = await fetch(url);
+      const blob = await res.blob();
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = name || `sree-ai-${Date.now()}.png`;
+      a.click();
+      URL.revokeObjectURL(a.href);
+    } catch { toast.error('Download failed'); }
+  };
+
+  const applyStyler = (suffix: string) => {
+    setPrompt(prev => {
+      const base = prev.trim();
+      if (base.endsWith(suffix)) return prev;
+      return base + suffix;
+    });
+    promptRef.current?.focus();
+  };
+
   return (
     <DashboardLayout>
-      <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
-        <div style={{ marginBottom: '32px' }}>
-          <h2 className="text-gradient" style={{ fontSize: '2rem', marginBottom: '8px' }}>Vision Engine</h2>
-          <p style={{ color: 'var(--text-secondary)' }}>Transform your thoughts into high-fidelity visual art.</p>
-        </div>
-
-        <div className="glass" style={{ padding: '24px', borderRadius: '24px', marginBottom: '40px' }}>
-          <div style={{ display: 'flex', gap: '16px' }}>
-            <div className="chat-input-wrapper" style={{ margin: 0, flex: 1 }}>
-              <ImageIcon size={20} color="var(--text-muted)" style={{ marginLeft: '8px' }} />
-              <input
-                className="chat-input"
-                placeholder="Describe the image you want to create..."
-                value={prompt}
-                onChange={(e) => setPrompt(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && handleGenerate()}
-              />
-            </div>
-            <button 
-              className="send-btn" 
-              style={{ width: 'auto', padding: '0 24px', display: 'flex', gap: '8px' }}
-              onClick={handleGenerate}
-              disabled={isGenerating || !prompt.trim()}
-            >
-              {isGenerating ? <Loader2 className="animate-spin" size={20} /> : <Wand2 size={20} />}
-              Generate
-            </button>
-          </div>
-        </div>
-
-        {imageHistory.length === 0 && !isGenerating && !loading && (
-          <div style={{ textAlign: 'center', marginTop: '60px', opacity: 0.5 }}>
-            <Sparkles size={48} color="var(--primary)" style={{ marginBottom: '16px' }} />
-            <h3>Your gallery is empty</h3>
-            <p>Try prompting something like "A cyberpunk city at night with neon rain"</p>
-          </div>
-        )}
-
-        <div style={{ 
-          display: 'grid', 
-          gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', 
-          gap: '24px' 
-        }}>
-          {loading && imageHistory.length === 0 ? (
-            Array.from({ length: 6 }).map((_, i) => (
-              <div key={`img-skeleton-${i}`} className="skeleton" style={{ aspectRatio: '1/1', borderRadius: '20px' }}></div>
-            ))
-          ) : (
-            <AnimatePresence>
-              {isGenerating && (
-                <motion.div
-                  initial={{ opacity: 0, scale: 0.9 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  className="glass"
+      <div className={styles.container}>
+        {/* Left Settings Sidebar */}
+        <aside className={styles.sidebar}>
+          <div className={styles.section}>
+            <span className={styles.sectionLabel}>Model Selection</span>
+            <div className={styles.dropdownContainer} ref={dropdownRef}>
+              <button 
+                className={styles.dropdownTrigger}
+                onClick={() => setIsModelDropdownOpen(!isModelDropdownOpen)}
+              >
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '2px' }}>
+                  <span style={{ fontWeight: 600, fontSize: '0.9rem' }}>{selectedModel?.name || 'Select Model'}</span>
+                  <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                    {selectedModel?.is_fast ? 'Ultra Fast' : 'High Quality'}
+                  </span>
+                </div>
+                <ChevronDown 
+                  size={18} 
                   style={{ 
-                    aspectRatio: '1/1', 
-                    borderRadius: '20px', 
-                    display: 'flex', 
-                    flexDirection: 'column',
-                    alignItems: 'center', 
-                    justifyContent: 'center',
-                    gap: '16px',
-                    border: '1px dashed var(--primary)'
-                  }}
+                    transform: isModelDropdownOpen ? 'rotate(180deg)' : 'rotate(0deg)',
+                    transition: 'transform 0.2s ease',
+                    opacity: 0.5
+                  }} 
+                />
+              </button>
+
+              <AnimatePresence>
+                {isModelDropdownOpen && (
+                  <motion.div 
+                    initial={{ opacity: 0, y: -10, scale: 0.95 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: -10, scale: 0.95 }}
+                    transition={{ duration: 0.15 }}
+                    className={styles.dropdownMenu}
+                  >
+                    {imageModels.map(m => (
+                      <div 
+                        key={m.model_id}
+                        className={`${styles.dropdownItem} ${selectedModelId === m.model_id ? styles.dropdownItemActive : ''}`}
+                        onClick={() => {
+                          setSelectedModelId(m.model_id);
+                          setIsModelDropdownOpen(false);
+                        }}
+                      >
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
+                          <span style={{ fontWeight: 600 }}>{m.name}</span>
+                          {m.is_fast && <Zap size={12} className="text-success" />}
+                        </div>
+                        <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                          {m.is_fast ? 'Ultra Fast' : 'High Quality'}
+                        </span>
+                      </div>
+                    ))}
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+          </div>
+
+          <div>
+            <span className={styles.sectionLabel}>Aspect Ratio</span>
+            <div className={styles.ratioGrid}>
+              {ASPECT_RATIOS.map((r, i) => (
+                <button
+                  key={r.label}
+                  className={`${styles.ratioButton} ${selectedRatio === i ? styles.ratioButtonActive : ''}`}
+                  onClick={() => setSelectedRatio(i)}
                 >
-                  <div className="animate-spin">
-                    <Loader2 size={40} color="var(--primary)" />
+                  <div 
+                    className={styles.ratioBox} 
+                    style={{ 
+                      width: `${r.iconSize.w}px`, 
+                      height: `${r.iconSize.h}px`,
+                      borderColor: selectedRatio === i ? 'white' : 'currentColor'
+                    }} 
+                  />
+                  <span style={{ fontSize: '0.7rem' }}>{r.label}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <span className={styles.sectionLabel}>Parameters</span>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Steps</span>
+                  <span style={{ fontSize: '0.8rem', fontWeight: 600 }}>{steps}</span>
+                </div>
+                <input 
+                  type="range" min={10} max={50} value={steps} 
+                  onChange={e => setSteps(+e.target.value)} 
+                  className={styles.rangeInput}
+                />
+              </div>
+
+              {!isFlux && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>CFG Scale</span>
+                    <span style={{ fontSize: '0.8rem', fontWeight: 600 }}>{cfgScale}</span>
                   </div>
-                  <p style={{ fontSize: '0.9rem', color: 'var(--primary)' }}>Synthesizing Vision...</p>
-                </motion.div>
+                  <input 
+                    type="range" min={1} max={20} value={cfgScale} 
+                    onChange={e => setCfgScale(+e.target.value)} 
+                    className={styles.rangeInput}
+                  />
+                </div>
               )}
 
-              {imageHistory.map(img => (
-                <motion.div
-                  key={img.id}
-                  layout
-                  initial={{ opacity: 0, scale: 0.9 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 0.9 }}
-                  className="glass glow-border"
-                  style={{ 
-                    position: 'relative', 
-                    borderRadius: '20px', 
-                    overflow: 'hidden', 
-                    cursor: 'pointer',
-                    minHeight: '200px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center'
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Seed</span>
+                <input 
+                  type="number" value={seed} 
+                  onChange={e => setSeed(+e.target.value)}
+                  placeholder="Random"
+                  style={{
+                    background: 'rgba(255,255,255,0.05)', border: '1px solid var(--border-color)',
+                    borderRadius: '8px', padding: '8px 12px', color: 'white', fontSize: '0.85rem'
                   }}
-                >
-                  <div style={{ padding: '20px', textAlign: 'center' }}>
-                      <Clock size={24} style={{ marginBottom: '8px', opacity: 0.5 }} />
-                      <p style={{ fontSize: '0.85rem' }}>{img.title}</p>
-                      <p style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>
-                          {new Date(img.created_at).toLocaleDateString()}
-                      </p>
-                  </div>
-                  <div style={{
-                    position: 'absolute',
-                    inset: 0,
-                    background: 'linear-gradient(to top, rgba(0,0,0,0.8), transparent)',
-                    opacity: 0,
-                    transition: 'opacity 0.3s ease',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    justifyContent: 'flex-end',
-                    padding: '16px'
-                  }} 
-                  className="gallery-overlay"
-                  onMouseEnter={(e) => (e.currentTarget.style.opacity = '1')}
-                  onMouseLeave={(e) => (e.currentTarget.style.opacity = '0')}
-                  >
-                    <div style={{ display: 'flex', gap: '8px' }}>
-                      <button style={{ 
-                         background: 'rgba(239, 68, 68, 0.2)', 
-                         border: 'none', 
-                         color: '#EF4444', 
-                         width: '100%',
-                         height: '32px',
-                         borderRadius: '8px',
-                         display: 'flex',
-                         alignItems: 'center',
-                         justifyContent: 'center',
-                         gap: '8px'
-                      }} onClick={(e) => {
-                          e.stopPropagation();
-                          if(confirm('Delete this generation?')) deleteConversation(img.id);
-                      }}>
-                        <Trash2 size={14} />
-                        <span>Delete</span>
-                      </button>
-                    </div>
-                  </div>
-                </motion.div>
-              ))}
-            </AnimatePresence>
-          )}
+                />
+              </div>
+            </div>
+          </div>
 
-        </div>
+          <div style={{ marginTop: 'auto' }}>
+            <div style={{ padding: '16px', background: 'rgba(59,130,246,0.1)', borderRadius: '16px', border: '1px solid var(--primary-glow)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px' }}>
+                <Sparkles size={16} color="var(--primary)" />
+                <span style={{ fontSize: '0.8rem', fontWeight: 700 }}>Pro Tip</span>
+              </div>
+              <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', lineHeight: 1.4 }}>
+                Use "cinematic" or "highly detailed" in your prompt for more realistic results.
+              </p>
+            </div>
+          </div>
+        </aside>
+
+        {/* Main Content Area */}
+        <main className={styles.main}>
+          {/* Header Tabs */}
+          <div style={{ padding: '24px 40px 0' }}>
+            <div className={styles.tabHeader}>
+              <button 
+                className={`${styles.tabButton} ${activeTab === 'generate' ? styles.tabButtonActive : ''}`}
+                onClick={() => setActiveTab('generate')}
+              >
+                Create
+              </button>
+              <button 
+                className={`${styles.tabButton} ${activeTab === 'gallery' ? styles.tabButtonActive : ''}`}
+                onClick={() => setActiveTab('gallery')}
+              >
+                Collection
+              </button>
+            </div>
+          </div>
+
+          <div className={styles.viewport}>
+            {activeTab === 'generate' ? (
+              <>
+                {/* Generation Area */}
+                <div className={styles.resultContainer} style={{ aspectRatio: `${ratio.w}/${ratio.h}`, maxHeight: '60vh' }}>
+                  <AnimatePresence mode="wait">
+                    {isGenerating ? (
+                      <motion.div 
+                        key="generating"
+                        initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                        className={styles.generationOverlay}
+                      >
+                        <div className="relative">
+                          <motion.div 
+                            animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 3, ease: "linear" }}
+                            style={{ width: '80px', height: '80px', border: '2px solid var(--primary)', borderRadius: '50%', borderTopColor: 'transparent' }}
+                          />
+                          <Wand2 size={32} className="absolute inset-0 m-auto text-primary animate-pulse" />
+                        </div>
+                        <div style={{ textAlign: 'center' }}>
+                          <h3 style={{ fontSize: '1.2rem', marginBottom: '4px' }}>Diffusing...</h3>
+                          <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>Crafting your masterpiece with {selectedModel?.name}</p>
+                        </div>
+                      </motion.div>
+                    ) : generatedPreview ? (
+                      <motion.div 
+                        key="preview"
+                        initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}
+                        style={{ width: '100%', height: '100%', position: 'relative' }}
+                      >
+                        <img 
+                          src={generatedPreview.url} 
+                          alt="Generated result" 
+                          style={{ width: '100%', height: '100%', objectFit: 'contain', cursor: 'zoom-in' }}
+                          onClick={() => setLightboxUrl(generatedPreview.url)}
+                        />
+                        <div style={{ 
+                          position: 'absolute', bottom: 0, left: 0, right: 0, padding: '24px',
+                          background: 'linear-gradient(to top, rgba(0,0,0,0.9), transparent)',
+                          display: 'flex', justifyContent: 'space-between', alignItems: 'center'
+                        }}>
+                          <div style={{ display: 'flex', gap: '12px' }}>
+                            <button onClick={() => handleDownload(generatedPreview.url)} className="glass" style={{ padding: '10px 20px', borderRadius: '12px', border: 'none', color: 'white', display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+                              <Download size={18} /> Save
+                            </button>
+                            <button onClick={() => handleGenerate()} className="glass" style={{ padding: '10px 20px', borderRadius: '12px', border: 'none', color: 'white', display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+                              <RotateCcw size={18} /> Re-roll
+                            </button>
+                          </div>
+                          <button onClick={() => setGeneratedPreview(null)} style={{ background: 'transparent', border: 'none', color: 'white', cursor: 'pointer', opacity: 0.6 }}>
+                            <X size={20} />
+                          </button>
+                        </div>
+                      </motion.div>
+                    ) : (
+                      <motion.div 
+                        key="empty"
+                        initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+                        style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', opacity: 0.3 }}
+                      >
+                        <ImageIcon size={64} />
+                        <p style={{ marginTop: '16px', fontWeight: 500 }}>Your masterpiece will appear here</p>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
+
+                {/* Prompt Section */}
+                <div className={styles.promptSection}>
+                  <div style={{ display: 'flex', gap: '8px', overflowX: 'auto', marginBottom: '16px', paddingBottom: '4px' }} className="no-scrollbar">
+                    {PROMPT_STYLERS.map(s => (
+                      <button key={s.label} className={styles.stylerButton} onClick={() => applyStyler(s.suffix)}>
+                        <span>{s.icon}</span> {s.label}
+                      </button>
+                    ))}
+                  </div>
+
+                  <div style={{ display: 'flex', gap: '16px', alignItems: 'flex-end' }}>
+                    <div style={{ flex: 1, position: 'relative' }}>
+                      <textarea
+                        ref={promptRef}
+                        className="chat-input"
+                        placeholder="A cosmic landscape with purple nebulas and floating islands..."
+                        value={prompt}
+                        onChange={e => setPrompt(e.target.value)}
+                        onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleGenerate(); } }}
+                        style={{ 
+                          background: 'rgba(255,255,255,0.05)', 
+                          border: '1px solid var(--border-color)',
+                          borderRadius: '16px', padding: '16px', minHeight: '60px',
+                          fontSize: '1rem', width: '100%', resize: 'none'
+                        }}
+                      />
+                    </div>
+                    <button
+                      className="send-btn"
+                      onClick={handleGenerate}
+                      disabled={isGenerating || !prompt.trim()}
+                      style={{ 
+                        height: '60px', width: '60px', borderRadius: '16px', 
+                        background: 'var(--primary)', boxShadow: '0 0 20px var(--primary-glow)'
+                      }}
+                    >
+                      {isGenerating ? <Loader2 className="animate-spin" size={24} /> : <Wand2 size={24} />}
+                    </button>
+                  </div>
+                </div>
+              </>
+            ) : (
+              /* Gallery Area */
+              <div style={{ width: '100%' }}>
+                {imageHistory.length === 0 && !isFetchingHistory ? (
+                  <div style={{ textAlign: 'center', marginTop: '100px', opacity: 0.3 }}>
+                    <History size={64} style={{ marginBottom: '20px' }} />
+                    <h2>No history yet</h2>
+                    <p>Generated images will appear here</p>
+                  </div>
+                ) : (
+                  <div className={styles.galleryGrid}>
+                    {imageHistory.map(img => (
+                      <motion.div 
+                        key={img.id}
+                        layout initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+                        className={styles.galleryItem}
+                        onClick={() => setLightboxUrl(img.url)}
+                      >
+                        <img src={img.url} alt={img.prompt} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                        <div className={styles.galleryOverlay}>
+                          <p style={{ fontSize: '0.8rem', color: 'white', marginBottom: '12px', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                            {img.prompt}
+                          </p>
+                          <div style={{ display: 'flex', gap: '8px' }}>
+                            <button onClick={e => { e.stopPropagation(); handleDownload(img.url); }} className="glass" style={{ flex: 1, padding: '6px', borderRadius: '8px', border: 'none', color: 'white', fontSize: '0.7rem' }}>
+                              Save
+                            </button>
+                            <button onClick={e => { e.stopPropagation(); handleDelete(img.id); }} style={{ background: 'rgba(239,68,68,0.2)', color: '#f87171', border: 'none', padding: '6px 10px', borderRadius: '8px', cursor: 'pointer' }}>
+                              <Trash2 size={14} />
+                            </button>
+                          </div>
+                        </div>
+                      </motion.div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        </main>
+
+        {/* Lightbox */}
+        <AnimatePresence>
+          {lightboxUrl && (
+            <motion.div
+              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 p-10 cursor-zoom-out"
+              onClick={() => setLightboxUrl(null)}
+              style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(0,0,0,0.9)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+            >
+              <button className="absolute top-10 right-10 text-white/50 hover:text-white transition-colors" onClick={() => setLightboxUrl(null)}>
+                <X size={32} />
+              </button>
+              <motion.img
+                initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
+                src={lightboxUrl} alt="Preview"
+                className="max-w-full max-h-full rounded-2xl shadow-2xl"
+                style={{ maxWidth: '90%', maxHeight: '90%', borderRadius: '24px' }}
+                onClick={e => e.stopPropagation()}
+              />
+              <div className="absolute bottom-10 flex gap-4" onClick={e => e.stopPropagation()}>
+                <button onClick={() => handleDownload(lightboxUrl!)} className="px-8 py-3 bg-blue-600 text-white rounded-xl font-semibold flex items-center gap-2 hover:bg-blue-500 transition-colors" style={{ padding: '12px 24px', background: 'var(--primary)', borderRadius: '12px', color: 'white', border: 'none', cursor: 'pointer' }}>
+                  <Download size={20} /> Download Image
+                </button>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
     </DashboardLayout>
   );

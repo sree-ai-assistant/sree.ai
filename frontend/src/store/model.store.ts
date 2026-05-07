@@ -15,6 +15,7 @@ export interface AIModel {
   in_maintenance: boolean;
   is_fast: boolean;
   is_new: boolean;
+  is_image: boolean;
   created_at: string;
 }
 

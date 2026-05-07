@@ -31,13 +31,13 @@ class R2Service {
     this.s3Client = new S3Client(s3Config);
   }
 
-  async uploadFile(filePath: string, originalName: string, mimeType: string): Promise<string> {
+  async uploadFile(filePath: string, originalName: string, mimeType: string, bucket?: string): Promise<string> {
     const fileExtension = path.extname(originalName);
     const fileName = `${Date.now()}-${Math.random().toString(36).substring(2, 15)}${fileExtension}`;
     const fileBuffer = await fs.readFile(filePath);
 
     const command = new PutObjectCommand({
-      Bucket: this.bucketName,
+      Bucket: bucket || this.bucketName,
       Key: fileName,
       Body: fileBuffer,
       ContentType: mimeType,
@@ -46,14 +46,15 @@ class R2Service {
     try {
       await this.s3Client.send(command);
       
-      // If a public URL is configured, use it. Otherwise, return a generic structure.
-      // Note: R2 buckets are not public by default.
-      if (this.publicUrl) {
-        return `${this.publicUrl.replace(/\/$/, '')}/${fileName}`;
+      const targetBucket = bucket || this.bucketName;
+      const bucketPublicUrl = targetBucket === 'image-generation'
+        ? process.env.IMAGE_GENERATION_PUBLIC_URL
+        : this.publicUrl;
+
+      if (bucketPublicUrl) {
+        return `${bucketPublicUrl.replace(/\/$/, '')}/${fileName}`;
       }
       
-      // Fallback to a structured R2 URL if publicUrl is not set
-      // Usually looks like https://pub-<id>.r2.dev/<key>
       return fileName; 
     } catch (error) {
       console.error('R2 Upload Error:', error);
@@ -61,13 +62,47 @@ class R2Service {
     }
   }
 
-  // Optional: Generate a signed URL for temporary access if bucket is private
-  async getSignedUrl(key: string, expiresIn: number = 3600): Promise<string> {
+  async uploadBase64(base64Data: string, mimeType: string, bucket?: string): Promise<string> {
+    // Remove data:image/png;base64, if present
+    const base64String = base64Data.includes(',') ? (base64Data.split(',')[1] ?? '') : base64Data;
+    const buffer = Buffer.from(base64String, 'base64');
+    
+    const extension = mimeType.split('/')[1] || 'png';
+    const fileName = `generated-${Date.now()}-${Math.random().toString(36).substring(2, 7)}.${extension}`;
+    
     const command = new PutObjectCommand({
-      Bucket: this.bucketName,
+      Bucket: bucket || this.bucketName,
+      Key: fileName,
+      Body: buffer,
+      ContentType: mimeType,
+    });
+
+    try {
+      await this.s3Client.send(command);
+      
+      const targetBucket = bucket || this.bucketName;
+      const bucketPublicUrl = targetBucket === 'image-generation'
+        ? process.env.IMAGE_GENERATION_PUBLIC_URL
+        : this.publicUrl;
+
+      if (bucketPublicUrl) {
+        return `${bucketPublicUrl.replace(/\/$/, '')}/${fileName}`;
+      }
+      
+      return fileName;
+    } catch (error) {
+      console.error('R2 Base64 Upload Error:', error);
+      throw new Error('Failed to upload base64 to storage');
+    }
+  }
+
+  // Optional: Generate a signed URL for temporary access if bucket is private
+  async getSignedUrl(key: string, expiresIn: number = 3600, bucket?: string): Promise<string> {
+    const command = new PutObjectCommand({
+      Bucket: bucket || this.bucketName,
       Key: key,
     });
-    return getSignedUrl(this.s3Client, command, { expiresIn });
+    return getSignedUrl(this.s3Client, (command as any), { expiresIn });
   }
 }
 

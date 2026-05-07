@@ -538,8 +538,13 @@ router.post('/chat', authMiddleware, tierCheckMiddleware, async (req: any, res) 
 // Image Generation
 router.post('/image', authMiddleware, tierCheckMiddleware, async (req: any, res) => {
   try {
-    const { prompt, model } = req.body;
+    const { v4: uuidv4 } = await import('uuid');
+    const { prompt, model, negative_prompt, seed, steps, width, height, cfg_scale, image, mode } = req.body;
     const userId = req.user.id;
+
+    if (!prompt || !prompt.trim()) {
+      return res.status(400).json({ success: false, message: 'Prompt is required' });
+    }
 
     const nvidiaApiKey = await ApiKeyService.getUserApiKey(userId, 'nvidia');
 
@@ -550,9 +555,99 @@ router.post('/image', authMiddleware, tierCheckMiddleware, async (req: any, res)
       });
     }
 
-    const result = await aiService.generateImage(nvidiaApiKey, prompt, model);
-    res.json({ success: true, data: result });
+    const result = await aiService.generateImage(nvidiaApiKey, prompt, model, {
+      negative_prompt,
+      seed,
+      steps,
+      width,
+      height,
+      cfg_scale,
+      image,
+      mode,
+    });
+
+    // Upload base64 images to R2 for persistent storage
+    const images = [];
+    for (const artifact of result.artifacts) {
+      try {
+        // Upload directly from base64
+        const url = await r2Service.uploadBase64(artifact.base64, 'image/png', 'image-generation');
+
+        images.push({
+          url,
+          seed: artifact.seed,
+        });
+
+        // Save to database gallery
+        const { error: dbError } = await supabaseAdmin
+          .from('user_images')
+          .insert({
+            user_id: userId,
+            url: url,
+            prompt: prompt,
+            model: model,
+            seed: artifact.seed,
+            width: width || 1024,
+            height: height || 1024
+          });
+
+        if (dbError) {
+          console.error(`[AI Route] Failed to save image to gallery:`, dbError);
+        }
+
+      } catch (uploadErr: any) {
+        console.error(`[AI Route] Failed to process generated image:`, uploadErr.message);
+        // Fallback: return as data URL if R2 upload fails
+        images.push({
+          url: `data:image/png;base64,${artifact.base64}`,
+          seed: artifact.seed,
+        });
+      }
+    }
+
+    res.json({ success: true, data: { images } });
   } catch (error: any) {
+    console.error('Image Generation Error:', error.message);
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// Get User Image History
+router.get('/images', authMiddleware, async (req: any, res) => {
+  try {
+    const userId = req.user.id;
+    const { data, error } = await supabaseAdmin
+      .from('user_images')
+      .select('*')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+
+    res.json({ success: true, data });
+  } catch (error: any) {
+    console.error('Fetch Images Error:', error.message);
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// Delete User Image
+router.delete('/image/:id', authMiddleware, async (req: any, res) => {
+  try {
+    const userId = req.user.id;
+    const { id } = req.params;
+
+    const { error } = await supabaseAdmin
+      .from('user_images')
+      .delete()
+      .eq('id', id)
+      .eq('user_id', userId);
+
+    if (error) throw error;
+
+    res.json({ success: true, message: 'Image deleted' });
+  } catch (error: any) {
+    console.error('Delete Image Error:', error.message);
     res.status(500).json({ success: false, message: error.message });
   }
 });

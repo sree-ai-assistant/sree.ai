@@ -10,7 +10,8 @@
 .layoutBody {
   display: flex;
   flex: 1;
-  margin-top: 64px; /* Navbar height */
+  margin-top: 64px;
+  /* Navbar height */
 }
 
 .mainContent {
@@ -18,7 +19,7 @@
   margin-left: var(--sidebar-width);
   height: calc(100vh - 64px);
   overflow-y: auto;
-  padding: 32px;
+  padding: 0 32px;
   position: relative;
   transition: margin-left var(--transition-normal);
 }
