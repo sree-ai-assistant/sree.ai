@@ -76,10 +76,7 @@
 }
 
 .dropdownMenu {
-  position: absolute;
-  top: calc(100% + 8px);
-  left: 0;
-  right: 0;
+  min-width: 270px;
   background: rgba(20, 20, 20, 0.95);
   backdrop-filter: blur(20px);
   border: 1px solid var(--border-color);
@@ -90,6 +87,7 @@
   display: flex;
   flex-direction: column;
   gap: 4px;
+  outline: none;
 }
 
 .dropdownItem {
@@ -101,14 +99,17 @@
   flex-direction: column;
   gap: 2px;
   color: white;
+  outline: none;
+  user-select: none;
 }
 
-.dropdownItem:hover {
+.dropdownItem:hover,
+.dropdownItem[data-highlighted] {
   background: rgba(255, 255, 255, 0.05);
 }
 
 .dropdownItemActive {
-  background: rgba(59, 130, 246, 0.1);
+  background: rgba(59, 130, 246, 0.1) !important;
   color: var(--primary);
 }
 

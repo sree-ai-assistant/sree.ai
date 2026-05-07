@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
+import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Image as ImageIcon, Wand2, Trash2, Loader2, Sparkles,
@@ -61,25 +62,7 @@ const ImageGenPage: React.FC = () => {
   const [isFetchingHistory, setIsFetchingHistory] = useState(false);
   const [isDeleting, setIsDeleting] = useState<string | null>(null);
   
-  const [isModelDropdownOpen, setIsModelDropdownOpen] = useState(false);
-  const dropdownRef = useRef<HTMLDivElement>(null);
   const promptRef = useRef<HTMLTextAreaElement>(null);
-
-  // Close dropdown on click outside
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
-        setIsModelDropdownOpen(false);
-      }
-    };
-
-    if (isModelDropdownOpen) {
-      document.addEventListener('mousedown', handleClickOutside);
-    }
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
-  }, [isModelDropdownOpen]);
 
   // Get image-capable models
   const imageModels = models.filter(m => m.is_image && !m.in_maintenance);
@@ -197,44 +180,37 @@ const ImageGenPage: React.FC = () => {
         <aside className={styles.sidebar}>
           <div className={styles.section}>
             <span className={styles.sectionLabel}>Model Selection</span>
-            <div className={styles.dropdownContainer} ref={dropdownRef}>
-              <button 
-                className={styles.dropdownTrigger}
-                onClick={() => setIsModelDropdownOpen(!isModelDropdownOpen)}
-              >
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '2px' }}>
-                  <span style={{ fontWeight: 600, fontSize: '0.9rem' }}>{selectedModel?.name || 'Select Model'}</span>
-                  <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                    {selectedModel?.is_fast ? 'Ultra Fast' : 'High Quality'}
-                  </span>
-                </div>
-                <ChevronDown 
-                  size={18} 
-                  style={{ 
-                    transform: isModelDropdownOpen ? 'rotate(180deg)' : 'rotate(0deg)',
-                    transition: 'transform 0.2s ease',
-                    opacity: 0.5
-                  }} 
-                />
-              </button>
+            <DropdownMenu.Root>
+              <DropdownMenu.Trigger asChild>
+                <button className={styles.dropdownTrigger}>
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '2px' }}>
+                    <span style={{ fontWeight: 600, fontSize: '0.9rem' }}>{selectedModel?.name || 'Select Model'}</span>
+                    <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                      {selectedModel?.is_fast ? 'Ultra Fast' : 'High Quality'}
+                    </span>
+                  </div>
+                  <ChevronDown 
+                    size={18} 
+                    style={{ 
+                      opacity: 0.5
+                    }} 
+                  />
+                </button>
+              </DropdownMenu.Trigger>
 
-              <AnimatePresence>
-                {isModelDropdownOpen && (
+              <DropdownMenu.Portal>
+                <DropdownMenu.Content className={styles.dropdownMenu} sideOffset={8} align="start" asChild>
                   <motion.div 
                     initial={{ opacity: 0, y: -10, scale: 0.95 }}
                     animate={{ opacity: 1, y: 0, scale: 1 }}
                     exit={{ opacity: 0, y: -10, scale: 0.95 }}
                     transition={{ duration: 0.15 }}
-                    className={styles.dropdownMenu}
                   >
                     {imageModels.map(m => (
-                      <div 
+                      <DropdownMenu.Item 
                         key={m.model_id}
                         className={`${styles.dropdownItem} ${selectedModelId === m.model_id ? styles.dropdownItemActive : ''}`}
-                        onClick={() => {
-                          setSelectedModelId(m.model_id);
-                          setIsModelDropdownOpen(false);
-                        }}
+                        onSelect={() => setSelectedModelId(m.model_id)}
                       >
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
                           <span style={{ fontWeight: 600 }}>{m.name}</span>
@@ -243,12 +219,12 @@ const ImageGenPage: React.FC = () => {
                         <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
                           {m.is_fast ? 'Ultra Fast' : 'High Quality'}
                         </span>
-                      </div>
+                      </DropdownMenu.Item>
                     ))}
                   </motion.div>
-                )}
-              </AnimatePresence>
-            </div>
+                </DropdownMenu.Content>
+              </DropdownMenu.Portal>
+            </DropdownMenu.Root>
           </div>
 
           <div>
