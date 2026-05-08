@@ -1,9 +1,9 @@
-import React, { useEffect, useCallback } from 'react';
+import React, { useEffect, useCallback, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   X, Download, ChevronLeft, ChevronRight, 
   Maximize2, Share2, Info, Calendar, Sparkles,
-  Copy
+  Copy, Check, Loader2, AlertCircle, ZoomIn, ZoomOut, RefreshCcw
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import styles from './ImageLightbox.module.css';
@@ -33,20 +33,47 @@ export const ImageLightbox: React.FC<ImageLightboxProps> = ({
 }) => {
   const currentImage = images[currentIndex];
 
+  const [isCopied, setIsCopied] = useState(false);
+  const [downloadStatus, setDownloadStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
+  const [scale, setScale] = useState(1);
+  const [position, setPosition] = useState({ x: 0, y: 0 });
+
+  const resetZoom = useCallback(() => {
+    setScale(1);
+    setPosition({ x: 0, y: 0 });
+  }, []);
+
   const handlePrev = useCallback((e?: React.MouseEvent) => {
     e?.stopPropagation();
+    setIsCopied(false);
+    setDownloadStatus('idle');
+    resetZoom();
     const nextIdx = (currentIndex - 1 + images.length) % images.length;
     onNavigate(nextIdx);
-  }, [currentIndex, images.length, onNavigate]);
+  }, [currentIndex, images.length, onNavigate, resetZoom]);
 
   const handleNext = useCallback((e?: React.MouseEvent) => {
     e?.stopPropagation();
+    setIsCopied(false);
+    setDownloadStatus('idle');
+    resetZoom();
     const nextIdx = (currentIndex + 1) % images.length;
     onNavigate(nextIdx);
-  }, [currentIndex, images.length, onNavigate]);
+  }, [currentIndex, images.length, onNavigate, resetZoom]);
+
+  const handleCopy = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    navigator.clipboard.writeText(currentImage.prompt);
+    setIsCopied(true);
+    toast.success('Prompt copied!');
+    setTimeout(() => setIsCopied(false), 2000);
+  };
 
   const handleDownload = async (e: React.MouseEvent) => {
     e.stopPropagation();
+    if (downloadStatus === 'loading') return;
+    
+    setDownloadStatus('loading');
     try {
       const res = await fetch(currentImage.url);
       const blob = await res.blob();
@@ -55,9 +82,33 @@ export const ImageLightbox: React.FC<ImageLightboxProps> = ({
       a.download = `sree-ai-${currentImage.id}.png`;
       a.click();
       URL.revokeObjectURL(a.href);
+      setDownloadStatus('success');
+      toast.success('Downloaded successfully!');
+      setTimeout(() => setDownloadStatus('idle'), 2000);
     } catch (err) {
       console.error('Download failed', err);
+      setDownloadStatus('error');
+      toast.error('Download failed');
+      setTimeout(() => setDownloadStatus('idle'), 2000);
     }
+  };
+  const handleWheel = (e: React.WheelEvent) => {
+    e.stopPropagation();
+    const delta = e.deltaY;
+    const zoomIn = delta < 0;
+    
+    setScale(prev => {
+      const step = 0.2;
+      const newScale = zoomIn ? prev + step : prev - step;
+      return Math.min(Math.max(newScale, 1), 5);
+    });
+  };
+
+  const handleDragEnd = (_: any, info: any) => {
+    setPosition({
+      x: info.point.x,
+      y: info.point.y
+    });
   };
 
   useEffect(() => {
@@ -90,24 +141,36 @@ export const ImageLightbox: React.FC<ImageLightboxProps> = ({
           </div>
           <div className={styles.headerActions}>
             <button 
-              className={styles.iconButton} 
-              onClick={(e) => {
-                e.stopPropagation();
-                navigator.clipboard.writeText(currentImage.prompt);
-                toast.success('Prompt copied!');
-              }} 
+              className={`${styles.iconButton} ${isCopied ? styles.success : ''}`} 
+              onClick={handleCopy} 
               title="Copy Prompt"
             >
-              <Copy size={22} />
+              {isCopied ? <Check size={22} /> : <Copy size={22} />}
             </button>
-            <button className={styles.iconButton} onClick={handleDownload} title="Download">
-              <Download size={24} />
+            <button 
+              className={`${styles.iconButton} ${downloadStatus === 'success' ? styles.success : ''} ${downloadStatus === 'error' ? styles.error : ''}`} 
+              onClick={handleDownload} 
+              title="Download"
+              disabled={downloadStatus === 'loading'}
+            >
+              {downloadStatus === 'loading' ? <Loader2 size={24} className="animate-spin" /> : 
+               downloadStatus === 'success' ? <Check size={24} /> :
+               downloadStatus === 'error' ? <AlertCircle size={24} /> :
+               <Download size={24} />}
             </button>
+            {scale > 1 && (
+              <button className={styles.iconButton} onClick={resetZoom} title="Reset Zoom">
+                <RefreshCcw size={22} />
+              </button>
+            )}
           </div>
         </div>
 
-        <div className={styles.imageContainer}>
-          {images.length > 1 && (
+        <div 
+          className={styles.imageContainer}
+          onWheel={handleWheel}
+        >
+          {images.length > 1 && scale === 1 && (
             <>
               <button className={`${styles.navButton} ${styles.prev}`} onClick={handlePrev}>
                 <ChevronLeft size={32} />
@@ -118,17 +181,35 @@ export const ImageLightbox: React.FC<ImageLightboxProps> = ({
             </>
           )}
 
-          <motion.img
-            key={currentImage.id}
-            initial={{ scale: 0.9, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            exit={{ scale: 0.9, opacity: 0 }}
-            transition={{ type: 'spring', damping: 30, stiffness: 300 }}
-            src={currentImage.url}
-            alt={currentImage.prompt}
-            className={styles.mainImage}
-            onClick={e => e.stopPropagation()}
-          />
+          <div className={styles.mainImageWrapper}>
+            <motion.img
+              key={currentImage.id}
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ 
+                scale: scale,
+                x: scale === 1 ? 0 : undefined,
+                y: scale === 1 ? 0 : undefined,
+                opacity: 1 
+              }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              transition={{ 
+                scale: { type: 'spring', damping: 25, stiffness: 200 },
+                opacity: { duration: 0.2 }
+              }}
+              src={currentImage.url}
+              alt={currentImage.prompt}
+              className={styles.mainImage}
+              style={{ 
+                cursor: scale > 1 ? 'grab' : 'zoom-in',
+                touchAction: 'none'
+              }}
+              drag={scale > 1}
+              dragElastic={0.1}
+              dragMomentum={false}
+              onClick={e => e.stopPropagation()}
+              onDoubleClick={resetZoom}
+            />
+          </div>
         </div>
 
         <div className={styles.footer}>
@@ -150,19 +231,25 @@ export const ImageLightbox: React.FC<ImageLightboxProps> = ({
 
           <div style={{ display: 'flex', gap: '12px' }}>
             <button 
-              className={styles.secondaryBtn} 
-              onClick={(e) => {
-                e.stopPropagation();
-                navigator.clipboard.writeText(currentImage.prompt);
-                toast.success('Prompt copied!');
-              }}
+              className={`${styles.secondaryBtn} ${isCopied ? styles.btnSuccess : ''}`} 
+              onClick={handleCopy}
             >
-              <Copy size={18} />
-              Copy Prompt
+              {isCopied ? <Check size={18} /> : <Copy size={18} />}
+              {isCopied ? 'Copied!' : 'Copy Prompt'}
             </button>
-            <button className={styles.downloadBtn} onClick={handleDownload}>
-              <Download size={20} />
-              Download Artwork
+            <button 
+              className={`${styles.downloadBtn} ${downloadStatus === 'success' ? styles.btnSuccess : ''} ${downloadStatus === 'error' ? styles.btnError : ''}`} 
+              onClick={handleDownload}
+              disabled={downloadStatus === 'loading'}
+            >
+              {downloadStatus === 'loading' ? <Loader2 size={20} className="animate-spin" /> : 
+               downloadStatus === 'success' ? <Check size={20} /> :
+               downloadStatus === 'error' ? <AlertCircle size={20} /> :
+               <Download size={20} />}
+              {downloadStatus === 'loading' ? 'Downloading...' :
+               downloadStatus === 'success' ? 'Downloaded' :
+               downloadStatus === 'error' ? 'Failed' :
+               'Download Artwork'}
             </button>
           </div>
         </div>

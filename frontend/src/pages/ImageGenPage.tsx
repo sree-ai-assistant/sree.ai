@@ -4,7 +4,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   Image as ImageIcon, Wand2, Trash2, Loader2, Sparkles,
   Download, Settings2, ChevronDown, Zap, X, RotateCcw, Copy, LayoutGrid, Plus,
-  Maximize2, History, Layers, Sliders, Palette, Eye, Settings, HelpCircle, LogOut
+  Maximize2, History, Layers, Sliders, Palette, Eye, Settings, HelpCircle, LogOut,
+  Check, AlertCircle
 } from 'lucide-react';
 import { DashboardLayout } from '../features/dashboard/DashboardLayout';
 import { useAuthStore } from '../store/auth.store';
@@ -56,6 +57,7 @@ const ImageGenPage: React.FC = () => {
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'generate' | 'gallery'>('generate');
+  const [downloadStatus, setDownloadStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
   const { openUpgradeModal } = useUIStore();
   
   const promptRef = useRef<HTMLTextAreaElement>(null);
@@ -96,6 +98,8 @@ const ImageGenPage: React.FC = () => {
   };
 
   const handleDownload = async (url: string, name?: string) => {
+    if (downloadStatus === 'loading') return;
+    setDownloadStatus('loading');
     try {
       const res = await fetch(url);
       const blob = await res.blob();
@@ -104,7 +108,14 @@ const ImageGenPage: React.FC = () => {
       a.download = name || `sree-ai-${Date.now()}.png`;
       a.click();
       URL.revokeObjectURL(a.href);
-    } catch { toast.error('Download failed'); }
+      setDownloadStatus('success');
+      toast.success('Downloaded successfully!');
+      setTimeout(() => setDownloadStatus('idle'), 2000);
+    } catch { 
+      setDownloadStatus('error');
+      toast.error('Download failed');
+      setTimeout(() => setDownloadStatus('idle'), 2000);
+    }
   };
 
   const applyStyler = (suffix: string) => {
@@ -358,12 +369,23 @@ const ImageGenPage: React.FC = () => {
                             display: 'flex', justifyContent: 'space-between', alignItems: 'center'
                           }}>
                             <div style={{ display: 'flex', gap: '12px' }}>
-                              <button onClick={() => handleDownload(activeImage.url)} className="glass" style={{ padding: '10px 20px', borderRadius: '12px', border: 'none', color: 'white', display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
-                                <Download size={18} /> Save
-                              </button>
-                              <button onClick={() => handleGenerate()} className="glass" style={{ padding: '10px 20px', borderRadius: '12px', border: 'none', color: 'white', display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
-                                <RotateCcw size={18} /> Re-roll
-                              </button>
+                               <button 
+                                 onClick={() => handleDownload(activeImage.url)} 
+                                 className={`${styles.actionButton} ${downloadStatus === 'success' ? styles.btnSuccess : ''} ${downloadStatus === 'error' ? styles.btnError : ''}`}
+                                 disabled={downloadStatus === 'loading'}
+                               >
+                                 {downloadStatus === 'loading' ? <Loader2 size={18} className="animate-spin" /> : 
+                                  downloadStatus === 'success' ? <Check size={18} /> :
+                                  downloadStatus === 'error' ? <AlertCircle size={18} /> :
+                                  <Download size={18} />}
+                                 {downloadStatus === 'loading' ? 'Saving...' : 
+                                  downloadStatus === 'success' ? 'Saved' :
+                                  downloadStatus === 'error' ? 'Failed' :
+                                  'Save'}
+                               </button>
+                               <button onClick={() => handleGenerate()} className={styles.actionButton}>
+                                 <RotateCcw size={18} /> Re-roll
+                               </button>
                             </div>
                             <button onClick={() => setActiveImage(null)} style={{ background: 'transparent', border: 'none', color: 'white', cursor: 'pointer', opacity: 0.6 }}>
                               <X size={20} />

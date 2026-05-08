@@ -57,7 +57,16 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  pointer-events: none;
+  overflow: hidden;
+}
+
+.mainImageWrapper {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  pointer-events: auto;
 }
 
 .mainImage {
@@ -66,7 +75,12 @@
   border-radius: 20px;
   box-shadow: 0 50px 100px -20px rgba(0, 0, 0, 0.5);
   pointer-events: auto;
-  cursor: default;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
+.mainImage:active {
+  cursor: grabbing !important;
 }
 
 .navButton {
@@ -193,4 +207,35 @@
   background: rgba(255, 255, 255, 0.1);
   transform: translateY(-2px);
   border-color: rgba(255, 255, 255, 0.2);
+}
+
+.success {
+  background: rgba(34, 197, 94, 0.2) !important;
+  border-color: rgba(34, 197, 94, 0.4) !important;
+  color: #4ade80 !important;
+}
+
+.error {
+  background: rgba(239, 68, 68, 0.2) !important;
+  border-color: rgba(239, 68, 68, 0.4) !important;
+  color: #f87171 !important;
+}
+
+.btnSuccess {
+  background: #22c55e !important;
+  box-shadow: 0 0 30px rgba(34, 197, 94, 0.4) !important;
+}
+
+.btnError {
+  background: #ef4444 !important;
+  box-shadow: 0 0 30px rgba(239, 68, 68, 0.4) !important;
+}
+
+:global(.animate-spin) {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
 }
