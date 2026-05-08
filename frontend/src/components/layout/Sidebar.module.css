@@ -158,11 +158,18 @@
   cursor: pointer;
   transition: var(--transition-fast);
   width: 100%;
+  outline: none;
+  user-select: none;
 }
 
-.historyItem:hover {
+.historyItem:hover,
+.historyItem:focus-visible {
   background: var(--bg-surface);
   color: var(--text-primary);
+}
+
+.historyItem:focus-visible {
+  box-shadow: 0 0 0 2px var(--primary);
 }
 
 .itemIcon {

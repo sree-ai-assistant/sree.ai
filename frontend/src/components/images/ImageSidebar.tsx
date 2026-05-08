@@ -101,13 +101,22 @@ export const ImageSidebar: React.FC<ImageSidebarProps> = ({
                 exit={{ opacity: 0, x: -20 }}
                 className={styles.historyItemWrapper}
               >
-                <button 
+                <div 
                   className={`${styles.historyItem} ${activeImage?.id === img.id ? styles.active : ''}`}
                   onClick={() => {
                     setActiveImage(img);
                     onSelectImage?.(img);
                   }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      setActiveImage(img);
+                      onSelectImage?.(img);
+                    }
+                  }}
                   title={img.prompt}
+                  role="button"
+                  tabIndex={0}
                 >
                   <div className={styles.itemIcon}>
                     {img.url ? (
@@ -120,6 +129,9 @@ export const ImageSidebar: React.FC<ImageSidebarProps> = ({
                           borderRadius: '4px',
                           objectFit: 'cover'
                         }} 
+                        onError={(e) => {
+                          e.currentTarget.src = 'https://images.unsplash.com/photo-1594322436404-5a0526db4d13?q=80&w=1000&auto=format&fit=crop';
+                        }}
                       />
                     ) : (
                       <ImageIcon size={18} />
@@ -137,7 +149,7 @@ export const ImageSidebar: React.FC<ImageSidebarProps> = ({
                       </button>
                     </>
                   )}
-                </button>
+                </div>
               </motion.div>
             ))}
           </AnimatePresence>
