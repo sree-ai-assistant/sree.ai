@@ -1,9 +1,9 @@
 import React, { useEffect, useCallback, useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, useAnimation } from 'framer-motion';
 import {
   X, Download, ChevronLeft, ChevronRight,
   Maximize2, Share2, Info, Calendar, Sparkles,
-  Copy, Check, Loader2, AlertCircle, ZoomIn, ZoomOut, RefreshCcw
+  Copy, Check, Loader2, AlertCircle, ZoomIn, ZoomOut, RefreshCcw, RotateCcw
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import styles from './ImageLightbox.module.css';
@@ -18,31 +18,56 @@ interface ImageData {
 
 interface ImageLightboxProps {
   images: ImageData[];
-  currentIndex: number;
   isOpen: boolean;
   onClose: () => void;
-  onNavigate: (index: number) => void;
+  currentIndex?: number;
+  initialIndex?: number;
+  onNavigate?: (index: number) => void;
+  onResetZoom?: () => void;
 }
 
 export const ImageLightbox: React.FC<ImageLightboxProps> = ({
   images,
-  currentIndex,
   isOpen,
   onClose,
-  onNavigate
+  initialIndex = 0,
+  currentIndex: controlledIndex,
+  onNavigate,
+  onResetZoom
 }) => {
+  const [internalIndex, setInternalIndex] = useState(initialIndex);
+  const currentIndex = controlledIndex !== undefined ? controlledIndex : internalIndex;
+
+  const setCurrentIndex = (idx: number) => {
+    if (onNavigate) onNavigate(idx);
+    setInternalIndex(idx);
+  };
+
   const currentImage = images[currentIndex];
 
   const [isCopied, setIsCopied] = useState(false);
   const [downloadStatus, setDownloadStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
   const [scale, setScale] = useState(1);
-  const [position, setPosition] = useState({ x: 0, y: 0 });
+  const [isDragging, setIsDragging] = useState(false);
   const [hasError, setHasError] = useState(false);
+  const controls = useAnimation();
 
-  const resetZoom = useCallback(() => {
+  const resetZoom = useCallback(async (e?: React.MouseEvent) => {
+    e?.stopPropagation();
     setScale(1);
-    setPosition({ x: 0, y: 0 });
-  }, []);
+    await controls.start({
+      x: 0,
+      y: 0,
+      scale: 1,
+      transition: { 
+        type: 'spring', 
+        damping: 30, 
+        stiffness: 250,
+        mass: 1
+      }
+    });
+    onResetZoom?.();
+  }, [controls, onResetZoom]);
 
   const handlePrev = useCallback((e?: React.MouseEvent) => {
     e?.stopPropagation();
@@ -50,8 +75,8 @@ export const ImageLightbox: React.FC<ImageLightboxProps> = ({
     setDownloadStatus('idle');
     resetZoom();
     const nextIdx = (currentIndex - 1 + images.length) % images.length;
-    onNavigate(nextIdx);
-  }, [currentIndex, images.length, onNavigate, resetZoom]);
+    setCurrentIndex(nextIdx);
+  }, [currentIndex, images.length, setCurrentIndex]);
 
   const handleNext = useCallback((e?: React.MouseEvent) => {
     e?.stopPropagation();
@@ -59,8 +84,8 @@ export const ImageLightbox: React.FC<ImageLightboxProps> = ({
     setDownloadStatus('idle');
     resetZoom();
     const nextIdx = (currentIndex + 1) % images.length;
-    onNavigate(nextIdx);
-  }, [currentIndex, images.length, onNavigate, resetZoom]);
+    setCurrentIndex(nextIdx);
+  }, [currentIndex, images.length, setCurrentIndex]);
 
   const handleCopy = () => {
     if (!currentImage) return;
@@ -112,28 +137,24 @@ export const ImageLightbox: React.FC<ImageLightboxProps> = ({
       }
     }
   };
-  const handleWheel = (e: React.WheelEvent) => {
+  const handleWheel = useCallback((e: React.WheelEvent) => {
+    if (isDragging) return;
     e.stopPropagation();
     const delta = e.deltaY;
-    const zoomIn = delta < 0;
-
+    const zoomIntensity = 0.001;
+    const factor = Math.pow(1 - zoomIntensity, delta);
+    
     setScale(prev => {
-      const step = 0.2;
-      const newScale = zoomIn ? prev + step : prev - step;
-      return Math.min(Math.max(newScale, 1), 5);
+      const newScale = Math.min(Math.max(prev * factor, 1), 8);
+      if (newScale !== prev) {
+        controls.start({ 
+          scale: newScale,
+          transition: { duration: 0.1, ease: "easeOut" }
+        });
+      }
+      return newScale;
     });
-  };
-
-  const handleDragEnd = (_: any, info: any) => {
-    // Sync the final drag position to state to avoid jumps during re-renders
-    // and to ensure we know where the image is for the reset animation
-    if (scale > 1) {
-      setPosition({
-        x: info.offset.x,
-        y: info.offset.y
-      });
-    }
-  };
+  }, [controls, isDragging]);
 
   useEffect(() => {
     setHasError(false);
@@ -188,32 +209,42 @@ export const ImageLightbox: React.FC<ImageLightboxProps> = ({
               </button>
             </div>
             <div className={styles.headerActions}>
-              <button 
-                className={styles.iconButton} 
-                onClick={(e) => { e.stopPropagation(); setScale(prev => Math.min(prev + 0.5, 5)); }}
+              <button
+                className={styles.iconButton}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  const s = Math.min(scale + 0.5, 8);
+                  setScale(s);
+                  controls.start({ scale: s });
+                }}
                 title="Zoom In"
               >
                 <ZoomIn size={22} />
               </button>
-              <button 
-                className={styles.iconButton} 
-                onClick={(e) => { e.stopPropagation(); setScale(prev => Math.max(prev - 0.5, 1)); }}
+              <button
+                className={styles.iconButton}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  const s = Math.max(scale - 0.5, 1);
+                  setScale(s);
+                  controls.start({ scale: s });
+                }}
                 title="Zoom Out"
               >
                 <ZoomOut size={22} />
               </button>
               {scale > 1 && (
-                <button 
-                  className={styles.iconButton} 
-                  onClick={(e) => { e.stopPropagation(); resetZoom(); }}
+                <button
+                  className={styles.iconButton}
+                  onClick={resetZoom}
                   title="Reset Zoom"
                 >
-                  <RefreshCcw size={22} />
+                  <RotateCcw size={22} />
                 </button>
               )}
-              <button 
-                className={styles.iconButton} 
-                onClick={(e) => { e.stopPropagation(); onClose(); }} 
+              <button
+                className={styles.iconButton}
+                onClick={(e) => { e.stopPropagation(); onClose(); }}
                 title="Close"
               >
                 <X size={24} />
@@ -226,66 +257,52 @@ export const ImageLightbox: React.FC<ImageLightboxProps> = ({
             onWheel={handleWheel}
             onClick={(e) => e.stopPropagation()}
           >
-            {images.length > 1 && scale === 1 && (
-              <>
-                <button 
-                  className={`${styles.navButton} ${styles.prev}`} 
-                  onClick={(e) => { e.stopPropagation(); handlePrev(e); }}
-                >
-                  <ChevronLeft size={32} />
-                </button>
-                <button 
-                  className={`${styles.navButton} ${styles.next}`} 
-                  onClick={(e) => { e.stopPropagation(); handleNext(e); }}
-                >
-                  <ChevronRight size={32} />
-                </button>
-              </>
-            )}
-
             <div className={styles.mainImageWrapper}>
               {hasError ? (
                 <div className={styles.errorContainer}>
                   <AlertCircle size={48} className={styles.errorIcon} />
-                  <p className={styles.errorText}>Failed to load image</p>
+                  <p className={styles.errorText}>Failed to load image !</p>
+                  <p className={styles.errorSubtext}>You can recreate the image with the same Prompt</p>
                   <button className={styles.retryBtn} onClick={(e) => { e.stopPropagation(); setHasError(false); }}>
                     <RefreshCcw size={20} />
                     Retry Loading
                   </button>
                 </div>
               ) : (
-                <motion.img
-                  key={currentImage.id}
-                  initial={{ scale: 0.9, opacity: 0, x: 0, y: 0 }}
-                  animate={{
-                    scale: scale,
-                    x: scale === 1 ? 0 : position.x,
-                    y: scale === 1 ? 0 : position.y,
-                    opacity: 1
-                  }}
-                  exit={{ scale: 0.9, opacity: 0 }}
-                  transition={{
-                    scale: { type: 'spring', damping: 25, stiffness: 200 },
-                    x: { type: 'spring', damping: 25, stiffness: 200 },
-                    y: { type: 'spring', damping: 25, stiffness: 200 },
-                    opacity: { duration: 0.2 }
-                  }}
-                  src={currentImage.url}
-                  alt={currentImage.prompt}
-                  className={styles.mainImage}
-                  style={{
-                    cursor: scale > 1 ? 'grab' : 'zoom-in',
-                    touchAction: 'none'
-                  }}
+                <motion.div
+                  className={styles.imageWrapper}
+                  initial={false}
+                  animate={isDragging ? undefined : controls}
                   drag={scale > 1}
-                  dragConstraints={{ left: -1000, right: 1000, top: -1000, bottom: 1000 }}
-                  dragElastic={0.1}
+                  dragConstraints={{ left: -3000, right: 3000, top: -3000, bottom: 3000 }}
+                  dragElastic={0}
                   dragMomentum={false}
-                  onDragEnd={handleDragEnd}
-                  onClick={(e) => e.stopPropagation()}
-                  onDoubleClick={resetZoom}
-                  onError={handleImageError}
-                />
+                  onDragStart={() => setIsDragging(true)}
+                  onDragEnd={() => {
+                    // Increased timeout to 400ms to be absolutely sure click events are blocked after drag
+                    setTimeout(() => setIsDragging(false), 400);
+                  }}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (isDragging) return;
+                    if (scale === 1) {
+                      setScale(2);
+                      controls.start({ scale: 2 });
+                    } else {
+                      resetZoom();
+                    }
+                  }}
+                >
+                  <motion.img
+                    src={currentImage.url}
+                    alt={currentImage.prompt}
+                    className={styles.mainImage}
+                    style={{
+                      cursor: scale > 1 ? (isDragging ? 'grabbing' : 'grab') : 'zoom-in'
+                    }}
+                    onError={handleImageError}
+                  />
+                </motion.div>
               )}
             </div>
           </div>
@@ -326,8 +343,8 @@ export const ImageLightbox: React.FC<ImageLightboxProps> = ({
                       <Download size={20} />}
                 Download Image
               </button>
-              <button 
-                className={styles.secondaryBtn} 
+              <button
+                className={styles.secondaryBtn}
                 onClick={(e) => { e.stopPropagation(); handleShare(); }}
               >
                 <Share2 size={20} />
