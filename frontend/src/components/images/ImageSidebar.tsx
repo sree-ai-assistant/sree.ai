@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { 
   Plus, 
   Trash2, 
@@ -10,7 +10,8 @@ import {
   HelpCircle,
   LogOut,
   Zap,
-  Star
+  Star,
+  AlertCircle
 } from 'lucide-react';
 import { useImageStore } from '../../store/image.store';
 import { useAuthStore } from '../../store/auth.store';
@@ -37,6 +38,7 @@ export const ImageSidebar: React.FC<ImageSidebarProps> = ({
 }) => {
   const { history, fetchHistory, activeImage, setActiveImage, deleteImage, isFetchingHistory } = useImageStore();
   const { user, signOut } = useAuthStore();
+  const [imageLoadErrors, setImageLoadErrors] = useState<Record<string, boolean>>({});
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -119,7 +121,7 @@ export const ImageSidebar: React.FC<ImageSidebarProps> = ({
                   tabIndex={0}
                 >
                   <div className={styles.itemIcon}>
-                    {img.url ? (
+                    {img.url && !imageLoadErrors[img.id] ? (
                       <img 
                         src={img.url} 
                         alt="Thumbnail" 
@@ -129,10 +131,12 @@ export const ImageSidebar: React.FC<ImageSidebarProps> = ({
                           borderRadius: '4px',
                           objectFit: 'cover'
                         }} 
-                        onError={(e) => {
-                          e.currentTarget.src = 'https://images.unsplash.com/photo-1594322436404-5a0526db4d13?q=80&w=1000&auto=format&fit=crop';
+                        onError={() => {
+                          setImageLoadErrors(prev => ({ ...prev, [img.id]: true }));
                         }}
                       />
+                    ) : imageLoadErrors[img.id] ? (
+                      <AlertCircle size={18} style={{ color: '#ef4444' }} />
                     ) : (
                       <ImageIcon size={18} />
                     )}

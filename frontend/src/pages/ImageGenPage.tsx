@@ -43,12 +43,12 @@ const PROMPT_STYLERS = [
 const ImageGenPage: React.FC = () => {
   const { user } = useAuthStore();
   const { models, fetchModels } = useModelStore();
-  const { 
-    settings, 
-    updateSettings, 
-    isGenerating, 
-    generateImage, 
-    activeImage, 
+  const {
+    settings,
+    updateSettings,
+    isGenerating,
+    generateImage,
+    activeImage,
     setActiveImage,
     history,
     deleteImage
@@ -57,9 +57,10 @@ const ImageGenPage: React.FC = () => {
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'generate' | 'gallery'>('generate');
+  const [imageLoadErrors, setImageLoadErrors] = useState<Record<string, boolean>>({});
   const [downloadStatus, setDownloadStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
   const { openUpgradeModal } = useUIStore();
-  
+
   const promptRef = useRef<HTMLTextAreaElement>(null);
 
   // Get image-capable models
@@ -84,7 +85,7 @@ const ImageGenPage: React.FC = () => {
   const handleGenerate = async () => {
     if (!settings.prompt.trim() || isGenerating || !user?.id) return;
     setActiveTab('generate');
-    
+
     await generateImage({
       prompt: settings.prompt,
       model: settings.modelId,
@@ -111,7 +112,7 @@ const ImageGenPage: React.FC = () => {
       setDownloadStatus('success');
       toast.success('Downloaded successfully!');
       setTimeout(() => setDownloadStatus('idle'), 2000);
-    } catch { 
+    } catch {
       setDownloadStatus('error');
       toast.error('Download failed');
       setTimeout(() => setDownloadStatus('idle'), 2000);
@@ -127,20 +128,20 @@ const ImageGenPage: React.FC = () => {
 
   const handleNewImage = () => {
     setActiveImage(null);
-    updateSettings({ 
-      prompt: '', 
-      negativePrompt: '', 
-      seed: 0 
+    updateSettings({
+      prompt: '',
+      negativePrompt: '',
+      seed: 0
     });
     setActiveTab('generate');
   };
 
   return (
-    <DashboardLayout 
+    <DashboardLayout
       defaultCollapsed={true}
       sidebar={(props) => (
-        <ImageSidebar 
-          {...props} 
+        <ImageSidebar
+          {...props}
           onNewImage={handleNewImage}
           onDeleteClick={(id) => setDeleteConfirmId(id)}
           onSelectImage={() => setActiveTab('generate')}
@@ -150,12 +151,12 @@ const ImageGenPage: React.FC = () => {
       <div className={styles.container}>
         <AnimatePresence mode="popLayout">
           {activeTab === 'generate' && (
-            <motion.aside 
+            <motion.aside
               className={styles.sidebar}
               initial={{ opacity: 0, width: 0, x: -20 }}
               animate={{ opacity: 1, width: 320, x: 0 }}
               exit={{ opacity: 0, width: 0, x: -20 }}
-              transition={{ 
+              transition={{
                 type: 'spring',
                 damping: 25,
                 stiffness: 200,
@@ -180,14 +181,14 @@ const ImageGenPage: React.FC = () => {
 
                     <DropdownMenu.Portal>
                       <DropdownMenu.Content className={styles.dropdownMenu} sideOffset={8} align="start" asChild>
-                        <motion.div 
+                        <motion.div
                           initial={{ opacity: 0, y: -10, scale: 0.95 }}
                           animate={{ opacity: 1, y: 0, scale: 1 }}
                           exit={{ opacity: 0, y: -10, scale: 0.95 }}
                           transition={{ duration: 0.15 }}
                         >
                           {imageModels.map(m => (
-                            <DropdownMenu.Item 
+                            <DropdownMenu.Item
                               key={m.model_id}
                               className={`${styles.dropdownItem} ${settings.modelId === m.model_id ? styles.dropdownItemActive : ''}`}
                               onSelect={() => updateSettings({ modelId: m.model_id })}
@@ -216,13 +217,13 @@ const ImageGenPage: React.FC = () => {
                         className={`${styles.ratioButton} ${settings.ratioIndex === i ? styles.ratioButtonActive : ''}`}
                         onClick={() => updateSettings({ ratioIndex: i })}
                       >
-                        <div 
-                          className={styles.ratioBox} 
-                          style={{ 
-                            width: `${r.iconSize.w}px`, 
+                        <div
+                          className={styles.ratioBox}
+                          style={{
+                            width: `${r.iconSize.w}px`,
                             height: `${r.iconSize.h}px`,
                             borderColor: settings.ratioIndex === i ? 'white' : 'currentColor'
-                          }} 
+                          }}
                         />
                         <span style={{ fontSize: '0.7rem' }}>{r.label}</span>
                       </button>
@@ -238,9 +239,9 @@ const ImageGenPage: React.FC = () => {
                         <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Steps</span>
                         <span style={{ fontSize: '0.8rem', fontWeight: 600 }}>{settings.steps}</span>
                       </div>
-                      <input 
-                        type="range" min={10} max={50} value={settings.steps} 
-                        onChange={e => updateSettings({ steps: +e.target.value })} 
+                      <input
+                        type="range" min={10} max={50} value={settings.steps}
+                        onChange={e => updateSettings({ steps: +e.target.value })}
                         className={styles.rangeInput}
                       />
                     </div>
@@ -251,9 +252,9 @@ const ImageGenPage: React.FC = () => {
                           <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>CFG Scale</span>
                           <span style={{ fontSize: '0.8rem', fontWeight: 600 }}>{settings.cfgScale}</span>
                         </div>
-                        <input 
-                          type="range" min={1} max={20} value={settings.cfgScale} 
-                          onChange={e => updateSettings({ cfgScale: +e.target.value })} 
+                        <input
+                          type="range" min={1} max={20} value={settings.cfgScale}
+                          onChange={e => updateSettings({ cfgScale: +e.target.value })}
                           className={styles.rangeInput}
                         />
                       </div>
@@ -261,8 +262,8 @@ const ImageGenPage: React.FC = () => {
 
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                       <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Seed</span>
-                      <input 
-                        type="number" value={settings.seed} 
+                      <input
+                        type="number" value={settings.seed}
                         onChange={e => updateSettings({ seed: +e.target.value })}
                         placeholder="Random"
                         style={{
@@ -286,7 +287,7 @@ const ImageGenPage: React.FC = () => {
                     <span className={styles.creditsValue}>{user?.requests_remaining ?? 0}</span>
                     <span className={styles.creditsTotal}>/ {user?.plan_type === 'pro' ? '500' : '50'}</span>
                   </div>
-                  <button 
+                  <button
                     className={styles.upgradeButton}
                     onClick={() => openUpgradeModal('pro')}
                   >
@@ -302,13 +303,13 @@ const ImageGenPage: React.FC = () => {
         <motion.main layout className={styles.main}>
           <div style={{ padding: '24px 40px 0' }}>
             <div className={styles.tabHeader}>
-              <button 
+              <button
                 className={`${styles.tabButton} ${activeTab === 'generate' ? styles.tabButtonActive : ''}`}
                 onClick={() => setActiveTab('generate')}
               >
                 Create
               </button>
-              <button 
+              <button
                 className={`${styles.tabButton} ${activeTab === 'gallery' ? styles.tabButtonActive : ''}`}
                 onClick={() => setActiveTab('gallery')}
               >
@@ -320,7 +321,7 @@ const ImageGenPage: React.FC = () => {
           <div className={styles.viewport}>
             <AnimatePresence mode="wait">
               {activeTab === 'generate' ? (
-                <motion.div 
+                <motion.div
                   key="generate"
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
@@ -331,13 +332,13 @@ const ImageGenPage: React.FC = () => {
                   <div className={styles.resultContainer} style={{ aspectRatio: `${ratio.w}/${ratio.h}`, maxHeight: '60vh' }}>
                     <AnimatePresence mode="wait">
                       {isGenerating ? (
-                        <motion.div 
+                        <motion.div
                           key="generating"
                           initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
                           className={styles.generationOverlay}
                         >
                           <div className="relative">
-                            <motion.div 
+                            <motion.div
                               animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 3, ease: "linear" }}
                               style={{ width: '80px', height: '80px', border: '2px solid var(--primary)', borderRadius: '50%', borderTopColor: 'transparent' }}
                             />
@@ -349,43 +350,54 @@ const ImageGenPage: React.FC = () => {
                           </div>
                         </motion.div>
                       ) : activeImage ? (
-                        <motion.div 
+                        <motion.div
                           key="preview"
                           initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}
                           style={{ width: '100%', height: '100%', position: 'relative' }}
                         >
-                          <img 
-                            src={activeImage.url} 
-                            alt="Generated result" 
-                            style={{ width: '100%', height: '100%', objectFit: 'contain', cursor: 'zoom-in' }}
-                            onClick={() => {
-                              const idx = history.findIndex(img => img.url === activeImage.url);
-                              setLightboxIndex(idx !== -1 ? idx : 0);
-                            }}
-                          />
-                          <div style={{ 
+                          {imageLoadErrors[activeImage.id] ? (
+                            <div className={styles.errorOverlay}>
+                              <AlertCircle size={48} className={styles.errorIcon} style={{ color: '#ef4444', marginBottom: '16px' }} />
+                              <p className={styles.errorText}>Failed to load image !</p>
+                              <p className={styles.errorSubtext}>You can recreate the image with the same Prompt</p>
+                            </div>
+                          ) : (
+                            <img
+                              src={activeImage.url}
+                              alt="Generated result"
+                              style={{ width: '100%', height: '100%', objectFit: 'contain', cursor: 'zoom-in' }}
+                              onClick={() => {
+                                const idx = history.findIndex(img => img.url === activeImage.url);
+                                setLightboxIndex(idx !== -1 ? idx : 0);
+                              }}
+                              onError={() => {
+                                setImageLoadErrors(prev => ({ ...prev, [activeImage.id]: true }));
+                              }}
+                            />
+                          )}
+                          <div style={{
                             position: 'absolute', bottom: 0, left: 0, right: 0, padding: '24px',
                             background: 'linear-gradient(to top, rgba(0,0,0,0.9), transparent)',
                             display: 'flex', justifyContent: 'space-between', alignItems: 'center'
                           }}>
                             <div style={{ display: 'flex', gap: '12px' }}>
-                               <button 
-                                 onClick={() => handleDownload(activeImage.url)} 
-                                 className={`${styles.actionButton} ${downloadStatus === 'success' ? styles.btnSuccess : ''} ${downloadStatus === 'error' ? styles.btnError : ''}`}
-                                 disabled={downloadStatus === 'loading'}
-                               >
-                                 {downloadStatus === 'loading' ? <Loader2 size={18} className="animate-spin" /> : 
+                              <button
+                                onClick={() => handleDownload(activeImage.url)}
+                                className={`${styles.actionButton} ${downloadStatus === 'success' ? styles.btnSuccess : ''} ${downloadStatus === 'error' ? styles.btnError : ''}`}
+                                disabled={downloadStatus === 'loading'}
+                              >
+                                {downloadStatus === 'loading' ? <Loader2 size={18} className="animate-spin" /> :
                                   downloadStatus === 'success' ? <Check size={18} /> :
-                                  downloadStatus === 'error' ? <AlertCircle size={18} /> :
-                                  <Download size={18} />}
-                                 {downloadStatus === 'loading' ? 'Saving...' : 
+                                    downloadStatus === 'error' ? <AlertCircle size={18} /> :
+                                      <Download size={18} />}
+                                {downloadStatus === 'loading' ? 'Saving...' :
                                   downloadStatus === 'success' ? 'Saved' :
-                                  downloadStatus === 'error' ? 'Failed' :
-                                  'Save'}
-                               </button>
-                               <button onClick={() => handleGenerate()} className={styles.actionButton}>
-                                 <RotateCcw size={18} /> Re-roll
-                               </button>
+                                    downloadStatus === 'error' ? 'Failed' :
+                                      'Save'}
+                              </button>
+                              <button onClick={() => handleGenerate()} className={styles.actionButton}>
+                                <RotateCcw size={18} /> Re-roll
+                              </button>
                             </div>
                             <button onClick={() => setActiveImage(null)} style={{ background: 'transparent', border: 'none', color: 'white', cursor: 'pointer', opacity: 0.6 }}>
                               <X size={20} />
@@ -393,7 +405,7 @@ const ImageGenPage: React.FC = () => {
                           </div>
                         </motion.div>
                       ) : (
-                        <motion.div 
+                        <motion.div
                           key="empty"
                           initial={{ opacity: 0 }} animate={{ opacity: 1 }}
                           style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', opacity: 0.3 }}
@@ -423,8 +435,8 @@ const ImageGenPage: React.FC = () => {
                           value={settings.prompt}
                           onChange={e => updateSettings({ prompt: e.target.value })}
                           onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleGenerate(); } }}
-                          style={{ 
-                            background: 'rgba(255,255,255,0.05)', 
+                          style={{
+                            background: 'rgba(255,255,255,0.05)',
                             border: '1px solid var(--border-color)',
                             borderRadius: '16px', padding: '16px', minHeight: '60px',
                             fontSize: '1rem', width: '100%', resize: 'none'
@@ -435,8 +447,8 @@ const ImageGenPage: React.FC = () => {
                         className="send-btn"
                         onClick={handleGenerate}
                         disabled={isGenerating || !settings.prompt.trim()}
-                        style={{ 
-                          height: '60px', width: '60px', borderRadius: '16px', 
+                        style={{
+                          height: '60px', width: '60px', borderRadius: '16px',
                           background: 'var(--primary)', boxShadow: '0 0 20px var(--primary-glow)'
                         }}
                       >
@@ -446,7 +458,7 @@ const ImageGenPage: React.FC = () => {
                   </div>
                 </motion.div>
               ) : (
-                <motion.div 
+                <motion.div
                   key="gallery"
                   initial={{ opacity: 0, scale: 0.98 }}
                   animate={{ opacity: 1, scale: 1 }}
@@ -459,13 +471,13 @@ const ImageGenPage: React.FC = () => {
                       <History size={64} style={{ marginBottom: '20px' }} />
                       <h2 style={{ color: 'white', marginBottom: '16px' }}>No history yet</h2>
                       <p style={{ color: 'var(--text-secondary)', marginBottom: '32px' }}>Generated images will appear here</p>
-                      <button 
-                        className="glass" 
+                      <button
+                        className="glass"
                         onClick={() => setActiveTab('generate')}
-                        style={{ 
-                          padding: '12px 24px', 
-                          borderRadius: '12px', 
-                          border: '1px solid var(--primary)', 
+                        style={{
+                          padding: '12px 24px',
+                          borderRadius: '12px',
+                          border: '1px solid var(--primary)',
                           color: 'white',
                           cursor: 'pointer',
                           display: 'inline-flex',
@@ -480,7 +492,7 @@ const ImageGenPage: React.FC = () => {
                   ) : (
                     <div className={styles.galleryGrid}>
                       {history.map(img => (
-                        <motion.div 
+                        <motion.div
                           key={img.id}
                           layout
                           className={styles.galleryItem}
@@ -489,14 +501,22 @@ const ImageGenPage: React.FC = () => {
                             setLightboxIndex(idx);
                           }}
                         >
-                          <img 
-                            src={img.url} 
-                            alt={img.prompt} 
-                            style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
-                            onError={(e) => {
-                              e.currentTarget.src = 'https://images.unsplash.com/photo-1594322436404-5a0526db4d13?q=80&w=1000&auto=format&fit=crop';
-                            }}
-                          />
+                          {imageLoadErrors[img.id] ? (
+                            <div className={styles.errorOverlay}>
+                              <AlertCircle size={24} style={{ color: '#ef4444', marginBottom: '8px' }} />
+                              <p className={styles.errorText} style={{ fontSize: '0.75rem' }}>Failed to load image !</p>
+                              <p className={styles.errorSubtext} style={{ fontSize: '0.65rem' }}>You can recreate the with the same prompt</p>
+                            </div>
+                          ) : (
+                            <img
+                              src={img.url}
+                              alt={img.prompt}
+                              style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                              onError={() => {
+                                setImageLoadErrors(prev => ({ ...prev, [img.id]: true }));
+                              }}
+                            />
+                          )}
                           <div className={styles.galleryOverlay}>
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
                               <div style={{ padding: '4px 8px', background: 'rgba(255,255,255,0.1)', borderRadius: '6px', fontSize: '0.65rem', fontWeight: 600 }}>

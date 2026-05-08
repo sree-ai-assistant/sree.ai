@@ -471,3 +471,30 @@
   border-color: rgba(239, 68, 68, 0.4) !important;
   color: #f87171 !important;
 }
+
+.errorOverlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(15, 15, 15, 0.8);
+  backdrop-filter: blur(10px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  text-align: center;
+  z-index: 5;
+}
+
+.errorText {
+  color: #f87171;
+  font-weight: 600;
+  font-size: 0.9rem;
+  margin-bottom: 4px;
+}
+
+.errorSubtext {
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  line-height: 1.4;
+}
