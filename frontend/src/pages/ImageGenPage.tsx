@@ -121,6 +121,7 @@ const ImageGenPage: React.FC = () => {
 
   return (
     <DashboardLayout 
+      defaultCollapsed={true}
       sidebar={(props) => (
         <ImageSidebar 
           {...props} 

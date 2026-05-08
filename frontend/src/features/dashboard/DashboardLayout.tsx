@@ -8,9 +8,10 @@ import { UpgradeModal } from '../../components/shared/UpgradeModal';
 
 export const DashboardLayout: React.FC<{ 
   children: React.ReactNode; 
+  defaultCollapsed?: boolean;
   sidebar?: (props: { isCollapsed: boolean; setIsCollapsed: (v: boolean) => void; onOpenSettings: () => void }) => React.ReactNode 
-}> = ({ children, sidebar }) => {
-  const [isCollapsed, setIsCollapsed] = React.useState(false);
+}> = ({ children, sidebar, defaultCollapsed = false }) => {
+  const [isCollapsed, setIsCollapsed] = React.useState(defaultCollapsed);
   const [isSettingsOpen, setIsSettingsOpen] = React.useState(false);
 
   return (

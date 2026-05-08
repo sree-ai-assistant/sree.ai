@@ -6,10 +6,15 @@ import {
   History, 
   ChevronLeft, 
   ChevronRight,
-  Sparkles,
-  Zap
+  Settings,
+  HelpCircle,
+  LogOut,
+  Zap,
+  Star
 } from 'lucide-react';
 import { useImageStore } from '../../store/image.store';
+import { useAuthStore } from '../../store/auth.store';
+import { useNavigate } from 'react-router-dom';
 import styles from '../layout/Sidebar.module.css';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -17,14 +22,18 @@ interface ImageSidebarProps {
   isCollapsed: boolean;
   setIsCollapsed: (value: boolean) => void;
   onNewImage: () => void;
+  onOpenSettings?: () => void;
 }
 
 export const ImageSidebar: React.FC<ImageSidebarProps> = ({ 
   isCollapsed, 
   setIsCollapsed, 
-  onNewImage 
+  onNewImage,
+  onOpenSettings
 }) => {
   const { history, fetchHistory, activeImage, setActiveImage, deleteImage, isFetchingHistory } = useImageStore();
+  const { user, signOut } = useAuthStore();
+  const navigate = useNavigate();
 
   useEffect(() => {
     fetchHistory();
@@ -40,6 +49,11 @@ export const ImageSidebar: React.FC<ImageSidebarProps> = ({
     if (confirm('Delete this generation?')) {
       deleteImage(id);
     }
+  };
+
+  const handleSignOut = async () => {
+    await signOut();
+    navigate('/login');
   };
 
   return (
@@ -132,33 +146,54 @@ export const ImageSidebar: React.FC<ImageSidebarProps> = ({
         </div>
       </div>
 
-      {!isCollapsed && (
-        <div className={styles.bottomSection}>
-          <div style={{ 
-            padding: '16px', 
-            background: 'rgba(59,130,246,0.05)', 
-            borderRadius: '16px', 
-            border: '1px solid rgba(59,130,246,0.1)' 
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
-              <Sparkles size={14} className="text-primary" />
-              <span style={{ fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1px' }}>
-                Generator Info
-              </span>
+      <div className={styles.bottomSection}>
+        <button className={styles.bottomLink} onClick={onOpenSettings} title="Settings">
+          <Settings size={20} />
+          {!isCollapsed && (
+            <>
+              <span>Settings</span>
+              <ChevronRight size={14} className={styles.arrow} />
+            </>
+          )}
+        </button>
+
+        <button className={styles.bottomLink} title="Help & Support">
+          <HelpCircle size={20} />
+          {!isCollapsed && (
+            <>
+              <span>Help & Support</span>
+              <ChevronRight size={14} className={styles.arrow} />
+            </>
+          )}
+        </button>
+
+        <div className={styles.profileCard}>
+          <div className={styles.profileInfo}>
+            <div className={styles.avatar}>
+              <div className={styles.status} />
+              {user?.email?.[0].toUpperCase()}
             </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.7rem' }}>
-                <span style={{ color: 'var(--text-muted)' }}>Models Active</span>
-                <span style={{ fontWeight: 600 }}>{history.length > 0 ? 'Ready' : 'Idle'}</span>
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.7rem' }}>
-                <span style={{ color: 'var(--text-muted)' }}>Storage</span>
-                <span style={{ fontWeight: 600 }}>Cloud Sync</span>
+            <div className={styles.details}>
+              <span className={styles.name}>{user?.email?.split('@')[0]}</span>
+              <div className={styles.badge}>
+                <Zap size={10} fill="currentColor" />
+                <span>{user?.plan_type === 'pro' ? 'Pro Member' : user?.plan_type === 'premium' ? 'Premium Member' : 'Free Plan'}</span>
               </div>
             </div>
           </div>
+          <div className={styles.profileActions}>
+            <button className={styles.signOutBtn} onClick={handleSignOut} title="Sign Out">
+              <LogOut size={16} />
+            </button>
+            {user?.plan_type !== 'pro' && (
+              <button className={styles.upgradeBtn} onClick={onOpenSettings}>
+                <Star size={14} />
+                <span>Upgrade</span>
+              </button>
+            )}
+          </div>
         </div>
-      )}
+      </div>
     </aside>
   );
 };
