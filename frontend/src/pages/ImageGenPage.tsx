@@ -9,9 +9,11 @@ import {
 import { DashboardLayout } from '../features/dashboard/DashboardLayout';
 import { useAuthStore } from '../store/auth.store';
 import { useModelStore } from '../store/model.store';
+import { useImageStore } from '../store/image.store';
 import api from '../lib/api';
 import toast from 'react-hot-toast';
 import styles from './ImageGenPage.module.css';
+import { ImageSidebar } from '../components/images/ImageSidebar';
 
 // Aspect ratio presets
 const ASPECT_RATIOS = [
@@ -34,122 +36,58 @@ const PROMPT_STYLERS = [
   { label: 'Fantasy', suffix: ', epic fantasy, ethereal lighting, magical atmosphere', icon: '🧙' },
 ];
 
-interface GeneratedImage {
-  id: string;
-  url: string;
-  prompt: string;
-  model: string;
-  seed?: number;
-  created_at: string;
-}
-
 const ImageGenPage: React.FC = () => {
   const { user } = useAuthStore();
   const { models, fetchModels } = useModelStore();
+  const { 
+    settings, 
+    updateSettings, 
+    isGenerating, 
+    generateImage, 
+    activeImage, 
+    setActiveImage,
+    history,
+    deleteImage
+  } = useImageStore();
 
-  const [prompt, setPrompt] = useState('');
-  const [negativePrompt, setNegativePrompt] = useState('');
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [selectedRatio, setSelectedRatio] = useState(0);
-  const [steps, setSteps] = useState(30);
-  const [seed, setSeed] = useState(0);
-  const [cfgScale, setCfgScale] = useState(5);
-  const [generatedPreview, setGeneratedPreview] = useState<{ url: string; seed?: number } | null>(null);
-  const [selectedModelId, setSelectedModelId] = useState('');
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
-  const [imageHistory, setImageHistory] = useState<GeneratedImage[]>([]);
   const [activeTab, setActiveTab] = useState<'generate' | 'gallery'>('generate');
-  const [isFetchingHistory, setIsFetchingHistory] = useState(false);
-  const [isDeleting, setIsDeleting] = useState<string | null>(null);
   
   const promptRef = useRef<HTMLTextAreaElement>(null);
 
   // Get image-capable models
   const imageModels = models.filter(m => m.is_image && !m.in_maintenance);
 
-  const fetchHistory = useCallback(async () => {
-    if (!user?.id) return;
-    setIsFetchingHistory(true);
-    try {
-      const response = await api.get('/ai/images');
-      if (response.data.success) {
-        setImageHistory(response.data.data);
-      }
-    } catch (error) {
-      console.error('History fetch error:', error);
-    } finally {
-      setIsFetchingHistory(false);
-    }
-  }, [user?.id]);
-
   useEffect(() => {
     fetchModels();
   }, [fetchModels]);
 
-  useEffect(() => {
-    fetchHistory();
-  }, [fetchHistory]);
-
   // Auto-select first image model
   useEffect(() => {
-    if (imageModels.length > 0 && !selectedModelId) {
+    if (imageModels.length > 0 && !settings.modelId) {
       const fast = imageModels.find(m => m.is_fast) || imageModels[0];
-      setSelectedModelId(fast.model_id);
+      updateSettings({ modelId: fast.model_id });
     }
-  }, [imageModels, selectedModelId]);
+  }, [imageModels, settings.modelId, updateSettings]);
 
-  const selectedModel = imageModels.find(m => m.model_id === selectedModelId);
-  const isFlux = selectedModelId.includes('flux');
-  const ratio = ASPECT_RATIOS[selectedRatio];
+  const selectedModel = imageModels.find(m => m.model_id === settings.modelId);
+  const isFlux = settings.modelId.includes('flux');
+  const ratio = ASPECT_RATIOS[settings.ratioIndex];
 
-  const handleGenerate = useCallback(async () => {
-    if (!prompt.trim() || isGenerating || !user?.id) return;
-
-    setIsGenerating(true);
-    setGeneratedPreview(null);
+  const handleGenerate = async () => {
+    if (!settings.prompt.trim() || isGenerating || !user?.id) return;
     setActiveTab('generate');
-
-    try {
-      const response = await api.post('/ai/image', {
-        prompt,
-        model: selectedModelId,
-        negative_prompt: isFlux ? undefined : negativePrompt || undefined,
-        seed: seed || 0,
-        steps,
-        width: ratio.w,
-        height: ratio.h,
-        cfg_scale: isFlux ? undefined : cfgScale,
-      });
-
-      if (response.data.success) {
-        const img = response.data.data.images[0];
-        if (img) {
-          setGeneratedPreview({ url: img.url, seed: img.seed });
-          toast.success('Image generated!');
-          fetchHistory();
-        }
-      }
-    } catch (error: any) {
-      console.error('Image Generation Error:', error);
-      toast.error(error.response?.data?.message || 'Failed to generate image');
-    } finally {
-      setIsGenerating(false);
-    }
-  }, [prompt, isGenerating, user?.id, selectedModelId, negativePrompt, seed, steps, ratio, cfgScale, isFlux, fetchHistory]);
-
-  const handleDelete = async (id: string) => {
-    if (confirm('Delete this generation?')) {
-      setIsDeleting(id);
-      try {
-        await api.delete(`/ai/image/${id}`);
-        setImageHistory(prev => prev.filter(i => i.id !== id));
-        toast.success('Deleted');
-      } catch {
-        toast.error('Failed to delete');
-      } finally {
-        setIsDeleting(null);
-      }
-    }
+    
+    await generateImage({
+      prompt: settings.prompt,
+      model: settings.modelId,
+      negative_prompt: isFlux ? undefined : settings.negativePrompt || undefined,
+      seed: settings.seed || 0,
+      steps: settings.steps,
+      width: ratio.w,
+      height: ratio.h,
+      cfg_scale: isFlux ? undefined : settings.cfgScale,
+    });
   };
 
   const handleDownload = async (url: string, name?: string) => {
@@ -165,18 +103,33 @@ const ImageGenPage: React.FC = () => {
   };
 
   const applyStyler = (suffix: string) => {
-    setPrompt(prev => {
-      const base = prev.trim();
-      if (base.endsWith(suffix)) return prev;
-      return base + suffix;
-    });
+    const currentPrompt = settings.prompt.trim();
+    if (currentPrompt.endsWith(suffix)) return;
+    updateSettings({ prompt: currentPrompt + suffix });
     promptRef.current?.focus();
   };
 
+  const handleNewImage = () => {
+    setActiveImage(null);
+    updateSettings({ 
+      prompt: '', 
+      negativePrompt: '', 
+      seed: 0 
+    });
+    setActiveTab('generate');
+  };
+
   return (
-    <DashboardLayout>
+    <DashboardLayout 
+      sidebar={(props) => (
+        <ImageSidebar 
+          {...props} 
+          onNewImage={handleNewImage} 
+        />
+      )}
+    >
       <div className={styles.container}>
-        {/* Left Settings Sidebar */}
+        {/* Left Settings Sidebar - keeping it as it has specific image settings */}
         <aside className={styles.sidebar}>
           <div className={styles.section}>
             <span className={styles.sectionLabel}>Model Selection</span>
@@ -189,12 +142,7 @@ const ImageGenPage: React.FC = () => {
                       {selectedModel?.is_fast ? 'Ultra Fast' : 'High Quality'}
                     </span>
                   </div>
-                  <ChevronDown 
-                    size={18} 
-                    style={{ 
-                      opacity: 0.5
-                    }} 
-                  />
+                  <ChevronDown size={18} style={{ opacity: 0.5 }} />
                 </button>
               </DropdownMenu.Trigger>
 
@@ -209,8 +157,8 @@ const ImageGenPage: React.FC = () => {
                     {imageModels.map(m => (
                       <DropdownMenu.Item 
                         key={m.model_id}
-                        className={`${styles.dropdownItem} ${selectedModelId === m.model_id ? styles.dropdownItemActive : ''}`}
-                        onSelect={() => setSelectedModelId(m.model_id)}
+                        className={`${styles.dropdownItem} ${settings.modelId === m.model_id ? styles.dropdownItemActive : ''}`}
+                        onSelect={() => updateSettings({ modelId: m.model_id })}
                       >
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
                           <span style={{ fontWeight: 600 }}>{m.name}</span>
@@ -233,15 +181,15 @@ const ImageGenPage: React.FC = () => {
               {ASPECT_RATIOS.map((r, i) => (
                 <button
                   key={r.label}
-                  className={`${styles.ratioButton} ${selectedRatio === i ? styles.ratioButtonActive : ''}`}
-                  onClick={() => setSelectedRatio(i)}
+                  className={`${styles.ratioButton} ${settings.ratioIndex === i ? styles.ratioButtonActive : ''}`}
+                  onClick={() => updateSettings({ ratioIndex: i })}
                 >
                   <div 
                     className={styles.ratioBox} 
                     style={{ 
                       width: `${r.iconSize.w}px`, 
                       height: `${r.iconSize.h}px`,
-                      borderColor: selectedRatio === i ? 'white' : 'currentColor'
+                      borderColor: settings.ratioIndex === i ? 'white' : 'currentColor'
                     }} 
                   />
                   <span style={{ fontSize: '0.7rem' }}>{r.label}</span>
@@ -256,11 +204,11 @@ const ImageGenPage: React.FC = () => {
               <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                   <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Steps</span>
-                  <span style={{ fontSize: '0.8rem', fontWeight: 600 }}>{steps}</span>
+                  <span style={{ fontSize: '0.8rem', fontWeight: 600 }}>{settings.steps}</span>
                 </div>
                 <input 
-                  type="range" min={10} max={50} value={steps} 
-                  onChange={e => setSteps(+e.target.value)} 
+                  type="range" min={10} max={50} value={settings.steps} 
+                  onChange={e => updateSettings({ steps: +e.target.value })} 
                   className={styles.rangeInput}
                 />
               </div>
@@ -269,11 +217,11 @@ const ImageGenPage: React.FC = () => {
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                     <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>CFG Scale</span>
-                    <span style={{ fontSize: '0.8rem', fontWeight: 600 }}>{cfgScale}</span>
+                    <span style={{ fontSize: '0.8rem', fontWeight: 600 }}>{settings.cfgScale}</span>
                   </div>
                   <input 
-                    type="range" min={1} max={20} value={cfgScale} 
-                    onChange={e => setCfgScale(+e.target.value)} 
+                    type="range" min={1} max={20} value={settings.cfgScale} 
+                    onChange={e => updateSettings({ cfgScale: +e.target.value })} 
                     className={styles.rangeInput}
                   />
                 </div>
@@ -282,8 +230,8 @@ const ImageGenPage: React.FC = () => {
               <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                 <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Seed</span>
                 <input 
-                  type="number" value={seed} 
-                  onChange={e => setSeed(+e.target.value)}
+                  type="number" value={settings.seed} 
+                  onChange={e => updateSettings({ seed: +e.target.value })}
                   placeholder="Random"
                   style={{
                     background: 'rgba(255,255,255,0.05)', border: '1px solid var(--border-color)',
@@ -351,17 +299,17 @@ const ImageGenPage: React.FC = () => {
                           <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>Crafting your masterpiece with {selectedModel?.name}</p>
                         </div>
                       </motion.div>
-                    ) : generatedPreview ? (
+                    ) : activeImage ? (
                       <motion.div 
                         key="preview"
                         initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}
                         style={{ width: '100%', height: '100%', position: 'relative' }}
                       >
                         <img 
-                          src={generatedPreview.url} 
+                          src={activeImage.url} 
                           alt="Generated result" 
                           style={{ width: '100%', height: '100%', objectFit: 'contain', cursor: 'zoom-in' }}
-                          onClick={() => setLightboxUrl(generatedPreview.url)}
+                          onClick={() => setLightboxUrl(activeImage.url)}
                         />
                         <div style={{ 
                           position: 'absolute', bottom: 0, left: 0, right: 0, padding: '24px',
@@ -369,14 +317,14 @@ const ImageGenPage: React.FC = () => {
                           display: 'flex', justifyContent: 'space-between', alignItems: 'center'
                         }}>
                           <div style={{ display: 'flex', gap: '12px' }}>
-                            <button onClick={() => handleDownload(generatedPreview.url)} className="glass" style={{ padding: '10px 20px', borderRadius: '12px', border: 'none', color: 'white', display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+                            <button onClick={() => handleDownload(activeImage.url)} className="glass" style={{ padding: '10px 20px', borderRadius: '12px', border: 'none', color: 'white', display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
                               <Download size={18} /> Save
                             </button>
                             <button onClick={() => handleGenerate()} className="glass" style={{ padding: '10px 20px', borderRadius: '12px', border: 'none', color: 'white', display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
                               <RotateCcw size={18} /> Re-roll
                             </button>
                           </div>
-                          <button onClick={() => setGeneratedPreview(null)} style={{ background: 'transparent', border: 'none', color: 'white', cursor: 'pointer', opacity: 0.6 }}>
+                          <button onClick={() => setActiveImage(null)} style={{ background: 'transparent', border: 'none', color: 'white', cursor: 'pointer', opacity: 0.6 }}>
                             <X size={20} />
                           </button>
                         </div>
@@ -410,8 +358,8 @@ const ImageGenPage: React.FC = () => {
                         ref={promptRef}
                         className="chat-input"
                         placeholder="A cosmic landscape with purple nebulas and floating islands..."
-                        value={prompt}
-                        onChange={e => setPrompt(e.target.value)}
+                        value={settings.prompt}
+                        onChange={e => updateSettings({ prompt: e.target.value })}
                         onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleGenerate(); } }}
                         style={{ 
                           background: 'rgba(255,255,255,0.05)', 
@@ -424,7 +372,7 @@ const ImageGenPage: React.FC = () => {
                     <button
                       className="send-btn"
                       onClick={handleGenerate}
-                      disabled={isGenerating || !prompt.trim()}
+                      disabled={isGenerating || !settings.prompt.trim()}
                       style={{ 
                         height: '60px', width: '60px', borderRadius: '16px', 
                         background: 'var(--primary)', boxShadow: '0 0 20px var(--primary-glow)'
@@ -438,7 +386,7 @@ const ImageGenPage: React.FC = () => {
             ) : (
               /* Gallery Area */
               <div style={{ width: '100%' }}>
-                {imageHistory.length === 0 && !isFetchingHistory ? (
+                {history.length === 0 ? (
                   <div style={{ textAlign: 'center', marginTop: '100px', opacity: 0.3 }}>
                     <History size={64} style={{ marginBottom: '20px' }} />
                     <h2>No history yet</h2>
@@ -446,12 +394,12 @@ const ImageGenPage: React.FC = () => {
                   </div>
                 ) : (
                   <div className={styles.galleryGrid}>
-                    {imageHistory.map(img => (
+                    {history.map(img => (
                       <motion.div 
                         key={img.id}
                         layout initial={{ opacity: 0 }} animate={{ opacity: 1 }}
                         className={styles.galleryItem}
-                        onClick={() => setLightboxUrl(img.url)}
+                        onClick={() => setActiveImage(img)}
                       >
                         <img src={img.url} alt={img.prompt} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                         <div className={styles.galleryOverlay}>
@@ -462,7 +410,7 @@ const ImageGenPage: React.FC = () => {
                             <button onClick={e => { e.stopPropagation(); handleDownload(img.url); }} className="glass" style={{ flex: 1, padding: '6px', borderRadius: '8px', border: 'none', color: 'white', fontSize: '0.7rem' }}>
                               Save
                             </button>
-                            <button onClick={e => { e.stopPropagation(); handleDelete(img.id); }} style={{ background: 'rgba(239,68,68,0.2)', color: '#f87171', border: 'none', padding: '6px 10px', borderRadius: '8px', cursor: 'pointer' }}>
+                            <button onClick={e => { e.stopPropagation(); deleteImage(img.id); }} style={{ background: 'rgba(239,68,68,0.2)', color: '#f87171', border: 'none', padding: '6px 10px', borderRadius: '8px', cursor: 'pointer' }}>
                               <Trash2 size={14} />
                             </button>
                           </div>
