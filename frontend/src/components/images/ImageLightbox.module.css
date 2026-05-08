@@ -1,0 +1,196 @@
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.95);
+  backdrop-filter: blur(12px);
+  z-index: 10000;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px;
+  cursor: zoom-out;
+}
+
+.header {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  padding: 24px 40px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: linear-gradient(to bottom, rgba(0,0,0,0.5), transparent);
+  pointer-events: none;
+}
+
+.headerActions {
+  display: flex;
+  gap: 16px;
+  pointer-events: auto;
+}
+
+.iconButton {
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: white;
+  width: 48px;
+  height: 48px;
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.iconButton:hover {
+  background: rgba(255, 255, 255, 0.2);
+  transform: translateY(-2px);
+}
+
+.imageContainer {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+
+.mainImage {
+  max-width: 90%;
+  max-height: 90%;
+  border-radius: 20px;
+  box-shadow: 0 50px 100px -20px rgba(0, 0, 0, 0.5);
+  pointer-events: auto;
+  cursor: default;
+}
+
+.navButton {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: white;
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s;
+  pointer-events: auto;
+}
+
+.navButton:hover {
+  background: rgba(255, 255, 255, 0.15);
+  transform: translateY(-50%) scale(1.1);
+}
+
+.prev {
+  left: 40px;
+}
+
+.next {
+  right: 40px;
+}
+
+.footer {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 40px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+  background: linear-gradient(to top, rgba(0,0,0,0.8), transparent);
+  pointer-events: none;
+}
+
+.promptInfo {
+  max-width: 600px;
+  text-align: center;
+  pointer-events: auto;
+}
+
+.promptText {
+  color: white;
+  font-size: 1.1rem;
+  font-weight: 500;
+  line-height: 1.5;
+  margin-bottom: 8px;
+  max-height: 120px;
+  overflow-y: auto;
+  padding: 0 10px;
+}
+
+.promptText::-webkit-scrollbar {
+  width: 4px;
+}
+
+.promptText::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 2px;
+}
+
+.metadata {
+  display: flex;
+  gap: 20px;
+  color: rgba(255, 255, 255, 0.4);
+  font-size: 0.85rem;
+}
+
+.metadataItem {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.downloadBtn {
+  background: var(--primary);
+  color: white;
+  padding: 14px 32px;
+  border-radius: 16px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border: none;
+  cursor: pointer;
+  pointer-events: auto;
+  box-shadow: 0 0 30px var(--primary-glow);
+  transition: all 0.2s;
+}
+
+.downloadBtn:hover {
+  transform: translateY(-2px) scale(1.02);
+  filter: brightness(1.1);
+}
+
+.secondaryBtn {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: white;
+  padding: 14px 32px;
+  border-radius: 16px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  pointer-events: auto;
+  transition: all 0.2s;
+}
+
+.secondaryBtn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  transform: translateY(-2px);
+  border-color: rgba(255, 255, 255, 0.2);
+}

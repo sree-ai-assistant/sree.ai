@@ -10,12 +10,21 @@
   background: rgba(15, 15, 15, 0.4);
   backdrop-filter: blur(20px);
   border-right: 1px solid var(--border-color);
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+  z-index: 10;
+  position: relative;
+}
+
+.sidebarContent {
+  flex: 1;
+  overflow-y: auto;
   padding: 24px;
   display: flex;
   flex-direction: column;
   gap: 24px;
-  overflow-y: auto;
-  z-index: 10;
 }
 
 .main {
@@ -199,27 +208,50 @@
 
 .galleryItem {
   position: relative;
-  border-radius: 20px;
+  border-radius: 24px;
   overflow: hidden;
   aspect-ratio: 1;
   cursor: pointer;
-  border: 1px solid var(--border-color);
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-shadow);
+  transition: all 0.4s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.galleryItem:hover {
+  transform: translateY(-8px) scale(1.02);
+  border-color: var(--primary-glow);
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4), 0 0 20px var(--primary-glow-low);
+  z-index: 2;
 }
 
 .galleryOverlay {
   position: absolute;
   inset: 0;
-  background: linear-gradient(to top, rgba(0, 0, 0, 0.8) 0%, transparent 60%);
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.9) 0%, transparent 50%);
   display: flex;
   flex-direction: column;
   justify-content: flex-end;
-  padding: 16px;
+  padding: 20px;
   opacity: 0;
-  transition: opacity 0.3s ease;
+  transition: all 0.3s ease;
+  backdrop-filter: blur(4px);
 }
 
 .galleryItem:hover .galleryOverlay {
   opacity: 1;
+}
+
+.galleryPrompt {
+  font-size: 0.85rem;
+  color: white;
+  line-height: 1.4;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
 }
 
 .stylerButton {
@@ -300,4 +332,104 @@
   border-radius: 50%;
   cursor: pointer;
   box-shadow: 0 0 10px var(--primary-glow);
+}
+
+.sidebarFooter {
+  margin-top: auto;
+  padding-top: 20px;
+  border-top: 1px solid var(--border-color);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.sidebarFooter {
+  padding: 20px 24px 24px 24px;
+  border-top: 1px solid var(--border-color);
+  background: rgba(15, 15, 15, 0.6);
+  backdrop-filter: blur(10px);
+  z-index: 11;
+}
+
+.creditsCard {
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.1), rgba(37, 99, 235, 0.05));
+  border: 1px solid rgba(59, 130, 246, 0.2);
+  border-radius: 20px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  position: relative;
+  overflow: hidden;
+}
+
+.creditsCard::before {
+  content: '';
+  position: absolute;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  background: radial-gradient(circle at center, rgba(59, 130, 246, 0.1) 0%, transparent 70%);
+  pointer-events: none;
+}
+
+.creditsHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.creditsLabel {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.creditsCount {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+}
+
+.creditsValue {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: white;
+  line-height: 1;
+}
+
+.creditsTotal {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.upgradeButton {
+  width: 100%;
+  padding: 10px;
+  border-radius: 12px;
+  background: var(--primary);
+  border: none;
+  color: white;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+}
+
+.upgradeButton:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(59, 130, 246, 0.4);
+  filter: brightness(1.1);
+}
+
+.upgradeButton:active {
+  transform: translateY(0);
 }

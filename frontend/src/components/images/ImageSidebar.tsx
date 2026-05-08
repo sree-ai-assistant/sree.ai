@@ -23,13 +23,17 @@ interface ImageSidebarProps {
   setIsCollapsed: (value: boolean) => void;
   onNewImage: () => void;
   onOpenSettings?: () => void;
+  onDeleteClick?: (id: string) => void;
+  onSelectImage?: (img: any) => void;
 }
 
 export const ImageSidebar: React.FC<ImageSidebarProps> = ({ 
   isCollapsed, 
   setIsCollapsed, 
   onNewImage,
-  onOpenSettings
+  onOpenSettings,
+  onDeleteClick,
+  onSelectImage
 }) => {
   const { history, fetchHistory, activeImage, setActiveImage, deleteImage, isFetchingHistory } = useImageStore();
   const { user, signOut } = useAuthStore();
@@ -46,7 +50,9 @@ export const ImageSidebar: React.FC<ImageSidebarProps> = ({
 
   const handleDelete = (e: React.MouseEvent, id: string) => {
     e.stopPropagation();
-    if (confirm('Delete this generation?')) {
+    if (onDeleteClick) {
+      onDeleteClick(id);
+    } else if (confirm('Delete this generation?')) {
       deleteImage(id);
     }
   };
@@ -97,7 +103,10 @@ export const ImageSidebar: React.FC<ImageSidebarProps> = ({
               >
                 <button 
                   className={`${styles.historyItem} ${activeImage?.id === img.id ? styles.active : ''}`}
-                  onClick={() => setActiveImage(img)}
+                  onClick={() => {
+                    setActiveImage(img);
+                    onSelectImage?.(img);
+                  }}
                   title={img.prompt}
                 >
                   <div className={styles.itemIcon}>

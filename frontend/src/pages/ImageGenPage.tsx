@@ -4,16 +4,19 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   Image as ImageIcon, Wand2, Trash2, Loader2, Sparkles,
   Download, Settings2, ChevronDown, Zap, X, RotateCcw, Copy, LayoutGrid, Plus,
-  Maximize2, History, Layers, Sliders, Palette
+  Maximize2, History, Layers, Sliders, Palette, Eye, Settings, HelpCircle, LogOut
 } from 'lucide-react';
 import { DashboardLayout } from '../features/dashboard/DashboardLayout';
 import { useAuthStore } from '../store/auth.store';
 import { useModelStore } from '../store/model.store';
 import { useImageStore } from '../store/image.store';
 import api from '../lib/api';
+import { useUIStore } from '../store/ui.store';
 import toast from 'react-hot-toast';
 import styles from './ImageGenPage.module.css';
 import { ImageSidebar } from '../components/images/ImageSidebar';
+import { ConfirmModal } from '../components/shared/ConfirmModal';
+import { ImageLightbox } from '../components/images/ImageLightbox';
 
 // Aspect ratio presets
 const ASPECT_RATIOS = [
@@ -50,8 +53,10 @@ const ImageGenPage: React.FC = () => {
     deleteImage
   } = useImageStore();
 
-  const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
+  const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'generate' | 'gallery'>('generate');
+  const { openUpgradeModal } = useUIStore();
   
   const promptRef = useRef<HTMLTextAreaElement>(null);
 
@@ -125,140 +130,165 @@ const ImageGenPage: React.FC = () => {
       sidebar={(props) => (
         <ImageSidebar 
           {...props} 
-          onNewImage={handleNewImage} 
+          onNewImage={handleNewImage}
+          onDeleteClick={(id) => setDeleteConfirmId(id)}
+          onSelectImage={() => setActiveTab('generate')}
         />
       )}
     >
       <div className={styles.container}>
-        {/* Left Settings Sidebar - keeping it as it has specific image settings */}
-        <aside className={styles.sidebar}>
-          <div className={styles.section}>
-            <span className={styles.sectionLabel}>Model Selection</span>
-            <DropdownMenu.Root>
-              <DropdownMenu.Trigger asChild>
-                <button className={styles.dropdownTrigger}>
-                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '2px' }}>
-                    <span style={{ fontWeight: 600, fontSize: '0.9rem' }}>{selectedModel?.name || 'Select Model'}</span>
-                    <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                      {selectedModel?.is_fast ? 'Ultra Fast' : 'High Quality'}
-                    </span>
-                  </div>
-                  <ChevronDown size={18} style={{ opacity: 0.5 }} />
-                </button>
-              </DropdownMenu.Trigger>
-
-              <DropdownMenu.Portal>
-                <DropdownMenu.Content className={styles.dropdownMenu} sideOffset={8} align="start" asChild>
-                  <motion.div 
-                    initial={{ opacity: 0, y: -10, scale: 0.95 }}
-                    animate={{ opacity: 1, y: 0, scale: 1 }}
-                    exit={{ opacity: 0, y: -10, scale: 0.95 }}
-                    transition={{ duration: 0.15 }}
-                  >
-                    {imageModels.map(m => (
-                      <DropdownMenu.Item 
-                        key={m.model_id}
-                        className={`${styles.dropdownItem} ${settings.modelId === m.model_id ? styles.dropdownItemActive : ''}`}
-                        onSelect={() => updateSettings({ modelId: m.model_id })}
-                      >
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
-                          <span style={{ fontWeight: 600 }}>{m.name}</span>
-                          {m.is_fast && <Zap size={12} className="text-success" />}
+        <AnimatePresence mode="popLayout">
+          {activeTab === 'generate' && (
+            <motion.aside 
+              className={styles.sidebar}
+              initial={{ opacity: 0, width: 0, x: -20 }}
+              animate={{ opacity: 1, width: 320, x: 0 }}
+              exit={{ opacity: 0, width: 0, x: -20 }}
+              transition={{ 
+                type: 'spring',
+                damping: 25,
+                stiffness: 200,
+                opacity: { duration: 0.2 }
+              }}
+            >
+              <div className={styles.sidebarContent}>
+                <div className={styles.section}>
+                  <span className={styles.sectionLabel}>Model Selection</span>
+                  <DropdownMenu.Root>
+                    <DropdownMenu.Trigger asChild>
+                      <button className={styles.dropdownTrigger}>
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '2px' }}>
+                          <span style={{ fontWeight: 600, fontSize: '0.9rem' }}>{selectedModel?.name || 'Select Model'}</span>
+                          <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                            {selectedModel?.is_fast ? 'Ultra Fast' : 'High Quality'}
+                          </span>
                         </div>
-                        <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                          {m.is_fast ? 'Ultra Fast' : 'High Quality'}
-                        </span>
-                      </DropdownMenu.Item>
+                        <ChevronDown size={18} style={{ opacity: 0.5 }} />
+                      </button>
+                    </DropdownMenu.Trigger>
+
+                    <DropdownMenu.Portal>
+                      <DropdownMenu.Content className={styles.dropdownMenu} sideOffset={8} align="start" asChild>
+                        <motion.div 
+                          initial={{ opacity: 0, y: -10, scale: 0.95 }}
+                          animate={{ opacity: 1, y: 0, scale: 1 }}
+                          exit={{ opacity: 0, y: -10, scale: 0.95 }}
+                          transition={{ duration: 0.15 }}
+                        >
+                          {imageModels.map(m => (
+                            <DropdownMenu.Item 
+                              key={m.model_id}
+                              className={`${styles.dropdownItem} ${settings.modelId === m.model_id ? styles.dropdownItemActive : ''}`}
+                              onSelect={() => updateSettings({ modelId: m.model_id })}
+                            >
+                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
+                                <span style={{ fontWeight: 600 }}>{m.name}</span>
+                                {m.is_fast && <Zap size={12} className="text-success" />}
+                              </div>
+                              <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                                {m.is_fast ? 'Ultra Fast' : 'High Quality'}
+                              </span>
+                            </DropdownMenu.Item>
+                          ))}
+                        </motion.div>
+                      </DropdownMenu.Content>
+                    </DropdownMenu.Portal>
+                  </DropdownMenu.Root>
+                </div>
+
+                <div className={styles.section}>
+                  <span className={styles.sectionLabel}>Aspect Ratio</span>
+                  <div className={styles.ratioGrid}>
+                    {ASPECT_RATIOS.map((r, i) => (
+                      <button
+                        key={r.label}
+                        className={`${styles.ratioButton} ${settings.ratioIndex === i ? styles.ratioButtonActive : ''}`}
+                        onClick={() => updateSettings({ ratioIndex: i })}
+                      >
+                        <div 
+                          className={styles.ratioBox} 
+                          style={{ 
+                            width: `${r.iconSize.w}px`, 
+                            height: `${r.iconSize.h}px`,
+                            borderColor: settings.ratioIndex === i ? 'white' : 'currentColor'
+                          }} 
+                        />
+                        <span style={{ fontSize: '0.7rem' }}>{r.label}</span>
+                      </button>
                     ))}
-                  </motion.div>
-                </DropdownMenu.Content>
-              </DropdownMenu.Portal>
-            </DropdownMenu.Root>
-          </div>
-
-          <div>
-            <span className={styles.sectionLabel}>Aspect Ratio</span>
-            <div className={styles.ratioGrid}>
-              {ASPECT_RATIOS.map((r, i) => (
-                <button
-                  key={r.label}
-                  className={`${styles.ratioButton} ${settings.ratioIndex === i ? styles.ratioButtonActive : ''}`}
-                  onClick={() => updateSettings({ ratioIndex: i })}
-                >
-                  <div 
-                    className={styles.ratioBox} 
-                    style={{ 
-                      width: `${r.iconSize.w}px`, 
-                      height: `${r.iconSize.h}px`,
-                      borderColor: settings.ratioIndex === i ? 'white' : 'currentColor'
-                    }} 
-                  />
-                  <span style={{ fontSize: '0.7rem' }}>{r.label}</span>
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div>
-            <span className={styles.sectionLabel}>Parameters</span>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Steps</span>
-                  <span style={{ fontSize: '0.8rem', fontWeight: 600 }}>{settings.steps}</span>
-                </div>
-                <input 
-                  type="range" min={10} max={50} value={settings.steps} 
-                  onChange={e => updateSettings({ steps: +e.target.value })} 
-                  className={styles.rangeInput}
-                />
-              </div>
-
-              {!isFlux && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>CFG Scale</span>
-                    <span style={{ fontSize: '0.8rem', fontWeight: 600 }}>{settings.cfgScale}</span>
                   </div>
-                  <input 
-                    type="range" min={1} max={20} value={settings.cfgScale} 
-                    onChange={e => updateSettings({ cfgScale: +e.target.value })} 
-                    className={styles.rangeInput}
-                  />
                 </div>
-              )}
 
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Seed</span>
-                <input 
-                  type="number" value={settings.seed} 
-                  onChange={e => updateSettings({ seed: +e.target.value })}
-                  placeholder="Random"
-                  style={{
-                    background: 'rgba(255,255,255,0.05)', border: '1px solid var(--border-color)',
-                    borderRadius: '8px', padding: '8px 12px', color: 'white', fontSize: '0.85rem'
-                  }}
-                />
+                <div className={styles.section}>
+                  <span className={styles.sectionLabel}>Parameters</span>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Steps</span>
+                        <span style={{ fontSize: '0.8rem', fontWeight: 600 }}>{settings.steps}</span>
+                      </div>
+                      <input 
+                        type="range" min={10} max={50} value={settings.steps} 
+                        onChange={e => updateSettings({ steps: +e.target.value })} 
+                        className={styles.rangeInput}
+                      />
+                    </div>
+
+                    {!isFlux && (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                          <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>CFG Scale</span>
+                          <span style={{ fontSize: '0.8rem', fontWeight: 600 }}>{settings.cfgScale}</span>
+                        </div>
+                        <input 
+                          type="range" min={1} max={20} value={settings.cfgScale} 
+                          onChange={e => updateSettings({ cfgScale: +e.target.value })} 
+                          className={styles.rangeInput}
+                        />
+                      </div>
+                    )}
+
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                      <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Seed</span>
+                      <input 
+                        type="number" value={settings.seed} 
+                        onChange={e => updateSettings({ seed: +e.target.value })}
+                        placeholder="Random"
+                        style={{
+                          background: 'rgba(255,255,255,0.05)', border: '1px solid var(--border-color)',
+                          borderRadius: '8px', padding: '8px 12px', color: 'white', fontSize: '0.85rem'
+                        }}
+                      />
+                    </div>
+                  </div>
+                </div>
               </div>
-            </div>
-          </div>
 
-          <div style={{ marginTop: 'auto' }}>
-            <div style={{ padding: '16px', background: 'rgba(59,130,246,0.1)', borderRadius: '16px', border: '1px solid var(--primary-glow)' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px' }}>
-                <Sparkles size={16} color="var(--primary)" />
-                <span style={{ fontSize: '0.8rem', fontWeight: 700 }}>Pro Tip</span>
+              {/* Sidebar Footer */}
+              <div className={styles.sidebarFooter}>
+                <div className={styles.creditsCard}>
+                  <div className={styles.creditsHeader}>
+                    <span className={styles.creditsLabel}>Credits Remaining</span>
+                    <Sparkles size={14} className="text-primary" />
+                  </div>
+                  <div className={styles.creditsCount}>
+                    <span className={styles.creditsValue}>{user?.requests_remaining ?? 0}</span>
+                    <span className={styles.creditsTotal}>/ {user?.plan_type === 'pro' ? '500' : '50'}</span>
+                  </div>
+                  <button 
+                    className={styles.upgradeButton}
+                    onClick={() => openUpgradeModal('pro')}
+                  >
+                    <Zap size={16} fill="currentColor" />
+                    Upgrade to Pro
+                  </button>
+                </div>
               </div>
-              <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', lineHeight: 1.4 }}>
-                Use "cinematic" or "highly detailed" in your prompt for more realistic results.
-              </p>
-            </div>
-          </div>
-        </aside>
+            </motion.aside>
+          )}
+        </AnimatePresence>
 
-        {/* Main Content Area */}
-        <main className={styles.main}>
-          {/* Header Tabs */}
+        <motion.main layout className={styles.main}>
           <div style={{ padding: '24px 40px 0' }}>
             <div className={styles.tabHeader}>
               <button 
@@ -277,181 +307,210 @@ const ImageGenPage: React.FC = () => {
           </div>
 
           <div className={styles.viewport}>
-            {activeTab === 'generate' ? (
-              <>
-                {/* Generation Area */}
-                <div className={styles.resultContainer} style={{ aspectRatio: `${ratio.w}/${ratio.h}`, maxHeight: '60vh' }}>
-                  <AnimatePresence mode="wait">
-                    {isGenerating ? (
-                      <motion.div 
-                        key="generating"
-                        initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-                        className={styles.generationOverlay}
-                      >
-                        <div className="relative">
-                          <motion.div 
-                            animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 3, ease: "linear" }}
-                            style={{ width: '80px', height: '80px', border: '2px solid var(--primary)', borderRadius: '50%', borderTopColor: 'transparent' }}
+            <AnimatePresence mode="wait">
+              {activeTab === 'generate' ? (
+                <motion.div 
+                  key="generate"
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: 20 }}
+                  transition={{ duration: 0.4, ease: "easeOut" }}
+                  style={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '40px' }}
+                >
+                  <div className={styles.resultContainer} style={{ aspectRatio: `${ratio.w}/${ratio.h}`, maxHeight: '60vh' }}>
+                    <AnimatePresence mode="wait">
+                      {isGenerating ? (
+                        <motion.div 
+                          key="generating"
+                          initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                          className={styles.generationOverlay}
+                        >
+                          <div className="relative">
+                            <motion.div 
+                              animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 3, ease: "linear" }}
+                              style={{ width: '80px', height: '80px', border: '2px solid var(--primary)', borderRadius: '50%', borderTopColor: 'transparent' }}
+                            />
+                            <Wand2 size={32} className="absolute inset-0 m-auto text-primary animate-pulse" />
+                          </div>
+                          <div style={{ textAlign: 'center' }}>
+                            <h3 style={{ fontSize: '1.2rem', marginBottom: '4px' }}>Diffusing...</h3>
+                            <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>Crafting your masterpiece with {selectedModel?.name}</p>
+                          </div>
+                        </motion.div>
+                      ) : activeImage ? (
+                        <motion.div 
+                          key="preview"
+                          initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}
+                          style={{ width: '100%', height: '100%', position: 'relative' }}
+                        >
+                          <img 
+                            src={activeImage.url} 
+                            alt="Generated result" 
+                            style={{ width: '100%', height: '100%', objectFit: 'contain', cursor: 'zoom-in' }}
+                            onClick={() => {
+                              const idx = history.findIndex(img => img.url === activeImage.url);
+                              setLightboxIndex(idx !== -1 ? idx : 0);
+                            }}
                           />
-                          <Wand2 size={32} className="absolute inset-0 m-auto text-primary animate-pulse" />
-                        </div>
-                        <div style={{ textAlign: 'center' }}>
-                          <h3 style={{ fontSize: '1.2rem', marginBottom: '4px' }}>Diffusing...</h3>
-                          <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>Crafting your masterpiece with {selectedModel?.name}</p>
-                        </div>
-                      </motion.div>
-                    ) : activeImage ? (
-                      <motion.div 
-                        key="preview"
-                        initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}
-                        style={{ width: '100%', height: '100%', position: 'relative' }}
-                      >
-                        <img 
-                          src={activeImage.url} 
-                          alt="Generated result" 
-                          style={{ width: '100%', height: '100%', objectFit: 'contain', cursor: 'zoom-in' }}
-                          onClick={() => setLightboxUrl(activeImage.url)}
-                        />
-                        <div style={{ 
-                          position: 'absolute', bottom: 0, left: 0, right: 0, padding: '24px',
-                          background: 'linear-gradient(to top, rgba(0,0,0,0.9), transparent)',
-                          display: 'flex', justifyContent: 'space-between', alignItems: 'center'
-                        }}>
-                          <div style={{ display: 'flex', gap: '12px' }}>
-                            <button onClick={() => handleDownload(activeImage.url)} className="glass" style={{ padding: '10px 20px', borderRadius: '12px', border: 'none', color: 'white', display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
-                              <Download size={18} /> Save
-                            </button>
-                            <button onClick={() => handleGenerate()} className="glass" style={{ padding: '10px 20px', borderRadius: '12px', border: 'none', color: 'white', display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
-                              <RotateCcw size={18} /> Re-roll
+                          <div style={{ 
+                            position: 'absolute', bottom: 0, left: 0, right: 0, padding: '24px',
+                            background: 'linear-gradient(to top, rgba(0,0,0,0.9), transparent)',
+                            display: 'flex', justifyContent: 'space-between', alignItems: 'center'
+                          }}>
+                            <div style={{ display: 'flex', gap: '12px' }}>
+                              <button onClick={() => handleDownload(activeImage.url)} className="glass" style={{ padding: '10px 20px', borderRadius: '12px', border: 'none', color: 'white', display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+                                <Download size={18} /> Save
+                              </button>
+                              <button onClick={() => handleGenerate()} className="glass" style={{ padding: '10px 20px', borderRadius: '12px', border: 'none', color: 'white', display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+                                <RotateCcw size={18} /> Re-roll
+                              </button>
+                            </div>
+                            <button onClick={() => setActiveImage(null)} style={{ background: 'transparent', border: 'none', color: 'white', cursor: 'pointer', opacity: 0.6 }}>
+                              <X size={20} />
                             </button>
                           </div>
-                          <button onClick={() => setActiveImage(null)} style={{ background: 'transparent', border: 'none', color: 'white', cursor: 'pointer', opacity: 0.6 }}>
-                            <X size={20} />
-                          </button>
-                        </div>
-                      </motion.div>
-                    ) : (
-                      <motion.div 
-                        key="empty"
-                        initial={{ opacity: 0 }} animate={{ opacity: 1 }}
-                        style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', opacity: 0.3 }}
-                      >
-                        <ImageIcon size={64} />
-                        <p style={{ marginTop: '16px', fontWeight: 500 }}>Your masterpiece will appear here</p>
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
-                </div>
-
-                {/* Prompt Section */}
-                <div className={styles.promptSection}>
-                  <div style={{ display: 'flex', gap: '8px', overflowX: 'auto', marginBottom: '16px', paddingBottom: '4px' }} className="no-scrollbar">
-                    {PROMPT_STYLERS.map(s => (
-                      <button key={s.label} className={styles.stylerButton} onClick={() => applyStyler(s.suffix)}>
-                        <span>{s.icon}</span> {s.label}
-                      </button>
-                    ))}
+                        </motion.div>
+                      ) : (
+                        <motion.div 
+                          key="empty"
+                          initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+                          style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', opacity: 0.3 }}
+                        >
+                          <ImageIcon size={64} />
+                          <p style={{ marginTop: '16px', fontWeight: 500 }}>Your masterpiece will appear here</p>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
                   </div>
 
-                  <div style={{ display: 'flex', gap: '16px', alignItems: 'flex-end' }}>
-                    <div style={{ flex: 1, position: 'relative' }}>
-                      <textarea
-                        ref={promptRef}
-                        className="chat-input"
-                        placeholder="A cosmic landscape with purple nebulas and floating islands..."
-                        value={settings.prompt}
-                        onChange={e => updateSettings({ prompt: e.target.value })}
-                        onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleGenerate(); } }}
-                        style={{ 
-                          background: 'rgba(255,255,255,0.05)', 
-                          border: '1px solid var(--border-color)',
-                          borderRadius: '16px', padding: '16px', minHeight: '60px',
-                          fontSize: '1rem', width: '100%', resize: 'none'
-                        }}
-                      />
+                  <div className={styles.promptSection}>
+                    <div style={{ display: 'flex', gap: '8px', overflowX: 'auto', marginBottom: '16px', paddingBottom: '4px' }} className="no-scrollbar">
+                      {PROMPT_STYLERS.map(s => (
+                        <button key={s.label} className={styles.stylerButton} onClick={() => applyStyler(s.suffix)}>
+                          <span>{s.icon}</span> {s.label}
+                        </button>
+                      ))}
                     </div>
-                    <button
-                      className="send-btn"
-                      onClick={handleGenerate}
-                      disabled={isGenerating || !settings.prompt.trim()}
-                      style={{ 
-                        height: '60px', width: '60px', borderRadius: '16px', 
-                        background: 'var(--primary)', boxShadow: '0 0 20px var(--primary-glow)'
-                      }}
-                    >
-                      {isGenerating ? <Loader2 className="animate-spin" size={24} /> : <Wand2 size={24} />}
-                    </button>
-                  </div>
-                </div>
-              </>
-            ) : (
-              /* Gallery Area */
-              <div style={{ width: '100%' }}>
-                {history.length === 0 ? (
-                  <div style={{ textAlign: 'center', marginTop: '100px', opacity: 0.3 }}>
-                    <History size={64} style={{ marginBottom: '20px' }} />
-                    <h2>No history yet</h2>
-                    <p>Generated images will appear here</p>
-                  </div>
-                ) : (
-                  <div className={styles.galleryGrid}>
-                    {history.map(img => (
-                      <motion.div 
-                        key={img.id}
-                        layout initial={{ opacity: 0 }} animate={{ opacity: 1 }}
-                        className={styles.galleryItem}
-                        onClick={() => setActiveImage(img)}
-                      >
-                        <img src={img.url} alt={img.prompt} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                        <div className={styles.galleryOverlay}>
-                          <p style={{ fontSize: '0.8rem', color: 'white', marginBottom: '12px', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
-                            {img.prompt}
-                          </p>
-                          <div style={{ display: 'flex', gap: '8px' }}>
-                            <button onClick={e => { e.stopPropagation(); handleDownload(img.url); }} className="glass" style={{ flex: 1, padding: '6px', borderRadius: '8px', border: 'none', color: 'white', fontSize: '0.7rem' }}>
-                              Save
-                            </button>
-                            <button onClick={e => { e.stopPropagation(); deleteImage(img.id); }} style={{ background: 'rgba(239,68,68,0.2)', color: '#f87171', border: 'none', padding: '6px 10px', borderRadius: '8px', cursor: 'pointer' }}>
-                              <Trash2 size={14} />
-                            </button>
-                          </div>
-                        </div>
-                      </motion.div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-        </main>
 
-        {/* Lightbox */}
-        <AnimatePresence>
-          {lightboxUrl && (
-            <motion.div
-              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-              className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 p-10 cursor-zoom-out"
-              onClick={() => setLightboxUrl(null)}
-              style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(0,0,0,0.9)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-            >
-              <button className="absolute top-10 right-10 text-white/50 hover:text-white transition-colors" onClick={() => setLightboxUrl(null)}>
-                <X size={32} />
-              </button>
-              <motion.img
-                initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
-                src={lightboxUrl} alt="Preview"
-                className="max-w-full max-h-full rounded-2xl shadow-2xl"
-                style={{ maxWidth: '90%', maxHeight: '90%', borderRadius: '24px' }}
-                onClick={e => e.stopPropagation()}
-              />
-              <div className="absolute bottom-10 flex gap-4" onClick={e => e.stopPropagation()}>
-                <button onClick={() => handleDownload(lightboxUrl!)} className="px-8 py-3 bg-blue-600 text-white rounded-xl font-semibold flex items-center gap-2 hover:bg-blue-500 transition-colors" style={{ padding: '12px 24px', background: 'var(--primary)', borderRadius: '12px', color: 'white', border: 'none', cursor: 'pointer' }}>
-                  <Download size={20} /> Download Image
-                </button>
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
+                    <div style={{ display: 'flex', gap: '16px', alignItems: 'flex-end' }}>
+                      <div style={{ flex: 1, position: 'relative' }}>
+                        <textarea
+                          ref={promptRef}
+                          className="chat-input"
+                          placeholder="A cosmic landscape with purple nebulas and floating islands..."
+                          value={settings.prompt}
+                          onChange={e => updateSettings({ prompt: e.target.value })}
+                          onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleGenerate(); } }}
+                          style={{ 
+                            background: 'rgba(255,255,255,0.05)', 
+                            border: '1px solid var(--border-color)',
+                            borderRadius: '16px', padding: '16px', minHeight: '60px',
+                            fontSize: '1rem', width: '100%', resize: 'none'
+                          }}
+                        />
+                      </div>
+                      <button
+                        className="send-btn"
+                        onClick={handleGenerate}
+                        disabled={isGenerating || !settings.prompt.trim()}
+                        style={{ 
+                          height: '60px', width: '60px', borderRadius: '16px', 
+                          background: 'var(--primary)', boxShadow: '0 0 20px var(--primary-glow)'
+                        }}
+                      >
+                        {isGenerating ? <Loader2 className="animate-spin" size={24} /> : <Wand2 size={24} />}
+                      </button>
+                    </div>
+                  </div>
+                </motion.div>
+              ) : (
+                <motion.div 
+                  key="gallery"
+                  initial={{ opacity: 0, scale: 0.98 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.98 }}
+                  transition={{ duration: 0.4, ease: "easeOut" }}
+                  style={{ width: '100%' }}
+                >
+                  {history.length === 0 ? (
+                    <div style={{ textAlign: 'center', marginTop: '100px', opacity: 0.3 }}>
+                      <History size={64} style={{ marginBottom: '20px' }} />
+                      <h2 style={{ color: 'white', marginBottom: '16px' }}>No history yet</h2>
+                      <p style={{ color: 'var(--text-secondary)', marginBottom: '32px' }}>Generated images will appear here</p>
+                      <button 
+                        className="glass" 
+                        onClick={() => setActiveTab('generate')}
+                        style={{ 
+                          padding: '12px 24px', 
+                          borderRadius: '12px', 
+                          border: '1px solid var(--primary)', 
+                          color: 'white',
+                          cursor: 'pointer',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '8px',
+                          opacity: 1
+                        }}
+                      >
+                        <Plus size={18} /> Start Creating
+                      </button>
+                    </div>
+                  ) : (
+                    <div className={styles.galleryGrid}>
+                      {history.map(img => (
+                        <motion.div 
+                          key={img.id}
+                          layout
+                          className={styles.galleryItem}
+                          onClick={() => {
+                            const idx = history.findIndex(i => i.id === img.id);
+                            setLightboxIndex(idx);
+                          }}
+                        >
+                          <img src={img.url} alt={img.prompt} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                          <div className={styles.galleryOverlay}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                              <div style={{ padding: '4px 8px', background: 'rgba(255,255,255,0.1)', borderRadius: '6px', fontSize: '0.65rem', fontWeight: 600 }}>
+                                {img.model.includes('flux') ? 'FLUX' : 'SDXL'}
+                              </div>
+                              <Eye size={16} color="white" style={{ opacity: 0.7 }} />
+                            </div>
+                            <p className={styles.galleryPrompt}>{img.prompt}</p>
+                            <div style={{ display: 'flex', gap: '8px', marginTop: '12px' }}>
+                              <button onClick={e => { e.stopPropagation(); handleDownload(img.url); }} className="glass" style={{ flex: 1, padding: '6px', borderRadius: '8px', border: 'none', color: 'white', fontSize: '0.7rem', cursor: 'pointer' }}>
+                                Save
+                              </button>
+                              <button onClick={e => { e.stopPropagation(); setDeleteConfirmId(img.id); }} style={{ background: 'rgba(239,68,68,0.2)', color: '#f87171', border: 'none', padding: '6px 10px', borderRadius: '8px', cursor: 'pointer' }}>
+                                <Trash2 size={14} />
+                              </button>
+                            </div>
+                          </div>
+                        </motion.div>
+                      ))}
+                    </div>
+                  )}
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+        </motion.main>
+
+        <ImageLightbox
+          images={history}
+          currentIndex={lightboxIndex ?? 0}
+          isOpen={lightboxIndex !== null}
+          onClose={() => setLightboxIndex(null)}
+          onNavigate={(idx) => setLightboxIndex(idx)}
+        />
+
+        <ConfirmModal
+          isOpen={!!deleteConfirmId}
+          onClose={() => setDeleteConfirmId(null)}
+          onConfirm={() => deleteConfirmId && deleteImage(deleteConfirmId)}
+          title="Delete Generation?"
+          description="This will permanently remove this image from your collection. This action cannot be undone."
+          confirmLabel="Delete Image"
+        />
       </div>
     </DashboardLayout>
   );
