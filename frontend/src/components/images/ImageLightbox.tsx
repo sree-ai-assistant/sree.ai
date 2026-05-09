@@ -252,6 +252,22 @@ export const ImageLightbox: React.FC<ImageLightboxProps> = ({
             </div>
           </div>
 
+          <button
+            className={`${styles.navButton} ${styles.prev}`}
+            onClick={handlePrev}
+            title="Previous Image"
+          >
+            <ChevronLeft size={32} />
+          </button>
+
+          <button
+            className={`${styles.navButton} ${styles.next}`}
+            onClick={handleNext}
+            title="Next Image"
+          >
+            <ChevronRight size={32} />
+          </button>
+
           <div
             className={styles.imageContainer}
             onWheel={handleWheel}
@@ -271,16 +287,15 @@ export const ImageLightbox: React.FC<ImageLightboxProps> = ({
               ) : (
                 <motion.div
                   className={styles.imageWrapper}
-                  initial={false}
-                  animate={isDragging ? undefined : controls}
+                  initial={{ x: 0, y: 0, scale: 1 }}
+                  animate={controls}
                   drag={scale > 1}
-                  dragConstraints={{ left: -3000, right: 3000, top: -3000, bottom: 3000 }}
-                  dragElastic={0}
-                  dragMomentum={false}
+                  dragConstraints={{ left: -2000 * scale, right: 2000 * scale, top: -2000 * scale, bottom: 2000 * scale }}
+                  dragElastic={0.1}
+                  dragMomentum={true}
                   onDragStart={() => setIsDragging(true)}
                   onDragEnd={() => {
-                    // Increased timeout to 400ms to be absolutely sure click events are blocked after drag
-                    setTimeout(() => setIsDragging(false), 400);
+                    setTimeout(() => setIsDragging(false), 200);
                   }}
                   onClick={(e) => {
                     e.stopPropagation();

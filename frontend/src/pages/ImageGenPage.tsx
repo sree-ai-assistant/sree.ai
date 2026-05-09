@@ -23,7 +23,7 @@ import { ImageLightbox } from '../components/images/ImageLightbox';
 const ASPECT_RATIOS = [
   { label: '1:1', w: 1024, h: 1024, iconSize: { w: 24, h: 24 } },
   { label: '16:9', w: 1344, h: 768, iconSize: { w: 32, h: 18 } },
-  { label: '9:16', w: 768, h: 1344, iconSize: { w: 18, h: 32 } },
+  { label: '9:16', w: 768, h: 1360, iconSize: { w: 18, h: 32 } },
   { label: '4:3', w: 1152, h: 896, iconSize: { w: 28, h: 21 } },
   { label: '3:4', w: 896, h: 1152, iconSize: { w: 21, h: 28 } },
   { label: '3:2', w: 1216, h: 832, iconSize: { w: 30, h: 20 } },
@@ -328,9 +328,24 @@ const ImageGenPage: React.FC = () => {
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: 20 }}
                   transition={{ duration: 0.4, ease: "easeOut" }}
-                  style={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '40px' }}
+                  style={{ 
+                    width: '100%', 
+                    display: 'flex', 
+                    flexDirection: 'column', 
+                    alignItems: 'center', 
+                    gap: '40px',
+                    paddingBottom: '240px' // Offset for the fixed prompt section
+                  }}
                 >
-                  <div className={styles.resultContainer} style={{ aspectRatio: `${ratio.w}/${ratio.h}`, maxHeight: '60vh' }}>
+                  <div 
+                    className={styles.resultContainer}
+                    style={{ 
+                      aspectRatio: `${ratio.w}/${ratio.h}`,
+                      maxHeight: 'calc(100vh - 380px)',
+                      maxWidth: `calc((100vh - 380px) * ${ratio.w / ratio.h})`,
+                      width: '100%'
+                    }}
+                  >
                     <AnimatePresence mode="wait">
                       {isGenerating ? (
                         <motion.div
@@ -353,7 +368,7 @@ const ImageGenPage: React.FC = () => {
                       ) : activeImage ? (
                         <motion.div
                           key="preview"
-                          initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}
+                          initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }}
                           style={{ width: '100%', height: '100%', position: 'relative' }}
                         >
                           {imageLoadErrors[activeImage.id] ? (
@@ -366,7 +381,7 @@ const ImageGenPage: React.FC = () => {
                             <img
                               src={activeImage.url}
                               alt="Generated result"
-                              style={{ width: '100%', height: '100%', objectFit: 'contain', cursor: 'zoom-in' }}
+                              style={{ width: '100%', height: '100%', objectFit: 'contain', cursor: 'zoom-in', borderRadius: 'inherit' }}
                               onClick={() => {
                                 const idx = history.findIndex(img => img.url === activeImage.url);
                                 setLightboxIndex(idx !== -1 ? idx : 0);
@@ -377,30 +392,47 @@ const ImageGenPage: React.FC = () => {
                             />
                           )}
                           <div style={{
-                            position: 'absolute', bottom: 0, left: 0, right: 0, padding: '24px',
-                            background: 'linear-gradient(to top, rgba(0,0,0,0.9), transparent)',
-                            display: 'flex', justifyContent: 'space-between', alignItems: 'center'
+                            position: 'absolute', top: 0, left: 0, right: 0, padding: '20px',
+                            background: 'linear-gradient(to bottom, rgba(0,0,0,0.6), transparent)',
+                            display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                            zIndex: 10
                           }}>
-                            <div style={{ display: 'flex', gap: '12px' }}>
+                            <div style={{ display: 'flex', gap: '10px' }}>
                               <button
                                 onClick={() => handleDownload(activeImage.url)}
-                                className={`${styles.actionButton} ${downloadStatus === 'success' ? styles.btnSuccess : ''} ${downloadStatus === 'error' ? styles.btnError : ''}`}
+                                className={`${styles.iconActionButton} ${downloadStatus === 'success' ? styles.btnSuccess : ''} ${downloadStatus === 'error' ? styles.btnError : ''}`}
                                 disabled={downloadStatus === 'loading'}
+                                title="Save Image"
                               >
                                 {downloadStatus === 'loading' ? <Loader2 size={18} className="animate-spin" /> :
                                   downloadStatus === 'success' ? <Check size={18} /> :
                                     downloadStatus === 'error' ? <AlertCircle size={18} /> :
                                       <Download size={18} />}
-                                {downloadStatus === 'loading' ? 'Saving...' :
-                                  downloadStatus === 'success' ? 'Saved' :
-                                    downloadStatus === 'error' ? 'Failed' :
-                                      'Save'}
                               </button>
-                              <button onClick={() => handleGenerate()} className={styles.actionButton}>
-                                <RotateCcw size={18} /> Re-roll
+                              <button 
+                                onClick={() => handleGenerate()} 
+                                className={styles.iconActionButton}
+                                title="Re-roll"
+                              >
+                                <RotateCcw size={18} />
                               </button>
                             </div>
-                            <button onClick={() => setActiveImage(null)} style={{ background: 'transparent', border: 'none', color: 'white', cursor: 'pointer', opacity: 0.6 }}>
+                            <button 
+                              onClick={() => setActiveImage(null)} 
+                              style={{ 
+                                background: 'rgba(255,255,255,0.1)', 
+                                border: 'none', 
+                                color: 'white', 
+                                cursor: 'pointer', 
+                                width: '36px', 
+                                height: '36px', 
+                                borderRadius: '50%',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                backdropFilter: 'blur(10px)'
+                              }}
+                            >
                               <X size={20} />
                             </button>
                           </div>
@@ -509,14 +541,20 @@ const ImageGenPage: React.FC = () => {
                               <p className={styles.errorSubtext} style={{ fontSize: '0.65rem' }}>You can recreate the with the same prompt</p>
                             </div>
                           ) : (
-                            <img
-                              src={img.url}
-                              alt={img.prompt}
-                              style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                              onError={() => {
-                                setImageLoadErrors(prev => ({ ...prev, [img.id]: true }));
-                              }}
-                            />
+                            <div className={styles.galleryImageWrapper}>
+                              <div 
+                                className={styles.galleryImageBlur} 
+                                style={{ backgroundImage: `url(${img.url})` }} 
+                              />
+                              <img
+                                src={img.url}
+                                alt={img.prompt}
+                                className={styles.galleryImage}
+                                onError={() => {
+                                  setImageLoadErrors(prev => ({ ...prev, [img.id]: true }));
+                                }}
+                              />
+                            </div>
                           )}
                           <div className={styles.galleryOverlay}>
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>

@@ -45,6 +45,7 @@
   gap: 40px;
 }
 
+
 .promptSection {
   width: 100%;
   max-width: 800px;
@@ -54,9 +55,10 @@
   border: 1px solid var(--glass-border);
   border-radius: 24px;
   box-shadow: var(--glass-shadow);
-  position: sticky;
+  position: absolute;
   bottom: 40px;
-  margin-top: auto;
+  left: 50%;
+  transform: translateX(-50%);
   z-index: 20;
 }
 
@@ -175,28 +177,31 @@
 .resultContainer {
   width: 100%;
   max-width: 800px;
-  aspect-ratio: 1;
+  margin: 0 auto;
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 24px;
+  border-radius: 32px;
   overflow: hidden;
   background: rgba(255, 255, 255, 0.02);
   border: 1px solid var(--border-color);
   position: relative;
+  box-shadow: 0 30px 60px rgba(0, 0, 0, 0.5);
+  transition: all 0.5s cubic-bezier(0.2, 0.8, 0.2, 1);
+  min-height: 200px;
 }
 
 .generationOverlay {
   position: absolute;
   inset: 0;
-  background: rgba(0, 0, 0, 0.6);
-  backdrop-filter: blur(10px);
+  background: rgba(10, 10, 10, 0.7);
+  backdrop-filter: blur(15px);
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 20px;
-  z-index: 5;
+  gap: 24px;
+  z-index: 10;
 }
 
 .galleryGrid {
@@ -212,11 +217,45 @@
   overflow: hidden;
   aspect-ratio: 1;
   cursor: pointer;
-  background: var(--glass-bg);
+  background: rgba(255, 255, 255, 0.03);
   backdrop-filter: var(--glass-blur);
   border: 1px solid var(--glass-border);
   box-shadow: var(--glass-shadow);
   transition: all 0.4s cubic-bezier(0.2, 0.8, 0.2, 1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.galleryImageWrapper {
+  width: 100%;
+  height: 100%;
+  position: relative;
+  overflow: hidden;
+  border-radius: inherit;
+}
+
+.galleryImageBlur {
+  position: absolute;
+  inset: -20px;
+  background-size: cover;
+  background-position: center;
+  filter: blur(20px) brightness(0.5);
+  z-index: 0;
+}
+
+.galleryImage {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  padding: 0;
+  z-index: 1;
+  transition: transform 0.4s ease;
+}
+
+.galleryItem:hover .galleryImage {
+  transform: scale(1.05);
 }
 
 .galleryItem:hover {
@@ -237,6 +276,7 @@
   opacity: 0;
   transition: all 0.3s ease;
   backdrop-filter: blur(4px);
+  z-index: 2;
 }
 
 .galleryItem:hover .galleryOverlay {
@@ -335,20 +375,14 @@
 }
 
 .sidebarFooter {
-  margin-top: auto;
-  padding-top: 20px;
-  border-top: 1px solid var(--border-color);
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.sidebarFooter {
-  padding: 20px 24px 24px 24px;
+  padding: 24px;
   border-top: 1px solid var(--border-color);
   background: rgba(15, 15, 15, 0.6);
   backdrop-filter: blur(10px);
-  z-index: 11;
+  margin-top: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
 }
 
 .creditsCard {
@@ -449,6 +483,31 @@
   font-weight: 500;
 }
 
+.iconActionButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 12px;
+  color: white;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.iconActionButton:hover {
+  background: rgba(255, 255, 255, 0.2);
+  transform: translateY(-2px);
+  border-color: rgba(255, 255, 255, 0.3);
+}
+
+.iconActionButton:active {
+  transform: translateY(0);
+}
+
 .actionButton:hover:not(:disabled) {
   background: rgba(255, 255, 255, 0.1);
   transform: translateY(-2px);
@@ -497,4 +556,81 @@
   color: var(--text-muted);
   font-size: 0.75rem;
   line-height: 1.4;
+}
+
+/* Added Missing Classes */
+.resultPlaceholder {
+  width: 100%;
+  height: 100%;
+  min-height: 400px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 20px;
+  color: var(--text-secondary);
+  background: radial-gradient(circle at center, rgba(99, 102, 241, 0.05), transparent);
+}
+
+.promptInputContainer {
+  width: 100%;
+  position: relative;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--border-color);
+  border-radius: 20px;
+  padding: 8px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  transition: all 0.3s ease;
+}
+
+.promptInputContainer:focus-within {
+  border-color: var(--primary);
+  background: rgba(255, 255, 255, 0.05);
+  box-shadow: 0 0 20px var(--primary-glow);
+}
+
+.promptInput {
+  flex: 1;
+  background: transparent;
+  border: none;
+  color: white;
+  padding: 12px 16px;
+  font-size: 1rem;
+  outline: none;
+}
+
+.generateBtn {
+  background: var(--primary-gradient);
+  border: none;
+  border-radius: 14px;
+  padding: 2px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.generateBtnInner {
+  background: transparent;
+  color: white;
+  padding: 10px 24px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+
+.btnIcon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.sparkleIcon {
+  color: #fff;
+  filter: drop-shadow(0 0 5px rgba(255, 255, 255, 0.5));
 }

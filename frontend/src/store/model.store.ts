@@ -84,8 +84,9 @@ export const useModelStore = create<ModelState>()(
             set({ 
               models,
               selectedModel: updatedSelected || 
-                             models.find((m: AIModel) => m.model_id === 'meta/llama-3.1-70b-instruct' && !m.in_maintenance) || 
-                             models.find((m: AIModel) => !m.in_maintenance) || 
+                             models.find((m: AIModel) => !m.is_image && m.model_id === 'meta/llama-3.1-70b-instruct' && !m.in_maintenance) || 
+                             models.find((m: AIModel) => !m.is_image && !m.in_maintenance) || 
+                             models.find((m: AIModel) => !m.is_image) ||
                              models[0],
               loading: false 
             });

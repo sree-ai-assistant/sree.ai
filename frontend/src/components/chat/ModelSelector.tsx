@@ -34,8 +34,10 @@ export const ModelSelector: React.FC = () => {
   }
 
   const filteredModels = models.filter(model => 
-    (model.name?.toLowerCase() || '').includes(searchQuery.toLowerCase()) ||
-    (model.description?.toLowerCase() || '').includes(searchQuery.toLowerCase())
+    !model.is_image && (
+      (model.name?.toLowerCase() || '').includes(searchQuery.toLowerCase()) ||
+      (model.description?.toLowerCase() || '').includes(searchQuery.toLowerCase())
+    )
   );
 
   const sortedModels = [...filteredModels].sort((a, b) => {
