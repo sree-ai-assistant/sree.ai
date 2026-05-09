@@ -7,6 +7,43 @@ import { supabaseAdmin } from '../lib/supabase';
 import axios from 'axios';
 
 class AiService {
+  private static readonly FLUX_DEV_DIMENSIONS = [768, 832, 896, 960, 1024, 1088, 1152, 1216, 1280, 1344];
+  private static readonly FLUX_KONTEXT_DIMENSIONS = [1568, 1504, 1456, 1392, 1328, 1248, 1184, 1104, 1024, 944, 880, 832, 800, 752, 720, 688, 672];
+
+  private snapToBestFluxDimensions(targetW: number, targetH: number, supportedDims: number[]): { width: number, height: number } {
+    const targetRatio = targetW / targetH;
+    const targetArea = targetW * targetH;
+    
+    let bestW = supportedDims[0] || 1024;
+    let bestH = supportedDims[0] || 1024;
+    let minRatioDiff = Infinity;
+    let minAreaDiff = Infinity;
+
+    for (const w of supportedDims) {
+      for (const h of supportedDims) {
+        const ratio = w / h;
+        const area = w * h;
+        const ratioDiff = Math.abs(ratio - targetRatio);
+        const areaDiff = Math.abs(area - targetArea);
+
+        // Primary criteria: Closest aspect ratio
+        // Secondary criteria: Closest area (to handle scale)
+        // We use a small epsilon for ratio difference to allow area to break ties for very similar ratios
+        if (ratioDiff < minRatioDiff - 0.001) {
+          minRatioDiff = ratioDiff;
+          minAreaDiff = areaDiff;
+          bestW = w;
+          bestH = h;
+        } else if (Math.abs(ratioDiff - minRatioDiff) <= 0.001 && areaDiff < minAreaDiff) {
+          minAreaDiff = areaDiff;
+          bestW = w;
+          bestH = h;
+        }
+      }
+    }
+    return { width: bestW, height: bestH };
+  }
+
   private readonly DEFAULT_SYSTEM_PROMPT = `
   You are Sree AI, a helpful and sophisticated AI assistant developed by NilStudio. 
   Your purpose is to provide detailed, comprehensive, and high-quality responses to user queries across a wide range of topics.
@@ -417,24 +454,46 @@ class AiService {
       modelPath = modelMapping[model];
     }
 
+    const { image } = options as any;
+    const isFlux = modelPath.toLowerCase().includes('flux');
+
+    // Handle specialized FLUX models (editing/control) fallback if no image provided
+    let isEditingModel = modelPath.includes('kontext') || modelPath.includes('canny') || modelPath.includes('depth');
+    if (isFlux && isEditingModel && !image) {
+      console.warn(`[AiService] Model ${modelPath} requires an image context. Falling back to flux.1-dev for text-to-image.`);
+      modelPath = 'black-forest-labs/flux.1-dev';
+      isEditingModel = false; // Reset editing status after fallback
+    }
+
+    // Snap dimensions for FLUX models to supported values to avoid API errors
+    // Note: Different FLUX models on NVIDIA NIM have different supported dimension sets.
+    let finalWidth = width;
+    let finalHeight = height;
+    if (isFlux) {
+      const supportedDims = isEditingModel ? AiService.FLUX_KONTEXT_DIMENSIONS : AiService.FLUX_DEV_DIMENSIONS;
+      const snapped = this.snapToBestFluxDimensions(width, height, supportedDims);
+      finalWidth = snapped.width;
+      finalHeight = snapped.height;
+      console.log(`[AiService] Snapped FLUX dimensions from ${width}x${height} to ${finalWidth}x${finalHeight} using ${isEditingModel ? 'KONTEXT' : 'DEV'} list`);
+    }
+
     const url = `https://ai.api.nvidia.com/v1/genai/${modelPath}`;
 
     // Build model-specific payload
     let payload: any = {
       seed,
       steps,
-      width,
-      height,
+      width: finalWidth,
+      height: finalHeight,
     };
 
     // SDXL and some older models require 'text_prompts' instead of 'prompt'
     const isSDXL = modelPath.includes('stable-diffusion-xl');
-    const isFlux = modelPath.includes('flux');
     const isSD35 = modelPath.includes('stable-diffusion-3.5');
     
     if (isSDXL) {
-      payload.width = 1024;
-      payload.height = 1024;
+      payload.width = finalWidth;
+      payload.height = finalHeight;
       payload.text_prompts = [{ text: prompt, weight: 1.0 }];
       if (negative_prompt) {
         payload.text_prompts.push({ text: negative_prompt, weight: -1.0 });
@@ -447,15 +506,15 @@ class AiService {
       if (isFlux) {
         if (modelPath.includes('schnell')) {
           payload.steps = Math.min(steps, 4);
-          payload.width = 1024;
-          payload.height = 1024;
         } else if (modelPath.includes('klein')) {
           payload.steps = Math.min(steps || 4, 4);
-          payload.width = 1024;
-          payload.height = 1024;
+        } else {
+          // dev and specialized models support cfg_scale
+          payload.cfg_scale = cfg_scale;
         }
       } else if (isSD35) {
         if (negative_prompt) payload.negative_prompt = negative_prompt;
+        payload.cfg_scale = cfg_scale;
       } else {
         if (negative_prompt) payload.negative_prompt = negative_prompt;
         if (cfg_scale) payload.cfg_scale = cfg_scale;
@@ -500,10 +559,20 @@ class AiService {
         })),
       };
     } catch (error: any) {
-      const errMsg = error.response?.data?.detail || error.response?.data?.message || error.message;
+      let errMsg = error.message;
+      const errorData = error.response?.data;
+      
+      if (errorData) {
+        // Handle cases where detail might be an object or array (common in NVIDIA NIM)
+        const detail = errorData.detail || errorData.message;
+        if (detail) {
+          errMsg = typeof detail === 'object' ? JSON.stringify(detail) : String(detail);
+        }
+      }
+
       console.error(`[AiService] Image generation failed for ${modelPath}: ${errMsg}`);
-      if (error.response?.data) {
-        console.error(`[AiService] Error body:`, JSON.stringify(error.response.data));
+      if (errorData) {
+        console.error(`[AiService] Error body:`, JSON.stringify(errorData));
       }
       throw new Error(`Image generation failed: ${errMsg}`);
     }

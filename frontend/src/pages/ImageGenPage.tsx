@@ -79,7 +79,8 @@ const ImageGenPage: React.FC = () => {
   }, [imageModels, settings.modelId, updateSettings]);
 
   const selectedModel = imageModels.find(m => m.model_id === settings.modelId);
-  const isFlux = settings.modelId.includes('flux');
+  const isFlux = settings.modelId.toLowerCase().includes('flux');
+  const isFluxDev = isFlux && (settings.modelId.toLowerCase().includes('dev') || settings.modelId.toLowerCase().includes('kontext'));
   const ratio = ASPECT_RATIOS[settings.ratioIndex];
 
   const handleGenerate = async () => {
@@ -94,7 +95,7 @@ const ImageGenPage: React.FC = () => {
       steps: settings.steps,
       width: ratio.w,
       height: ratio.h,
-      cfg_scale: isFlux ? undefined : settings.cfgScale,
+      cfg_scale: (isFlux && !isFluxDev) ? undefined : settings.cfgScale,
     });
   };
 
@@ -246,14 +247,14 @@ const ImageGenPage: React.FC = () => {
                       />
                     </div>
 
-                    {!isFlux && (
+                    {(!isFlux || isFluxDev) && (
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                           <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>CFG Scale</span>
                           <span style={{ fontSize: '0.8rem', fontWeight: 600 }}>{settings.cfgScale}</span>
                         </div>
                         <input
-                          type="range" min={1} max={20} value={settings.cfgScale}
+                          type="range" min={1} max={isFluxDev ? 9 : 20} value={settings.cfgScale}
                           onChange={e => updateSettings({ cfgScale: +e.target.value })}
                           className={styles.rangeInput}
                         />
