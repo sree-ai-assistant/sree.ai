@@ -92,7 +92,9 @@ const ImageGenPage: React.FC = () => {
     activeImage,
     setActiveImage,
     history,
-    deleteImage
+    deleteImage,
+    resetGenerationState,
+    focusedGenerationId
   } = useImageStore();
 
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
@@ -206,7 +208,7 @@ const ImageGenPage: React.FC = () => {
   };
 
   const handleNewImage = () => {
-    setActiveImage(null);
+    resetGenerationState();
     updateSettings({
       prompt: '',
       negativePrompt: '',
@@ -522,7 +524,7 @@ const ImageGenPage: React.FC = () => {
                     }}
                   >
                     <AnimatePresence mode="wait">
-                      {isGenerating ? (
+                      {focusedGenerationId ? (
                         <motion.div
                           key="generating"
                           initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}

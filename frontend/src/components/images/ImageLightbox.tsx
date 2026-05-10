@@ -40,6 +40,12 @@ export const ImageLightbox: React.FC<ImageLightboxProps> = ({
   const [internalIndex, setInternalIndex] = useState(initialIndex);
   const currentIndex = controlledIndex !== undefined ? controlledIndex : internalIndex;
 
+  useEffect(() => {
+    if (isOpen) {
+      setInternalIndex(initialIndex);
+    }
+  }, [isOpen, initialIndex]);
+
   const setCurrentIndex = (idx: number) => {
     if (onNavigate) onNavigate(idx);
     setInternalIndex(idx);

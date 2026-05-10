@@ -36,7 +36,7 @@ export const ImageSidebar: React.FC<ImageSidebarProps> = ({
   onDeleteClick,
   onSelectImage
 }) => {
-  const { history, fetchHistory, activeImage, setActiveImage, deleteImage, isFetchingHistory } = useImageStore();
+  const { history, fetchHistory, activeImage, setActiveImage, deleteImage, isFetchingHistory, resetGenerationState } = useImageStore();
   const { user, signOut } = useAuthStore();
   const [imageLoadErrors, setImageLoadErrors] = useState<Record<string, boolean>>({});
   const navigate = useNavigate();
@@ -46,7 +46,7 @@ export const ImageSidebar: React.FC<ImageSidebarProps> = ({
   }, [fetchHistory]);
 
   const handleNewImage = () => {
-    setActiveImage(null);
+    resetGenerationState();
     onNewImage();
   };
 

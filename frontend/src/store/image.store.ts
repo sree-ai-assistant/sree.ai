@@ -32,12 +32,17 @@ interface ImageState {
   isGenerating: boolean;
   isFetchingHistory: boolean;
   settings: ImageSettings;
+  currentGenerationId: string | null;
+  
+  focusedGenerationId: string | null;
   
   fetchHistory: () => Promise<void>;
   generateImage: (params: any) => Promise<void>;
   deleteImage: (id: string) => Promise<void>;
   setActiveImage: (image: GeneratedImage | null) => void;
   updateSettings: (settings: Partial<ImageSettings>) => void;
+  resetGenerationState: () => void;
+  setFocusedGenerationId: (id: string | null) => void;
 }
 
 const DEFAULT_SETTINGS: ImageSettings = {
@@ -56,6 +61,8 @@ export const useImageStore = create<ImageState>((set, get) => ({
   isGenerating: false,
   isFetchingHistory: false,
   settings: DEFAULT_SETTINGS,
+  currentGenerationId: null,
+  focusedGenerationId: null,
 
   updateSettings: (newSettings) => set((state) => ({
     settings: { ...state.settings, ...newSettings }
@@ -76,7 +83,7 @@ export const useImageStore = create<ImageState>((set, get) => ({
   },
 
   setActiveImage: (image) => {
-    set({ activeImage: image });
+    set({ activeImage: image, focusedGenerationId: null });
     if (image) {
       set((state) => ({
         settings: {
@@ -92,25 +99,47 @@ export const useImageStore = create<ImageState>((set, get) => ({
     }
   },
 
+  resetGenerationState: () => {
+    set({ 
+      activeImage: null, 
+      focusedGenerationId: null, 
+      isGenerating: false, 
+      currentGenerationId: null 
+    });
+  },
+
+  setFocusedGenerationId: (id) => set({ focusedGenerationId: id }),
+
   generateImage: async (params) => {
-    set({ isGenerating: true, activeImage: null });
+    const generationId = Math.random().toString(36).substring(7);
+    set({ isGenerating: true, activeImage: null, currentGenerationId: generationId, focusedGenerationId: generationId });
+    
     try {
       const response = await api.post('/ai/image', params);
       if (response.data.success) {
         const img = response.data.data.images[0];
         if (img) {
-          // The API returns the new history or just the image. 
-          // fetchHistory to stay synced or just prepend.
           get().fetchHistory();
-          set({ activeImage: img });
-          toast.success('Image generated!');
+          // Only update active image if the user hasn't started a new generation
+          // or manually reset the view (currentGenerationId would change or become null)
+          if (get().currentGenerationId === generationId) {
+            set({ activeImage: img, isGenerating: false, focusedGenerationId: null });
+            toast.success('Image generated!');
+          }
         }
       }
     } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Failed to generate image');
+      // Only show error toast and stop loading if this is the current active generation
+      if (get().currentGenerationId === generationId) {
+        set({ isGenerating: false, focusedGenerationId: null });
+        toast.error(error.response?.data?.message || 'Failed to generate image');
+      }
       throw error;
     } finally {
-      set({ isGenerating: false });
+      // If this was the active generation, ensure loading is off
+      if (get().currentGenerationId === generationId) {
+        set({ isGenerating: false, focusedGenerationId: null });
+      }
     }
   },
 
