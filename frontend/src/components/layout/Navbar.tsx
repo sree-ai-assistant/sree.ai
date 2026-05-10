@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
@@ -25,6 +25,8 @@ export const Navbar: React.FC = () => {
   const location = useLocation();
   const [isToolsOpen, setIsToolsOpen] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
+  const toolsRef = useRef<HTMLDivElement>(null);
+  const userMenuRef = useRef<HTMLDivElement>(null);
 
   const navLinks = [
     { to: '/chat', icon: <MessageSquare size={18} />, label: 'Chat' },
@@ -40,6 +42,33 @@ export const Navbar: React.FC = () => {
     { label: 'Image to PDF', icon: <ImagePlus size={16} />, to: '/tools/image-to-pdf' },
     { label: 'BG Remover', icon: <Eraser size={16} />, to: '/tools/bg-remover' },
   ];
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent | TouchEvent) => {
+      if (userMenuRef.current && !userMenuRef.current.contains(event.target as Node)) {
+        setIsUserMenuOpen(false);
+      }
+      if (toolsRef.current && !toolsRef.current.contains(event.target as Node)) {
+        setIsToolsOpen(false);
+      }
+    };
+
+    if (isUserMenuOpen || isToolsOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+      document.addEventListener('touchstart', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('touchstart', handleClickOutside);
+    };
+  }, [isUserMenuOpen, isToolsOpen]);
+
+  // Close menus on navigation
+  useEffect(() => {
+    setIsUserMenuOpen(false);
+    setIsToolsOpen(false);
+  }, [location.pathname]);
 
   return (
     <nav className={styles.navbar}>
@@ -64,15 +93,22 @@ export const Navbar: React.FC = () => {
           </Link>
         ))}
 
-        {/* Tools Dropdown */}
         <div 
           className={styles.dropdownContainer}
-          onMouseEnter={() => setIsToolsOpen(true)}
-          onMouseLeave={() => setIsToolsOpen(false)}
+          ref={toolsRef}
         >
-          <button className={styles.navLink}>
+          <button 
+            className={styles.navLink}
+            onClick={() => setIsToolsOpen(!isToolsOpen)}
+          >
             <span>Tools</span>
-            <ChevronDown size={14} className={isToolsOpen ? styles.rotate : ''} />
+            <motion.div
+              animate={{ rotate: isToolsOpen ? 180 : 0 }}
+              transition={{ duration: 0.2 }}
+              style={{ display: 'flex', alignItems: 'center' }}
+            >
+              <ChevronDown size={14} />
+            </motion.div>
           </button>
           
           <AnimatePresence>
@@ -99,7 +135,7 @@ export const Navbar: React.FC = () => {
       </div>
 
       {/* Right: User Menu */}
-      <div className={styles.userSection}>
+      <div className={styles.userSection} ref={userMenuRef}>
         <button
           onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
           className={styles.userButton}
@@ -115,44 +151,41 @@ export const Navbar: React.FC = () => {
 
         <AnimatePresence>
           {isUserMenuOpen && (
-            <>
-              <div className={styles.overlay} onClick={() => setIsUserMenuOpen(false)} />
-              <motion.div
-                initial={{ opacity: 0, scale: 0.95, y: 10 }}
-                animate={{ opacity: 1, scale: 1, y: 0 }}
-                exit={{ opacity: 0, scale: 0.95, y: 10 }}
-                className={`${styles.dropdownMenu} ${styles.right}`}
-              >
-                <div className={styles.menuHeader}>
-                  <p className={styles.userEmail}>{user?.email}</p>
-                  <p className={styles.userRole}>{user?.plan_type === 'pro' ? 'Pro Member' : user?.plan_type === 'basic' ? 'Basic Member' : 'Free Plan'}</p>
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 10 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 10 }}
+              className={`${styles.dropdownMenu} ${styles.right}`}
+            >
+              <div className={styles.menuHeader}>
+                <p className={styles.userEmail}>{user?.email}</p>
+                <p className={styles.userRole}>{user?.plan_type === 'pro' ? 'Pro Member' : user?.plan_type === 'basic' ? 'Basic Member' : 'Free Plan'}</p>
+              </div>
+              
+              <Link to="/settings" className={styles.dropdownItem}>
+                <div className={styles.itemContent}>
+                  <ShieldCheck size={18} />
+                  <span>Subscription</span>
                 </div>
-                
-                <Link to="/settings" className={styles.dropdownItem}>
-                  <div className={styles.itemContent}>
-                    <ShieldCheck size={18} />
-                    <span>Subscription</span>
-                  </div>
-                </Link>
-                
-                <Link to="/settings" className={styles.dropdownItem}>
-                  <div className={styles.itemContent}>
-                    <Settings size={18} />
-                    <span>Settings</span>
-                  </div>
-                </Link>
-                
-                <button 
-                  onClick={() => signOut()}
-                  className={`${styles.dropdownItem} ${styles.danger}`}
-                >
-                  <div className={styles.itemContent}>
-                    <LogOut size={18} />
-                    <span>Logout</span>
-                  </div>
-                </button>
-              </motion.div>
-            </>
+              </Link>
+              
+              <Link to="/settings" className={styles.dropdownItem}>
+                <div className={styles.itemContent}>
+                  <Settings size={18} />
+                  <span>Settings</span>
+                </div>
+              </Link>
+              
+              <button 
+                onClick={() => signOut()}
+                className={`${styles.dropdownItem} ${styles.danger}`}
+              >
+                <div className={styles.itemContent}>
+                  <LogOut size={18} />
+                  <span>Logout</span>
+                </div>
+              </button>
+            </motion.div>
           )}
         </AnimatePresence>
       </div>

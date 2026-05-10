@@ -54,20 +54,31 @@ export const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, setIsCollapsed, o
     }
   }, [user?.id, fetchConversations]);
 
+  const menuRef = React.useRef<HTMLDivElement>(null);
+
   // Click outside to close dropdown
   useEffect(() => {
-    const handleClickOutside = () => {
-      setMenuOpenId(null);
+    const handleClickOutside = (event: MouseEvent | TouchEvent) => {
+      if (menuOpenId && menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        setMenuOpenId(null);
+      }
     };
 
     if (menuOpenId) {
-      window.addEventListener('click', handleClickOutside);
+      document.addEventListener('mousedown', handleClickOutside);
+      document.addEventListener('touchstart', handleClickOutside);
     }
 
     return () => {
-      window.removeEventListener('click', handleClickOutside);
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('touchstart', handleClickOutside);
     };
   }, [menuOpenId]);
+
+  // Close menu when sidebar collapse state changes
+  useEffect(() => {
+    setMenuOpenId(null);
+  }, [isCollapsed]);
 
   const isVoiceContext = location.pathname.startsWith('/voice');
 
@@ -82,6 +93,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, setIsCollapsed, o
 
   const handleSelectConversation = (id: string) => {
     setActiveConversation(id);
+    setMenuOpenId(null); // Close any open menu when switching conversations
     const conv = conversations.find(c => c.id === id);
     if (conv?.type === 'image') navigate('/images');
     else navigate(`/chat/${id}`);
@@ -184,6 +196,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, setIsCollapsed, o
                           e.stopPropagation();
                           setMenuOpenId(menuOpenId === item.id ? null : item.id);
                         }}
+                        onMouseDown={(e) => e.stopPropagation()}
                       >
                         <MoreVertical size={14} />
                       </button>
@@ -192,7 +205,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, setIsCollapsed, o
                 </div>
                 
                 {menuOpenId === item.id && (
-                  <div className={styles.dropdown}>
+                  <div className={styles.dropdown} ref={menuRef}>
                     <button 
                       className={`${styles.menuAction} ${styles.deleteAction}`}
                       onClick={(e) => handleDelete(e, item.id)}
