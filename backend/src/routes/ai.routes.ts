@@ -11,10 +11,110 @@ import { TokenManager } from '../utils/tokenManager';
 import { supabaseAdmin } from '../lib/supabase';
 import { videoService, VideoService } from '../services/video.service';
 import path from 'path';
+import axios from 'axios';
+import { UsageService, UsageStatus } from '../services/usage.service';
 // Removed static uuid import due to ESM/CJS compatibility issues
 
 
 const router = Router();
+
+// Download daily limits per plan (used as shorthand keys)
+const DOWNLOAD_LIMITS = {
+  free: { hourly: 10, daily: 50 },
+  basic: { hourly: 30, daily: 150 },
+  pro: { hourly: 100, daily: 500 }
+} as const;
+
+/**
+ * @route   GET /api/ai/download
+ * @desc    Download an image and track usage with hourly/daily limits
+ * @access  Private
+ */
+router.get('/download', authMiddleware, async (req: any, res: any) => {
+  const { url } = req.query;
+  const userId = req.user.id;
+
+  if (!url) {
+    return res.status(400).json({ success: false, message: 'URL is required' });
+  }
+
+  try {
+    // 1. Get user profile for plan info
+    const { data: profile } = await supabaseAdmin
+      .from('profiles')
+      .select('plan_type')
+      .eq('id', userId)
+      .single();
+
+    // Get plan and ensure it's valid
+    const userPlan = (profile?.plan_type || 'free').toLowerCase();
+    const currentLimits = (userPlan in DOWNLOAD_LIMITS) 
+      ? DOWNLOAD_LIMITS[userPlan as keyof typeof DOWNLOAD_LIMITS] 
+      : DOWNLOAD_LIMITS.free;
+
+    // 2. Check and increment usage
+    const usageStatus = await UsageService.checkAndIncrement(userId, 'image_download', currentLimits);
+
+    if (!usageStatus.allowed) {
+      return res.status(429).json({ 
+        success: false,
+        message: usageStatus.message || 'Download limit reached', 
+        status: usageStatus
+      });
+    }
+
+    // 3. Download the image from URL
+    const response = await axios.get(url as string, { 
+      responseType: 'stream',
+      timeout: 15000 // 15s timeout
+    });
+
+    // 4. Stream back to client
+    const fileName = `sree-ai-${Date.now()}.png`;
+    res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
+    res.setHeader('Content-Type', response.headers['content-type'] || 'image/png');
+    
+    // Add usage info to headers (optional but helpful)
+    res.setHeader('X-Usage-Hourly', `${usageStatus.currentHourly}/${usageStatus.hourlyLimit}`);
+    res.setHeader('X-Usage-Daily', `${usageStatus.currentDaily}/${usageStatus.dailyLimit}`);
+
+    response.data.pipe(res);
+
+  } catch (error: any) {
+    console.error('Download error:', error.message);
+    if (!res.headersSent) {
+      res.status(500).json({ success: false, message: 'Failed to download image' });
+    }
+  }
+});
+
+/**
+ * @route   GET /api/ai/download/usage
+ * @desc    Get current image download usage status
+ * @access  Private
+ */
+router.get('/download/usage', authMiddleware, async (req: any, res: any) => {
+  const userId = req.user.id;
+
+  try {
+    const { data: profile } = await supabaseAdmin
+      .from('profiles')
+      .select('plan_type')
+      .eq('id', userId)
+      .single();
+
+    // Get plan and ensure it's valid
+    const userPlan = (profile?.plan_type || 'free').toLowerCase();
+    const plan = (userPlan in DOWNLOAD_LIMITS) ? userPlan : 'free';
+    const currentLimits = DOWNLOAD_LIMITS[plan as keyof typeof DOWNLOAD_LIMITS];
+    const usage = await UsageService.getUsage(userId, 'image_download', currentLimits);
+
+    res.json({ success: true, data: { ...usage, plan } });
+  } catch (error: any) {
+    console.error('Usage Fetch Error:', error.message);
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
 const upload = multer({ dest: 'uploads/' });
 
 /**

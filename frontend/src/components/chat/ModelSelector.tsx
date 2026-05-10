@@ -22,7 +22,7 @@ export const ModelSelector: React.FC = () => {
   const canAccess = (tier: string) => {
     const userTier = (user?.plan_type || 'free').toLowerCase();
     const modelTier = tier.toLowerCase();
-    const ranks = { 'free': 0, 'premium': 1, 'pro': 2 };
+    const ranks = { 'free': 0, 'basic': 1, 'pro': 2 };
     return ranks[userTier as keyof typeof ranks] >= ranks[modelTier as keyof typeof ranks];
   };
 
@@ -49,7 +49,7 @@ export const ModelSelector: React.FC = () => {
     }
     if (a.is_new && !b.is_new) return -1;
     if (!a.is_new && b.is_new) return 1;
-    const ranks = { 'free': 0, 'premium': 1, 'pro': 2 };
+    const ranks = { 'free': 0, 'basic': 1, 'pro': 2 };
     const rankA = ranks[(a.tier_required?.toLowerCase() || 'free') as keyof typeof ranks] ?? 0;
     const rankB = ranks[(b.tier_required?.toLowerCase() || 'free') as keyof typeof ranks] ?? 0;
     return rankA - rankB;
@@ -132,7 +132,7 @@ export const ModelSelector: React.FC = () => {
                           }
 
                           if (!accessible) {
-                            openUpgradeModal(model.tier_required as 'premium' | 'pro');
+                            openUpgradeModal(model.tier_required as 'basic' | 'pro');
                             return;
                           }
 
@@ -163,8 +163,8 @@ export const ModelSelector: React.FC = () => {
                             <span className={styles.maintenanceText}>Maintenance</span>
                           ) : !accessible ? (
                             <Lock size={14} className={styles.lockIcon} />
-                          ) : model.tier_required.toLowerCase() === 'premium' ? (
-                            <div className={styles.premiumIcon} title="Premium">
+                          ) : model.tier_required.toLowerCase() === 'basic' ? (
+                            <div className={styles.premiumIcon} title="Basic">
                               <Crown size={16} fill="#FFD700" color="#B8860B" />
                             </div>
                           ) : (

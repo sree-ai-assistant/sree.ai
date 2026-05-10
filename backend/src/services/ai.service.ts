@@ -423,6 +423,8 @@ class AiService {
       width?: number;
       height?: number;
       cfg_scale?: number;
+      image?: string;
+      mode?: string;
     } = {}
   ) {
     const {
@@ -432,6 +434,8 @@ class AiService {
       width = 1024,
       height = 1024,
       cfg_scale = 5,
+      image,
+      mode,
     } = options;
 
     // NVIDIA NIM endpoints are model-specific.
@@ -454,7 +458,6 @@ class AiService {
       modelPath = modelMapping[model];
     }
 
-    const { image } = options as any;
     const isFlux = modelPath.toLowerCase().includes('flux');
 
     // Handle specialized FLUX models (editing/control) fallback if no image provided

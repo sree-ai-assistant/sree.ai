@@ -19,7 +19,7 @@
     "@deepgram/sdk": "^5.0.0",
     "@sree/shared": "*",
     "@supabase/supabase-js": "^2.103.2",
-    "axios": "^1.15.2",
+    "axios": "^1.16.0",
     "cors": "^2.8.6",
     "crypto-js": "^4.2.0",
     "dotenv": "^17.4.2",

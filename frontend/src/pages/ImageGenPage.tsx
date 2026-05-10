@@ -3,7 +3,7 @@ import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Image as ImageIcon, Wand2, Trash2, Loader2, Sparkles,
-  Download, Settings2, ChevronDown, Zap, X, RotateCcw, Copy, LayoutGrid, Plus,
+  Download, Settings2, ChevronDown, Zap, X, RotateCcw, RefreshCcw, Copy, LayoutGrid, Plus,
   Maximize2, History, Layers, Sliders, Palette, Eye, Settings, HelpCircle, LogOut,
   Check, AlertCircle
 } from 'lucide-react';
@@ -40,6 +40,17 @@ const PROMPT_STYLERS = [
   { label: 'Fantasy', suffix: ', epic fantasy, ethereal lighting, magical atmosphere', icon: '🧙' },
 ];
 
+interface UsageStatus {
+  allowed: boolean;
+  remainingHourly: number;
+  remainingDaily: number;
+  hourlyLimit: number;
+  dailyLimit: number;
+  currentHourly: number;
+  currentDaily: number;
+  message?: string;
+}
+
 const ImageGenPage: React.FC = () => {
   const { user } = useAuthStore();
   const { models, fetchModels } = useModelStore();
@@ -59,6 +70,7 @@ const ImageGenPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'generate' | 'gallery'>('generate');
   const [imageLoadErrors, setImageLoadErrors] = useState<Record<string, boolean>>({});
   const [downloadStatus, setDownloadStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
+  const [usage, setUsage] = useState<UsageStatus | null>(null);
   const { openUpgradeModal } = useUIStore();
 
   const promptRef = useRef<HTMLTextAreaElement>(null);
@@ -66,9 +78,21 @@ const ImageGenPage: React.FC = () => {
   // Get image-capable models
   const imageModels = models.filter(m => m.is_image && !m.in_maintenance);
 
+  const fetchUsage = useCallback(async () => {
+    try {
+      const res = await api.get('/ai/download/usage');
+      if (res.data.success) {
+        setUsage(res.data.data);
+      }
+    } catch (err) {
+      console.error('Failed to fetch usage:', err);
+    }
+  }, []);
+
   useEffect(() => {
     fetchModels();
-  }, [fetchModels]);
+    fetchUsage();
+  }, [fetchModels, fetchUsage]);
 
   // Auto-select first image model
   useEffect(() => {
@@ -99,24 +123,40 @@ const ImageGenPage: React.FC = () => {
     });
   };
 
-  const handleDownload = async (url: string, name?: string) => {
-    if (downloadStatus === 'loading') return;
+  const handleDownload = async (image: any) => {
     setDownloadStatus('loading');
     try {
-      const res = await fetch(url);
-      const blob = await res.blob();
-      const a = document.createElement('a');
-      a.href = URL.createObjectURL(blob);
-      a.download = name || `sree-ai-${Date.now()}.png`;
-      a.click();
-      URL.revokeObjectURL(a.href);
+      const response = await api.get(`/ai/download?url=${encodeURIComponent(image.url)}`, {
+        responseType: 'blob'
+      });
+      
+      const blob = new Blob([response.data]);
+      const downloadUrl = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = downloadUrl;
+      link.setAttribute('download', `sree-ai-${image.id}.png`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(downloadUrl);
+      
       setDownloadStatus('success');
-      toast.success('Downloaded successfully!');
-      setTimeout(() => setDownloadStatus('idle'), 2000);
-    } catch {
+      setTimeout(() => setDownloadStatus('idle'), 3000);
+      
+      // Refresh usage after successful download
+      fetchUsage();
+    } catch (error: any) {
+      console.error('Download error:', error);
       setDownloadStatus('error');
-      toast.error('Download failed');
-      setTimeout(() => setDownloadStatus('idle'), 2000);
+      setTimeout(() => setDownloadStatus('idle'), 5000);
+      
+      if (error.response?.status === 429) {
+        // The sidebar usage card will reflect the limit, but we can also alert
+        alert(error.response.data?.message || 'Download limit reached');
+      } else {
+        alert('Failed to download image. Please try again.');
+      }
+      throw error;
     }
   };
 
@@ -286,7 +326,9 @@ const ImageGenPage: React.FC = () => {
                   </div>
                   <div className={styles.creditsCount}>
                     <span className={styles.creditsValue}>{user?.requests_remaining ?? 0}</span>
-                    <span className={styles.creditsTotal}>/ {user?.plan_type === 'pro' ? '500' : '50'}</span>
+                    <span className={styles.creditsTotal}>
+                      / {user?.plan_type === 'pro' ? '500' : user?.plan_type === 'basic' ? '150' : '50'}
+                    </span>
                   </div>
                   <button
                     className={styles.upgradeButton}
@@ -294,6 +336,60 @@ const ImageGenPage: React.FC = () => {
                   >
                     <Zap size={16} fill="currentColor" />
                     Upgrade to Pro
+                  </button>
+                </div>
+
+                <div className={styles.usageCard}>
+                  <div className={styles.creditsHeader}>
+                    <span className={styles.creditsLabel}>Downloads & Generations</span>
+                    <button 
+                      className={styles.refreshUsageBtn} 
+                      onClick={(e) => { e.stopPropagation(); fetchUsage(); }}
+                      title="Refresh Usage"
+                    >
+                      <RefreshCcw size={14} />
+                    </button>
+                  </div>
+                  
+                  <div className={styles.usageInfo}>
+                    {/* Hourly Usage */}
+                    <div className={styles.usageItem}>
+                      <span>Hourly Limit</span>
+                      <span className={usage && usage.currentHourly >= usage.hourlyLimit ? styles.usageLimitReached : ''}>
+                        {usage ? `${usage.currentHourly} / ${usage.hourlyLimit}` : 'Loading...'}
+                      </span>
+                    </div>
+                    <div className={styles.usageProgressBar}>
+                      <div 
+                        className={styles.usageProgressFill} 
+                        style={{ width: `${usage ? Math.min((usage.currentHourly / usage.hourlyLimit) * 100, 100) : 0}%`, background: 'var(--primary-glow)' }}
+                      ></div>
+                    </div>
+                    {usage && usage.currentHourly >= usage.hourlyLimit && (
+                      <p className={styles.usageLimitText}>Hourly limit reached. Resets soon.</p>
+                    )}
+
+                    {/* Daily Usage */}
+                    <div className={styles.usageItem} style={{ marginTop: '12px' }}>
+                      <span>Daily Limit</span>
+                      <span className={usage && usage.currentDaily >= usage.dailyLimit ? styles.usageLimitReached : ''}>
+                        {usage ? `${usage.currentDaily} / ${usage.dailyLimit}` : 'Loading...'}
+                      </span>
+                    </div>
+                    <div className={styles.usageProgressBar}>
+                      <div 
+                        className={styles.usageProgressFill} 
+                        style={{ width: `${usage ? Math.min((usage.currentDaily / usage.dailyLimit) * 100, 100) : 0}%` }}
+                      ></div>
+                    </div>
+                    {usage && usage.currentDaily >= usage.dailyLimit && (
+                      <p className={styles.usageLimitText}>Daily limit reached. Resets in {Math.ceil((new Date().setHours(24,0,0,0) - Date.now()) / (1000 * 60 * 60))}h</p>
+                    )}
+                  </div>
+
+                  <button className={styles.upgradeButton} onClick={() => openUpgradeModal('pro')}>
+                    <Maximize2 size={16} />
+                    Upgrade for Unlimited
                   </button>
                 </div>
               </div>
@@ -399,7 +495,7 @@ const ImageGenPage: React.FC = () => {
                           }}>
                             <div style={{ display: 'flex', gap: '10px' }}>
                               <button
-                                onClick={() => handleDownload(activeImage.url)}
+                                onClick={() => handleDownload(activeImage)}
                                 className={`${styles.iconActionButton} ${downloadStatus === 'success' ? styles.btnSuccess : ''} ${downloadStatus === 'error' ? styles.btnError : ''}`}
                                 disabled={downloadStatus === 'loading'}
                                 title="Save Image"
@@ -565,7 +661,7 @@ const ImageGenPage: React.FC = () => {
                             </div>
                             <p className={styles.galleryPrompt}>{img.prompt}</p>
                             <div style={{ display: 'flex', gap: '8px', marginTop: '12px' }}>
-                              <button onClick={e => { e.stopPropagation(); handleDownload(img.url); }} className="glass" style={{ flex: 1, padding: '6px', borderRadius: '8px', border: 'none', color: 'white', fontSize: '0.7rem', cursor: 'pointer' }}>
+                              <button onClick={e => { e.stopPropagation(); handleDownload(img); }} className="glass" style={{ flex: 1, padding: '6px', borderRadius: '8px', border: 'none', color: 'white', fontSize: '0.7rem', cursor: 'pointer' }}>
                                 Save
                               </button>
                               <button onClick={e => { e.stopPropagation(); setDeleteConfirmId(img.id); }} style={{ background: 'rgba(239,68,68,0.2)', color: '#f87171', border: 'none', padding: '6px 10px', borderRadius: '8px', cursor: 'pointer' }}>
@@ -584,11 +680,11 @@ const ImageGenPage: React.FC = () => {
         </motion.main>
 
         <ImageLightbox
-          images={history}
-          currentIndex={lightboxIndex ?? 0}
+          images={history.map(img => ({ ...img, id: img.id }))}
           isOpen={lightboxIndex !== null}
           onClose={() => setLightboxIndex(null)}
-          onNavigate={(idx) => setLightboxIndex(idx)}
+          initialIndex={lightboxIndex ?? 0}
+          onDownload={handleDownload}
         />
 
         <ConfirmModal

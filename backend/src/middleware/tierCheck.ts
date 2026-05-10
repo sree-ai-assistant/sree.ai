@@ -42,7 +42,12 @@ export const tierCheckMiddleware = async (req: Request, res: Response, next: Nex
     const requiredTier = modelData.tier_required.toLowerCase();
 
     // Tier comparison logic
-    const tierRanks: Record<string, number> = { 'free': 0, 'premium': 1, 'pro': 2 };
+    // 'premium' is a model requirement tier that maps to 'basic' plan access
+    const tierRanks: Record<string, number> = { 
+      'free': 0, 
+      'basic': 1, 
+      'pro': 2 
+    };
 
     if ((tierRanks[userTier] ?? 0) < (tierRanks[requiredTier] ?? 0)) {
       return res.status(403).json({ 

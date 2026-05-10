@@ -24,6 +24,7 @@ interface ImageLightboxProps {
   initialIndex?: number;
   onNavigate?: (index: number) => void;
   onResetZoom?: () => void;
+  onDownload?: (image: ImageData) => Promise<void>;
 }
 
 export const ImageLightbox: React.FC<ImageLightboxProps> = ({
@@ -33,7 +34,8 @@ export const ImageLightbox: React.FC<ImageLightboxProps> = ({
   initialIndex = 0,
   currentIndex: controlledIndex,
   onNavigate,
-  onResetZoom
+  onResetZoom,
+  onDownload
 }) => {
   const [internalIndex, setInternalIndex] = useState(initialIndex);
   const currentIndex = controlledIndex !== undefined ? controlledIndex : internalIndex;
@@ -100,20 +102,24 @@ export const ImageLightbox: React.FC<ImageLightboxProps> = ({
 
     setDownloadStatus('loading');
     try {
-      const res = await fetch(currentImage.url);
-      const blob = await res.blob();
-      const a = document.createElement('a');
-      a.href = URL.createObjectURL(blob);
-      a.download = `sree-ai-${currentImage.id}.png`;
-      a.click();
-      URL.revokeObjectURL(a.href);
+      if (onDownload) {
+        await onDownload(currentImage);
+      } else {
+        const res = await fetch(currentImage.url);
+        const blob = await res.blob();
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = `sree-ai-${currentImage.id}.png`;
+        a.click();
+        URL.revokeObjectURL(a.href);
+      }
       setDownloadStatus('success');
       toast.success('Downloaded successfully!');
       setTimeout(() => setDownloadStatus('idle'), 2000);
-    } catch (err) {
+    } catch (err: any) {
       console.error('Download failed', err);
       setDownloadStatus('error');
-      toast.error('Download failed');
+      toast.error(err.response?.data?.message || 'Download failed');
       setTimeout(() => setDownloadStatus('idle'), 2000);
     }
   };

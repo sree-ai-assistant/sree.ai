@@ -105,7 +105,7 @@ export const Navbar: React.FC = () => {
           className={styles.userButton}
         >
           <div className={styles.userLabel}>
-            <span className={styles.planName}>Pro</span>
+            <span className={styles.planName}>{user?.plan_type?.toUpperCase() || 'FREE'}</span>
             <span className={styles.planAction}>Dashboard</span>
           </div>
           <div className={styles.userAvatar}>
@@ -125,7 +125,7 @@ export const Navbar: React.FC = () => {
               >
                 <div className={styles.menuHeader}>
                   <p className={styles.userEmail}>{user?.email}</p>
-                  <p className={styles.userRole}>Premium Member</p>
+                  <p className={styles.userRole}>{user?.plan_type === 'pro' ? 'Pro Member' : user?.plan_type === 'basic' ? 'Basic Member' : 'Free Plan'}</p>
                 </div>
                 
                 <Link to="/settings" className={styles.dropdownItem}>
