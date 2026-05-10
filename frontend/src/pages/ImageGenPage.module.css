@@ -645,6 +645,81 @@
   gap: 12px;
 }
 
+.usageCardSmall {
+  padding: 12px;
+  gap: 8px;
+  background: rgba(15, 15, 15, 0.2);
+  border-radius: 16px;
+  border-style: dashed;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.usageCardMinimized {
+  padding: 8px 12px;
+  gap: 6px;
+  border-style: solid;
+  background: rgba(15, 15, 15, 0.15);
+}
+
+.minimizeBtn {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2px;
+  border-radius: 4px;
+  transition: all 0.2s ease;
+}
+
+.minimizeBtn:hover {
+  color: var(--text-secondary);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.minimizedUsageContent {
+  width: 100%;
+}
+
+.miniProgressGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-top: 2px;
+}
+
+.usageCardSmall .creditsLabel {
+  font-size: 0.65rem;
+  opacity: 0.8;
+}
+
+.usageCardSmall .usageItem {
+  font-size: 0.75rem;
+}
+
+.upgradeButtonSmall {
+  width: fit-content;
+  padding: 6px 12px;
+  border-radius: 8px;
+  background: rgba(59, 130, 246, 0.1);
+  border: 1px solid rgba(59, 130, 246, 0.2);
+  color: var(--primary);
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.upgradeButtonSmall:hover {
+  background: rgba(59, 130, 246, 0.2);
+  transform: translateY(-1px);
+}
+
 .refreshUsageBtn {
   background: transparent;
   border: none;
@@ -681,11 +756,24 @@
   font-weight: 600;
 }
 
+.usageLimitContainer {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-top: 4px;
+}
+
 .usageLimitText {
   font-size: 0.7rem;
   color: #f87171;
-  margin-top: 4px;
   font-style: italic;
+  font-weight: 500;
+}
+
+.usageRefreshTime {
+  font-size: 0.65rem;
+  color: var(--text-muted);
+  opacity: 0.8;
 }
 
 .usageProgressBar {

@@ -8,8 +8,10 @@ export interface UsageStatus {
   dailyLimit: number;
   currentHourly: number;
   currentDaily: number;
-  message?: string;
+  message?: string | undefined;
+  resetsAt?: string | undefined;
 }
+
 
 export class UsageService {
   /**
@@ -82,9 +84,11 @@ export class UsageService {
         dailyLimit,
         currentHourly,
         currentDaily,
-        message: `Hourly download limit reached (${hourlyLimit}/hr)`
+        message: `Hourly download limit reached (${hourlyLimit}/hr)`,
+        resetsAt: new Date(now.getFullYear(), now.getMonth(), now.getDate(), now.getHours() + 1, 0, 0, 0).toISOString()
       };
     }
+
 
     if (currentDaily >= dailyLimit) {
       return {
@@ -95,7 +99,8 @@ export class UsageService {
         dailyLimit,
         currentHourly,
         currentDaily,
-        message: `Daily download limit reached (${dailyLimit}/day)`
+        message: `Daily download limit reached (${dailyLimit}/day)`,
+        resetsAt: new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 0, 0, 0, 0).toISOString()
       };
     }
 
@@ -183,7 +188,12 @@ export class UsageService {
       hourlyLimit: limits.hourly,
       dailyLimit: limits.daily,
       currentHourly,
-      currentDaily
+      currentDaily,
+      resetsAt: currentHourly >= limits.hourly 
+        ? new Date(now.getFullYear(), now.getMonth(), now.getDate(), now.getHours() + 1, 0, 0, 0).toISOString()
+        : currentDaily >= limits.daily
+          ? new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 0, 0, 0, 0).toISOString()
+          : undefined
     };
   }
 }

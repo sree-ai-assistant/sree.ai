@@ -49,7 +49,37 @@ interface UsageStatus {
   currentHourly: number;
   currentDaily: number;
   message?: string;
+  resetsAt?: string;
 }
+
+const UsageCountdown: React.FC<{ resetsAt: string }> = ({ resetsAt }) => {
+  const [timeLeft, setTimeLeft] = useState('');
+
+  useEffect(() => {
+    const update = () => {
+      const diff = new Date(resetsAt).getTime() - Date.now();
+      if (diff <= 0) {
+        setTimeLeft('00:00');
+        return;
+      }
+      const hours = Math.floor(diff / 3600000);
+      const minutes = Math.floor((diff % 3600000) / 60000);
+      const seconds = Math.floor((diff % 60000) / 1000);
+      
+      if (hours > 0) {
+        setTimeLeft(`${hours}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`);
+      } else {
+        setTimeLeft(`${minutes}:${seconds.toString().padStart(2, '0')}`);
+      }
+    };
+
+    update();
+    const interval = setInterval(update, 1000);
+    return () => clearInterval(interval);
+  }, [resetsAt]);
+
+  return <span style={{ fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>{timeLeft}</span>;
+};
 
 const ImageGenPage: React.FC = () => {
   const { user } = useAuthStore();
@@ -71,6 +101,7 @@ const ImageGenPage: React.FC = () => {
   const [imageLoadErrors, setImageLoadErrors] = useState<Record<string, boolean>>({});
   const [downloadStatus, setDownloadStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
   const [usage, setUsage] = useState<UsageStatus | null>(null);
+  const [usageMinimized, setUsageMinimized] = useState(true);
   const { openUpgradeModal } = useUIStore();
 
   const promptRef = useRef<HTMLTextAreaElement>(null);
@@ -93,6 +124,13 @@ const ImageGenPage: React.FC = () => {
     fetchModels();
     fetchUsage();
   }, [fetchModels, fetchUsage]);
+
+  // Auto-expand usage card if limit is hit
+  useEffect(() => {
+    if (usage && (usage.currentHourly >= usage.hourlyLimit || usage.currentDaily >= usage.dailyLimit)) {
+      setUsageMinimized(false);
+    }
+  }, [usage]);
 
   // Auto-select first image model
   useEffect(() => {
@@ -319,74 +357,115 @@ const ImageGenPage: React.FC = () => {
 
               {/* Sidebar Footer */}
               <div className={styles.sidebarFooter}>
+                {usage && (
+                  <div className={`${styles.usageCard} ${styles.usageCardSmall} ${usageMinimized ? styles.usageCardMinimized : ''}`}>
+                    <div className={styles.creditsHeader}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <span className={styles.creditsLabel}>Download Usage</span>
+                        <button 
+                          onClick={() => setUsageMinimized(!usageMinimized)} 
+                          className={styles.minimizeBtn}
+                          title={usageMinimized ? "Expand" : "Minimize"}
+                        >
+                          <ChevronDown size={14} style={{ transform: usageMinimized ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.3s ease' }} />
+                        </button>
+                      </div>
+                      <button onClick={fetchUsage} className={styles.refreshUsageBtn} title="Refresh limits">
+                        <RefreshCcw size={14} />
+                      </button>
+                    </div>
+
+                    {!usageMinimized ? (
+                      <motion.div 
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: 'auto' }}
+                        exit={{ opacity: 0, height: 0 }}
+                        className={styles.usageInfo}
+                      >
+                        <div className={styles.usageItem}>
+                          <span>Hourly Limit</span>
+                          <span className={usage.currentHourly >= usage.hourlyLimit ? styles.usageLimitReached : ''}>
+                            {usage.currentHourly} / {usage.hourlyLimit}
+                          </span>
+                        </div>
+                        <div className={styles.usageProgressBar}>
+                          <div
+                            className={styles.usageProgressFill}
+                            style={{ width: `${Math.min(100, (usage.currentHourly / usage.hourlyLimit) * 100)}%` }}
+                          />
+                        </div>
+
+                        <div className={styles.usageItem} style={{ marginTop: '4px' }}>
+                          <span>Daily Limit</span>
+                          <span className={usage.currentDaily >= usage.dailyLimit ? styles.usageLimitReached : ''}>
+                            {usage.currentDaily} / {usage.dailyLimit}
+                          </span>
+                        </div>
+                        <div className={styles.usageProgressBar}>
+                          <div
+                            className={styles.usageProgressFill}
+                            style={{ 
+                              width: `${Math.min(100, (usage.currentDaily / usage.dailyLimit) * 100)}%`,
+                              background: 'var(--accent-color, #8b5cf6)' 
+                            }}
+                          />
+                        </div>
+
+                        {(usage.currentHourly >= usage.hourlyLimit || usage.currentDaily >= usage.dailyLimit) && usage.resetsAt && (
+                          <div className={styles.usageLimitContainer}>
+                            <p className={styles.usageLimitText}>
+                              {usage.currentHourly >= usage.hourlyLimit ? 'Hourly' : 'Daily'} limit reached. Resets in <UsageCountdown resetsAt={usage.resetsAt} />
+                            </p>
+                            <p className={styles.usageRefreshTime}>
+                              Refresh: {new Date(usage.resetsAt).toLocaleString([], { 
+                                month: 'short', 
+                                day: 'numeric', 
+                                hour: '2-digit', 
+                                minute: '2-digit' 
+                              })}
+                            </p>
+                          </div>
+                        )}
+
+                        <button className={styles.upgradeButtonSmall} onClick={() => openUpgradeModal('pro')} style={{ marginTop: '4px' }}>
+                          <Zap size={14} /> Upgrade
+                        </button>
+                      </motion.div>
+                    ) : (
+                      <div className={styles.minimizedUsageContent}>
+                        <div className={styles.miniProgressGrid}>
+                          <div className={styles.usageProgressBar} title={`Hourly: ${usage.currentHourly}/${usage.hourlyLimit}`}>
+                            <div
+                              className={styles.usageProgressFill}
+                              style={{ width: `${Math.min(100, (usage.currentHourly / usage.hourlyLimit) * 100)}%` }}
+                            />
+                          </div>
+                          <div className={styles.usageProgressBar} title={`Daily: ${usage.currentDaily}/${usage.dailyLimit}`}>
+                            <div
+                              className={styles.usageProgressFill}
+                              style={{ 
+                                width: `${Math.min(100, (usage.currentDaily / usage.dailyLimit) * 100)}%`,
+                                background: 'var(--accent-color, #8b5cf6)' 
+                              }}
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
                 <div className={styles.creditsCard}>
                   <div className={styles.creditsHeader}>
-                    <span className={styles.creditsLabel}>Credits Remaining</span>
-                    <Sparkles size={14} className="text-primary" />
+                    <span className={styles.creditsLabel}>Image Generations Remaining</span>
+                    <Sparkles size={16} className={styles.sparkleIcon} />
                   </div>
                   <div className={styles.creditsCount}>
-                    <span className={styles.creditsValue}>{user?.requests_remaining ?? 0}</span>
+                    <span className={styles.creditsValue}>{user?.credits || 0}</span>
                     <span className={styles.creditsTotal}>
                       / {user?.plan_type === 'pro' ? '500' : user?.plan_type === 'basic' ? '150' : '50'}
                     </span>
                   </div>
-                  <button
-                    className={styles.upgradeButton}
-                    onClick={() => openUpgradeModal('pro')}
-                  >
-                    <Zap size={16} fill="currentColor" />
-                    Upgrade to Pro
-                  </button>
-                </div>
-
-                <div className={styles.usageCard}>
-                  <div className={styles.creditsHeader}>
-                    <span className={styles.creditsLabel}>Downloads & Generations</span>
-                    <button 
-                      className={styles.refreshUsageBtn} 
-                      onClick={(e) => { e.stopPropagation(); fetchUsage(); }}
-                      title="Refresh Usage"
-                    >
-                      <RefreshCcw size={14} />
-                    </button>
-                  </div>
-                  
-                  <div className={styles.usageInfo}>
-                    {/* Hourly Usage */}
-                    <div className={styles.usageItem}>
-                      <span>Hourly Limit</span>
-                      <span className={usage && usage.currentHourly >= usage.hourlyLimit ? styles.usageLimitReached : ''}>
-                        {usage ? `${usage.currentHourly} / ${usage.hourlyLimit}` : 'Loading...'}
-                      </span>
-                    </div>
-                    <div className={styles.usageProgressBar}>
-                      <div 
-                        className={styles.usageProgressFill} 
-                        style={{ width: `${usage ? Math.min((usage.currentHourly / usage.hourlyLimit) * 100, 100) : 0}%`, background: 'var(--primary-glow)' }}
-                      ></div>
-                    </div>
-                    {usage && usage.currentHourly >= usage.hourlyLimit && (
-                      <p className={styles.usageLimitText}>Hourly limit reached. Resets soon.</p>
-                    )}
-
-                    {/* Daily Usage */}
-                    <div className={styles.usageItem} style={{ marginTop: '12px' }}>
-                      <span>Daily Limit</span>
-                      <span className={usage && usage.currentDaily >= usage.dailyLimit ? styles.usageLimitReached : ''}>
-                        {usage ? `${usage.currentDaily} / ${usage.dailyLimit}` : 'Loading...'}
-                      </span>
-                    </div>
-                    <div className={styles.usageProgressBar}>
-                      <div 
-                        className={styles.usageProgressFill} 
-                        style={{ width: `${usage ? Math.min((usage.currentDaily / usage.dailyLimit) * 100, 100) : 0}%` }}
-                      ></div>
-                    </div>
-                    {usage && usage.currentDaily >= usage.dailyLimit && (
-                      <p className={styles.usageLimitText}>Daily limit reached. Resets in {Math.ceil((new Date().setHours(24,0,0,0) - Date.now()) / (1000 * 60 * 60))}h</p>
-                    )}
-                  </div>
-
                   <button className={styles.upgradeButton} onClick={() => openUpgradeModal('pro')}>
                     <Maximize2 size={16} />
                     Upgrade for Unlimited

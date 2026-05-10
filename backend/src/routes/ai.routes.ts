@@ -48,9 +48,8 @@ router.get('/download', authMiddleware, async (req: any, res: any) => {
 
     // Get plan and ensure it's valid
     const userPlan = (profile?.plan_type || 'free').toLowerCase();
-    const currentLimits = (userPlan in DOWNLOAD_LIMITS) 
-      ? DOWNLOAD_LIMITS[userPlan as keyof typeof DOWNLOAD_LIMITS] 
-      : DOWNLOAD_LIMITS.free;
+    const plan = (userPlan in DOWNLOAD_LIMITS) ? userPlan : 'free';
+    const currentLimits = DOWNLOAD_LIMITS[plan as keyof typeof DOWNLOAD_LIMITS];
 
     // 2. Check and increment usage
     const usageStatus = await UsageService.checkAndIncrement(userId, 'image_download', currentLimits);
@@ -108,8 +107,7 @@ router.get('/download/usage', authMiddleware, async (req: any, res: any) => {
     const plan = (userPlan in DOWNLOAD_LIMITS) ? userPlan : 'free';
     const currentLimits = DOWNLOAD_LIMITS[plan as keyof typeof DOWNLOAD_LIMITS];
     const usage = await UsageService.getUsage(userId, 'image_download', currentLimits);
-
-    res.json({ success: true, data: { ...usage, plan } });
+    res.json({ success: true, data: { ...usage, plan: plan } });
   } catch (error: any) {
     console.error('Usage Fetch Error:', error.message);
     res.status(500).json({ success: false, message: error.message });

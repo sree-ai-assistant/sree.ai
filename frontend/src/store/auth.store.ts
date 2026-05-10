@@ -6,6 +6,7 @@ export interface User {
   email: string;
   plan_type?: 'free' | 'basic' | 'pro';
   requests_remaining?: number;
+  credits?: number;
 }
 
 interface AuthState {
@@ -52,7 +53,8 @@ export const useAuthStore = create<AuthState>((set) => ({
               id: session.user.id,
               email: session.user.email || profile.email,
               plan_type: profile.plan_type as 'free' | 'basic' | 'pro',
-              requests_remaining: profile.requests_remaining
+              requests_remaining: profile.requests_remaining,
+              credits: profile.requests_remaining
             }, 
             loading: false, 
             initialized: true 
@@ -87,7 +89,8 @@ export const useAuthStore = create<AuthState>((set) => ({
               id: session.user.id,
               email: session.user.email || '',
               plan_type: (profile?.plan_type as 'free' | 'basic' | 'pro') || 'free',
-              requests_remaining: profile?.requests_remaining
+              requests_remaining: profile?.requests_remaining,
+              credits: profile?.requests_remaining
             }
           });
         }
