@@ -34,7 +34,7 @@ interface SettingsSidebarProps {
 
 const PLAN_DISPLAY: Record<string, { label: string; icon: React.ElementType; color: string; gradient: string }> = {
   free: { label: 'Free', icon: Zap, color: '#6B7280', gradient: 'linear-gradient(135deg, #374151, #4B5563)' },
-  basic: { label: 'Basic', icon: Sparkles, color: '#3B82F6', gradient: 'linear-gradient(135deg, #1D4ED8, #3B82F6)' },
+  starter: { label: 'Starter', icon: Sparkles, color: '#3B82F6', gradient: 'linear-gradient(135deg, #1D4ED8, #3B82F6)' },
   pro: { label: 'Pro', icon: Crown, color: '#8B5CF6', gradient: 'linear-gradient(135deg, #6D28D9, #A78BFA)' },
 };
 
@@ -135,6 +135,19 @@ export const SettingsSidebar: React.FC<SettingsSidebarProps> = ({
               </div>
               {!isCollapsed && <span className={styles.itemLabel}>Help Center</span>}
             </button>
+
+            <button className={styles.navItem}>
+              <div className={styles.iconContainer} style={{ color: '#10B981', background: '#10B98115', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <span style={{ fontSize: '18px', lineHeight: 1 }}>💡</span>
+              </div>
+              {!isCollapsed && (
+                <div className={styles.itemContent}>
+                  <span className={styles.itemLabel}>Feature Request</span>
+                  <ChevronRight size={14} className={styles.activeArrow} />
+                </div>
+              )}
+            </button>
+
             <button className={styles.navItem} onClick={handleSignOut}>
               <div className={styles.iconContainer} style={{ color: '#EF4444', background: '#EF444415' }}>
                 <LogOut size={18} />

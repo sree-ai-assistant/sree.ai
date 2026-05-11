@@ -2,10 +2,10 @@ import { create } from 'zustand';
 
 interface UIState {
   upgradeModalOpen: boolean;
-  targetTier: 'basic' | 'pro' | null;
+  targetTier: 'starter' | 'pro' | null;
   
   // Actions
-  openUpgradeModal: (tier?: 'basic' | 'pro') => void;
+  openUpgradeModal: (tier?: 'starter' | 'pro') => void;
   closeUpgradeModal: () => void;
 }
 

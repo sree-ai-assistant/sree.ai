@@ -62,7 +62,7 @@ interface UserSession {
 
 const PLAN_CONFIG: Record<string, { label: string; price: string; period: string; color: string; requests: number; storage: string }> = {
   free: { label: 'Free', price: '$0', period: '/month', color: '#6B7280', requests: 5000, storage: '1 GB' },
-  basic: { label: 'Basic', price: '$9.00', period: '/month', color: '#3B82F6', requests: 25000, storage: '5 GB' },
+  starter: { label: 'Starter', price: '$9.00', period: '/month', color: '#3B82F6', requests: 25000, storage: '5 GB' },
   pro: { label: 'Pro', price: '$29.00', period: '/month', color: '#8B5CF6', requests: 50000, storage: '10 GB' },
 };
 

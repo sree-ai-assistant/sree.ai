@@ -4,7 +4,12 @@ import {
   Search,
   MessageSquare,
   HelpCircle,
+  Lightbulb,
+  ChevronLeft,
   ChevronRight,
+  ChevronUp,
+  ChevronDown,
+  PanelLeft,
   Zap,
   Star,
   LogOut,
@@ -19,15 +24,15 @@ import { useAuthStore } from '../../store/auth.store';
 import { useChatStore, type Conversation } from '../../store/chat.store';
 import { useNavigate, useLocation } from 'react-router-dom';
 import styles from './Sidebar.module.css';
-import { PanelLeft } from 'lucide-react';
+
 
 interface SidebarProps {
   isCollapsed: boolean;
   setIsCollapsed: (value: boolean) => void;
-  onOpenSettings?: () => void;
 }
 
-export const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, setIsCollapsed, onOpenSettings }) => {
+export const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, setIsCollapsed }) => {
+  const navigate = useNavigate();
   const { user, signOut } = useAuthStore();
   const { 
     conversations, 
@@ -38,10 +43,11 @@ export const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, setIsCollapsed, o
     deleteConversation,
     loading 
   } = useChatStore();
-  const navigate = useNavigate();
+
   const location = useLocation();
   const [menuOpenId, setMenuOpenId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [isBottomExpanded, setIsBottomExpanded] = useState(false);
 
   const handleSignOut = async () => {
     await signOut();
@@ -229,10 +235,11 @@ export const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, setIsCollapsed, o
         <div className={styles.topHeader}>
           {!isCollapsed && <span className={styles.brand}>CORE</span>}
           <button 
+            className={styles.toggleBtn} 
             onClick={() => setIsCollapsed(!isCollapsed)}
-            className={styles.toggleBtn}
+            title={isCollapsed ? "Expand Sidebar" : "Collapse Sidebar"}
           >
-            <PanelLeft size={20} />
+            <PanelLeft size={18} />
           </button>
         </div>
 
@@ -259,6 +266,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, setIsCollapsed, o
           </div>
         )}
       </div>
+
+
 
       <div className={styles.historySection}>
         {!isVoiceContext ? (
@@ -341,25 +350,57 @@ export const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, setIsCollapsed, o
       </div>
 
       <div className={styles.bottomSection}>
-        <button className={styles.bottomLink} onClick={onOpenSettings} title="Settings">
-          <Settings size={20} />
-          {!isCollapsed && (
-            <>
-              <span>Settings</span>
-              <ChevronRight size={14} className={styles.arrow} />
-            </>
+        <div className={styles.utilitiesSection}>
+          {isCollapsed ? (
+            <div className={styles.utilitiesCollapsed}>
+              <button className={styles.miniIconBtn} onClick={() => navigate('/settings')} title="Settings">
+                <Settings size={18} />
+              </button>
+              <button className={styles.miniIconBtn} onClick={() => window.open('https://github.com/your-repo/issues', '_blank')} title="Feature Request">
+                <Lightbulb size={18} />
+              </button>
+              <button className={styles.miniIconBtn} onClick={() => window.open('/help', '_blank')} title="Help & Support">
+                <HelpCircle size={18} />
+              </button>
+            </div>
+          ) : isBottomExpanded ? (
+            <div className={styles.utilitiesVertical}>
+              <button className={styles.utilityItem} onClick={() => navigate('/settings')}>
+                <Settings size={18} />
+                <span>Settings</span>
+              </button>
+              <button className={styles.utilityItem} onClick={() => window.open('https://github.com/your-repo/issues', '_blank')}>
+                <Lightbulb size={18} />
+                <span>Feature Request</span>
+              </button>
+              <button className={styles.utilityItem} onClick={() => window.open('/help', '_blank')}>
+                <HelpCircle size={18} />
+                <span>Help & Support</span>
+              </button>
+              <button className={styles.collapseToggle} onClick={() => setIsBottomExpanded(false)}>
+                <ChevronDown size={16} />
+                <span>Collapse</span>
+              </button>
+            </div>
+          ) : (
+            <div className={styles.utilitiesHorizontal}>
+              <div className={styles.miniIcons}>
+                <button className={styles.miniIconBtn} onClick={() => navigate('/settings')} title="Settings">
+                  <Settings size={16} />
+                </button>
+                <button className={styles.miniIconBtn} onClick={() => window.open('https://github.com/your-repo/issues', '_blank')} title="Feature Request">
+                  <Lightbulb size={16} />
+                </button>
+                <button className={styles.miniIconBtn} onClick={() => window.open('/help', '_blank')} title="Help & Support">
+                  <HelpCircle size={16} />
+                </button>
+              </div>
+              <button className={styles.expandToggle} onClick={() => setIsBottomExpanded(true)} title="Expand Options">
+                <ChevronUp size={16} />
+              </button>
+            </div>
           )}
-        </button>
-
-        <button className={styles.bottomLink} title="Help & Support">
-          <HelpCircle size={20} />
-          {!isCollapsed && (
-            <>
-              <span>Help & Support</span>
-              <ChevronRight size={14} className={styles.arrow} />
-            </>
-          )}
-        </button>
+        </div>
 
         <div className={styles.profileCard}>
           <div className={styles.profileInfo}>
@@ -371,24 +412,25 @@ export const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, setIsCollapsed, o
                 (user?.display_name?.[0] || user?.email?.[0] || 'U').toUpperCase()
               )}
             </div>
-            <div className={styles.details}>
-              <span className={styles.name}>{user?.display_name || user?.email?.split('@')[0]}</span>
-              <div className={styles.badge}>
-                <Zap size={10} fill="currentColor" />
-                <span>{user?.plan_type === 'pro' ? 'Pro Member' : user?.plan_type === 'basic' ? 'Basic Member' : 'Free Plan'}</span>
+            {!isCollapsed && (
+              <div className={styles.details}>
+                <span className={styles.name}>{user?.display_name || user?.email?.split('@')[0]}</span>
+                <div className={styles.badge}>
+                  <Zap size={10} fill="currentColor" />
+                  <span>{user?.plan_type === 'pro' ? 'Pro Member' : user?.plan_type === 'starter' ? 'Starter Member' : 'Free Plan'}</span>
+                </div>
               </div>
-            </div>
+            )}
           </div>
+          
           <div className={styles.profileActions}>
             <button className={styles.signOutBtn} onClick={handleSignOut} title="Sign Out">
               <LogOut size={16} />
             </button>
-            {user?.plan_type !== 'pro' && (
-              <button className={styles.upgradeBtn} onClick={onOpenSettings}>
-                <Star size={14} />
-                <span>Upgrade</span>
-              </button>
-            )}
+            <button className={styles.upgradeBtn} onClick={() => navigate('/settings')} title="Upgrade Plan">
+              <Star size={16} />
+              {!isCollapsed && <span>Upgrade</span>}
+            </button>
           </div>
         </div>
       </div>

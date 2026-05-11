@@ -7,7 +7,7 @@ export interface AIModel {
   name: string;
   model_id: string;
   provider: string;
-  tier_required: 'free' | 'basic' | 'pro';
+  tier_required: 'free' | 'starter' | 'pro';
   is_vision: boolean;
   description: string;
   max_tokens: number;

@@ -9,7 +9,7 @@ export const UpgradeModal: React.FC = () => {
   const { upgradeModalOpen, closeUpgradeModal, targetTier } = useUIStore();
   const { user, updateProfile } = useAuthStore();
 
-  const handleUpgrade = async (tier: 'basic' | 'pro') => {
+  const handleUpgrade = async (tier: 'starter' | 'pro') => {
     try {
       // In a real app, this would redirect to Stripe
       // For this demo, we'll update the user profile directly
@@ -43,22 +43,22 @@ export const UpgradeModal: React.FC = () => {
           </div>
 
           <div className={styles.grid}>
-            {/* Basic Plan */}
-            <div className={`${styles.plan} ${targetTier === 'basic' ? styles.planFeatured : ''}`}>
+            {/* Starter Plan */}
+            <div className={`${styles.plan} ${targetTier === 'starter' ? styles.planFeatured : ''}`}>
               <div className={styles.planHeader}>
-                <div className={styles.planTitle}>Basic</div>
+                <div className={styles.planTitle}>Starter</div>
                 <div className={styles.price}>$9<span>/mo</span></div>
               </div>
               <ul className={styles.features}>
                 <li className={styles.feature}><Check className={styles.checkIcon} size={16} /> 30 Hourly Generations</li>
                 <li className={styles.feature}><Check className={styles.checkIcon} size={16} /> 150 Daily Credits</li>
-                <li className={styles.feature}><Check className={styles.checkIcon} size={16} /> Access to Basic Models</li>
+                <li className={styles.feature}><Check className={styles.checkIcon} size={16} /> Access to Starter Models</li>
               </ul>
               <button 
-                className={`${styles.button} ${styles.buttonBasic}`}
-                onClick={() => handleUpgrade('basic')}
+                className={`${styles.button} ${styles.buttonStarter}`}
+                onClick={() => handleUpgrade('starter')}
               >
-                {user?.plan_type === 'basic' ? 'Current Plan' : 'Select Basic'}
+                {user?.plan_type === 'starter' ? 'Current Plan' : 'Select Starter'}
               </button>
             </div>
 

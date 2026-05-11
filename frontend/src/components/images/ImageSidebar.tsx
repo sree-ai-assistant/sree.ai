@@ -6,12 +6,16 @@ import {
   History,
   ChevronLeft,
   ChevronRight,
+  ChevronUp,
+  ChevronDown,
   Settings,
   HelpCircle,
+  Lightbulb,
   LogOut,
   Zap,
   Star,
-  AlertCircle
+  AlertCircle,
+  PanelLeft
 } from 'lucide-react';
 import { useImageStore } from '../../store/image.store';
 import { useAuthStore } from '../../store/auth.store';
@@ -23,7 +27,6 @@ interface ImageSidebarProps {
   isCollapsed: boolean;
   setIsCollapsed: (value: boolean) => void;
   onNewImage: () => void;
-  onOpenSettings?: () => void;
   onDeleteClick?: (id: string) => void;
   onSelectImage?: (img: any) => void;
 }
@@ -32,7 +35,6 @@ export const ImageSidebar: React.FC<ImageSidebarProps> = ({
   isCollapsed,
   setIsCollapsed,
   onNewImage,
-  onOpenSettings,
   onDeleteClick,
   onSelectImage
 }) => {
@@ -40,6 +42,7 @@ export const ImageSidebar: React.FC<ImageSidebarProps> = ({
   const { user, signOut } = useAuthStore();
   const [imageLoadErrors, setImageLoadErrors] = useState<Record<string, boolean>>({});
   const navigate = useNavigate();
+  const [isBottomExpanded, setIsBottomExpanded] = useState(false);
   useEffect(() => {
     setIsCollapsed(true);
   }, [setIsCollapsed]);
@@ -71,12 +74,12 @@ export const ImageSidebar: React.FC<ImageSidebarProps> = ({
       <div className={styles.topSection}>
         <div className={styles.topHeader}>
           {!isCollapsed && <span className={styles.brand}>SREE AI IMAGES</span>}
-          <button
-            className={styles.toggleBtn}
+          <button 
+            className={styles.toggleBtn} 
             onClick={() => setIsCollapsed(!isCollapsed)}
             title={isCollapsed ? "Expand Sidebar" : "Collapse Sidebar"}
           >
-            {isCollapsed ? <ChevronRight size={20} /> : <ChevronLeft size={20} />}
+            <PanelLeft size={18} />
           </button>
         </div>
 
@@ -174,50 +177,87 @@ export const ImageSidebar: React.FC<ImageSidebarProps> = ({
       </div>
 
       <div className={styles.bottomSection}>
-        <button className={styles.bottomLink} onClick={onOpenSettings} title="Settings">
-          <Settings size={20} />
-          {!isCollapsed && (
-            <>
-              <span>Settings</span>
-              <ChevronRight size={14} className={styles.arrow} />
-            </>
+        <div className={styles.utilitiesSection}>
+          {isCollapsed ? (
+            <div className={styles.utilitiesCollapsed}>
+              <button className={styles.miniIconBtn} onClick={() => navigate('/settings')} title="Settings">
+                <Settings size={18} />
+              </button>
+              <button className={styles.miniIconBtn} onClick={() => window.open('https://github.com/your-repo/issues', '_blank')} title="Feature Request">
+                <Lightbulb size={18} />
+              </button>
+              <button className={styles.miniIconBtn} onClick={() => window.open('/help', '_blank')} title="Help & Support">
+                <HelpCircle size={18} />
+              </button>
+            </div>
+          ) : isBottomExpanded ? (
+            <div className={styles.utilitiesVertical}>
+              <button className={styles.utilityItem} onClick={() => navigate('/settings')}>
+                <Settings size={18} />
+                <span>Settings</span>
+              </button>
+              <button className={styles.utilityItem} onClick={() => window.open('https://github.com/your-repo/issues', '_blank')}>
+                <Lightbulb size={18} />
+                <span>Feature Request</span>
+              </button>
+              <button className={styles.utilityItem} onClick={() => window.open('/help', '_blank')}>
+                <HelpCircle size={18} />
+                <span>Help & Support</span>
+              </button>
+              <button className={styles.collapseToggle} onClick={() => setIsBottomExpanded(false)}>
+                <ChevronDown size={16} />
+                <span>Collapse</span>
+              </button>
+            </div>
+          ) : (
+            <div className={styles.utilitiesHorizontal}>
+              <div className={styles.miniIcons}>
+                <button className={styles.miniIconBtn} onClick={() => navigate('/settings')} title="Settings">
+                  <Settings size={16} />
+                </button>
+                <button className={styles.miniIconBtn} onClick={() => window.open('https://github.com/your-repo/issues', '_blank')} title="Feature Request">
+                  <Lightbulb size={16} />
+                </button>
+                <button className={styles.miniIconBtn} onClick={() => window.open('/help', '_blank')} title="Help & Support">
+                  <HelpCircle size={16} />
+                </button>
+              </div>
+              <button className={styles.expandToggle} onClick={() => setIsBottomExpanded(true)} title="Expand Options">
+                <ChevronUp size={16} />
+              </button>
+            </div>
           )}
-        </button>
-
-        <button className={styles.bottomLink} title="Help & Support">
-          <HelpCircle size={20} />
-          {!isCollapsed && (
-            <>
-              <span>Help & Support</span>
-              <ChevronRight size={14} className={styles.arrow} />
-            </>
-          )}
-        </button>
+        </div>
 
         <div className={styles.profileCard}>
           <div className={styles.profileInfo}>
             <div className={styles.avatar}>
               <div className={styles.status} />
-              {user?.email?.[0].toUpperCase()}
+              {user?.avatar_url ? (
+                <img src={user.avatar_url} alt={user.display_name || 'User'} className={styles.avatarImg} />
+              ) : (
+                (user?.display_name?.[0] || user?.email?.[0] || 'U').toUpperCase()
+              )}
             </div>
-            <div className={styles.details}>
-              <span className={styles.name}>{user?.email?.split('@')[0]}</span>
-              <div className={styles.badge}>
-                <Zap size={10} fill="currentColor" />
-                <span>{user?.plan_type === 'pro' ? 'Pro Member' : user?.plan_type === 'basic' ? 'Basic Member' : 'Free Plan'}</span>
+            {!isCollapsed && (
+              <div className={styles.details}>
+                <span className={styles.name}>{user?.display_name || user?.email?.split('@')[0]}</span>
+                <div className={styles.badge}>
+                  <Zap size={10} fill="currentColor" />
+                  <span>{user?.plan_type === 'pro' ? 'Pro Member' : user?.plan_type === 'starter' ? 'Starter Member' : 'Free Plan'}</span>
+                </div>
               </div>
-            </div>
+            )}
           </div>
+          
           <div className={styles.profileActions}>
             <button className={styles.signOutBtn} onClick={handleSignOut} title="Sign Out">
               <LogOut size={16} />
             </button>
-            {user?.plan_type !== 'pro' && (
-              <button className={styles.upgradeBtn} onClick={onOpenSettings}>
-                <Star size={14} />
-                <span>Upgrade</span>
-              </button>
-            )}
+            <button className={styles.upgradeBtn} onClick={() => navigate('/settings')} title="Upgrade Plan">
+              <Star size={16} />
+              {!isCollapsed && <span>Upgrade</span>}
+            </button>
           </div>
         </div>
       </div>

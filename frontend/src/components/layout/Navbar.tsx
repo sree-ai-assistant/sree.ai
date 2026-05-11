@@ -163,7 +163,7 @@ export const Navbar: React.FC = () => {
             >
               <div className={styles.menuHeader}>
                 <p className={styles.userEmail}>{user?.email}</p>
-                <p className={styles.userRole}>{user?.plan_type === 'pro' ? 'Pro Member' : user?.plan_type === 'basic' ? 'Basic Member' : 'Free Plan'}</p>
+                <p className={styles.userRole}>{user?.plan_type === 'pro' ? 'Pro Member' : user?.plan_type === 'starter' ? 'Starter Member' : 'Free Plan'}</p>
               </div>
               
               <Link to="/settings" className={styles.dropdownItem}>

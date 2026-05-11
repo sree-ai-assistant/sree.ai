@@ -465,7 +465,7 @@ const ImageGenPage: React.FC = () => {
                   <div className={styles.creditsCount}>
                     <span className={styles.creditsValue}>{user?.credits || 0}</span>
                     <span className={styles.creditsTotal}>
-                      / {user?.plan_type === 'pro' ? '500' : user?.plan_type === 'basic' ? '150' : '50'}
+                      / {user?.plan_type === 'pro' ? '500' : user?.plan_type === 'starter' ? '150' : '50'}
                     </span>
                   </div>
                   <button className={styles.upgradeButton} onClick={() => openUpgradeModal('pro')}>

@@ -21,7 +21,7 @@ const router = Router();
 // Download daily limits per plan (used as shorthand keys)
 const DOWNLOAD_LIMITS = {
   free: { hourly: 10, daily: 50 },
-  basic: { hourly: 30, daily: 150 },
+  starter: { hourly: 30, daily: 150 },
   pro: { hourly: 100, daily: 500 }
 } as const;
 
