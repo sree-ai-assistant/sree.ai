@@ -1,10 +1,10 @@
 import React, { useEffect, useState } from 'react';
-import { 
-  Plus, 
-  Trash2, 
-  Image as ImageIcon, 
-  History, 
-  ChevronLeft, 
+import {
+  Plus,
+  Trash2,
+  Image as ImageIcon,
+  History,
+  ChevronLeft,
   ChevronRight,
   Settings,
   HelpCircle,
@@ -28,9 +28,9 @@ interface ImageSidebarProps {
   onSelectImage?: (img: any) => void;
 }
 
-export const ImageSidebar: React.FC<ImageSidebarProps> = ({ 
-  isCollapsed, 
-  setIsCollapsed, 
+export const ImageSidebar: React.FC<ImageSidebarProps> = ({
+  isCollapsed,
+  setIsCollapsed,
   onNewImage,
   onOpenSettings,
   onDeleteClick,
@@ -40,7 +40,9 @@ export const ImageSidebar: React.FC<ImageSidebarProps> = ({
   const { user, signOut } = useAuthStore();
   const [imageLoadErrors, setImageLoadErrors] = useState<Record<string, boolean>>({});
   const navigate = useNavigate();
-
+  useEffect(() => {
+    setIsCollapsed(true);
+  }, [setIsCollapsed]);
   useEffect(() => {
     fetchHistory();
   }, [fetchHistory]);
@@ -69,7 +71,7 @@ export const ImageSidebar: React.FC<ImageSidebarProps> = ({
       <div className={styles.topSection}>
         <div className={styles.topHeader}>
           {!isCollapsed && <span className={styles.brand}>SREE AI IMAGES</span>}
-          <button 
+          <button
             className={styles.toggleBtn}
             onClick={() => setIsCollapsed(!isCollapsed)}
             title={isCollapsed ? "Expand Sidebar" : "Collapse Sidebar"}
@@ -103,7 +105,7 @@ export const ImageSidebar: React.FC<ImageSidebarProps> = ({
                 exit={{ opacity: 0, x: -20 }}
                 className={styles.historyItemWrapper}
               >
-                <div 
+                <div
                   className={`${styles.historyItem} ${activeImage?.id === img.id ? styles.active : ''}`}
                   onClick={() => {
                     setActiveImage(img);
@@ -122,15 +124,15 @@ export const ImageSidebar: React.FC<ImageSidebarProps> = ({
                 >
                   <div className={styles.itemIcon}>
                     {img.url && !imageLoadErrors[img.id] ? (
-                      <img 
-                        src={img.url} 
-                        alt="Thumbnail" 
-                        style={{ 
-                          width: '24px', 
-                          height: '24px', 
+                      <img
+                        src={img.url}
+                        alt="Thumbnail"
+                        style={{
+                          width: '24px',
+                          height: '24px',
                           borderRadius: '4px',
                           objectFit: 'cover'
-                        }} 
+                        }}
                         onError={() => {
                           setImageLoadErrors(prev => ({ ...prev, [img.id]: true }));
                         }}
@@ -144,7 +146,7 @@ export const ImageSidebar: React.FC<ImageSidebarProps> = ({
                   {!isCollapsed && (
                     <>
                       <span className={styles.itemTitle}>{img.prompt}</span>
-                      <button 
+                      <button
                         className={styles.menuBtn}
                         onClick={(e) => handleDelete(e, img.id)}
                         title="Delete"
@@ -159,9 +161,9 @@ export const ImageSidebar: React.FC<ImageSidebarProps> = ({
           </AnimatePresence>
 
           {!isFetchingHistory && history.length === 0 && !isCollapsed && (
-            <div style={{ 
-              padding: '20px', 
-              textAlign: 'center', 
+            <div style={{
+              padding: '20px',
+              textAlign: 'center',
               opacity: 0.3,
               fontSize: '0.8rem'
             }}>

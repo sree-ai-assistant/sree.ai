@@ -55,4 +55,27 @@ export const aiService = {
   },
 };
 
+export const sessionService = {
+  getSessions: async () => {
+    const response = await api.get('/user/sessions');
+    return response.data;
+  },
+  syncSession: async (sessionInfo: { os: string; browser: string; location?: string; ip_address?: string; device_id?: string }) => {
+    const response = await api.post('/user/sessions/sync', sessionInfo);
+    return response.data;
+  },
+  deleteSession: async (sessionId: string) => {
+    const response = await api.delete(`/user/sessions/${sessionId}`);
+    return response.data;
+  },
+  getDevices: async () => {
+    const response = await api.get('/user/devices');
+    return response.data;
+  },
+  revokeOthers: async () => {
+    const response = await api.delete('/user/sessions/revoke-others');
+    return response.data;
+  },
+};
+
 export default api;

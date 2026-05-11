@@ -145,7 +145,11 @@ export const Navbar: React.FC = () => {
             <span className={styles.planAction}>Dashboard</span>
           </div>
           <div className={styles.userAvatar}>
-            <User size={18} />
+            {user?.avatar_url ? (
+              <img src={user.avatar_url} alt={user.display_name || 'User'} className={styles.avatarImg} />
+            ) : (
+              <User size={18} />
+            )}
           </div>
         </button>
 

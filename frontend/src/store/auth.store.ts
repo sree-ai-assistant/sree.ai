@@ -4,6 +4,8 @@ import { supabase } from '../lib/supabase';
 export interface User {
   id: string;
   email: string;
+  display_name?: string;
+  avatar_url?: string;
   plan_type?: 'free' | 'basic' | 'pro';
   requests_remaining?: number;
   credits?: number;
@@ -43,7 +45,7 @@ export const useAuthStore = create<AuthState>((set) => ({
         // Fetch additional user profile data from public.profiles
         const { data: profile } = await supabase
           .from('profiles')
-          .select('id, email, plan_type, requests_remaining')
+          .select('id, email, display_name, avatar_url, plan_type, requests_remaining')
           .eq('id', session.user.id)
           .single();
 
@@ -52,6 +54,8 @@ export const useAuthStore = create<AuthState>((set) => ({
             user: {
               id: session.user.id,
               email: session.user.email || profile.email,
+              display_name: profile.display_name,
+              avatar_url: profile.avatar_url,
               plan_type: profile.plan_type as 'free' | 'basic' | 'pro',
               requests_remaining: profile.requests_remaining,
               credits: profile.requests_remaining
@@ -80,7 +84,7 @@ export const useAuthStore = create<AuthState>((set) => ({
         if ((event === 'SIGNED_IN' || event === 'INITIAL_SESSION') && session?.user) {
           const { data: profile } = await supabase
             .from('profiles')
-            .select('plan_type, requests_remaining')
+            .select('display_name, avatar_url, plan_type, requests_remaining')
             .eq('id', session.user.id)
             .single();
           
@@ -88,6 +92,8 @@ export const useAuthStore = create<AuthState>((set) => ({
             user: {
               id: session.user.id,
               email: session.user.email || '',
+              display_name: profile?.display_name,
+              avatar_url: profile?.avatar_url,
               plan_type: (profile?.plan_type as 'free' | 'basic' | 'pro') || 'free',
               requests_remaining: profile?.requests_remaining,
               credits: profile?.requests_remaining

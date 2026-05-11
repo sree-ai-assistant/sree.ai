@@ -36,6 +36,27 @@ const ChatPage: React.FC = () => {
 
   const isVoiceRoute = location.pathname.startsWith('/voice');
   const [showVoiceOverlay, setShowVoiceOverlay] = useState(isVoiceRoute);
+  
+  // Initialize from localStorage, but default to true for voice routes
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(() => {
+    if (isVoiceRoute) return true;
+    const saved = localStorage.getItem('sidebar_collapsed');
+    return saved !== null ? JSON.parse(saved) : false;
+  });
+
+  // Force collapse when switching TO a voice route
+  useEffect(() => {
+    if (isVoiceRoute) {
+      setIsSidebarCollapsed(true);
+    }
+  }, [isVoiceRoute]);
+
+  // Persist state changes to localStorage (only for non-voice routes to maintain "voice default")
+  useEffect(() => {
+    if (!isVoiceRoute) {
+      localStorage.setItem('sidebar_collapsed', JSON.stringify(isSidebarCollapsed));
+    }
+  }, [isSidebarCollapsed, isVoiceRoute]);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => setSession(data.session));
@@ -573,7 +594,10 @@ const ChatPage: React.FC = () => {
 
 
   return (
-    <DashboardLayout>
+    <DashboardLayout
+      isCollapsed={isSidebarCollapsed}
+      setIsCollapsed={setIsSidebarCollapsed}
+    >
       <>
         <div className={styles.container}>
           <div className={styles.header}>

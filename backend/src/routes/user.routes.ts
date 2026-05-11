@@ -73,4 +73,147 @@ router.delete('/settings/keys/:provider', authMiddleware, async (req: any, res) 
   }
 });
 
+// --- Session Management Routes ---
+
+// Get User Sessions
+router.get('/sessions', authMiddleware, async (req: any, res) => {
+  try {
+    const { data: sessions, error } = await supabaseAdmin
+      .from('user_sessions')
+      .select('*')
+      .eq('user_id', req.user.id)
+      .order('last_active', { ascending: false });
+
+    if (error) throw error;
+
+    res.json({ success: true, data: sessions });
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// Sync/Upsert Current Session
+router.post('/sessions/sync', authMiddleware, async (req: any, res) => {
+  try {
+    const { os, browser, location, ip_address, device_id } = req.body;
+    const userId = req.user.id;
+
+    if (!os || !browser || !device_id) {
+      return res.status(400).json({ success: false, message: 'OS, Browser, and device_id are required' });
+    }
+
+    // Mark all other sessions for this user as not current
+    await supabaseAdmin
+      .from('user_sessions')
+      .update({ is_current: false })
+      .eq('user_id', userId)
+      .neq('device_id', device_id);
+
+    // Atomic upsert — uses the unique index on (user_id, device_id)
+    // This prevents race-condition duplicates from concurrent sync calls
+    const { data, error } = await supabaseAdmin
+      .from('user_sessions')
+      .upsert({
+        user_id: userId,
+        device_id,
+        os,
+        browser,
+        location: location || 'Unknown',
+        ip_address: ip_address || req.ip || 'Unknown',
+        is_current: true,
+        last_active: new Date().toISOString()
+      }, {
+        onConflict: 'user_id,device_id'
+      })
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    // Update trusted_devices table
+    await supabaseAdmin
+      .from('trusted_devices')
+      .upsert({
+        user_id: userId,
+        device_id,
+        os,
+        browser,
+        last_seen_at: new Date().toISOString()
+      }, {
+        onConflict: 'user_id,device_id'
+      });
+
+    res.json({ success: true, data });
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// Get Trusted Devices
+router.get('/devices', authMiddleware, async (req: any, res) => {
+  try {
+    const { data: devices, error } = await supabaseAdmin
+      .from('trusted_devices')
+      .select('*')
+      .eq('user_id', req.user.id)
+      .order('last_seen_at', { ascending: false });
+
+    if (error) throw error;
+
+    res.json({ success: true, data: devices });
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// Revoke All Other Sessions
+router.delete('/sessions/revoke-others', authMiddleware, async (req: any, res) => {
+  try {
+    const userId = req.user.id;
+    
+    // Find the current session ID for this user (if any)
+    const { data: currentSession } = await supabaseAdmin
+      .from('user_sessions')
+      .select('id')
+      .eq('user_id', userId)
+      .eq('is_current', true)
+      .maybeSingle();
+
+    let query = supabaseAdmin
+      .from('user_sessions')
+      .delete()
+      .eq('user_id', userId);
+
+    if (currentSession) {
+      query = query.neq('id', currentSession.id);
+    }
+
+    const { error } = await query;
+
+    if (error) throw error;
+
+    res.json({ success: true, message: 'All other sessions revoked successfully' });
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// Delete/Logout Session
+router.delete('/sessions/:id', authMiddleware, async (req: any, res) => {
+  try {
+    const { id } = req.params;
+    const { error } = await supabaseAdmin
+      .from('user_sessions')
+      .delete()
+      .eq('id', id)
+      .eq('user_id', req.user.id);
+
+    if (error) throw error;
+
+    res.json({ success: true, message: 'Session deleted successfully' });
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
 export default router;

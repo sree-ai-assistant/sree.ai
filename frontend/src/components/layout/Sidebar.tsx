@@ -365,10 +365,14 @@ export const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, setIsCollapsed, o
           <div className={styles.profileInfo}>
             <div className={styles.avatar}>
               <div className={styles.status} />
-              {user?.email?.[0].toUpperCase()}
+              {user?.avatar_url ? (
+                <img src={user.avatar_url} alt={user.display_name || 'User'} className={styles.avatarImg} />
+              ) : (
+                (user?.display_name?.[0] || user?.email?.[0] || 'U').toUpperCase()
+              )}
             </div>
             <div className={styles.details}>
-              <span className={styles.name}>{user?.email?.split('@')[0]}</span>
+              <span className={styles.name}>{user?.display_name || user?.email?.split('@')[0]}</span>
               <div className={styles.badge}>
                 <Zap size={10} fill="currentColor" />
                 <span>{user?.plan_type === 'pro' ? 'Pro Member' : user?.plan_type === 'basic' ? 'Basic Member' : 'Free Plan'}</span>

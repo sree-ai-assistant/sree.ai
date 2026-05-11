@@ -33,7 +33,7 @@ export const ModelSelector: React.FC = () => {
     );
   }
 
-  const filteredModels = models.filter(model => 
+  const filteredModels = models.filter(model =>
     !model.is_image && (
       (model.name?.toLowerCase() || '').includes(searchQuery.toLowerCase()) ||
       (model.description?.toLowerCase() || '').includes(searchQuery.toLowerCase())
@@ -75,8 +75,8 @@ export const ModelSelector: React.FC = () => {
         </DropdownMenu.Trigger>
 
         <DropdownMenu.Portal>
-          <DropdownMenu.Content 
-            className={styles.dropdown} 
+          <DropdownMenu.Content
+            className={styles.dropdown}
             sideOffset={8}
             align="start"
           >
@@ -92,7 +92,7 @@ export const ModelSelector: React.FC = () => {
                 onClick={(e) => e.stopPropagation()}
               />
             </div>
-            
+
             <div className={styles.scrollArea}>
               {loading ? (
                 Array.from({ length: 5 }).map((_, i) => (
@@ -118,7 +118,7 @@ export const ModelSelector: React.FC = () => {
                         className={`${styles.modelItem} ${isSelected ? styles.selected : ''} ${!accessible ? styles.locked : ''} ${isFaded ? styles.faded : ''} ${inMaintenance ? styles.maintenance : ''}`}
                         onSelect={(e) => {
                           e.preventDefault(); // Handle selection manually to manage maintenance/locks
-                          
+
                           if (inMaintenance) {
                             toast.error('This model is currently in maintenance.', {
                               icon: '⚠️',
@@ -162,9 +162,9 @@ export const ModelSelector: React.FC = () => {
                           {inMaintenance ? (
                             <span className={styles.maintenanceText}>Maintenance</span>
                           ) : !accessible ? (
-                            <Lock size={14} className={styles.lockIcon} />
+                            <span title='Upgrade to Unlock'><Lock size={14} className={styles.lockIcon} /></span>
                           ) : model.tier_required.toLowerCase() === 'basic' ? (
-                            <div className={styles.premiumIcon} title="Basic">
+                            <div className={styles.premiumIcon} title="Premium">
                               <Crown size={16} fill="#FFD700" color="#B8860B" />
                             </div>
                           ) : (
