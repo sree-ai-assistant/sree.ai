@@ -1,11 +1,22 @@
 import axios from 'axios';
 import { supabase } from './supabase';
+import { getStoredAnonId, storeAnonId, generateFingerprintHash, getOrCreateAnonymousIdentity } from './fingerprint';
 
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_URL || 'http://localhost:5000/api',
 });
 
-// Add auth token to every request
+// Cached fingerprint hash — computed once per session
+let cachedFingerprintHash: string | null = null;
+
+async function getFingerprintHash(): Promise<string> {
+  if (!cachedFingerprintHash) {
+    cachedFingerprintHash = await generateFingerprintHash();
+  }
+  return cachedFingerprintHash;
+}
+
+// Add auth token AND anonymous identity headers to every request
 api.interceptors.request.use(async (config) => {
   let session = null;
   try {
@@ -20,8 +31,30 @@ api.interceptors.request.use(async (config) => {
   
   if (session?.access_token) {
     config.headers.Authorization = `Bearer ${session.access_token}`;
+  } else {
+    // No auth session — send anonymous identity headers
+    try {
+      const anonId = getStoredAnonId();
+      if (anonId) {
+        config.headers['X-Anon-Id'] = anonId;
+      }
+      const fingerprint = await getFingerprintHash();
+      config.headers['X-Fingerprint'] = fingerprint;
+    } catch {
+      // Fingerprint generation failed — request proceeds without it
+    }
   }
   return config;
+});
+
+// Handle restored anonymous ID from backend
+api.interceptors.response.use((response) => {
+  const restoredId = response.headers['x-restored-anon-id'];
+  if (restoredId) {
+    // Backend restored a previous identity — update local storage
+    storeAnonId(restoredId);
+  }
+  return response;
 });
 
 export const aiService = {

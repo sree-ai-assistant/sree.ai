@@ -20,6 +20,7 @@
     "@sree/shared": "*",
     "@supabase/supabase-js": "^2.103.2",
     "axios": "^1.16.0",
+    "cookie-parser": "^1.4.7",
     "cors": "^2.8.6",
     "crypto-js": "^4.2.0",
     "dotenv": "^17.4.2",
@@ -40,6 +41,7 @@
     "zod": "^4.3.6"
   },
   "devDependencies": {
+    "@types/cookie-parser": "^1.4.10",
     "@types/cors": "^2.8.19",
     "@types/crypto-js": "^4.2.2",
     "@types/express": "^5.0.6",
