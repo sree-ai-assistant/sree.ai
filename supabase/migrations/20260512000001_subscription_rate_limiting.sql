@@ -1,0 +1,85 @@
+-- ============================================================
+-- Migration: Subscription & Rate Limiting System
+-- Phase 6: Database Schema & Plan Configuration
+-- ============================================================
+
+-- 1. ANONYMOUS USERS TABLE
+CREATE TABLE IF NOT EXISTS public.anonymous_users (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  anon_id TEXT UNIQUE NOT NULL,
+  fingerprint_hash TEXT NOT NULL,
+  ip_hash TEXT NOT NULL,
+  user_agent TEXT,
+  country TEXT,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  last_seen_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  daily_chat_count INTEGER DEFAULT 0,
+  daily_voice_count INTEGER DEFAULT 0,
+  request_minute_count INTEGER DEFAULT 0,
+  last_request_at TIMESTAMP WITH TIME ZONE,
+  last_daily_reset TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  migrated_to_user_id UUID REFERENCES public.users(id) ON DELETE SET NULL,
+  migrated_at TIMESTAMP WITH TIME ZONE
+);
+
+COMMENT ON TABLE public.anonymous_users IS 'Tracks anonymous visitors for rate limiting without requiring authentication';
+COMMENT ON COLUMN public.anonymous_users.anon_id IS 'Client-generated UUID stored in cookie/localStorage';
+COMMENT ON COLUMN public.anonymous_users.fingerprint_hash IS 'SHA-256 hash of browser fingerprint components';
+COMMENT ON COLUMN public.anonymous_users.ip_hash IS 'SHA-256 hash of IP address — raw IP is never stored';
+COMMENT ON COLUMN public.anonymous_users.migrated_to_user_id IS 'Links to authenticated user after signup migration';
+
+-- 2. USAGE TRACKING TABLE
+CREATE TABLE IF NOT EXISTS public.usage_tracking (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id UUID REFERENCES public.users(id) ON DELETE CASCADE,
+  anon_id TEXT,
+  tool_type TEXT NOT NULL CHECK (tool_type IN ('chat', 'voice', 'image')),
+  -- Per-minute tracking
+  minute_count INTEGER DEFAULT 0,
+  last_minute_reset TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  -- Daily tracking
+  daily_count INTEGER DEFAULT 0,
+  last_daily_reset TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  -- Monthly tracking
+  monthly_count INTEGER DEFAULT 0,
+  last_monthly_reset TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  -- BYOK tracking
+  is_byok BOOLEAN DEFAULT FALSE,
+  -- Metadata
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  CONSTRAINT usage_tracking_user_or_anon CHECK (
+    (user_id IS NOT NULL AND anon_id IS NULL) OR
+    (user_id IS NULL AND anon_id IS NOT NULL)
+  ),
+  CONSTRAINT usage_tracking_unique_user_tool UNIQUE (user_id, tool_type),
+  CONSTRAINT usage_tracking_unique_anon_tool UNIQUE (anon_id, tool_type)
+);
+
+COMMENT ON TABLE public.usage_tracking IS 'Unified usage tracking for rate limiting — supports both authenticated and anonymous users';
+COMMENT ON COLUMN public.usage_tracking.is_byok IS 'Whether the last request used a user-provided API key (0.2x quota)';
+
+-- 3. ENHANCE SUBSCRIPTIONS TABLE
+ALTER TABLE public.subscriptions
+  ADD COLUMN IF NOT EXISTS billing_cycle_start TIMESTAMP WITH TIME ZONE,
+  ADD COLUMN IF NOT EXISTS billing_cycle_end TIMESTAMP WITH TIME ZONE,
+  ADD COLUMN IF NOT EXISTS tier TEXT DEFAULT 'free';
+
+COMMENT ON COLUMN public.subscriptions.billing_cycle_start IS 'Start of current billing period for monthly reset calculations';
+COMMENT ON COLUMN public.subscriptions.billing_cycle_end IS 'End of current billing period';
+COMMENT ON COLUMN public.subscriptions.tier IS 'Canonical tier name: free | starter | pro';
+
+-- 4. ADD UPLOAD LIMIT TO PROFILES
+ALTER TABLE public.profiles
+  ADD COLUMN IF NOT EXISTS upload_limit_mb INTEGER DEFAULT 10;
+
+COMMENT ON COLUMN public.profiles.upload_limit_mb IS 'Max file upload size in MB per plan: Free=10, Starter=50, Pro=250';
+
+-- 5. INDEXES FOR PERFORMANCE
+CREATE INDEX IF NOT EXISTS idx_anon_users_anon_id ON public.anonymous_users(anon_id);
+CREATE INDEX IF NOT EXISTS idx_anon_users_fingerprint ON public.anonymous_users(fingerprint_hash);
+CREATE INDEX IF NOT EXISTS idx_anon_users_ip_hash ON public.anonymous_users(ip_hash);
+CREATE INDEX IF NOT EXISTS idx_anon_users_fingerprint_ip ON public.anonymous_users(fingerprint_hash, ip_hash);
+CREATE INDEX IF NOT EXISTS idx_usage_tracking_user ON public.usage_tracking(user_id) WHERE user_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_usage_tracking_anon ON public.usage_tracking(anon_id) WHERE anon_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_usage_tracking_tool ON public.usage_tracking(tool_type);
