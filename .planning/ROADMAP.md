@@ -40,15 +40,17 @@
 
 **Requirements:** ANON-01, ANON-02, ANON-03, ANON-04, ANON-05, ANON-06
 
+**Status:** ✅ Complete (2026-05-12)
+
 **Tasks:**
-- [ ] Create anonymous identity service (backend) — UUID generation, record creation
-- [ ] Implement secure httpOnly cookie for anonymous ID storage
-- [ ] Implement localStorage backup for anonymous ID
-- [ ] Create fingerprint generation module (browser, OS, screen, timezone, language, canvas, WebGL)
-- [ ] Implement sha256 IP hashing (never store raw IPs)
-- [ ] Build identity restoration logic: match fingerprint + IP hash to restore previous anonymous identity
-- [ ] Create middleware that validates/creates anonymous identity on every request
-- [ ] Update last_seen_at on every anonymous request
+- [x] Create anonymous identity service (backend) — UUID generation, record creation
+- [x] Implement secure httpOnly cookie for anonymous ID storage
+- [x] Implement localStorage backup for anonymous ID
+- [x] Create fingerprint generation module (browser, OS, screen, timezone, language, canvas, WebGL)
+- [x] Implement sha256 IP hashing (never store raw IPs)
+- [x] Build identity restoration logic: match fingerprint + IP hash to restore previous anonymous identity
+- [x] Create middleware that validates/creates anonymous identity on every request
+- [x] Update last_seen_at on every anonymous request
 
 **Success Criteria:**
 1. First-time visitor gets a unique anon_id stored in cookie and localStorage
