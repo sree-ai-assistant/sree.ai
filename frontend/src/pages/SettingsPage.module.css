@@ -782,6 +782,8 @@
 }
 
 .providerButton {
+  display: flex;
+  align-items: center;
   padding: 8px 18px;
   background: rgba(255,255,255,0.05);
   border: 1px solid rgba(255,255,255,0.1);
@@ -797,6 +799,195 @@
   background: rgba(255,255,255,0.1);
   border-color: rgba(255,255,255,0.18);
 }
+
+/* ── Saved API Keys Section ── */
+.savedKeysSection {
+  margin-top: 8px;
+}
+
+.savedKeysHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 18px 20px 14px;
+  border-top: 1px solid rgba(255,255,255,0.04);
+}
+
+.savedKeysTitle {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: rgba(255,255,255,0.3);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin: 0;
+}
+
+.savedKeysCount {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: rgba(255,255,255,0.2);
+  background: rgba(255,255,255,0.04);
+  padding: 3px 10px;
+  border-radius: 100px;
+}
+
+.savedKeysList {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 0 20px 20px;
+}
+
+.savedKeyItem {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 18px;
+  background: rgba(255,255,255,0.018);
+  border: 1px solid rgba(255,255,255,0.04);
+  border-radius: 14px;
+  transition: all 0.25s;
+}
+.savedKeyItem:hover {
+  background: rgba(255,255,255,0.035);
+  border-color: rgba(255,255,255,0.08);
+}
+.savedKeyItemDisabled {
+  opacity: 0.5;
+}
+
+.savedKeyProviderIcon {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.savedKeyInfo {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.savedKeyName {
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: white;
+  margin: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.savedKeyMeta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.75rem;
+  color: rgba(255,255,255,0.3);
+}
+
+.savedKeyProviderBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  background: rgba(255,255,255,0.04);
+  border-radius: 6px;
+  font-weight: 600;
+  font-size: 0.7rem;
+  text-transform: capitalize;
+}
+
+.savedKeyDate {
+  font-family: 'SF Mono', 'Fira Code', monospace;
+  font-size: 0.7rem;
+}
+
+.savedKeyActions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+.savedKeyToggle {
+  position: relative;
+  width: 40px;
+  height: 22px;
+  flex-shrink: 0;
+}
+
+.savedKeyToggle input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+  position: absolute;
+}
+
+.savedKeyToggle label {
+  position: absolute;
+  inset: 0;
+  background: rgba(255,255,255,0.1);
+  border-radius: 100px;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.savedKeyToggle label::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 18px;
+  height: 18px;
+  background: white;
+  border-radius: 50%;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 1px 4px rgba(0,0,0,0.25);
+}
+
+.savedKeyToggle input:checked + label {
+  background: linear-gradient(135deg, var(--primary), #a855f7);
+  box-shadow: 0 0 10px rgba(99,102,241,0.25);
+}
+
+.savedKeyToggle input:checked + label::after {
+  transform: translateX(18px);
+}
+
+.savedKeyDeleteBtn {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  color: rgba(255,255,255,0.2);
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+  flex-shrink: 0;
+}
+.savedKeyDeleteBtn:hover {
+  background: rgba(239,68,68,0.1);
+  color: #f87171;
+}
+
+.emptyKeysMessage {
+  text-align: center;
+  padding: 24px 20px;
+  color: rgba(255,255,255,0.25);
+  font-size: 0.82rem;
+  font-style: italic;
+}
+
 
 /* ── Billing ── */
 .billingOverview {

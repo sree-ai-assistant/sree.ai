@@ -38,15 +38,28 @@ import {
 } from 'lucide-react';
 import { DashboardLayout } from '../features/dashboard/DashboardLayout';
 import { SettingsSidebar } from '../components/layout/SettingsSidebar';
-import api, { sessionService } from '../lib/api';
+import api, { sessionService, apiKeyService } from '../lib/api';
 import { useAuthStore, type User } from '../store/auth.store';
+import ApiKeyModal from '../components/shared/ApiKeyModal';
+import { getProviderLogo, PROVIDER_COLORS } from '../components/icons/ProviderLogos';
 import styles from './SettingsPage.module.css';
 
-interface ApiKeyInfo {
+interface SavedApiKey {
+  id: string;
   provider: string;
+  name: string | null;
+  in_use: boolean;
   updated_at: string;
   last_used_at: string;
+  created_at: string;
 }
+
+const PROVIDERS = [
+  { id: 'google', name: 'Google', description: 'Gemini models' },
+  { id: 'nvidia', name: 'Nvidia', description: 'NIM inference' },
+  { id: 'deepgram', name: 'DeepGram', description: 'Speech-to-text' },
+  { id: 'groq', name: 'Groq', description: 'Ultra-fast inference' },
+];
 
 interface UserSession {
   id: string;
@@ -74,7 +87,9 @@ const SettingsPage: React.FC = () => {
     display_name: user?.display_name || '',
     avatar_url: user?.avatar_url || ''
   });
-  const [apiKeys, setApiKeys] = useState<Record<string, ApiKeyInfo>>({});
+  const [savedKeys, setSavedKeys] = useState<SavedApiKey[]>([]);
+  const [keyModalOpen, setKeyModalOpen] = useState(false);
+  const [keyModalProvider, setKeyModalProvider] = useState('');
   const [status, setStatus] = useState<'idle' | 'loading' | 'saving' | 'success' | 'error'>('idle');
   const [lastSaved, setLastSaved] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -243,15 +258,54 @@ const SettingsPage: React.FC = () => {
   const fetchSettings = async () => {
     try {
       setStatus('loading');
-      const response = await api.get('/user/settings');
-      if (response.data.api_keys) {
-        setApiKeys(response.data.api_keys);
-      }
+      await fetchSavedKeys();
       setStatus('idle');
     } catch (error) {
       console.error('Error fetching settings:', error);
       setStatus('error');
     }
+  };
+
+  const fetchSavedKeys = async () => {
+    try {
+      const response = await apiKeyService.listKeys();
+      if (response.success && response.data) {
+        setSavedKeys(response.data);
+      }
+    } catch (error) {
+      console.error('Error fetching API keys:', error);
+    }
+  };
+
+  const handleSaveApiKey = async (data: { name: string; provider: string; key: string }) => {
+    await apiKeyService.saveKey(data);
+    await fetchSavedKeys();
+  };
+
+  const handleToggleKey = async (keyId: string, currentValue: boolean) => {
+    // Optimistic update
+    setSavedKeys(prev => prev.map(k => k.id === keyId ? { ...k, in_use: !currentValue } : k));
+    try {
+      await apiKeyService.toggleKey(keyId, !currentValue);
+    } catch (error) {
+      // Revert on failure
+      setSavedKeys(prev => prev.map(k => k.id === keyId ? { ...k, in_use: currentValue } : k));
+      console.error('Failed to toggle key:', error);
+    }
+  };
+
+  const handleDeleteKey = async (keyId: string) => {
+    try {
+      await apiKeyService.deleteKey(keyId);
+      setSavedKeys(prev => prev.filter(k => k.id !== keyId));
+    } catch (error) {
+      console.error('Failed to delete key:', error);
+    }
+  };
+
+  const openKeyModal = (providerId: string) => {
+    setKeyModalProvider(providerId);
+    setKeyModalOpen(true);
   };
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -444,46 +498,143 @@ const SettingsPage: React.FC = () => {
     </motion.div>
   );
 
-  const renderKeysSection = () => (
-    <motion.div 
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      className={styles.sectionContent}
-    >
-      <div className={styles.settingsCard}>
-        <div className={styles.cardHeaderSmall}>
-          <h3 className={styles.cardTitle}>API Connections</h3>
-          <p className={styles.cardSubtitle}>Connect your favorite AI providers to power your apps.</p>
-        </div>
-        <div className={styles.cardBody}>
-          <div className={styles.apiKeyList}>
-            {['openai', 'anthropic', 'google', 'mistral'].map(provider => (
-              <div key={provider} className={styles.providerItem}>
-                <div className={styles.providerInfo}>
-                  <div className={styles.providerLogo}>
-                    <Globe size={20} />
+  const renderKeysSection = () => {
+    const formatDate = (dateStr: string) => {
+      const d = new Date(dateStr);
+      const dd = String(d.getDate()).padStart(2, '0');
+      const mm = String(d.getMonth() + 1).padStart(2, '0');
+      const yy = String(d.getFullYear()).slice(-2);
+      return `${dd}-${mm}-${yy}`;
+    };
+
+    const getKeyCountForProvider = (providerId: string) => 
+      savedKeys.filter(k => k.provider === providerId).length;
+
+    return (
+      <motion.div 
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        className={styles.sectionContent}
+      >
+        <div className={styles.settingsCard}>
+          <div className={styles.cardHeaderSmall}>
+            <h3 className={styles.cardTitle}>API Providers</h3>
+            <p className={styles.cardSubtitle}>Connect your AI provider API keys to power your applications.</p>
+          </div>
+          <div className={styles.cardBody}>
+            <div className={styles.apiKeyList}>
+              {PROVIDERS.map(provider => {
+                const keyCount = getKeyCountForProvider(provider.id);
+                const providerColor = PROVIDER_COLORS[provider.id] || '#6366f1';
+                return (
+                  <div key={provider.id} className={styles.providerItem}>
+                    <div className={styles.providerInfo}>
+                      <div 
+                        className={styles.providerLogo}
+                        style={{ background: `${providerColor}12`, borderColor: `${providerColor}25` }}
+                      >
+                        {getProviderLogo(provider.id, 22)}
+                      </div>
+                      <div>
+                        <h4 className={styles.providerName}>{provider.name}</h4>
+                        {keyCount > 0 ? (
+                          <p className={styles.providerStatus}>
+                            <CheckCircle2 size={12} color="#10B981" /> {keyCount} key{keyCount > 1 ? 's' : ''} connected
+                          </p>
+                        ) : (
+                          <p className={styles.providerStatusMuted}>{provider.description}</p>
+                        )}
+                      </div>
+                    </div>
+                    <button 
+                      className={styles.providerButton}
+                      onClick={() => openKeyModal(provider.id)}
+                    >
+                      <Plus size={14} style={{ marginRight: 4 }} />
+                      Connect
+                    </button>
                   </div>
-                  <div>
-                    <h4 className={styles.providerName}>{provider.charAt(0).toUpperCase() + provider.slice(1)}</h4>
-                    {apiKeys[provider] ? (
-                      <p className={styles.providerStatus}>
-                        <CheckCircle2 size={12} color="#10B981" /> Connected
-                      </p>
-                    ) : (
-                      <p className={styles.providerStatusMuted}>Not connected</p>
-                    )}
-                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Saved API Keys */}
+          <div className={styles.savedKeysSection}>
+            <div className={styles.savedKeysHeader}>
+              <h4 className={styles.savedKeysTitle}>Saved API Keys</h4>
+              {savedKeys.length > 0 && (
+                <span className={styles.savedKeysCount}>{savedKeys.length} key{savedKeys.length !== 1 ? 's' : ''}</span>
+              )}
+            </div>
+            <div className={styles.savedKeysList}>
+              {savedKeys.length > 0 ? (
+                savedKeys.map(key => {
+                  const providerColor = PROVIDER_COLORS[key.provider] || '#6366f1';
+                  return (
+                    <div 
+                      key={key.id} 
+                      className={`${styles.savedKeyItem} ${!key.in_use ? styles.savedKeyItemDisabled : ''}`}
+                    >
+                      <div 
+                        className={styles.savedKeyProviderIcon}
+                        style={{ background: `${providerColor}12`, border: `1px solid ${providerColor}25` }}
+                      >
+                        {getProviderLogo(key.provider, 20)}
+                      </div>
+                      <div className={styles.savedKeyInfo}>
+                        <h5 className={styles.savedKeyName}>
+                          {key.name || `${key.provider}_key`}
+                        </h5>
+                        <div className={styles.savedKeyMeta}>
+                          <span className={styles.savedKeyProviderBadge} style={{ color: providerColor }}>
+                            {key.provider.charAt(0).toUpperCase() + key.provider.slice(1)}
+                          </span>
+                          <span className={styles.savedKeyDate}>
+                            Added {formatDate(key.created_at)}
+                          </span>
+                        </div>
+                      </div>
+                      <div className={styles.savedKeyActions}>
+                        <div className={styles.savedKeyToggle}>
+                          <input 
+                            type="checkbox" 
+                            id={`toggle-${key.id}`} 
+                            checked={key.in_use}
+                            onChange={() => handleToggleKey(key.id, key.in_use)}
+                          />
+                          <label htmlFor={`toggle-${key.id}`}></label>
+                        </div>
+                        <button 
+                          className={styles.savedKeyDeleteBtn}
+                          onClick={() => handleDeleteKey(key.id)}
+                          title="Delete this API key"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })
+              ) : (
+                <div className={styles.emptyKeysMessage}>
+                  No API keys saved yet. Connect a provider above to get started.
                 </div>
-                <button className={styles.providerButton}>
-                  {apiKeys[provider] ? 'Manage' : 'Connect'}
-                </button>
-              </div>
-            ))}
+              )}
+            </div>
           </div>
         </div>
-      </div>
-    </motion.div>
-  );
+
+        {/* API Key Modal */}
+        <ApiKeyModal
+          isOpen={keyModalOpen}
+          onClose={() => setKeyModalOpen(false)}
+          onSave={handleSaveApiKey}
+          provider={keyModalProvider}
+        />
+      </motion.div>
+    );
+  };
 
   const renderBillingSection = () => (
     <motion.div 

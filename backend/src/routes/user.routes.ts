@@ -25,7 +25,7 @@ router.get('/profile', authMiddleware, async (req: any, res) => {
 // Update API Keys
 router.post('/settings/keys', authMiddleware, async (req: any, res) => {
   try {
-    const { nvidia_api_key, deepgram_api_key, provider, key } = req.body;
+    const { nvidia_api_key, deepgram_api_key, provider, key, name } = req.body;
     const userId = req.user.id;
 
     const finalProvider = provider || (nvidia_api_key ? 'nvidia' : (deepgram_api_key ? 'deepgram' : null));
@@ -35,13 +35,13 @@ router.post('/settings/keys', authMiddleware, async (req: any, res) => {
       return res.status(400).json({ success: false, message: 'Provider and API key are required' });
     }
 
-    const success = await ApiKeyService.saveUserApiKey(userId, finalProvider, finalKey);
+    const success = await ApiKeyService.saveUserApiKey(userId, finalProvider, finalKey, name);
     
     if (!success) {
       throw new Error('Failed to encrypt or save API key');
     }
 
-    res.json({ success: true, message: `${finalProvider} API key updated successfully` });
+    res.json({ success: true, message: `${finalProvider} API key saved successfully` });
   } catch (error: any) {
     res.status(500).json({ success: false, message: error.message });
   }
@@ -57,16 +57,33 @@ router.get('/settings/keys', authMiddleware, async (req: any, res) => {
   }
 });
 
-// Delete API Key
-router.delete('/settings/keys/:provider', authMiddleware, async (req: any, res) => {
+// Toggle API Key in_use
+router.patch('/settings/keys/:id/toggle', authMiddleware, async (req: any, res) => {
   try {
-    const { provider } = req.params;
-    const success = await ApiKeyService.deleteUserApiKey(req.user.id, provider);
+    const { id } = req.params;
+    const { in_use } = req.body;
+    const success = await ApiKeyService.toggleApiKey(req.user.id, id, in_use);
     
     if (success) {
-      res.json({ success: true, message: `${provider} key deleted successfully` });
+      res.json({ success: true, message: `API key ${in_use ? 'enabled' : 'disabled'} successfully` });
     } else {
-      res.status(500).json({ success: false, message: `Failed to delete ${provider} key` });
+      res.status(500).json({ success: false, message: 'Failed to toggle API key' });
+    }
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// Delete API Key by ID
+router.delete('/settings/keys/:id', authMiddleware, async (req: any, res) => {
+  try {
+    const { id } = req.params;
+    const success = await ApiKeyService.deleteApiKeyById(req.user.id, id);
+    
+    if (success) {
+      res.json({ success: true, message: 'API key deleted successfully' });
+    } else {
+      res.status(500).json({ success: false, message: 'Failed to delete API key' });
     }
   } catch (error: any) {
     res.status(500).json({ success: false, message: error.message });

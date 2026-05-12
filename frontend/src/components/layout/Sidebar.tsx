@@ -34,14 +34,14 @@ interface SidebarProps {
 export const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, setIsCollapsed }) => {
   const navigate = useNavigate();
   const { user, signOut } = useAuthStore();
-  const { 
-    conversations, 
-    activeConversation, 
-    fetchConversations, 
+  const {
+    conversations,
+    activeConversation,
+    fetchConversations,
     setActiveConversation,
     clearActiveConversation,
     deleteConversation,
-    loading 
+    loading
   } = useChatStore();
 
   const location = useLocation();
@@ -116,7 +116,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, setIsCollapsed })
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
     const now = new Date();
-    
+
     // Create dates with only year, month, day for calendar comparison
     const dDate = new Date(date.getFullYear(), date.getMonth(), date.getDate());
     const dNow = new Date(now.getFullYear(), now.getMonth(), now.getDate());
@@ -137,7 +137,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, setIsCollapsed })
     };
 
     // Sort by updated_at just in case
-    const sortedConvs = [...convs].sort((a, b) => 
+    const sortedConvs = [...convs].sort((a, b) =>
       new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()
     );
 
@@ -160,7 +160,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, setIsCollapsed })
     const matchesSearch = c.title.toLowerCase().includes(searchQuery.toLowerCase());
     return c.type === 'voice' && matchesSearch;
   });
-  
+
   const imageConversations = conversations.filter(c => {
     const matchesSearch = c.title.toLowerCase().includes(searchQuery.toLowerCase());
     return c.type === 'image' && matchesSearch;
@@ -168,17 +168,17 @@ export const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, setIsCollapsed })
 
   const renderList = (items: Conversation[]) => {
     const groups = groupConversationsByDate(items);
-    
+
     return Object.entries(groups).map(([label, groupItems]) => {
       if (groupItems.length === 0) return null;
-      
+
       return (
         <div key={label} className={styles.dateGroup}>
           {!isCollapsed && <div className={styles.dateLabel}>{label}</div>}
           <div className={styles.historyList}>
             {groupItems.map((item) => (
               <div key={item.id} className={styles.historyItemWrapper}>
-                <div 
+                <div
                   className={`${styles.historyItem} ${activeConversation?.id === item.id ? styles.active : ''}`}
                   onClick={() => handleSelectConversation(item.id)}
                   title={isCollapsed ? item.title : undefined}
@@ -190,13 +190,13 @@ export const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, setIsCollapsed })
                     }
                   }}
                 >
-                  {item.type === 'voice' ? <Mic size={18} className={styles.itemIcon} /> : 
-                   item.type === 'image' ? <ImageIcon size={18} className={styles.itemIcon} /> : 
-                   <MessageSquare size={18} className={styles.itemIcon} />}
+                  {item.type === 'voice' ? <Mic size={18} className={styles.itemIcon} /> :
+                    item.type === 'image' ? <ImageIcon size={18} className={styles.itemIcon} /> :
+                      <MessageSquare size={18} className={styles.itemIcon} />}
                   {!isCollapsed && (
                     <>
                       <span className={styles.itemTitle}>{item.title}</span>
-                      <button 
+                      <button
                         className={styles.menuBtn}
                         onClick={(e) => {
                           e.stopPropagation();
@@ -209,10 +209,10 @@ export const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, setIsCollapsed })
                     </>
                   )}
                 </div>
-                
+
                 {menuOpenId === item.id && (
                   <div className={styles.dropdown} ref={menuRef}>
-                    <button 
+                    <button
                       className={`${styles.menuAction} ${styles.deleteAction}`}
                       onClick={(e) => handleDelete(e, item.id)}
                     >
@@ -234,8 +234,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, setIsCollapsed })
       <div className={styles.topSection}>
         <div className={styles.topHeader}>
           {!isCollapsed && <span className={styles.brand}>CORE</span>}
-          <button 
-            className={styles.toggleBtn} 
+          <button
+            className={styles.toggleBtn}
             onClick={() => setIsCollapsed(!isCollapsed)}
             title={isCollapsed ? "Expand Sidebar" : "Collapse Sidebar"}
           >
@@ -256,9 +256,9 @@ export const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, setIsCollapsed })
         {!isCollapsed && (
           <div className={styles.searchWrapper}>
             <Search size={16} className={styles.searchIcon} />
-            <input 
-              type="text" 
-              placeholder={isVoiceContext ? "Search library..." : "Search history..."} 
+            <input
+              type="text"
+              placeholder={isVoiceContext ? "Search library..." : "Search history..."}
               className={styles.searchInput}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
@@ -282,14 +282,14 @@ export const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, setIsCollapsed })
               {loading && conversations.length === 0 ? (
                 <div className={styles.historyList} style={{ padding: isCollapsed ? '0' : '0 8px', display: 'flex', flexDirection: 'column', alignItems: isCollapsed ? 'center' : 'stretch' }}>
                   {Array.from({ length: 8 }).map((_, i) => (
-                    <div 
-                      key={`sidebar-skeleton-${i}`} 
-                      className="skeleton" 
-                      style={{ 
-                        height: isCollapsed ? '32px' : '36px', 
-                        width: isCollapsed ? '32px' : '100%', 
-                        marginBottom: '12px', 
-                        borderRadius: isCollapsed ? '50%' : '8px' 
+                    <div
+                      key={`sidebar-skeleton-${i}`}
+                      className="skeleton"
+                      style={{
+                        height: isCollapsed ? '32px' : '36px',
+                        width: isCollapsed ? '32px' : '100%',
+                        marginBottom: '12px',
+                        borderRadius: isCollapsed ? '50%' : '8px'
                       }}
                     ></div>
                   ))}
@@ -330,14 +330,14 @@ export const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, setIsCollapsed })
             {loading && conversations.length === 0 ? (
               <div className={styles.historyList} style={{ padding: isCollapsed ? '0' : '0 8px', display: 'flex', flexDirection: 'column', alignItems: isCollapsed ? 'center' : 'stretch' }}>
                 {Array.from({ length: 5 }).map((_, i) => (
-                  <div 
-                    key={`voice-skeleton-${i}`} 
-                    className="skeleton" 
-                    style={{ 
-                      height: isCollapsed ? '32px' : '36px', 
-                      width: isCollapsed ? '32px' : '100%', 
-                      marginBottom: '12px', 
-                      borderRadius: isCollapsed ? '50%' : '8px' 
+                  <div
+                    key={`voice-skeleton-${i}`}
+                    className="skeleton"
+                    style={{
+                      height: isCollapsed ? '32px' : '36px',
+                      width: isCollapsed ? '32px' : '100%',
+                      marginBottom: '12px',
+                      borderRadius: isCollapsed ? '50%' : '8px'
                     }}
                   ></div>
                 ))}
@@ -417,12 +417,12 @@ export const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, setIsCollapsed })
                 <span className={styles.name}>{user?.display_name || user?.email?.split('@')[0]}</span>
                 <div className={styles.badge}>
                   <Zap size={10} fill="currentColor" />
-                  <span>{user?.plan_type === 'pro' ? 'Pro Member' : user?.plan_type === 'starter' ? 'Starter Member' : 'Free Plan'}</span>
+                  <span>{user?.plan_type === 'pro' ? 'Pro Member' : user?.plan_type === 'starter' ? 'Starter Plan' : 'Free Plan'}</span>
                 </div>
               </div>
             )}
           </div>
-          
+
           <div className={styles.profileActions}>
             <button className={styles.signOutBtn} onClick={handleSignOut} title="Sign Out">
               <LogOut size={16} />

@@ -78,4 +78,23 @@ export const sessionService = {
   },
 };
 
+export const apiKeyService = {
+  listKeys: async () => {
+    const response = await api.get('/user/settings/keys');
+    return response.data;
+  },
+  saveKey: async (data: { name: string; provider: string; key: string }) => {
+    const response = await api.post('/user/settings/keys', data);
+    return response.data;
+  },
+  toggleKey: async (keyId: string, inUse: boolean) => {
+    const response = await api.patch(`/user/settings/keys/${keyId}/toggle`, { in_use: inUse });
+    return response.data;
+  },
+  deleteKey: async (keyId: string) => {
+    const response = await api.delete(`/user/settings/keys/${keyId}`);
+    return response.data;
+  },
+};
+
 export default api;

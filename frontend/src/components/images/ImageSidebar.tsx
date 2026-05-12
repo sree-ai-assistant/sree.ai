@@ -74,8 +74,8 @@ export const ImageSidebar: React.FC<ImageSidebarProps> = ({
       <div className={styles.topSection}>
         <div className={styles.topHeader}>
           {!isCollapsed && <span className={styles.brand}>SREE AI IMAGES</span>}
-          <button 
-            className={styles.toggleBtn} 
+          <button
+            className={styles.toggleBtn}
             onClick={() => setIsCollapsed(!isCollapsed)}
             title={isCollapsed ? "Expand Sidebar" : "Collapse Sidebar"}
           >
@@ -244,12 +244,12 @@ export const ImageSidebar: React.FC<ImageSidebarProps> = ({
                 <span className={styles.name}>{user?.display_name || user?.email?.split('@')[0]}</span>
                 <div className={styles.badge}>
                   <Zap size={10} fill="currentColor" />
-                  <span>{user?.plan_type === 'pro' ? 'Pro Member' : user?.plan_type === 'starter' ? 'Starter Member' : 'Free Plan'}</span>
+                  <span>{user?.plan_type === 'pro' ? 'Pro Member' : user?.plan_type === 'starter' ? 'Starter Plan' : 'Free Plan'}</span>
                 </div>
               </div>
             )}
           </div>
-          
+
           <div className={styles.profileActions}>
             <button className={styles.signOutBtn} onClick={handleSignOut} title="Sign Out">
               <LogOut size={16} />
