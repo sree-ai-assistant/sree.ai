@@ -12,15 +12,17 @@
 
 **Requirements:** DB-01, DB-02, DB-03, DB-04, DB-05, DB-06, PLAN-01, PLAN-02, PLAN-03, PLAN-04
 
+**Status:** ✅ Complete (2026-05-12)
+
 **Tasks:**
-- [ ] Create `anonymous_users` table with all specified fields (anon_id, fingerprint_hash, ip_hash, user_agent, country, timestamps, counters)
-- [ ] Create `usage_tracking` table with per-minute, daily, monthly counters per tool type
-- [ ] Enhance `subscriptions` table with billing cycle metadata
-- [ ] Add upload_limit_mb to plan configuration
-- [ ] Create RLS policies for anonymous_users (access via anon_id) and usage_tracking
-- [ ] Create indexes on fingerprint_hash, ip_hash, anon_id
-- [ ] Define plan configuration constants (Anonymous/Free/Starter/Pro limits, features, prices)
-- [ ] Create Supabase migration file for all schema changes
+- [x] Create `anonymous_users` table with all specified fields (anon_id, fingerprint_hash, ip_hash, user_agent, country, timestamps, counters)
+- [x] Create `usage_tracking` table with per-minute, daily, monthly counters per tool type
+- [x] Enhance `subscriptions` table with billing cycle metadata
+- [x] Add upload_limit_mb to plan configuration
+- [x] Create RLS policies for anonymous_users (access via anon_id) and usage_tracking
+- [x] Create indexes on fingerprint_hash, ip_hash, anon_id
+- [x] Define plan configuration constants (Anonymous/Free/Starter/Pro limits, features, prices)
+- [x] Create Supabase migration file for all schema changes
 
 **Success Criteria:**
 1. All new tables exist with proper columns and constraints
