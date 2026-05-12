@@ -113,56 +113,56 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| DB-01 | — | Pending |
-| DB-02 | — | Pending |
-| DB-03 | — | Pending |
-| DB-04 | — | Pending |
-| DB-05 | — | Pending |
-| DB-06 | — | Pending |
-| ANON-01 | — | Pending |
-| ANON-02 | — | Pending |
-| ANON-03 | — | Pending |
-| ANON-04 | — | Pending |
-| ANON-05 | — | Pending |
-| ANON-06 | — | Pending |
-| PLAN-01 | — | Pending |
-| PLAN-02 | — | Pending |
-| PLAN-03 | — | Pending |
-| PLAN-04 | — | Pending |
-| RATE-01 | — | Pending |
-| RATE-02 | — | Pending |
-| RATE-03 | — | Pending |
-| RATE-04 | — | Pending |
-| RATE-05 | — | Pending |
-| RATE-06 | — | Pending |
-| SUB-01 | — | Pending |
-| SUB-02 | — | Pending |
-| SUB-03 | — | Pending |
-| SUB-04 | — | Pending |
-| SUB-05 | — | Pending |
-| QUEUE-01 | — | Pending |
-| QUEUE-02 | — | Pending |
-| BYOK-01 | — | Pending |
-| BYOK-02 | — | Pending |
-| ABUSE-01 | — | Pending |
-| ABUSE-02 | — | Pending |
-| ABUSE-03 | — | Pending |
-| ABUSE-04 | — | Pending |
-| ABUSE-05 | — | Pending |
-| ABUSE-06 | — | Pending |
-| MIG-01 | — | Pending |
-| MIG-02 | — | Pending |
-| MIG-03 | — | Pending |
-| UX-01 | — | Pending |
-| UX-02 | — | Pending |
-| UX-03 | — | Pending |
-| UX-04 | — | Pending |
-| UX-05 | — | Pending |
+| DB-01 | Phase 6 | Pending |
+| DB-02 | Phase 6 | Pending |
+| DB-03 | Phase 6 | Pending |
+| DB-04 | Phase 6 | Pending |
+| DB-05 | Phase 6 | Pending |
+| DB-06 | Phase 6 | Pending |
+| ANON-01 | Phase 7 | Pending |
+| ANON-02 | Phase 7 | Pending |
+| ANON-03 | Phase 7 | Pending |
+| ANON-04 | Phase 7 | Pending |
+| ANON-05 | Phase 7 | Pending |
+| ANON-06 | Phase 7 | Pending |
+| PLAN-01 | Phase 6 | Pending |
+| PLAN-02 | Phase 6 | Pending |
+| PLAN-03 | Phase 6 | Pending |
+| PLAN-04 | Phase 6 | Pending |
+| RATE-01 | Phase 8 | Pending |
+| RATE-02 | Phase 8 | Pending |
+| RATE-03 | Phase 8 | Pending |
+| RATE-04 | Phase 8 | Pending |
+| RATE-05 | Phase 8 | Pending |
+| RATE-06 | Phase 8 | Pending |
+| SUB-01 | Phase 8 | Pending |
+| SUB-02 | Phase 13 | Pending |
+| SUB-03 | Phase 13 | Pending |
+| SUB-04 | Phase 9 | Pending |
+| SUB-05 | Phase 9 | Pending |
+| QUEUE-01 | Phase 9 | Pending |
+| QUEUE-02 | Phase 9 | Pending |
+| BYOK-01 | Phase 10 | Pending |
+| BYOK-02 | Phase 10 | Pending |
+| ABUSE-01 | Phase 11 | Pending |
+| ABUSE-02 | Phase 11 | Pending |
+| ABUSE-03 | Phase 11 | Pending |
+| ABUSE-04 | Phase 11 | Pending |
+| ABUSE-05 | Phase 11 | Pending |
+| ABUSE-06 | Phase 11 | Pending |
+| MIG-01 | Phase 12 | Pending |
+| MIG-02 | Phase 12 | Pending |
+| MIG-03 | Phase 12 | Pending |
+| UX-01 | Phase 13 | Pending |
+| UX-02 | Phase 13 | Pending |
+| UX-03 | Phase 13 | Pending |
+| UX-04 | Phase 13 | Pending |
+| UX-05 | Phase 13 | Pending |
 
 **Coverage:**
 - v1 requirements: 45 total
-- Mapped to phases: 0
-- Unmapped: 45 ⚠️
+- Mapped to phases: 45
+- Unmapped: 0 ✓
 
 ---
 *Requirements defined: 2026-05-12*
