@@ -170,6 +170,19 @@ export function storeAnonId(anonId: string): void {
 }
 
 /**
+ * Clear the stored anonymous ID (after migration).
+ */
+export function clearAnonId(): void {
+  try {
+    localStorage.removeItem(ANON_ID_KEY);
+    // Clear the cookie as well by setting it to expire in the past
+    document.cookie = `${ANON_ID_COOKIE}=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT`;
+  } catch {
+    // Ignore errors
+  }
+}
+
+/**
  * Generate a new anonymous UUID (v4) client-side.
  */
 export function generateAnonId(): string {

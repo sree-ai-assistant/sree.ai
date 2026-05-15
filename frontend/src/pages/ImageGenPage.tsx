@@ -113,9 +113,9 @@ const ImageGenPage: React.FC = () => {
 
   const fetchUsage = useCallback(async () => {
     try {
-      const res = await api.get('/ai/download/usage');
+      const res = await api.get('/ai/usage');
       if (res.data.success) {
-        setUsage(res.data.data);
+        setUsage(res.data.status);
       }
     } catch (err) {
       console.error('Failed to fetch usage:', err);

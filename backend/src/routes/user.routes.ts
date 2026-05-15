@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { authMiddleware } from '../middleware/auth';
 import { supabaseAdmin } from '../lib/supabase';
 import { ApiKeyService } from '../services/apiKey.service';
+import { migrateDataToUser } from '../services/anonymous.service';
 
 const router = Router();
 
@@ -228,6 +229,32 @@ router.delete('/sessions/:id', authMiddleware, async (req: any, res) => {
     if (error) throw error;
 
     res.json({ success: true, message: 'Session deleted successfully' });
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// --- Migration Routes ---
+
+/**
+ * Migrate anonymous data to the current authenticated user.
+ * Triggered after signup/login if an anonymous ID is present.
+ */
+router.post('/migrate', authMiddleware, async (req: any, res) => {
+  try {
+    const { anon_id } = req.body;
+    const userId = req.user.id;
+
+    if (!anon_id) {
+      return res.status(400).json({ success: false, message: 'anon_id is required' });
+    }
+
+    await migrateDataToUser(anon_id, userId);
+
+    res.json({ 
+      success: true, 
+      message: 'Anonymous data successfully migrated to your account' 
+    });
   } catch (error: any) {
     res.status(500).json({ success: false, message: error.message });
   }

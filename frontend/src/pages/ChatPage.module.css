@@ -315,6 +315,29 @@
   animation: fadeIn 0.3s ease-out;
 }
 
+.lockBanner {
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.2);
+  color: #f87171;
+  padding: 10px 16px;
+  border-radius: 14px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  backdrop-filter: blur(10px);
+  animation: slideInUp 0.3s ease-out;
+  box-shadow: 0 4px 20px rgba(239, 68, 68, 0.15);
+}
+
+@keyframes slideInUp {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
 @keyframes fadeIn {
   from {
     opacity: 0;

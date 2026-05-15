@@ -68,15 +68,17 @@
 
 **Requirements:** RATE-01, RATE-02, RATE-03, RATE-04, RATE-05, RATE-06, SUB-01
 
+**Status:** ✅ Completed (2026-05-13)
+
 **Tasks:**
-- [ ] Rewrite usage.service.ts to support multi-tool rate limiting (chat, voice, image)
-- [ ] Implement rate limit check order: per-minute → daily → monthly
-- [ ] Build structured error responses: `{success: false, code: "RATE_LIMIT_EXCEEDED", message: "..."}`
-- [ ] Implement daily limit reset logic (24-hour window)
-- [ ] Implement monthly limit reset logic (billing cycle for authenticated, none for anonymous)
-- [ ] Create rate-limit middleware that intercepts all AI requests
-- [ ] Build subscription.service.ts with plan lookup and feature gating
-- [ ] Integrate rate limiting with both anonymous and authenticated users
+- [x] Rewrite `usage.service.ts` to support atomic multi-tool rate limiting via PostgreSQL RPC
+- [x] Implement rate limit check order: per-minute → daily → monthly (logic within RPC)
+- [x] Build structured error responses for rate limit violations
+- [x] Implement daily and monthly reset logic (logic within RPC)
+- [x] Build `subscription.service.ts` with plan lookup and feature gating
+- [x] Refactor `rateLimit.ts` middleware to use atomic `checkAndIncrementUsage`
+- [x] Integrate rate limiting with all AI routes (chat, voice, image)
+- [x] Integrate rate limiting with both anonymous and authenticated users
 
 **Success Criteria:**
 1. Exceeding per-minute limit returns structured error before daily/monthly check
@@ -95,13 +97,15 @@
 
 **Requirements:** SUB-04, SUB-05, QUEUE-01, QUEUE-02
 
+**Status:** ✅ Complete (2026-05-13)
+
 **Tasks:**
-- [ ] Implement file upload size validation middleware (blocked/10MB/50MB/250MB per plan)
-- [ ] Block file upload entirely for anonymous users (return auth-required error)
-- [ ] Create queue priority system: Anonymous=0, Free=1, Starter=2, Pro=3
-- [ ] Implement priority-based request processing during high traffic
-- [ ] Add plan-tier check to file upload routes
-- [ ] Ensure anonymous users can only access free/basic AI models
+- [x] Implement file upload size validation middleware (blocked/10MB/50MB/250MB per plan)
+- [x] Block file upload entirely for anonymous users (return auth-required error)
+- [x] Create queue priority system: Anonymous=0, Free=1, Starter=2, Pro=3
+- [x] Implement priority-based request processing during high traffic
+- [x] Add plan-tier check to file upload routes
+- [x] Ensure anonymous users can only access free/basic AI models
 
 **Success Criteria:**
 1. Anonymous file upload returns 401 with descriptive message
@@ -114,21 +118,22 @@
 ---
 
 ## Phase 10: BYOK Quota Integration
+**Status:** ✅ Complete (2026-05-13)
 
 **Goal:** Integrate BYOK (Bring Your Own Key) with the rate limiting system — reduced quota consumption when users provide their own API keys.
 
 **Requirements:** BYOK-01, BYOK-02
 
 **Tasks:**
-- [ ] Modify rate limit increment logic to support fractional quota (0.2x for BYOK)
-- [ ] Detect when a request uses a user-provided API key vs platform key
-- [ ] Support BYOK detection for OpenAI, Anthropic, Gemini, and Groq
-- [ ] Update usage tracking to record whether request was BYOK
-- [ ] Add BYOK status indicator to usage response
+- [x] Modify rate limit increment logic to support fractional quota (0.2x for BYOK)
+- [x] Detect when a request uses a user-provided API key vs platform key
+- [x] Support BYOK detection for Nvidia, Deepgram, google and Groq
+- [x] Update usage tracking to record whether request was BYOK
+- [x] Add BYOK status indicator to usage response
 
 **Success Criteria:**
 1. A BYOK request increments usage counter by 0.2 instead of 1.0
-2. All four providers (OpenAI, Anthropic, Gemini, Groq) are recognized for BYOK
+2. Major providers (Google,  Groq, Nvidia, Deepgram) are recognized for BYOK
 3. Usage display correctly reflects reduced consumption for BYOK requests
 
 **Depends on:** Phase 8 (rate limiting engine), existing apiKey.service.ts
@@ -141,15 +146,17 @@
 
 **Requirements:** ABUSE-01, ABUSE-02, ABUSE-03, ABUSE-04, ABUSE-05, ABUSE-06
 
+**Status:** ✅ Complete (2026-05-14)
+
 **Tasks:**
-- [ ] Create abuse detection service with pattern recognition
-- [ ] Detect rapid repeated requests exceeding per-minute limits
-- [ ] Detect excessive account creation from same fingerprint/IP hash
-- [ ] Detect suspicious prompt spam patterns (repeated identical prompts)
-- [ ] Detect VPN/datacenter IP ranges using known datacenter CIDR lists
-- [ ] Detect repeated cookie resets (same fingerprint, multiple anon_ids)
-- [ ] Implement escalating response chain: cooldown → stricter limits → captcha → auth required → IP restriction
-- [ ] Create abuse_flags table to track flagged identities
+- [x] Create abuse detection service with pattern recognition
+- [x] Detect rapid repeated requests exceeding per-minute limits
+- [x] Detect excessive account creation from same fingerprint/IP hash
+- [x] Detect suspicious prompt spam patterns (repeated identical prompts)
+- [x] Detect VPN/datacenter IP ranges using known datacenter CIDR lists
+- [x] Detect repeated cookie resets (same fingerprint, multiple anon_ids)
+- [x] Implement escalating response chain: cooldown → stricter limits → captcha → auth required → IP restriction
+- [x] Create abuse_flags table to track flagged identities
 
 **Success Criteria:**
 1. Same fingerprint creating >3 anonymous identities in 1 hour triggers abuse flag
@@ -167,14 +174,16 @@
 
 **Requirements:** MIG-01, MIG-02, MIG-03
 
+**Status:** ✅ Complete (2026-05-14)
+
 **Tasks:**
-- [ ] Create migration service that links anonymous records to new user accounts
-- [ ] Migrate chat history from anonymous sessions to permanent user account
-- [ ] Migrate preferences and settings from anonymous profile
-- [ ] Migrate usage history and counters
-- [ ] Ensure no data deletion — anonymous records are marked as migrated, not removed
-- [ ] Handle edge case: anonymous user already has data from a previous session
-- [ ] Add migration trigger to the signup/login flow
+- [x] Create migration service that links anonymous records to new user accounts (Database RPC implemented)
+- [x] Migrate chat history from anonymous sessions to permanent user account
+- [x] Migrate preferences and settings from anonymous profile
+- [x] Migrate usage history and counters
+- [x] Ensure no data deletion — anonymous records are marked as migrated, not removed
+- [x] Handle edge case: anonymous user already has data from a previous session
+- [x] Add migration trigger to the signup/login flow
 
 **Success Criteria:**
 1. After signup, all previous anonymous chats appear in user's chat history
@@ -187,19 +196,20 @@
 ---
 
 ## Phase 13: Frontend Limit UX & Polish
+**Status:** ✅ Complete (2026-05-14)
 
 **Goal:** Build all frontend UX for limit enforcement — modals, input blocking, usage indicators, and upload restrictions.
 
 **Requirements:** SUB-02, SUB-03, UX-01, UX-02, UX-03, UX-04, UX-05
 
 **Tasks:**
-- [ ] Create rate-limit-exceeded modal for anonymous users ("Create a free account to continue")
-- [ ] Create upgrade modal for free users (pricing cards + upgrade CTA + API key option)
-- [ ] Implement input blur and send button disable when anonymous limit reached
-- [ ] Block file upload UI for anonymous users with login modal trigger
-- [ ] Add real-time usage indicators showing remaining requests in sidebar/header
-- [ ] Connect frontend limit checks to backend rate limit responses
-- [ ] Style modals with glassmorphism and backdrop blur consistent with existing design
+- [x] Create rate-limit-exceeded modal for anonymous users ("Create a free account to continue")
+- [x] Create upgrade modal for free users (pricing cards + upgrade CTA + API key option)
+- [x] Implement input blur and send button disable when anonymous limit reached
+- [x] Block file upload UI for anonymous users with login modal trigger
+- [x] Add real-time usage indicators showing remaining requests in sidebar/header
+- [x] Connect frontend limit checks to backend rate limit responses
+- [x] Style modals with glassmorphism and backdrop blur consistent with existing design
 
 **Success Criteria:**
 1. Anonymous user hitting chat limit sees blurred input + auth modal

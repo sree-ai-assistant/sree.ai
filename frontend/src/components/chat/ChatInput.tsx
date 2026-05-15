@@ -4,6 +4,7 @@ import { toast } from 'react-hot-toast';
 import { motion, AnimatePresence } from 'framer-motion';
 import styles from './ChatInput.module.css';
 import { useModelStore } from '../../store/model.store';
+import { useAuthStore } from '../../store/auth.store';
 import { uploadFile } from '../../api/storage';
 
 export interface Attachment {
@@ -25,6 +26,7 @@ interface ChatInputProps {
   onAttachmentsChange: React.Dispatch<React.SetStateAction<Attachment[]>>;
   disabled?: boolean;
   placeholderText?: string;
+  onAuthRequired?: () => void;
 }
 
 const ImageThumb: React.FC<{ src: string; onClick: () => void }> = ({ src, onClick }) => {
@@ -50,13 +52,15 @@ export const ChatInput: React.FC<ChatInputProps> = ({
   attachments,
   onAttachmentsChange,
   disabled = false,
-  placeholderText
+  placeholderText,
+  onAuthRequired
 }) => {
   const [internalValue, setInternalValue] = React.useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
   const [previewImage, setPreviewImage] = React.useState<string | null>(null);
   const { setVisionRequired } = useModelStore();
+  const { user } = useAuthStore();
 
   React.useEffect(() => {
     // Automatically sync vision requirement with current attachments
@@ -94,11 +98,22 @@ export const ChatInput: React.FC<ChatInputProps> = ({
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
-    const MAX_SIZE = 10 * 1024 * 1024; // 10MB
+    // Block anonymous users from uploading files
+    if (!user) {
+      onAuthRequired?.();
+      if (fileInputRef.current) fileInputRef.current.value = '';
+      if (imageInputRef.current) imageInputRef.current.value = '';
+      return;
+    }
+
+    const tier = user.plan_type || 'free';
+    const MAX_SIZE_MB = tier === 'pro' ? 250 : tier === 'starter' ? 50 : 10;
+    const MAX_SIZE = MAX_SIZE_MB * 1024 * 1024;
+    
     const validFiles = files.filter(file => file.size <= MAX_SIZE);
     
     if (validFiles.length < files.length) {
-      toast.error("File Size Limit Exceded upload file less them 10MB !!!", {
+      toast.error(`File Size Limit Exceeded! Your plan (${tier}) allows up to ${MAX_SIZE_MB}MB per file.`, {
         style: {
           background: '#ff4757',
           color: '#fff',
@@ -276,7 +291,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
         disabled={disabled}
       />
 
-      <div className={styles.inputContainer}>
+      <div className={`${styles.inputContainer} ${disabled ? styles.disabled : ''}`}>
         {!hasMessages && <div className={styles.neonBorder} />}
         
         {attachments.length > 0 && (

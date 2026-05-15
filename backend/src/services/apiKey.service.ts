@@ -19,29 +19,33 @@ export class ApiKeyService {
    * Fetches and decrypts an API key for a specific user and provider.
    * Only returns keys that are in_use. Falls back to environment variables.
    */
-  static async getUserApiKey(userId: string, provider: string): Promise<string | null> {
-    const { data, error } = await supabaseAdmin
-      .from('api_keys')
-      .select('*')
-      .eq('user_id', userId)
-      .eq('provider', provider)
-      .eq('in_use', true)
-      .order('updated_at', { ascending: false })
-      .limit(1)
-      .maybeSingle();
+  static async getUserApiKey(userId: string | null | undefined, provider: string): Promise<{ key: string | null, source: 'user' | 'env' }> {
+    if (userId) {
+      const { data, error } = await supabaseAdmin
+        .from('api_keys')
+        .select('*')
+        .eq('user_id', userId)
+        .eq('provider', provider)
+        .eq('in_use', true)
+        .order('updated_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
 
-    if (data) {
-      const record = data as ApiKeyRecord;
-      try {
-        return decrypt(record.encrypted_key, record.iv);
-      } catch (e) {
-        console.error(`Failed to decrypt key for user ${userId}, provider ${provider}:`, e);
+      if (data) {
+        const record = data as ApiKeyRecord;
+        try {
+          const decrypted = decrypt(record.encrypted_key, record.iv);
+          return { key: decrypted, source: 'user' };
+        } catch (e) {
+          console.error(`Failed to decrypt key for user ${userId}, provider ${provider}:`, e);
+        }
       }
     }
 
     // Fallback to system key if allowed
     const envKeyName = `${provider.toUpperCase()}_API_KEY`;
-    return process.env[envKeyName] || null;
+    const envKey = process.env[envKeyName] || null;
+    return { key: envKey, source: 'env' };
   }
 
   /**

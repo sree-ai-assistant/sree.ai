@@ -1,12 +1,10 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Plus,
   Search,
   MessageSquare,
   HelpCircle,
   Lightbulb,
-  ChevronLeft,
-  ChevronRight,
   ChevronUp,
   ChevronDown,
   PanelLeft,
@@ -22,7 +20,10 @@ import {
 } from 'lucide-react';
 import { useAuthStore } from '../../store/auth.store';
 import { useChatStore, type Conversation } from '../../store/chat.store';
+import { useUsageStore } from '../../store/usage.store';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { UsageIndicator } from '../sidebar/UsageIndicator';
+import { LimitModal } from '../modals/LimitModal';
 import styles from './Sidebar.module.css';
 
 
@@ -31,9 +32,13 @@ interface SidebarProps {
   setIsCollapsed: (value: boolean) => void;
 }
 
+
+
 export const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, setIsCollapsed }) => {
   const navigate = useNavigate();
   const { user, signOut } = useAuthStore();
+  const { status } = useUsageStore();
+  const [showLimitModal, setShowLimitModal] = useState(false);
   const {
     conversations,
     activeConversation,
@@ -48,6 +53,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, setIsCollapsed })
   const [menuOpenId, setMenuOpenId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [isBottomExpanded, setIsBottomExpanded] = useState(false);
+
+
 
   const handleSignOut = async () => {
     await signOut();
@@ -230,6 +237,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, setIsCollapsed })
   };
 
   return (
+    <>
     <aside className={`${styles.sidebar} ${isCollapsed ? styles.collapsed : ''}`}>
       <div className={styles.topSection}>
         <div className={styles.topHeader}>
@@ -349,6 +357,11 @@ export const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, setIsCollapsed })
         )}
       </div>
 
+      <UsageIndicator 
+        isCollapsed={isCollapsed} 
+        onUpgradeClick={() => setShowLimitModal(true)} 
+      />
+
       <div className={styles.bottomSection}>
         <div className={styles.utilitiesSection}>
           {isCollapsed ? (
@@ -427,7 +440,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, setIsCollapsed })
             <button className={styles.signOutBtn} onClick={handleSignOut} title="Sign Out">
               <LogOut size={16} />
             </button>
-            <button className={styles.upgradeBtn} onClick={() => navigate('/settings')} title="Upgrade Plan">
+            <button className={styles.upgradeBtn} onClick={() => setShowLimitModal(true)} title="Upgrade Plan">
               <Star size={16} />
               {!isCollapsed && <span>Upgrade</span>}
             </button>
@@ -435,5 +448,18 @@ export const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, setIsCollapsed })
         </div>
       </div>
     </aside>
-  );
+
+    <LimitModal 
+      isOpen={showLimitModal} 
+      onClose={() => setShowLimitModal(false)}
+      type={user ? 'tiered' : 'anonymous'}
+      limitInfo={status ? {
+        limit: status.daily_limit,
+        current: status.daily_count,
+        resetsIn: status.resets_in_seconds,
+        tier: status.tier
+      } : undefined}
+    />
+  </>
+);
 };

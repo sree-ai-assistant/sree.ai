@@ -6,7 +6,7 @@
  */
 
 export type PlanTier = 'anonymous' | 'free' | 'starter' | 'pro';
-export type ToolType = 'chat' | 'voice' | 'image';
+export type ToolType = 'chat' | 'voice' | 'image' | 'file_upload' | 'download' | 'tts';
 
 export interface ToolLimits {
   perMinute: number;
@@ -19,8 +19,10 @@ export interface PlanConfig {
   displayName: string;
   price: number; // USD per month
   features: {
+    basicChat: boolean;
     fileUpload: boolean;
     imageGeneration: boolean;
+    voiceToText: boolean;
     allModels: boolean;
     chatHistory: 'none' | 'limited' | 'full';
     priorityQueue: number; // 0=lowest, 3=highest
@@ -36,8 +38,10 @@ export const PLAN_CONFIGS: Readonly<Record<PlanTier, PlanConfig>> = Object.freez
     displayName: 'Anonymous',
     price: 0,
     features: {
+      basicChat: true,
       fileUpload: false,
       imageGeneration: false,
+      voiceToText: true,
       allModels: false,
       chatHistory: 'none',
       priorityQueue: 0,
@@ -46,6 +50,9 @@ export const PLAN_CONFIGS: Readonly<Record<PlanTier, PlanConfig>> = Object.freez
       chat:  { perMinute: 3, daily: 10, monthly: null },
       voice: { perMinute: 3, daily: 10, monthly: null },
       image: { perMinute: 0, daily: 0,  monthly: null },
+      file_upload: { perMinute: 0, daily: 0, monthly: null },
+      download: { perMinute: 5, daily: 10, monthly: null },
+      tts: { perMinute: 3, daily: 10, monthly: null },
     },
     uploadLimitMb: 0,
     requestsPerMinute: 3,
@@ -56,8 +63,10 @@ export const PLAN_CONFIGS: Readonly<Record<PlanTier, PlanConfig>> = Object.freez
     displayName: 'Free',
     price: 0,
     features: {
+      basicChat: true,
       fileUpload: true,
       imageGeneration: true,
+      voiceToText: true,
       allModels: false,
       chatHistory: 'limited',
       priorityQueue: 1,
@@ -66,6 +75,9 @@ export const PLAN_CONFIGS: Readonly<Record<PlanTier, PlanConfig>> = Object.freez
       chat:  { perMinute: 5, daily: 10, monthly: 50 },
       voice: { perMinute: 5, daily: 20, monthly: 50 },
       image: { perMinute: 5, daily: 5,  monthly: 30 },
+      file_upload: { perMinute: 10, daily: 30, monthly: 100 },
+      download: { perMinute: 10, daily: 50, monthly: 200 },
+      tts: { perMinute: 10, daily: 20, monthly: 100 },
     },
     uploadLimitMb: 10,
     requestsPerMinute: 5,
@@ -76,8 +88,10 @@ export const PLAN_CONFIGS: Readonly<Record<PlanTier, PlanConfig>> = Object.freez
     displayName: 'Starter',
     price: 8,
     features: {
+      basicChat: true,
       fileUpload: true,
       imageGeneration: true,
+      voiceToText: true,
       allModels: true,
       chatHistory: 'full',
       priorityQueue: 2,
@@ -86,6 +100,9 @@ export const PLAN_CONFIGS: Readonly<Record<PlanTier, PlanConfig>> = Object.freez
       chat:  { perMinute: 10, daily: 50,  monthly: 600 },
       voice: { perMinute: 10, daily: 60,  monthly: 500 },
       image: { perMinute: 10, daily: 30,  monthly: 70 },
+      file_upload: { perMinute: 30, daily: 100, monthly: 500 },
+      download: { perMinute: 30, daily: 200, monthly: 1000 },
+      tts: { perMinute: 30, daily: 100, monthly: 500 },
     },
     uploadLimitMb: 50,
     requestsPerMinute: 10,
@@ -96,8 +113,10 @@ export const PLAN_CONFIGS: Readonly<Record<PlanTier, PlanConfig>> = Object.freez
     displayName: 'Pro',
     price: 29,
     features: {
+      basicChat: true,
       fileUpload: true,
       imageGeneration: true,
+      voiceToText: true,
       allModels: true,
       chatHistory: 'full',
       priorityQueue: 3,
@@ -106,6 +125,9 @@ export const PLAN_CONFIGS: Readonly<Record<PlanTier, PlanConfig>> = Object.freez
       chat:  { perMinute: 20, daily: 200, monthly: 3000 },
       voice: { perMinute: 20, daily: 100, monthly: 1000 },
       image: { perMinute: 20, daily: 70,  monthly: 1000 },
+      file_upload: { perMinute: 100, daily: 1000, monthly: 10000 },
+      download: { perMinute: 100, daily: 1000, monthly: 10000 },
+      tts: { perMinute: 100, daily: 500, monthly: 5000 },
     },
     uploadLimitMb: 250,
     requestsPerMinute: 20,

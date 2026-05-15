@@ -33,7 +33,7 @@ const ANON_COOKIE_MAX_AGE = 365 * 24 * 60 * 60 * 1000; // 1 year in ms
 function getClientIp(req: Request): string {
   const forwarded = req.headers['x-forwarded-for'];
   if (typeof forwarded === 'string') {
-    return forwarded.split(',')[0].trim();
+    return forwarded.split(',')[0]?.trim() || req.ip || '0.0.0.0';
   }
   if (Array.isArray(forwarded)) {
     return forwarded[0]?.trim() || req.ip || '0.0.0.0';
@@ -107,6 +107,16 @@ export const anonymousIdentityMiddleware = async (
       rawIp,
       userAgent,
     });
+
+    // Fire-and-forget abuse detection (ABUSE-03)
+    import('../services/abuse.service').then(({ checkExcessiveAccounts }) => {
+      checkExcessiveAccounts({
+        anonId: result.user.anon_id,
+        fingerprintHash,
+        rawIp,
+        userAgent,
+      }).catch(err => console.error('Background excessive accounts check failed:', err));
+    }).catch(err => console.error('Failed to import abuse.service:', err));
 
     // Set httpOnly cookie with the resolved/restored anon_id
     setAnonCookie(res, result.user.anon_id);

@@ -21,6 +21,18 @@
   width: 100%;
 }
 
+.disabled {
+  opacity: 0.7;
+  filter: grayscale(0.5);
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+.disabled .inputInner {
+  filter: blur(4px);
+  transition: filter 0.3s ease;
+}
+
 .inputContainer:focus-within {
   border-color: var(--primary, #3b82f6);
   box-shadow: 0 0 1.8rem rgba(59, 130, 246, 0.25);

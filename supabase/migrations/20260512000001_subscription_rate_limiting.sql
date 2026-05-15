@@ -18,7 +18,7 @@ CREATE TABLE IF NOT EXISTS public.anonymous_users (
   request_minute_count INTEGER DEFAULT 0,
   last_request_at TIMESTAMP WITH TIME ZONE,
   last_daily_reset TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-  migrated_to_user_id UUID REFERENCES public.users(id) ON DELETE SET NULL,
+  migrated_to_user_id UUID REFERENCES auth.users(id) ON DELETE SET NULL,
   migrated_at TIMESTAMP WITH TIME ZONE
 );
 
@@ -31,9 +31,9 @@ COMMENT ON COLUMN public.anonymous_users.migrated_to_user_id IS 'Links to authen
 -- 2. USAGE TRACKING TABLE
 CREATE TABLE IF NOT EXISTS public.usage_tracking (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  user_id UUID REFERENCES public.users(id) ON DELETE CASCADE,
+  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
   anon_id TEXT,
-  tool_type TEXT NOT NULL CHECK (tool_type IN ('chat', 'voice', 'image')),
+  tool_type TEXT NOT NULL CHECK (tool_type IN ('chat', 'voice', 'image', 'file_upload', 'download', 'tts')),
   -- Per-minute tracking
   minute_count INTEGER DEFAULT 0,
   last_minute_reset TIMESTAMP WITH TIME ZONE DEFAULT NOW(),

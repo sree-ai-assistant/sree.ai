@@ -1,6 +1,11 @@
 import { Router } from 'express';
 import { authMiddleware } from '../middleware/auth';
-import { tierCheckMiddleware } from '../middleware/tierCheck';
+import { flexAuthMiddleware } from '../middleware/anonymousIdentity';
+import { rateLimitMiddleware, featureGateMiddleware } from '../middleware/rateLimit';
+import { abuseDetectionMiddleware } from '../middleware/abuseDetection';
+import { uploadSizeValidator, queuePriorityMiddleware } from '../middleware/uploadEnforcement';
+import { withPriorityQueue } from '../services/queue.service';
+import { PLAN_CONFIGS as PLANS, type PlanTier } from '../config/plans';
 import { aiService } from '../services/ai.service';
 import { ApiKeyService } from '../services/apiKey.service';
 import { r2Service } from '../services/r2.service';
@@ -10,72 +15,43 @@ import fs from 'fs';
 import { TokenManager } from '../utils/tokenManager';
 import { supabaseAdmin } from '../lib/supabase';
 import { videoService, VideoService } from '../services/video.service';
+import { getUsageStatus, type RateLimitIdentity } from '../services/usage.service';
 import path from 'path';
 import axios from 'axios';
-import { UsageService, UsageStatus } from '../services/usage.service';
 // Removed static uuid import due to ESM/CJS compatibility issues
 
 
 const router = Router();
-
-// Download daily limits per plan (used as shorthand keys)
-const DOWNLOAD_LIMITS = {
-  free: { hourly: 10, daily: 50 },
-  starter: { hourly: 30, daily: 150 },
-  pro: { hourly: 100, daily: 500 }
-} as const;
 
 /**
  * @route   GET /api/ai/download
  * @desc    Download an image and track usage with hourly/daily limits
  * @access  Private
  */
-router.get('/download', authMiddleware, async (req: any, res: any) => {
+router.get('/download', authMiddleware, rateLimitMiddleware('download'), async (req: any, res: any) => {
   const { url } = req.query;
-  const userId = req.user.id;
 
   if (!url) {
     return res.status(400).json({ success: false, message: 'URL is required' });
   }
 
   try {
-    // 1. Get user profile for plan info
-    const { data: profile } = await supabaseAdmin
-      .from('profiles')
-      .select('plan_type')
-      .eq('id', userId)
-      .single();
-
-    // Get plan and ensure it's valid
-    const userPlan = (profile?.plan_type || 'free').toLowerCase();
-    const plan = (userPlan in DOWNLOAD_LIMITS) ? userPlan : 'free';
-    const currentLimits = DOWNLOAD_LIMITS[plan as keyof typeof DOWNLOAD_LIMITS];
-
-    // 2. Check and increment usage
-    const usageStatus = await UsageService.checkAndIncrement(userId, 'image_download', currentLimits);
-
-    if (!usageStatus.allowed) {
-      return res.status(429).json({ 
-        success: false,
-        message: usageStatus.message || 'Download limit reached', 
-        status: usageStatus
-      });
-    }
-
-    // 3. Download the image from URL
+    // 1. Download the image from URL
     const response = await axios.get(url as string, { 
       responseType: 'stream',
       timeout: 15000 // 15s timeout
     });
 
-    // 4. Stream back to client
+    // 2. Stream back to client
     const fileName = `sree-ai-${Date.now()}.png`;
     res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
     res.setHeader('Content-Type', response.headers['content-type'] || 'image/png');
     
-    // Add usage info to headers (optional but helpful)
-    res.setHeader('X-Usage-Hourly', `${usageStatus.currentHourly}/${usageStatus.hourlyLimit}`);
-    res.setHeader('X-Usage-Daily', `${usageStatus.currentDaily}/${usageStatus.dailyLimit}`);
+    // Add usage info from middleware to headers
+    const usage = (req as any).rateLimitInfo;
+    if (usage) {
+      res.setHeader('X-Usage-Daily', `${usage.used}/${usage.limit}`);
+    }
 
     response.data.pipe(res);
 
@@ -88,31 +64,28 @@ router.get('/download', authMiddleware, async (req: any, res: any) => {
 });
 
 /**
- * @route   GET /api/ai/download/usage
- * @desc    Get current image download usage status
- * @access  Private
+ * @route   GET /api/ai/usage
+ * @desc    Get comprehensive usage status for current user (authenticated or anonymous)
+ * @access  Flexible
  */
-router.get('/download/usage', authMiddleware, async (req: any, res: any) => {
-  const userId = req.user.id;
-
+router.get('/usage', flexAuthMiddleware, async (req: any, res: any) => {
   try {
-    const { data: profile } = await supabaseAdmin
-      .from('profiles')
-      .select('plan_type')
-      .eq('id', userId)
-      .single();
+    const user = req.user;
+    const anonId = req.anonId;
+    const tier = req.userTier || 'anonymous';
 
-    // Get plan and ensure it's valid
-    const userPlan = (profile?.plan_type || 'free').toLowerCase();
-    const plan = (userPlan in DOWNLOAD_LIMITS) ? userPlan : 'free';
-    const currentLimits = DOWNLOAD_LIMITS[plan as keyof typeof DOWNLOAD_LIMITS];
-    const usage = await UsageService.getUsage(userId, 'image_download', currentLimits);
-    res.json({ success: true, data: { ...usage, plan: plan } });
+    const identity: RateLimitIdentity = user
+      ? { type: 'authenticated', userId: user.id, tier }
+      : { type: 'anonymous', anonId: anonId || 'unknown', tier: 'anonymous' };
+
+    const status = await getUsageStatus(identity);
+    res.json({ success: true, status });
   } catch (error: any) {
-    console.error('Usage Fetch Error:', error.message);
-    res.status(500).json({ success: false, message: error.message });
+    console.error('[AI Routes] Usage Fetch Error:', error.message);
+    res.status(500).json({ success: false, message: 'Failed to fetch usage status' });
   }
 });
+
 const upload = multer({ dest: 'uploads/' });
 
 /**
@@ -217,16 +190,40 @@ async function updateMessageInDb(messageId: string, updates: { content?: any, me
 }
 
 // Streaming Chat Completion
-router.post('/chat', authMiddleware, tierCheckMiddleware, async (req: any, res) => {
+router.post('/chat', flexAuthMiddleware, abuseDetectionMiddleware(), queuePriorityMiddleware, featureGateMiddleware('basicChat'), rateLimitMiddleware('chat'), withPriorityQueue(async (req: any, res) => {
   try {
     const { v4: uuidv4 } = await import('uuid');
     const { messages, model, attachments, messageId, conversationId } = req.body;
-    const userId = req.user.id;
+    const userId = req.user?.id; // Optional for anonymous
+    const isAuth = !!userId;
+    const tier = (req as any).userTier as PlanTier || 'anonymous';
+    const planConfig = PLANS[tier];
+
+    // 0. Model Gating: Check if user has access to the requested model
+    const { data: modelInfo } = await supabaseAdmin
+      .from('ai_models')
+      .select('tier_required')
+      .eq('model_id', model)
+      .single();
+
+    if (modelInfo && modelInfo.tier_required !== 'free' && !planConfig.features.allModels) {
+      return res.status(403).json({
+        success: false,
+        code: 'MODEL_LOCKED',
+        message: `The selected model '${model}' requires a Starter or Pro plan.`,
+        upgradeUrl: '/pricing'
+      });
+    }
 
     // Set headers for streaming early
     res.setHeader('Content-Type', 'text/event-stream');
     res.setHeader('Cache-Control', 'no-cache');
     res.setHeader('Connection', 'keep-alive');
+
+    // Add X-Anon-Context-Active header for anonymous users (ANON-06)
+    if (tier === 'anonymous') {
+      res.setHeader('X-Anon-Context-Active', 'true');
+    }
 
     // 1. Process incoming messages to include context from metadata for the AI
     // but keep it hidden from the UI (which uses the clean content)
@@ -333,7 +330,7 @@ router.post('/chat', authMiddleware, tierCheckMiddleware, async (req: any, res) 
 
       // Process Audio
       if (audioAttachments.length > 0) {
-        const deepgramApiKey = await ApiKeyService.getUserApiKey(userId, 'deepgram');
+        const { key: deepgramApiKey } = await ApiKeyService.getUserApiKey(userId, 'deepgram');
         if (deepgramApiKey) {
           for (const audio of audioAttachments) {
             res.write(`data: ${JSON.stringify({ status: `Transcribing ${audio.name}...` })}\n\n`);
@@ -590,8 +587,8 @@ router.post('/chat', authMiddleware, tierCheckMiddleware, async (req: any, res) 
     });
 
 
-    // Get API key with user overrides
-    const nvidiaApiKey = await ApiKeyService.getUserApiKey(userId, 'nvidia');
+    // Get API key from middleware (which handles user overrides)
+    const nvidiaApiKey = req.apiKey;
 
     if (!nvidiaApiKey) {
       if (!res.headersSent) {
@@ -631,20 +628,31 @@ router.post('/chat', authMiddleware, tierCheckMiddleware, async (req: any, res) 
       res.end();
     }
   }
-});
+}));
 
 // Image Generation
-router.post('/image', authMiddleware, tierCheckMiddleware, async (req: any, res) => {
+router.post('/image', authMiddleware, abuseDetectionMiddleware(), queuePriorityMiddleware, featureGateMiddleware('imageGeneration'), rateLimitMiddleware('image'), withPriorityQueue(async (req: any, res) => {
   try {
     const { v4: uuidv4 } = await import('uuid');
     const { prompt, model, negative_prompt, seed, steps, width, height, cfg_scale, image, mode } = req.body;
-    const userId = req.user.id;
+    const userId = req.user?.id;
+    const isAuth = !!userId;
+
+    if (!isAuth) {
+       // Should be handled by middleware, but extra safety
+    }
+    
+    // For generation, we still need a userId for the gallery, 
+    // though featureGateMiddleware('image_generation') will block anonymous users 
+    // unless plans.ts allows it (currently it doesn't).
+    if (!userId) return res.status(401).json({ success: false, message: 'Authentication required for image generation' });
+
 
     if (!prompt || !prompt.trim()) {
       return res.status(400).json({ success: false, message: 'Prompt is required' });
     }
 
-    const nvidiaApiKey = await ApiKeyService.getUserApiKey(userId, 'nvidia');
+    const nvidiaApiKey = req.apiKey;
 
     if (!nvidiaApiKey) {
       return res.status(400).json({
@@ -708,7 +716,7 @@ router.post('/image', authMiddleware, tierCheckMiddleware, async (req: any, res)
     console.error('Image Generation Error:', error.message);
     res.status(500).json({ success: false, message: error.message });
   }
-});
+}));
 
 // Get User Image History
 router.get('/images', authMiddleware, async (req: any, res) => {
@@ -751,16 +759,16 @@ router.delete('/image/:id', authMiddleware, async (req: any, res) => {
 });
 
 // Voice Transcription
-router.post('/voice', authMiddleware, upload.single('file'), async (req: any, res) => {
+router.post('/voice', flexAuthMiddleware, abuseDetectionMiddleware(), queuePriorityMiddleware, featureGateMiddleware('voiceToText'), rateLimitMiddleware('voice', 'deepgram'), upload.single('file'), uploadSizeValidator, withPriorityQueue(async (req: any, res) => {
   try {
     const file = req.file;
-    const userId = req.user.id;
+    const userId = req.user?.id;
 
     if (!file) {
       return res.status(400).json({ success: false, message: 'Audio file is required' });
     }
 
-    const deepgramApiKey = await ApiKeyService.getUserApiKey(userId, 'deepgram');
+    const deepgramApiKey = req.apiKey;
 
     if (!deepgramApiKey) {
       return res.status(400).json({
@@ -784,10 +792,10 @@ router.post('/voice', authMiddleware, upload.single('file'), async (req: any, re
 
     res.status(status).json({ success: false, message });
   }
-});
+}));
 
 // File Upload to R2
-router.post('/upload', authMiddleware, upload.single('file'), async (req: any, res) => {
+router.post('/upload', flexAuthMiddleware, abuseDetectionMiddleware(), queuePriorityMiddleware, featureGateMiddleware('fileUpload'), rateLimitMiddleware('file_upload'), upload.single('file'), uploadSizeValidator, withPriorityQueue(async (req: any, res) => {
   try {
     const file = req.file;
     if (!file) {
@@ -803,6 +811,47 @@ router.post('/upload', authMiddleware, upload.single('file'), async (req: any, r
   } catch (error: any) {
     console.error('Upload Route Error:', error);
     if (req.file && fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path);
+    res.status(500).json({ success: false, message: error.message });
+  }
+}));
+
+// List API Keys
+router.get('/list-api-keys', authMiddleware, async (req: any, res) => {
+  try {
+    const userId = req.user.id;
+    const keys = await ApiKeyService.listUserApiKeys(userId);
+    res.json({ success: true, keys });
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// Toggle API Key
+router.patch('/toggle-api-key', authMiddleware, async (req: any, res) => {
+  try {
+    const { id, inUse } = req.body;
+    const userId = req.user.id;
+
+    if (!id || typeof inUse !== 'boolean') {
+      return res.status(400).json({ success: false, message: 'ID and inUse status are required' });
+    }
+
+    const success = await ApiKeyService.toggleApiKey(userId, id, inUse);
+    res.json({ success, message: success ? 'Key updated' : 'Failed to update key' });
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// Delete API Key
+router.delete('/delete-api-key/:id', authMiddleware, async (req: any, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user.id;
+
+    const success = await ApiKeyService.deleteApiKeyById(userId, id);
+    res.json({ success, message: success ? 'Key deleted' : 'Failed to delete key' });
+  } catch (error: any) {
     res.status(500).json({ success: false, message: error.message });
   }
 });
@@ -830,16 +879,15 @@ router.post('/save-api-key', authMiddleware, async (req: any, res) => {
 });
 
 // Text to Speech
-router.post('/tts', authMiddleware, async (req: any, res) => {
+router.post('/tts', flexAuthMiddleware, abuseDetectionMiddleware(), queuePriorityMiddleware, rateLimitMiddleware('tts'), withPriorityQueue(async (req: any, res) => {
   try {
     const { text, model } = req.body;
-    const userId = req.user.id;
+    const userId = req.user?.id;
+    const deepgramApiKey = req.apiKey;
 
     if (!text) {
       return res.status(400).json({ success: false, message: 'Text is required' });
     }
-
-    const deepgramApiKey = await ApiKeyService.getUserApiKey(userId, 'deepgram');
 
     if (!deepgramApiKey) {
       return res.status(400).json({
@@ -859,6 +907,6 @@ router.post('/tts', authMiddleware, async (req: any, res) => {
     console.error('TTS Error:', error);
     res.status(500).json({ success: false, message: error.message });
   }
-});
+}));
 
 export default router;

@@ -760,3 +760,106 @@
   font-weight: 600;
   opacity: 0.9;
 }
+
+/* Usage Card */
+.usageCard {
+  margin: 16px;
+  padding: 16px;
+  background: rgba(59, 130, 246, 0.05);
+  border: 1px solid rgba(59, 130, 246, 0.1);
+  border-radius: 16px;
+  transition: all 0.3s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.usageCard:hover {
+  background: rgba(59, 130, 246, 0.08);
+  border-color: rgba(59, 130, 246, 0.2);
+  transform: translateY(-2px);
+}
+
+.usageHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.usageTitle {
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.usageValue {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--primary);
+}
+
+.usageProgressWrapper {
+  height: 6px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 10px;
+  overflow: hidden;
+  margin-bottom: 10px;
+}
+
+.usageProgressFill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--primary), var(--accent));
+  border-radius: 10px;
+  transition: width 1s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 0 10px var(--primary-glow);
+}
+
+.usageFooter {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.usageLabel {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+}
+
+.upgradeLink {
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--primary);
+  text-decoration: none;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  transition: all 0.2s ease;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+}
+
+.upgradeLink:hover {
+  color: var(--text-primary);
+  gap: 6px;
+}
+
+.usageCardCollapsed {
+  margin: 16px 8px;
+  padding: 12px 0;
+  display: flex;
+  justify-content: center;
+  background: transparent;
+  border: none;
+}
+
+.usageIconCollapsed {
+  color: var(--primary);
+  filter: drop-shadow(0 0 5px var(--primary-glow));
+}

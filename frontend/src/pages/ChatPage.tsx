@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, useMemo, useDeferredValue } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Sparkles } from 'lucide-react';
+import { MessageSquare, ArrowLeft, MoreVertical, Trash2, StopCircle, RefreshCw, Lock, Clock, Sparkles } from 'lucide-react';
 import { DashboardLayout } from '../features/dashboard/DashboardLayout';
 import { supabase } from '../lib/supabase';
 import { useChatStore } from '../store/chat.store';
@@ -12,8 +12,10 @@ import { ChatInput } from '../components/chat/ChatInput';
 import { ModelSelector } from '../components/chat/ModelSelector';
 import { useModelStore } from '../store/model.store';
 import { useLocation } from 'react-router-dom';
+import { useUIStore } from '../store/ui.store';
 import { CodeBlock } from '../components/chat/CodeBlock';
 import { ChatMessage } from '../components/chat/ChatMessage';
+import { LimitModal } from '../components/modals/LimitModal';
 
 const ChatPage: React.FC = () => {
   const { user } = useAuthStore();
@@ -30,6 +32,12 @@ const ChatPage: React.FC = () => {
     setMessages
   } = useChatStore();
 
+  const [limitModal, setLimitModal] = useState<{
+    isOpen: boolean;
+    type: 'anonymous' | 'tiered';
+    info?: any;
+  }>({ isOpen: false, type: 'anonymous' });
+
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const location = useLocation();
@@ -38,25 +46,14 @@ const ChatPage: React.FC = () => {
   const [showVoiceOverlay, setShowVoiceOverlay] = useState(isVoiceRoute);
   
   // Initialize from localStorage, but default to true for voice routes
-  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(() => {
-    if (isVoiceRoute) return true;
-    const saved = localStorage.getItem('sidebar_collapsed');
-    return saved !== null ? JSON.parse(saved) : false;
-  });
+  const { sidebarCollapsed, setSidebarCollapsed } = useUIStore();
 
   // Force collapse when switching TO a voice route
   useEffect(() => {
     if (isVoiceRoute) {
-      setIsSidebarCollapsed(true);
+      setSidebarCollapsed(true);
     }
-  }, [isVoiceRoute]);
-
-  // Persist state changes to localStorage (only for non-voice routes to maintain "voice default")
-  useEffect(() => {
-    if (!isVoiceRoute) {
-      localStorage.setItem('sidebar_collapsed', JSON.stringify(isSidebarCollapsed));
-    }
-  }, [isSidebarCollapsed, isVoiceRoute]);
+  }, [isVoiceRoute, setSidebarCollapsed]);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => setSession(data.session));
@@ -441,6 +438,34 @@ const ChatPage: React.FC = () => {
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
+        
+        if (response.status === 429) {
+          const resetsIn = errorData.resetsIn || 60;
+          const lockoutTime = Date.now() + (resetsIn * 1000);
+          localStorage.setItem('chat_lockout', lockoutTime.toString());
+          
+          setLimitModal({
+            isOpen: true,
+            type: user ? 'tiered' : 'anonymous',
+            info: {
+              limit: errorData.limit,
+              current: errorData.current,
+              resetsIn: errorData.resetsIn,
+              tier: user ? (user as any).user_metadata?.tier || 'Free' : 'Anonymous'
+            }
+          });
+
+          const limitError = new Error(errorData.message || 'Rate limit exceeded');
+          (limitError as any).isRateLimit = true;
+          throw limitError;
+        }
+
+        if (response.status === 401 && !user) {
+          // Anonymous user tried something requiring auth (e.g. upload)
+          setLimitModal({ isOpen: true, type: 'anonymous' });
+          throw new Error('Authentication required');
+        }
+
         throw new Error(errorData.message || errorData.error || 'API Connection Error');
       }
 
@@ -595,8 +620,8 @@ const ChatPage: React.FC = () => {
 
   return (
     <DashboardLayout
-      isCollapsed={isSidebarCollapsed}
-      setIsCollapsed={setIsSidebarCollapsed}
+      isCollapsed={sidebarCollapsed}
+      setIsCollapsed={setSidebarCollapsed}
     >
       <>
         <div className={styles.container}>
@@ -718,6 +743,21 @@ const ChatPage: React.FC = () => {
             <div ref={messagesEndRef} />
           </div>
 
+          <AnimatePresence>
+            {lockTimeRemaining > 0 && (
+              <motion.div 
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: 10 }}
+                className={styles.lockBanner}
+              >
+                <Lock size={14} />
+                <span>Account Locked for {formatTime(lockTimeRemaining * 1000)}</span>
+                <Clock size={14} style={{ marginLeft: '4px', opacity: 0.7 }} />
+              </motion.div>
+            )}
+          </AnimatePresence>
+
           <ChatInput
             onSend={(text) => handleSend(text, false)}
             onStop={handleStop}
@@ -728,6 +768,7 @@ const ChatPage: React.FC = () => {
             onAttachmentsChange={setAttachments}
             disabled={lockTimeRemaining > 0}
             placeholderText={lockTimeRemaining > 0 ? `Try After ${formatTime(lockTimeRemaining * 1000)}...` : undefined}
+            onAuthRequired={() => setLimitModal({ isOpen: true, type: 'anonymous' })}
           />
 
         </div>
@@ -740,6 +781,13 @@ const ChatPage: React.FC = () => {
             />
           )}
         </AnimatePresence>
+
+        <LimitModal 
+          isOpen={limitModal.isOpen}
+          onClose={() => setLimitModal(prev => ({ ...prev, isOpen: false }))}
+          type={limitModal.type}
+          limitInfo={limitModal.info}
+        />
       </>
     </DashboardLayout>
   );

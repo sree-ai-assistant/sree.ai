@@ -26,20 +26,19 @@ Users can interact with the best AI models through a single premium interface �
 - ✓ Supabase auth with session persistence — v2.0
 - ✓ Dashboard with sidebar navigation — v2.0
 - ✓ File upload support for chat context — v2.0
+- ✓ Anonymous user identity system (UUID + Fingerprint + IP Hash) — v1.0 Ph 6-7
+- ✓ Multi-layer rate limiting (Atomic per-minute/daily/monthly) — v1.0 Ph 8
+- ✓ Subscription & Feature Gating (Queue Priority, Upload Limits) — v1.0 Ph 9
+- ✓ Database schema for anonymous users and usage tracking — v1.0 Ph 6
 
 ### Active
 
 <!-- Current scope. Building toward these. -->
 
-- [ ] Anonymous user identity system with multi-layer tracking
-- [ ] Tiered subscription enforcement (Anonymous/Free/Starter/Pro)
-- [ ] Multi-layer rate limiting (per-minute, daily, monthly)
-- [ ] BYOK quota reduction logic
-- [ ] Abuse detection and prevention system
-- [ ] Queue priority system based on plan tier
-- [ ] File upload size limits per plan
+- [ ] BYOK quota reduction logic (0.2x quota consumption)
+- [ ] Abuse detection and prevention system (pattern recognition)
 - [ ] Anonymous-to-authenticated data migration
-- [ ] Complete database schema for anonymous users and enhanced usage tracking
+- [ ] Frontend Limit UX & Polish (modals, blocking indicators)
 
 ### Out of Scope
 

@@ -5,7 +5,11 @@ export const authMiddleware = async (req: Request, res: Response, next: NextFunc
   try {
     const authHeader = req.headers.authorization;
     if (!authHeader?.startsWith('Bearer ')) {
-      return res.status(401).json({ success: false, message: 'Unauthorized: No token provided' });
+      return res.status(401).json({ 
+        success: false, 
+        code: 'AUTH_REQUIRED',
+        message: 'Authentication token is required.' 
+      });
     }
 
     const token = authHeader.split(' ')[1];
@@ -15,13 +19,24 @@ export const authMiddleware = async (req: Request, res: Response, next: NextFunc
       console.error('Auth Middleware - Error verifying token:', error?.message || 'No user found');
       return res.status(401).json({ 
         success: false, 
-        message: 'Unauthorized: Invalid token',
+        code: 'INVALID_TOKEN',
+        message: 'Session expired or invalid. Please sign in again.',
         debug: process.env.NODE_ENV === 'development' ? error?.message : undefined 
       });
     }
 
     // Attach user to request
     (req as any).user = user;
+
+    // Look up plan tier from profiles (same logic as flexAuthMiddleware)
+    const { data: profile } = await supabaseAdmin
+      .from('profiles')
+      .select('plan_type')
+      .eq('id', user.id)
+      .single();
+
+    (req as any).userTier = (profile?.plan_type || 'free').toLowerCase();
+
     next();
   } catch (error) {
     next(error);

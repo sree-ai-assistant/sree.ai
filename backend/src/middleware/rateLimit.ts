@@ -1,0 +1,135 @@
+import type { Request, Response, NextFunction } from 'express';
+import { checkAndIncrementUsage, type RateLimitIdentity } from '../services/usage.service';
+import { canAccessFeature, type SubscriptionRecord } from '../services/subscription.service';
+import type { ToolType, PlanConfig } from '../config/plans';
+
+import { ApiKeyService } from '../services/apiKey.service';
+
+import { resolveProvider } from '../utils/providerResolver';
+
+/**
+ * Rate Limit Middleware
+ * 
+ * Intercepts AI requests, checks against tiered limits (minute/daily/monthly),
+ * and returns structured 429 responses when exceeded.
+ */
+export const rateLimitMiddleware = (toolType: ToolType, provider?: string) => {
+  return async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      // 1. Resolve identity and tier from flexAuthMiddleware/anonymousIdentity
+      const user = (req as any).user;
+      const anonId = (req as any).anonId;
+      const tier = (req as any).userTier || 'anonymous';
+      const isAbuseStrictMode = !!(req as any).abuseStrictMode;
+      
+      let isByok = false;
+      let apiKey = null;
+      let detectedProvider = provider;
+
+      // If provider is not passed, try to detect from model in request
+      if (!detectedProvider) {
+        const model = req.body?.model || req.query?.model || (req as any).model;
+        if (model) {
+          detectedProvider = await resolveProvider(model);
+        }
+      }
+
+      // Detect BYOK if provider is specified or detected
+      if (detectedProvider && detectedProvider !== 'unknown') {
+        const result = await ApiKeyService.getUserApiKey(user?.id, detectedProvider);
+        apiKey = result.key;
+        isByok = result.source === 'user';
+        
+        // Attach to request for route handler use
+        (req as any).apiKey = apiKey;
+        (req as any).isByok = isByok;
+        (req as any).provider = detectedProvider;
+      }
+
+      const identity: RateLimitIdentity = user
+        ? { type: 'authenticated', userId: user.id, tier }
+        : { type: 'anonymous', anonId: anonId || 'unknown', tier: 'anonymous' };
+
+      // 2. Atomic Check and Increment
+      // We increment at the start of the request to prevent race conditions.
+      const result = await checkAndIncrementUsage(identity, toolType, isByok);
+
+      // 2b. Abuse strict mode: halve the effective limit (ABUSE-03)
+      // When abuse detection flags severity 3, limits are reduced by 50%
+      if (isAbuseStrictMode && result.allowed && result.limit) {
+        const strictLimit = Math.floor(result.limit / 2);
+        if ((result.used ?? 0) > strictLimit) {
+          return res.status(429).json({
+            success: false,
+            code: 'RATE_LIMIT_EXCEEDED',
+            reason: 'abuse_strict',
+            tool: toolType,
+            limit: strictLimit,
+            current: result.used,
+            resetsIn: result.resetsIn,
+            message: 'Usage restricted due to unusual activity. Limits have been temporarily reduced.',
+            upgradeUrl: '/pricing'
+          });
+        }
+      }
+
+      if (!result.allowed) {
+        // Return structured 429 Error
+        return res.status(429).json({
+          success: false,
+          code: 'RATE_LIMIT_EXCEEDED',
+          reason: result.reason || 'daily',
+          tool: toolType,
+          limit: result.limit,
+          current: result.used,
+          resetsIn: result.resetsIn,
+          message: result.message || 'Usage limit exceeded. Please try again later or upgrade your plan.',
+          upgradeUrl: '/pricing'
+        });
+      }
+
+      // 3. Attach usage info to request
+      (req as any).rateLimitInfo = result;
+      (req as any).toolType = toolType;
+
+      next();
+    } catch (error) {
+      console.error('[RateLimitMiddleware] Unexpected error:', error);
+      next(error);
+    }
+  };
+};
+
+/**
+ * Feature Gate Middleware
+ * 
+ * Blocks requests when the user's tier doesn't include the feature.
+ */
+export const featureGateMiddleware = (feature: keyof PlanConfig['features']) => {
+  return (req: Request, res: Response, next: NextFunction) => {
+    const tier = (req as any).userTier || 'anonymous';
+    const hasAccess = canAccessFeature(tier, feature);
+
+    if (!hasAccess) {
+      const isAuth = !!(req as any).user;
+      
+      // If feature is locked and user isn't logged in, suggest logging in first
+      if (!isAuth && tier === 'anonymous') {
+         return res.status(401).json({
+           success: false,
+           code: 'AUTH_REQUIRED',
+           message: 'This feature requires a free account. Please sign in or sign up.'
+         });
+      }
+
+      return res.status(403).json({
+        success: false,
+        code: 'FEATURE_LOCKED',
+        message: `The ${feature.replace(/([A-Z])/g, ' $1').toLowerCase()} feature is not available on your current plan.`,
+        upgradeUrl: '/pricing'
+      });
+    }
+
+    next();
+  };
+};

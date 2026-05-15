@@ -43,6 +43,7 @@ import { useAuthStore, type User } from '../store/auth.store';
 import ApiKeyModal from '../components/shared/ApiKeyModal';
 import { getProviderLogo, PROVIDER_COLORS } from '../components/icons/ProviderLogos';
 import styles from './SettingsPage.module.css';
+import { useUIStore } from '../store/ui.store';
 
 interface SavedApiKey {
   id: string;
@@ -82,7 +83,7 @@ const PLAN_CONFIG: Record<string, { label: string; price: string; period: string
 const SettingsPage: React.FC = () => {
   const { user, updateProfile } = useAuthStore();
   const [activeSection, setActiveSection] = useState('profile');
-  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  const { sidebarCollapsed: isSidebarCollapsed, setSidebarCollapsed: setIsSidebarCollapsed } = useUIStore();
   const [profileData, setProfileData] = useState({
     display_name: user?.display_name || '',
     avatar_url: user?.avatar_url || ''

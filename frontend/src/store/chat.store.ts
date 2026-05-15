@@ -271,30 +271,35 @@ export const useChatStore = create<ChatState>((set, get) => ({
     }));
   },
 
-  truncateHistory: async (conversationId: string, fromMessageId: string) => {
+  truncateHistory: async (conversationId: string, fromMessageId: string, exclusive: boolean = false) => {
     const messages = get().messages;
     const targetMsg = messages.find(m => m.id === fromMessageId);
     if (!targetMsg) return;
 
     // 1. Permanent deletion from DB for this conversation from this timestamp onwards
     // Using created_at ensures we catch messages that might have been filtered out of the local state
-    const { error } = await supabase
+    const query = supabase
       .from('messages')
       .delete()
-      .eq('conversation_id', conversationId)
-      .gte('created_at', targetMsg.created_at);
+      .eq('conversation_id', conversationId);
+    
+    if (exclusive) {
+      query.gt('created_at', targetMsg.created_at);
+    } else {
+      query.gte('created_at', targetMsg.created_at);
+    }
+
+    const { error } = await query;
 
     if (error) {
       console.error('Error truncating history:', error);
-      // Even if DB delete fails, we should still update local state for a better UX
-      // but maybe we should return early? For now let's proceed to local update.
     }
 
     // 2. Local state update (optimistic)
     const index = messages.findIndex(m => m.id === fromMessageId);
     if (index !== -1) {
       set(state => ({
-        messages: state.messages.slice(0, index)
+        messages: state.messages.slice(0, exclusive ? index + 1 : index)
       }));
     }
   },

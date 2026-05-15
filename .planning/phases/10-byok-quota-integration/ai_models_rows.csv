@@ -1,0 +1,61 @@
+name,model_id,provider
+DeepSeek V3.2,deepseek-ai/deepseek-v3.2,nvidia
+FLUX.1 [kontext-dev],black-forest-labs/flux-1-kontext-dev,nvidia
+Gemma 3N E11B Vision,google/gemma-3-12b-it,nvidia
+Gemma 3N E2B,google/gemma-3n-e2b-it,nvidia
+Gemma 3N E4B,google/gemma-3n-e4b-it,nvidia
+Gemma 4-31B,google/gemma-4-31b-it,nvidia
+GPT OSS 120B,openai/gpt-oss-120b,nvidia
+GPT OSS 20B,openai/gpt-oss-20b,nvidia
+Llama 3.1 70B,meta/llama-3.1-70b-instruct,nvidia
+Llama 3.2 11B ,meta/llama-3.2-11b-vision-instruct,nvidia
+Llama 3.2 90B ,meta/llama-3.2-90b-vision-instruct,nvidia
+MiniMax M2.5,minimaxai/minimax-m2.5,nvidia
+MiniMax M2.7,minimaxai/minimax-m2.7,nvidia
+Mistral Small v4,mistralai/mistral-small-4-119b-2603,nvidia
+Mixtral 8x22B,mistralai/mixtral-8x22b-instruct-v0.1,nvidia
+Mixtral 8x7B,mistralai/mixtral-8x7b-instruct-v0.1,nvidia
+Nemotron Mini 4B,nvidia/nemotron-mini-4b-instruct,nvidia
+Phi-4 Mini,microsoft/phi-4-mini-instruct,nvidia
+Qwen 2.5 Coder,qwen/qwen2.5-coder-32b-instruct,nvidia
+Qwen 3 Next 80B,qwen/qwen3-next-80b-a3b-instruct,nvidia
+Qwen 3 Thinking,qwen/qwen3-next-80b-a3b-thinking,nvidia
+Qwen 3.5 122B,qwen/qwen3.5-122b-a10b,nvidia
+Qwen 3.5 397B,qwen/qwen3.5-397b-a17b,nvidia
+Stable Diffusion XL,stabilityai/stable-diffusion-xl-base-1.0,NVIDIA
+VILA 1.5 3B,nvidia/vila-1.5-3b,nvidia
+DeepSeek V4 Flash,deepseek-ai/deepseek-v4-flash,nvidia
+DeepSeek V4 Pro,deepseek-ai/deepseek-v4-pro,nvidia
+Dracarys Llama 3.1,abacusai/dracarys-llama-3.1-70b-instruct,nvidia
+FLUX.1 [dev],black-forest-labs/flux-1-dev,NVIDIA
+FLUX.1 [schnell],black-forest-labs/flux-1-schnell,NVIDIA
+FLUX.2 [klein],black-forest-labs/flux-2-klein-4b,NVIDIA
+Gemma 2 2B,google/gemma-2-2b-it,nvidia
+GLM 4.7,z-ai/glm4.7,nvidia
+GLM 5.1,z-ai/glm-5.1,nvidia
+Ising Calibration 1.35B,nvidia/ising-calibration-1-35b-a3b,nvidia
+Llama 3.1 8B,meta/llama-3.1-8b-instruct,nvidia
+Llama 3.1 Nemotron Nano 8B,nvidia/llama-3.1-nemotron-nano-8b-v1,nvidia
+Llama 3.1 Nemotron Nano VL 8B,nvidia/llama-3.1-nemotron-nano-vl-8b-v1,nvidia
+Llama 3.2 1B,meta/llama-3.2-1b-instruct,nvidia
+Llama 3.2 3B,meta/llama-3.2-3b-instruct,nvidia
+Llama 3.3 70B,meta/llama-3.3-70b-instruct,nvidia
+Llama 3.3 Nemotron Super 49B v1,nvidia/llama-3.3-nemotron-super-49b-v1,nvidia
+Llama 3.3 Nemotron Super 49B v1.5,nvidia/llama-3.3-nemotron-super-49b-v1.5,nvidia
+Llama 4 Maverick 17B,meta/llama-4-maverick-17b-128e-instruct,nvidia
+Ministral 14B,mistralai/ministral-14b-instruct-2512,nvidia
+Mistral Large 3 675B,mistralai/mistral-large-3-675b-instruct-2512,nvidia
+Mistral Medium 3.5 128B,mistralai/mistral-medium-3.5-128b,nvidia
+Mistral Nemotron,mistralai/mistral-nemotron,nvidia
+Nemotron Nano 12B v2 VL,nvidia/nemotron-nano-12b-v2-vl,nvidia
+Nemotron-3 Nano 30B,nvidia/nemotron-3-nano-30b-a3b,nvidia
+Nemotron-3 Nano Omni 30B (Reasoning),nvidia/nemotron-3-nano-omni-30b-a3b-reasoning,nvidia
+Nemotron-3 Super 120B,nvidia/nemotron-3-super-120b-a12b,nvidia
+NVIDIA Nemotron Nano 9B v2,nvidia/nvidia-nemotron-nano-9b-v2,nvidia
+Phi 4 Multimodal,microsoft/phi-4-multimodal-instruct,nvidia
+Qwen3 Coder 480B,qwen/qwen3-coder-480b-a35b-instruct,nvidia
+Sarvam M,sarvamai/sarvam-m,nvidia
+SEED OSS 36B,bytedance/seed-oss-36b-instruct,nvidia
+Stable Diffusion 3.5 Large,stabilityai/stable-diffusion-3-5-large,NVIDIA
+Step 3.5 Flash,stepfun-ai/step-3.5-flash,nvidia
+Stockmark 2 100B,stockmark/stockmark-2-100b-instruct,nvidia

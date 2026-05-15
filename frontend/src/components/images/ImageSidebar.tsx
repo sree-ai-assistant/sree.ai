@@ -43,9 +43,7 @@ export const ImageSidebar: React.FC<ImageSidebarProps> = ({
   const [imageLoadErrors, setImageLoadErrors] = useState<Record<string, boolean>>({});
   const navigate = useNavigate();
   const [isBottomExpanded, setIsBottomExpanded] = useState(false);
-  useEffect(() => {
-    setIsCollapsed(true);
-  }, [setIsCollapsed]);
+
   useEffect(() => {
     fetchHistory();
   }, [fetchHistory]);

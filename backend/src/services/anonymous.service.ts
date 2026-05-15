@@ -38,8 +38,8 @@ export interface CreateAnonymousInput {
   anonId: string;
   fingerprintHash: string;
   rawIp: string;
-  userAgent?: string;
-  country?: string;
+  userAgent?: string | undefined;
+  country?: string | undefined;
 }
 
 export interface RestoreIdentityInput {
@@ -162,11 +162,11 @@ export async function touchLastSeen(anonId: string): Promise<void> {
  * Returns the resolved anonymous user and whether a new ID was generated.
  */
 export async function resolveAnonymousIdentity(params: {
-  anonId?: string;
+  anonId?: string | undefined;
   fingerprintHash: string;
   rawIp: string;
-  userAgent?: string;
-  country?: string;
+  userAgent?: string | undefined;
+  country?: string | undefined;
 }): Promise<{ user: AnonymousUser; isNew: boolean; restoredId?: string }> {
   // 1. Try lookup by provided anon_id
   if (params.anonId) {
@@ -200,3 +200,23 @@ export async function resolveAnonymousIdentity(params: {
 
   return { user: newUser, isNew: true };
 }
+
+/**
+ * Migrate anonymous data to a permanent user account (MIG-01).
+ * Calls the PostgreSQL RPC function migrate_anonymous_data.
+ * 
+ * This links conversations and merges usage records from the anonymous ID
+ * to the permanent user ID.
+ */
+export async function migrateDataToUser(anonId: string, userId: string): Promise<void> {
+  const { error } = await supabaseAdmin.rpc('migrate_anonymous_data', {
+    p_anon_id: anonId,
+    p_user_id: userId,
+  });
+
+  if (error) {
+    console.error('[AnonymousService] Migration Error:', error);
+    throw new Error(`Failed to migrate anonymous data: ${error.message}`);
+  }
+}
+

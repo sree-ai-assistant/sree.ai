@@ -1,5 +1,7 @@
 import { create } from 'zustand';
 import { supabase } from '../lib/supabase';
+import { userService } from '../lib/api';
+import { getStoredAnonId, clearAnonId } from '../lib/fingerprint';
 
 export interface User {
   id: string;
@@ -29,6 +31,7 @@ export const useAuthStore = create<AuthState>((set) => ({
   setUser: (user) => set({ user }),
   setLoading: (loading) => set({ loading }),
   initialize: async () => {
+    if (useAuthStore.getState().initialized) return;
     try {
       let session = null;
       try {
@@ -99,6 +102,19 @@ export const useAuthStore = create<AuthState>((set) => ({
               credits: profile?.requests_remaining
             }
           });
+
+          // Trigger data migration if an anonymous ID exists (MIG-04)
+          const anonId = getStoredAnonId();
+          if (anonId) {
+            try {
+              console.log('[AuthStore] Triggering anonymous data migration...');
+              await userService.migrateAnonymousData(anonId);
+              clearAnonId();
+              console.log('[AuthStore] Migration complete, anonymous identity cleared.');
+            } catch (err) {
+              console.error('[AuthStore] Migration failed:', err);
+            }
+          }
         }
  else if (event === 'SIGNED_OUT') {
           set({ user: null });

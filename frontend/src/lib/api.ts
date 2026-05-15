@@ -130,4 +130,19 @@ export const apiKeyService = {
   },
 };
 
+export const userService = {
+  migrateAnonymousData: async (anonId: string) => {
+    const response = await api.post('/user/migrate', { anon_id: anonId });
+    return response.data;
+  },
+};
+
+export const usageService = {
+  getStatus: async () => {
+    const response = await api.get('/ai/usage');
+    return response.data;
+  },
+};
+
+
 export default api;

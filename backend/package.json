@@ -4,7 +4,7 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "dev": "ts-node-dev --respawn --transpile-only src/index.ts",
+    "dev": "ts-node-dev --respawn --transpile-only --ignore-diagnostics 5107 src/index.ts",
     "build": "tsc",
     "start": "node dist/index.js",
     "test": "vitest run"
@@ -29,6 +29,7 @@
     "ffprobe-static": "^3.1.0",
     "fluent-ffmpeg": "^2.1.3",
     "helmet": "^8.1.0",
+    "ip-cidr": "^4.0.2",
     "jose": "^6.2.2",
     "mammoth": "^1.12.0",
     "morgan": "^1.10.1",
@@ -55,7 +56,7 @@
     "@types/uuid": "^10.0.0",
     "supertest": "^7.2.2",
     "ts-node-dev": "^2.0.0",
-    "typescript": "^6.0.2",
+    "typescript": "^5.9.3",
     "vitest": "^4.1.4"
   }
 }

@@ -1,8 +1,8 @@
 import React from 'react';
 import { Navbar } from '../../components/layout/Navbar';
 import { Sidebar } from '../../components/layout/Sidebar';
-import { useNavigate } from 'react-router-dom';
 import styles from './DashboardLayout.module.css';
+import { useUIStore } from '../../store/ui.store';
 
 export const DashboardLayout: React.FC<{ 
   children: React.ReactNode; 
@@ -10,33 +10,29 @@ export const DashboardLayout: React.FC<{
   isCollapsed?: boolean;
   setIsCollapsed?: (v: boolean) => void;
   sidebar?: React.ReactNode | ((props: { isCollapsed: boolean; setIsCollapsed: (v: boolean) => void }) => React.ReactNode)
-}> = ({ children, sidebar, defaultCollapsed = false, isCollapsed: controlledIsCollapsed, setIsCollapsed: controlledSetIsCollapsed }) => {
-  const [internalIsCollapsed, setInternalIsCollapsed] = React.useState(() => {
-    const saved = localStorage.getItem('sidebar_collapsed');
-    return saved !== null ? JSON.parse(saved) : defaultCollapsed;
-  });
-
-  React.useEffect(() => {
-    if (controlledIsCollapsed === undefined) {
-      localStorage.setItem('sidebar_collapsed', JSON.stringify(internalIsCollapsed));
+}> = ({ children, sidebar, defaultCollapsed, isCollapsed, setIsCollapsed }) => {
+  const { sidebarCollapsed, setSidebarCollapsed } = useUIStore();
+  
+  // Use prop if provided, otherwise use global store state
+  const collapsed = isCollapsed !== undefined ? isCollapsed : sidebarCollapsed;
+  const onToggle = (val: boolean) => {
+    if (setIsCollapsed) {
+      setIsCollapsed(val);
+    } else {
+      setSidebarCollapsed(val);
     }
-  }, [internalIsCollapsed, controlledIsCollapsed]);
-
-
-
-  const isCollapsed = controlledIsCollapsed !== undefined ? controlledIsCollapsed : internalIsCollapsed;
-  const setIsCollapsed = controlledSetIsCollapsed !== undefined ? controlledSetIsCollapsed : setInternalIsCollapsed;
+  };
 
   const renderSidebar = () => {
     if (typeof sidebar === 'function') {
-      return sidebar({ isCollapsed, setIsCollapsed });
+      return sidebar({ isCollapsed: collapsed, setIsCollapsed: onToggle });
     }
     if (sidebar) return sidebar;
     
     return (
       <Sidebar 
-        isCollapsed={isCollapsed} 
-        setIsCollapsed={setIsCollapsed} 
+        isCollapsed={collapsed} 
+        setIsCollapsed={onToggle} 
       />
     );
   };
@@ -50,7 +46,7 @@ export const DashboardLayout: React.FC<{
       <div className={styles.layoutBody}>
         {renderSidebar()}
         
-        <main className={`${styles.mainContent} ${isCollapsed ? styles.collapsed : ''}`}>
+        <main className={`${styles.mainContent} ${collapsed ? styles.collapsed : ''}`}>
           {children}
         </main>
       </div>
