@@ -62,6 +62,35 @@
   background: linear-gradient(90deg, #f59e0b, #ef4444);
 }
 
+.voiceBar {
+  background: linear-gradient(90deg, #10b981, #3b82f6);
+}
+
+.imageBar {
+  background: linear-gradient(90deg, #f43f5e, #fb923c);
+}
+
+.usageGroup {
+  margin-bottom: 12px;
+}
+
+.usageGroup:last-child {
+  margin-bottom: 8px;
+}
+
+.toolLabel {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.7rem;
+  color: rgba(255, 255, 255, 0.6);
+  margin-bottom: 4px;
+}
+
+.toolName {
+  text-transform: capitalize;
+  font-weight: 500;
+}
+
 .footer {
   display: flex;
   justify-content: space-between;

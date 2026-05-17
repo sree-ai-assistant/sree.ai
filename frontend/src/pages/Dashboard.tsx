@@ -17,6 +17,7 @@ import { useNavigate } from 'react-router-dom';
 import { DashboardLayout } from '../features/dashboard/DashboardLayout';
 import { useAuthStore } from '../store/auth.store.ts';
 import { useChatStore } from '../store/chat.store';
+import { getOrCreateAnonymousIdentity } from '../lib/fingerprint';
 import styles from './Dashboard.module.css';
 
 const StatCard: React.FC<{
@@ -48,9 +49,15 @@ const Dashboard: React.FC = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    if (user?.id) {
-      fetchConversations(user.id);
-    }
+    const init = async () => {
+      if (user?.id) {
+        fetchConversations(user.id);
+      } else {
+        const { anonId } = await getOrCreateAnonymousIdentity();
+        fetchConversations(undefined, anonId);
+      }
+    };
+    init();
   }, [user?.id, fetchConversations]);
 
   const recentActivities = conversations.slice(0, 4).map(c => ({
@@ -85,9 +92,11 @@ const Dashboard: React.FC = () => {
             animate={{ opacity: 1, x: 0 }}
           >
             <h1 className={styles.title}>
-              Welcome, <span className={styles.titleHighlight}>{user?.email?.split('@')[0]}</span>
+              Welcome, <span className={styles.titleHighlight}>{user ? (user.display_name || user.email?.split('@')[0]) : 'Guest'}</span>
             </h1>
-            <p className={styles.subtitle}>Your AI infrastructure is operating at peak efficiency.</p>
+            <p className={styles.subtitle}>
+              {user ? 'Your AI infrastructure is operating at peak efficiency.' : 'Experience the next generation of AI infrastructure.'}
+            </p>
           </motion.div>
         </section>
 

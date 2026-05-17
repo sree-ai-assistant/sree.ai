@@ -37,7 +37,7 @@ router.get('/download', authMiddleware, rateLimitMiddleware('download'), async (
 
   try {
     // 1. Download the image from URL
-    const response = await axios.get(url as string, { 
+    const response = await axios.get(url as string, {
       responseType: 'stream',
       timeout: 15000 // 15s timeout
     });
@@ -46,7 +46,7 @@ router.get('/download', authMiddleware, rateLimitMiddleware('download'), async (
     const fileName = `sree-ai-${Date.now()}.png`;
     res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
     res.setHeader('Content-Type', response.headers['content-type'] || 'image/png');
-    
+
     // Add usage info from middleware to headers
     const usage = (req as any).rateLimitInfo;
     if (usage) {
@@ -557,7 +557,7 @@ router.post('/chat', flexAuthMiddleware, abuseDetectionMiddleware(), queuePriori
       // 1. Get images from message metadata (for history)
       const msgAttachments = msg.metadata?.attachments || [];
       const msgImages = msgAttachments.filter((a: any) => a.type === 'image' || a.type?.startsWith('image/'));
-      
+
       // 2. For the last message, also include the top-level attachments if they aren't already there
       if (index === processedMessages.length - 1 && attachments && attachments.length > 0) {
         const topLevelImages = attachments.filter((a: any) => a.type === 'image' || a.type?.startsWith('image/'));
@@ -582,7 +582,7 @@ router.post('/chat', flexAuthMiddleware, abuseDetectionMiddleware(), queuePriori
           ]
         };
       }
-      
+
       return { role: msg.role, content: msg.content };
     });
 
@@ -631,21 +631,18 @@ router.post('/chat', flexAuthMiddleware, abuseDetectionMiddleware(), queuePriori
 }));
 
 // Image Generation
-router.post('/image', authMiddleware, abuseDetectionMiddleware(), queuePriorityMiddleware, featureGateMiddleware('imageGeneration'), rateLimitMiddleware('image'), withPriorityQueue(async (req: any, res) => {
+router.post('/image', flexAuthMiddleware, abuseDetectionMiddleware(), queuePriorityMiddleware, featureGateMiddleware('imageGeneration'), rateLimitMiddleware('image'), withPriorityQueue(async (req: any, res) => {
   try {
     const { v4: uuidv4 } = await import('uuid');
     const { prompt, model, negative_prompt, seed, steps, width, height, cfg_scale, image, mode } = req.body;
     const userId = req.user?.id;
+    const anonId = (req as any).anonId;
     const isAuth = !!userId;
 
-    if (!isAuth) {
-       // Should be handled by middleware, but extra safety
+    // For generation, we need either a userId or an anonId for the gallery
+    if (!userId && !anonId) {
+      return res.status(401).json({ success: false, message: 'Authentication or identity required for image generation' });
     }
-    
-    // For generation, we still need a userId for the gallery, 
-    // though featureGateMiddleware('image_generation') will block anonymous users 
-    // unless plans.ts allows it (currently it doesn't).
-    if (!userId) return res.status(401).json({ success: false, message: 'Authentication required for image generation' });
 
 
     if (!prompt || !prompt.trim()) {
@@ -688,7 +685,8 @@ router.post('/image', authMiddleware, abuseDetectionMiddleware(), queuePriorityM
         const { error: dbError } = await supabaseAdmin
           .from('user_images')
           .insert({
-            user_id: userId,
+            user_id: userId || null,
+            // anon_id: !userId ? anonId : null,
             url: url,
             prompt: prompt,
             model: model,
@@ -719,14 +717,24 @@ router.post('/image', authMiddleware, abuseDetectionMiddleware(), queuePriorityM
 }));
 
 // Get User Image History
-router.get('/images', authMiddleware, async (req: any, res) => {
+router.get('/images', flexAuthMiddleware, async (req: any, res) => {
   try {
-    const userId = req.user.id;
-    const { data, error } = await supabaseAdmin
+    const userId = req.user?.id;
+    const anonId = (req as any).anonId;
+
+    let query = supabaseAdmin
       .from('user_images')
-      .select('*')
-      .eq('user_id', userId)
-      .order('created_at', { ascending: false });
+      .select('*');
+
+    if (userId) {
+      query = query.eq('user_id', userId);
+    } else if (anonId) {
+      query = query.eq('anon_id', anonId);
+    } else {
+      return res.status(401).json({ success: false, message: 'Authentication or identity required' });
+    }
+
+    const { data, error } = await query.order('created_at', { ascending: false });
 
     if (error) throw error;
 
@@ -738,16 +746,26 @@ router.get('/images', authMiddleware, async (req: any, res) => {
 });
 
 // Delete User Image
-router.delete('/image/:id', authMiddleware, async (req: any, res) => {
+router.delete('/image/:id', flexAuthMiddleware, async (req: any, res) => {
   try {
-    const userId = req.user.id;
+    const userId = req.user?.id;
+    const anonId = (req as any).anonId;
     const { id } = req.params;
 
-    const { error } = await supabaseAdmin
+    let query = supabaseAdmin
       .from('user_images')
       .delete()
-      .eq('id', id)
-      .eq('user_id', userId);
+      .eq('id', id);
+
+    if (userId) {
+      query = query.eq('user_id', userId);
+    } else if (anonId) {
+      query = query.eq('anon_id', anonId);
+    } else {
+      return res.status(401).json({ success: false, message: 'Authentication or identity required' });
+    }
+
+    const { error } = await query;
 
     if (error) throw error;
 

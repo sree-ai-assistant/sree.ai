@@ -68,41 +68,47 @@ export async function checkAndIncrementMultiUsage(
     return { allowed: true }; // Fail open for reliability
   }
 
-  const result = data as { 
+  const results = data as { 
     allowed: boolean; 
     reason?: 'minute' | 'daily' | 'monthly'; 
     limit?: number; 
     used?: number;
     last_reset?: string;
     is_byok?: boolean;
-  };
+    message?: string;
+  }[];
 
-  if (!result.allowed) {
-    const reasonMsg = result.reason 
-      ? `(${result.reason} limit reached: ${result.limit})`
+  const result = results[0]; // For single requests, use the first result
+
+  // If any result is not allowed, the whole operation is considered failed for reporting
+  const failure = results.find(r => !r.allowed);
+  
+  if (failure) {
+    const reasonMsg = failure.reason 
+      ? `(${failure.reason} limit reached: ${failure.limit})`
       : '';
     
     // Calculate resetsIn based on last_reset
     let resetsIn: number | undefined;
-    if (result.last_reset && result.reason) {
-      const lastReset = new Date(result.last_reset).getTime();
+    if (failure.last_reset && failure.reason) {
+      const lastReset = new Date(failure.last_reset).getTime();
       const now = Date.now();
       const intervals = {
         minute: 60 * 1000,
         daily: 24 * 60 * 60 * 1000,
         monthly: 30 * 24 * 60 * 60 * 1000
       };
-      const interval = intervals[result.reason];
+      const interval = intervals[failure.reason as 'minute' | 'daily' | 'monthly'];
       resetsIn = Math.max(0, Math.ceil((lastReset + interval - now) / 1000));
     }
     
     return {
       allowed: false,
-      reason: result.reason || 'daily',
-      limit: result.limit,
-      used: result.used,
+      reason: failure.reason || 'daily',
+      limit: failure.limit,
+      used: failure.used,
       resetsIn,
-      message: `Usage limit reached for one or more requested tools. ${reasonMsg} Please upgrade your plan for more access.`
+      message: failure.message || `Usage limit reached for one or more requested tools. ${reasonMsg} Please upgrade your plan for more access.`
     };
   }
 
@@ -190,6 +196,43 @@ export async function getUsageStatus(identity: RateLimitIdentity) {
         : `anon_id.eq.${identity.anonId}`
     );
 
+  let profileUsage: any = null;
+  if (identity.type === 'authenticated') {
+    // We don't fetch from profiles since aggregate columns were dropped.
+    // Instead we use usageRecords which come from usage_tracking table
+    const chatUsage = usageRecords?.find(r => r.tool_type === 'chat');
+    const voiceUsage = usageRecords?.find(r => r.tool_type === 'voice');
+    const imageUsage = usageRecords?.find(r => r.tool_type === 'image');
+
+    const checkReset = (record: any) => {
+      if (!record) return { isDailyReset: true, isMonthlyReset: true };
+      const now = new Date();
+      return {
+        isDailyReset: now.getTime() - new Date(record.last_daily_reset).getTime() >= 86400000,
+        isMonthlyReset: now.getTime() - new Date(record.last_monthly_reset).getTime() >= 2592000000
+      };
+    };
+
+    const chatR = checkReset(chatUsage);
+    const voiceR = checkReset(voiceUsage);
+    const imageR = checkReset(imageUsage);
+
+    profileUsage = {
+      chat: {
+        daily: { used: chatR.isDailyReset ? 0 : chatUsage?.daily_count || 0, limit: plan.limits.chat.daily },
+        monthly: { used: chatR.isMonthlyReset ? 0 : chatUsage?.monthly_count || 0, limit: plan.limits.chat.monthly }
+      },
+      voice: {
+        daily: { used: voiceR.isDailyReset ? 0 : voiceUsage?.daily_count || 0, limit: plan.limits.voice.daily },
+        monthly: { used: voiceR.isMonthlyReset ? 0 : voiceUsage?.monthly_count || 0, limit: plan.limits.voice.monthly }
+      },
+      image: {
+        daily: { used: imageR.isDailyReset ? 0 : imageUsage?.daily_count || 0, limit: plan.limits.image.daily },
+        monthly: { used: imageR.isMonthlyReset ? 0 : imageUsage?.monthly_count || 0, limit: plan.limits.image.monthly }
+      }
+    };
+  }
+
   const summaries: any = {};
   const now = new Date();
   
@@ -214,6 +257,7 @@ export async function getUsageStatus(identity: RateLimitIdentity) {
       minute: { used: Number(minuteUsed), limit: (limits as any).perMinute },
       daily: { used: Number(dailyUsed), limit: (limits as any).daily },
       monthly: { used: Number(monthlyUsed), limit: (limits as any).monthly },
+      total: { used: record?.total_count || 0, limit: null },
       isByok: !!record?.is_byok
     };
   }
@@ -222,7 +266,8 @@ export async function getUsageStatus(identity: RateLimitIdentity) {
     tier: identity.tier,
     planName: plan.displayName,
     features: plan.features,
-    usage: summaries
+    usage: summaries,
+    profileUsage
   };
 }
 

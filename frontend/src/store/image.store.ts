@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import api from '../lib/api';
 import toast from 'react-hot-toast';
+import { useUsageStore } from './usage.store';
 
 export interface GeneratedImage {
   id: string;
@@ -117,6 +118,9 @@ export const useImageStore = create<ImageState>((set, get) => ({
     try {
       const response = await api.post('/ai/image', params);
       if (response.data.success) {
+        // Increment usage count locally immediately after a successful request
+        useUsageStore.getState().incrementLocalUsage();
+
         const img = response.data.data.images[0];
         if (img) {
           get().fetchHistory();

@@ -44,47 +44,15 @@ function App() {
         <Route path="/login" element={<LoginPage />} />
         <Route path="/signup" element={<SignupPage />} />
 
-        {/* Protected Dashboard Routes */}
-        <Route
-          path="/"
-          element={
-            <ProtectedRoute>
-              <Dashboard />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/chat/:id?"
-          element={
-            <ProtectedRoute>
-              <ChatPage />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/voice"
-          element={
-            <ProtectedRoute>
-              <ChatPage />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/voice/chat/:id?"
-          element={
-            <ProtectedRoute>
-              <ChatPage />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/images"
-          element={
-            <ProtectedRoute>
-              <ImageGenPage />
-            </ProtectedRoute>
-          }
-        />
+        {/* Public/Protected Hybrid Routes */}
+        <Route path="/" element={<ChatPage />} />
+        <Route path="/chat/:id?" element={<ChatPage />} />
+        <Route path="/dashboard" element={<Dashboard />} />
+        <Route path="/voice" element={<ChatPage />} />
+        <Route path="/voice/chat/:id?" element={<ChatPage />} />
+
+        {/* Public/Protected Hybrid Routes */}
+        <Route path="/images" element={<ImageGenPage />} />
         <Route
           path="/settings"
           element={

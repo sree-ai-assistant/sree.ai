@@ -42,11 +42,13 @@ export const abuseDetectionMiddleware = () => {
       const signals: IdentitySignals = {
         anonId,
         userId: user?.id,
+        userEmail: user?.email,
         fingerprintHash: anonymousUser?.fingerprint_hash
           || req.headers['x-fingerprint'] as string | undefined,
         rawIp,
         ipHash: anonymousUser?.ip_hash,
         userAgent: req.headers['user-agent'] || undefined,
+        prompt: req.body?.message || req.body?.prompt || undefined,
       };
 
       // Skip abuse check if no identity signals at all

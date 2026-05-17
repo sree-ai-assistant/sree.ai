@@ -18,24 +18,67 @@ export const UsageIndicator: React.FC<UsageIndicatorProps> = ({
     fetchStatus();
   }, [fetchStatus]);
 
-  if (!status) return null;
+  if (!status || !status.usage) return null;
 
-  const percentage = (status.daily_count / status.daily_limit) * 100;
-  const isWarning = percentage > 80;
-  const isExceeded = status.remaining_today <= 0;
+  const renderProgressBar = (tool: string, data: any) => {
+    if (!data || !data.daily) return null;
+    const { used, limit } = data.daily;
+    const percentage = limit > 0 ? (used / limit) * 100 : 0;
+    const isWarning = percentage > 80;
+    const remaining = Math.max(0, limit - used);
 
-  const formatTime = (seconds: number) => {
-    if (seconds < 60) return `${seconds}s`;
-    const minutes = Math.ceil(seconds / 60);
+    return (
+      <div key={tool} className={styles.usageGroup}>
+        <div className={styles.toolLabel}>
+          <span className={styles.toolName}>{tool}</span>
+          <span>{remaining} left</span>
+        </div>
+        <div className={styles.progressWrapper}>
+          <div 
+            className={`${styles.progressBar} ${isWarning ? styles.progressBarWarning : ''} ${tool === 'voice' ? styles.voiceBar : tool === 'image' ? styles.imageBar : ''}`}
+            style={{ width: `${Math.min(100, percentage)}%` }}
+          />
+        </div>
+      </div>
+    );
+  };
+
+  const formatTime = (seconds: any) => {
+    const s = Number(seconds);
+    if (isNaN(s) || s <= 0) return 'tomorrow'; // Fallback if resets_in_seconds is missing
+    if (s < 60) return `${s}s`;
+    const minutes = Math.ceil(s / 60);
     if (minutes < 60) return `${minutes}m`;
     const hours = Math.ceil(minutes / 60);
     return `${hours}h`;
   };
 
+
   if (isCollapsed) {
+    let maxPercentage = 0;
+    if (status.profileUsage) {
+      const tools = ['chat', 'voice', 'image'] as const;
+      const percentages = tools.map(t => {
+        const toolData = status.profileUsage?.[t]?.daily;
+        if (!toolData || !toolData.limit) return 0;
+        return (toolData.used / toolData.limit) * 100;
+      });
+      maxPercentage = Math.max(...percentages, 0);
+    } else if (status.usage) {
+      const percentages = Object.values(status.usage).map(u => {
+        if (!u.daily || !u.daily.limit) return 0;
+        return (u.daily.used / u.daily.limit) * 100;
+      });
+      maxPercentage = Math.max(...percentages, 0);
+    }
+
+    const totalPercentage = maxPercentage;
+    const isExceeded = totalPercentage >= 100;
+    const isWarning = totalPercentage > 80;
+
     return (
       <div className={styles.containerCollapsed}>
-        <div className={styles.miniIndicator} title={`${status.remaining_today} requests left`}>
+        <div className={styles.miniIndicator} title="View usage">
           {isExceeded ? (
             <AlertCircle size={20} color="#ef4444" />
           ) : (
@@ -52,40 +95,46 @@ export const UsageIndicator: React.FC<UsageIndicatorProps> = ({
     );
   }
 
+  const profileUsage = status.profileUsage;
+
   return (
     <div className={styles.container}>
       <div className={styles.header}>
-        <span className={styles.title}>Daily Usage</span>
+        <span className={styles.title}>Usage Limits</span>
         <span className={styles.tierBadge}>{status.tier}</span>
       </div>
       
-      <div className={styles.progressWrapper}>
-        <div 
-          className={`${styles.progressBar} ${isWarning ? styles.progressBarWarning : ''}`}
-          style={{ width: `${Math.min(100, percentage)}%` }}
-        />
-      </div>
-
-      <div className={styles.footer}>
-        <span className={styles.count}>
-          {status.remaining_today} / {status.daily_limit} left
-        </span>
-        <span className={styles.reset}>
-          Resets in {formatTime(status.resets_in_seconds)}
-        </span>
-      </div>
-
-      {!isExceeded && status.tier === 'free' && (
-        <button className={styles.upgradeBtn} onClick={onUpgradeClick}>
-          <Sparkles size={14} />
-          Upgrade
-        </button>
+      {profileUsage ? (
+        <div className={styles.multiUsage}>
+          {renderProgressBar('chat', profileUsage.chat)}
+          {renderProgressBar('voice', profileUsage.voice)}
+          {renderProgressBar('image', profileUsage.image)}
+        </div>
+      ) : (
+        <div className={styles.usageGroup}>
+          <div className={styles.progressWrapper}>
+            <div 
+              className={styles.progressBar}
+              style={{ width: '0%' }}
+            />
+          </div>
+        </div>
       )}
 
-      {isExceeded && (
-        <button className={styles.upgradeBtn} style={{ color: '#ef4444' }} onClick={onUpgradeClick}>
-          <Zap size={14} />
-          Limit Reached
+      <div className={styles.footer}>
+        {status?.resets_in_seconds !== undefined ? (
+          <span className={styles.reset}>
+            Resets in {formatTime(status.resets_in_seconds)}
+          </span>
+        ) : (
+          <span className={styles.reset}>Daily reset</span>
+        )}
+      </div>
+
+      {status.tier === 'free' && (
+        <button className={styles.upgradeBtn} onClick={onUpgradeClick}>
+          <Sparkles size={14} />
+          Upgrade Plan
         </button>
       )}
     </div>

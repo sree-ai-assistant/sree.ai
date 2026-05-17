@@ -124,24 +124,24 @@ BEGIN
       UPDATE public.usage_tracking
       SET 
         minute_count = CASE 
-          WHEN v_now - last_minute_reset >= INTERVAL '1 minute' THEN amount 
-          ELSE minute_count + amount 
+          WHEN v_now - last_minute_reset >= INTERVAL '1 minute' THEN v_request.amount 
+          ELSE minute_count + v_request.amount 
         END,
         last_minute_reset = CASE 
           WHEN v_now - last_minute_reset >= INTERVAL '1 minute' THEN v_now 
           ELSE last_minute_reset 
         END,
         daily_count = CASE 
-          WHEN v_now - last_daily_reset >= INTERVAL '1 day' THEN amount 
-          ELSE daily_count + amount 
+          WHEN v_now - last_daily_reset >= INTERVAL '1 day' THEN v_request.amount 
+          ELSE daily_count + v_request.amount 
         END,
         last_daily_reset = CASE 
           WHEN v_now - last_daily_reset >= INTERVAL '1 day' THEN v_now 
           ELSE last_daily_reset 
         END,
         monthly_count = CASE 
-          WHEN v_now - last_monthly_reset >= INTERVAL '30 days' THEN amount 
-          ELSE monthly_count + amount 
+          WHEN v_now - last_monthly_reset >= INTERVAL '30 days' THEN v_request.amount 
+          ELSE monthly_count + v_request.amount 
         END,
         last_monthly_reset = CASE 
           WHEN v_now - last_monthly_reset >= INTERVAL '30 days' THEN v_now 

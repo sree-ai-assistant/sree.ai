@@ -141,7 +141,7 @@ export const Navbar: React.FC = () => {
           className={styles.userButton}
         >
           <div className={styles.userLabel}>
-            <span className={styles.planName}>{user?.plan_type?.toUpperCase() || 'FREE'}</span>
+            <span className={styles.planName}>{user?.plan_type?.toUpperCase() || 'GUEST'}</span>
             <span className={styles.planAction}>Dashboard</span>
           </div>
           <div className={styles.userAvatar}>
@@ -162,8 +162,8 @@ export const Navbar: React.FC = () => {
               className={`${styles.dropdownMenu} ${styles.right}`}
             >
               <div className={styles.menuHeader}>
-                <p className={styles.userEmail}>{user?.email}</p>
-                <p className={styles.userRole}>{user?.plan_type === 'pro' ? 'Pro Member' : user?.plan_type === 'starter' ? 'Starter Member' : 'Free Plan'}</p>
+                <p className={styles.userEmail}>{user?.email || 'Guest User'}</p>
+                <p className={styles.userRole}>{!user ? 'Anonymous Access' : user?.plan_type === 'pro' ? 'Pro Member' : user?.plan_type === 'starter' ? 'Starter Member' : 'Free Plan'}</p>
               </div>
               
               <Link to="/settings" className={styles.dropdownItem}>
@@ -180,15 +180,24 @@ export const Navbar: React.FC = () => {
                 </div>
               </Link>
               
-              <button 
-                onClick={() => signOut()}
-                className={`${styles.dropdownItem} ${styles.danger}`}
-              >
-                <div className={styles.itemContent}>
-                  <LogOut size={18} />
-                  <span>Logout</span>
-                </div>
-              </button>
+              {user ? (
+                <button 
+                  onClick={() => signOut()}
+                  className={`${styles.dropdownItem} ${styles.danger}`}
+                >
+                  <div className={styles.itemContent}>
+                    <LogOut size={18} />
+                    <span>Logout</span>
+                  </div>
+                </button>
+              ) : (
+                <Link to="/login" className={styles.dropdownItem}>
+                  <div className={styles.itemContent}>
+                    <User size={18} />
+                    <span>Login / Sign Up</span>
+                  </div>
+                </Link>
+              )}
             </motion.div>
           )}
         </AnimatePresence>

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import {
   Plus,
   Search,
@@ -16,10 +17,12 @@ import {
   Mic,
   MessageCircle,
   Settings,
-  Image as ImageIcon
+  Image as ImageIcon,
+  Activity
 } from 'lucide-react';
 import { useAuthStore } from '../../store/auth.store';
 import { useChatStore, type Conversation } from '../../store/chat.store';
+import { getOrCreateAnonymousIdentity } from '../../lib/fingerprint';
 import { useUsageStore } from '../../store/usage.store';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { UsageIndicator } from '../sidebar/UsageIndicator';
@@ -38,6 +41,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, setIsCollapsed })
   const navigate = useNavigate();
   const { user, signOut } = useAuthStore();
   const { status } = useUsageStore();
+  const chatUsage = status?.usage?.chat || (status?.usage ? Object.values(status.usage)[0] : null);
+
   const [showLimitModal, setShowLimitModal] = useState(false);
   const {
     conversations,
@@ -62,9 +67,15 @@ export const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, setIsCollapsed })
   };
 
   useEffect(() => {
-    if (user?.id) {
-      fetchConversations(user.id);
-    }
+    const initConversations = async () => {
+      if (user?.id) {
+        fetchConversations(user.id);
+      } else {
+        const { anonId } = await getOrCreateAnonymousIdentity();
+        fetchConversations(undefined, anonId);
+      }
+    };
+    initConversations();
   }, [user?.id, fetchConversations]);
 
   const menuRef = React.useRef<HTMLDivElement>(null);
@@ -143,10 +154,12 @@ export const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, setIsCollapsed })
       'Previous Days': []
     };
 
-    // Sort by updated_at just in case
-    const sortedConvs = [...convs].sort((a, b) =>
-      new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()
-    );
+    // Sort by updated_at, filtering out invalid items
+    const sortedConvs = [...convs]
+      .filter(c => c && c.updated_at)
+      .sort((a, b) =>
+        new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()
+      );
 
     sortedConvs.forEach(c => {
       const label = formatDate(c.updated_at);
@@ -241,7 +254,11 @@ export const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, setIsCollapsed })
     <aside className={`${styles.sidebar} ${isCollapsed ? styles.collapsed : ''}`}>
       <div className={styles.topSection}>
         <div className={styles.topHeader}>
-          {!isCollapsed && <span className={styles.brand}>CORE</span>}
+          {!isCollapsed && (
+            <Link to="/dashboard" className={styles.brand}>
+              CORE
+            </Link>
+          )}
           <button
             className={styles.toggleBtn}
             onClick={() => setIsCollapsed(!isCollapsed)}
@@ -250,6 +267,15 @@ export const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, setIsCollapsed })
             <PanelLeft size={18} />
           </button>
         </div>
+
+        <button 
+          className={`${styles.navItem} ${location.pathname === '/dashboard' ? styles.active : ''}`}
+          onClick={() => navigate('/dashboard')}
+          title="Dashboard"
+        >
+          <Activity size={20} />
+          {!isCollapsed && <span>Dashboard</span>}
+        </button>
 
         <button className={styles.newChatBtn} onClick={handleNewChat} title={isVoiceContext ? "New Conversation" : "New Chat"}>
           <Plus size={22} strokeWidth={2.5} />
@@ -427,23 +453,36 @@ export const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, setIsCollapsed })
             </div>
             {!isCollapsed && (
               <div className={styles.details}>
-                <span className={styles.name}>{user?.display_name || user?.email?.split('@')[0]}</span>
+                <span className={styles.name}>{user ? (user.display_name || user.email?.split('@')[0]) : 'Guest User'}</span>
                 <div className={styles.badge}>
                   <Zap size={10} fill="currentColor" />
-                  <span>{user?.plan_type === 'pro' ? 'Pro Member' : user?.plan_type === 'starter' ? 'Starter Plan' : 'Free Plan'}</span>
+                  <span>{user ? (user.plan_type === 'pro' ? 'Pro Member' : user.plan_type === 'starter' ? 'Starter Plan' : 'Free Plan') : 'Anonymous'}</span>
                 </div>
               </div>
             )}
           </div>
 
           <div className={styles.profileActions}>
-            <button className={styles.signOutBtn} onClick={handleSignOut} title="Sign Out">
-              <LogOut size={16} />
-            </button>
-            <button className={styles.upgradeBtn} onClick={() => setShowLimitModal(true)} title="Upgrade Plan">
-              <Star size={16} />
-              {!isCollapsed && <span>Upgrade</span>}
-            </button>
+            {user ? (
+              <button className={styles.signOutBtn} onClick={handleSignOut} title="Sign Out">
+                <LogOut size={16} />
+              </button>
+            ) : (
+              <button className={styles.signOutBtn} onClick={() => navigate('/login')} title="Sign In" style={{ color: 'var(--primary)' }}>
+                <Zap size={16} />
+              </button>
+            )}
+            {user ? (
+              <button className={styles.upgradeBtn} onClick={() => setShowLimitModal(true)} title="Upgrade Plan">
+                <Star size={16} />
+                {!isCollapsed && <span>Upgrade</span>}
+              </button>
+            ) : (
+              <button className={styles.upgradeBtn} onClick={() => navigate('/signup')} title="Create Account">
+                <Plus size={16} />
+                {!isCollapsed && <span>Join</span>}
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -454,8 +493,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, setIsCollapsed })
       onClose={() => setShowLimitModal(false)}
       type={user ? 'tiered' : 'anonymous'}
       limitInfo={status ? {
-        limit: status.daily_limit,
-        current: status.daily_count,
+        limit: status.daily_limit || (chatUsage as any)?.daily?.limit || 0,
+        current: (chatUsage as any)?.daily?.used || 0,
         resetsIn: status.resets_in_seconds,
         tier: status.tier
       } : undefined}

@@ -18,6 +18,7 @@ import styles from './ImageGenPage.module.css';
 import { ImageSidebar } from '../components/images/ImageSidebar';
 import { ConfirmModal } from '../components/shared/ConfirmModal';
 import { ImageLightbox } from '../components/images/ImageLightbox';
+import { LimitModal } from '../components/modals/LimitModal';
 
 // Aspect ratio presets
 const ASPECT_RATIOS = [
@@ -105,6 +106,11 @@ const ImageGenPage: React.FC = () => {
   const [usage, setUsage] = useState<UsageStatus | null>(null);
   const [usageMinimized, setUsageMinimized] = useState(true);
   const { openUpgradeModal } = useUIStore();
+  const [limitModal, setLimitModal] = useState<{
+    isOpen: boolean;
+    type: 'anonymous' | 'rate-limited' | 'tiered' | 'abuse-cooldown' | 'abuse-captcha' | 'abuse-auth' | 'abuse-restricted';
+    limitInfo?: any;
+  }>({ isOpen: false, type: 'anonymous' });
 
   const promptRef = useRef<HTMLTextAreaElement>(null);
 
@@ -148,19 +154,43 @@ const ImageGenPage: React.FC = () => {
   const ratio = ASPECT_RATIOS[settings.ratioIndex];
 
   const handleGenerate = async () => {
-    if (!settings.prompt.trim() || isGenerating || !user?.id) return;
+    if (!settings.prompt.trim() || isGenerating) return;
     setActiveTab('generate');
 
-    await generateImage({
-      prompt: settings.prompt,
-      model: settings.modelId,
-      negative_prompt: isFlux ? undefined : settings.negativePrompt || undefined,
-      seed: settings.seed || 0,
-      steps: settings.steps,
-      width: ratio.w,
-      height: ratio.h,
-      cfg_scale: (isFlux && !isFluxDev) ? undefined : settings.cfgScale,
-    });
+    try {
+      await generateImage({
+        prompt: settings.prompt,
+        model: settings.modelId,
+        negative_prompt: isFlux ? undefined : settings.negativePrompt || undefined,
+        seed: settings.seed || 0,
+        steps: settings.steps,
+        width: ratio.w,
+        height: ratio.h,
+        cfg_scale: (isFlux && !isFluxDev) ? undefined : settings.cfgScale,
+      });
+    } catch (error: any) {
+      if (error.response?.status === 429) {
+        const errorData = error.response.data;
+        const code = errorData?.code;
+        
+        if (code === 'ABUSE_COOLDOWN' || code === 'ABUSE_CAPTCHA' || code === 'ABUSE_AUTH' || code === 'ABUSE_RESTRICTED') {
+          setLimitModal({
+            isOpen: true,
+            type: code.toLowerCase().replace('_', '-') as any,
+            limitInfo: {
+              resetsIn: errorData.info?.resets_in_seconds,
+              limit: errorData.info?.daily_limit,
+              current: errorData.info?.daily_count,
+              message: errorData.message
+            }
+          });
+        } else if (code === 'LIMIT_REACHED' && errorData.limit_type === 'anonymous') {
+          setLimitModal({ isOpen: true, type: 'anonymous' });
+        } else if (code === 'LIMIT_REACHED') {
+          setLimitModal({ isOpen: true, type: 'tiered' });
+        }
+      }
+    }
   };
 
   const handleDownload = async (image: any) => {
@@ -761,11 +791,17 @@ const ImageGenPage: React.FC = () => {
         </motion.main>
 
         <ImageLightbox
-          images={history.map(img => ({ ...img, id: img.id }))}
           isOpen={lightboxIndex !== null}
           onClose={() => setLightboxIndex(null)}
-          initialIndex={lightboxIndex ?? 0}
-          onDownload={handleDownload}
+          images={history}
+          initialIndex={lightboxIndex || 0}
+        />
+
+        <LimitModal 
+          isOpen={limitModal.isOpen}
+          onClose={() => setLimitModal(prev => ({ ...prev, isOpen: false }))}
+          type={limitModal.type}
+          limitInfo={limitModal.limitInfo}
         />
 
         <ConfirmModal

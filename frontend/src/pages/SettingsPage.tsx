@@ -1,45 +1,28 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { 
   Save, 
   ShieldCheck, 
   Trash2, 
   RefreshCw, 
-  User as UserIcon, 
-  Key, 
-  CreditCard, 
-  Shield,
   Zap,
-  Globe,
-  Bell,
   Mail,
   Smartphone,
   Plus,
   HelpCircle,
   LogOut,
-  ChevronLeft,
-  UploadCloud,
   Camera,
   CheckCircle2,
-  ExternalLink,
   ChevronRight,
   Fingerprint,
-  Settings as SettingsIcon,
-  ArrowLeft,
-  Eye,
-  EyeOff,
   Monitor,
   Laptop,
-  Lock,
-  BellRing,
-  Clock,
-  MapPin,
-  ArrowRight
+  Lock
 } from 'lucide-react';
 import { DashboardLayout } from '../features/dashboard/DashboardLayout';
 import { SettingsSidebar } from '../components/layout/SettingsSidebar';
 import api, { sessionService, apiKeyService } from '../lib/api';
-import { useAuthStore, type User } from '../store/auth.store';
+import { useAuthStore } from '../store/auth.store';
 import ApiKeyModal from '../components/shared/ApiKeyModal';
 import { getProviderLogo, PROVIDER_COLORS } from '../components/icons/ProviderLogos';
 import styles from './SettingsPage.module.css';
@@ -94,12 +77,6 @@ const SettingsPage: React.FC = () => {
   const [status, setStatus] = useState<'idle' | 'loading' | 'saving' | 'success' | 'error'>('idle');
   const [lastSaved, setLastSaved] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [deviceInfo, setDeviceInfo] = useState({
-    os: 'Detecting...',
-    browser: 'Detecting...',
-    location: 'Detecting...',
-    browserVersion: ''
-  });
   const [sessions, setSessions] = useState<UserSession[]>([]);
   const hasSyncedRef = useRef(false);
   useEffect(() => {
@@ -239,7 +216,6 @@ const SettingsPage: React.FC = () => {
     }
 
     const details = { os, browser, location, browserVersion: version, device_id: getPersistentDeviceId() };
-    setDeviceInfo(details);
     return details;
   };
 

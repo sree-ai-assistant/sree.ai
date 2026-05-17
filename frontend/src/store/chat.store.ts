@@ -3,7 +3,8 @@ import { supabase } from '../lib/supabase';
 
 export interface Conversation {
   id: string;
-  user_id: string;
+  user_id?: string;
+  anon_id?: string;
   title: string;
   type: 'chat' | 'voice' | 'image';
   created_at: string;
@@ -27,9 +28,9 @@ interface ChatState {
   loading: boolean;
   
   // Actions
-  fetchConversations: (userId: string) => Promise<void>;
+  fetchConversations: (userId?: string, anonId?: string) => Promise<void>;
   setActiveConversation: (conversationId: string | null) => Promise<void>;
-  createConversation: (userId: string, title: string, type?: 'chat' | 'voice' | 'image') => Promise<Conversation | null>;
+  createConversation: (userId: string | undefined, title: string, type?: 'chat' | 'voice' | 'image', anonId?: string) => Promise<Conversation | null>;
   deleteConversation: (conversationId: string) => Promise<void>;
   addMessage: (conversationId: string, role: 'user' | 'assistant' | 'system', content: string, metadata?: any) => Promise<Message | null>;
   updateMessage: (messageId: string, content: string, metadata?: any) => Promise<void>;
@@ -46,13 +47,21 @@ export const useChatStore = create<ChatState>((set, get) => ({
   messages: [],
   loading: false,
 
-  fetchConversations: async (userId: string) => {
+  fetchConversations: async (userId?: string, anonId?: string) => {
+    if (!userId && !anonId) return;
     set({ loading: true });
-    const { data } = await supabase
+    
+    let query = supabase
       .from('conversations')
-      .select('*')
-      .eq('user_id', userId)
-      .order('updated_at', { ascending: false });
+      .select('*');
+
+    if (userId) {
+      query = query.eq('user_id', userId);
+    } else if (anonId) {
+      query = query.eq('anon_id', anonId);
+    }
+
+    const { data } = await query.order('updated_at', { ascending: false });
     
     set({ conversations: data || [], loading: false });
   },
@@ -116,10 +125,14 @@ export const useChatStore = create<ChatState>((set, get) => ({
     set({ messages: cleanMessages, loading: false });
   },
 
-  createConversation: async (userId: string, title: string, type: 'chat' | 'voice' | 'image' = 'chat') => {
+  createConversation: async (userId: string | undefined, title: string, type: 'chat' | 'voice' | 'image' = 'chat', anonId?: string) => {
+    const insertData: any = { title, type };
+    if (userId) insertData.user_id = userId;
+    if (anonId) insertData.anon_id = anonId;
+
     const { data, error } = await supabase
       .from('conversations')
-      .insert([{ user_id: userId, title, type }])
+      .insert([insertData])
       .select()
       .single();
 

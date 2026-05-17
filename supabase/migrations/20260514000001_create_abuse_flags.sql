@@ -3,6 +3,7 @@ CREATE TABLE abuse_flags (
   -- Identity columns (at least one must be set)
   anon_id TEXT,
   user_id UUID REFERENCES auth.users(id),
+  user_email TEXT,
   fingerprint_hash TEXT,
   ip_hash TEXT,
   -- Flag details
@@ -23,9 +24,12 @@ CREATE INDEX idx_abuse_flags_anon_id ON abuse_flags(anon_id) WHERE resolved_at I
 CREATE INDEX idx_abuse_flags_fingerprint ON abuse_flags(fingerprint_hash) WHERE resolved_at IS NULL;
 CREATE INDEX idx_abuse_flags_ip_hash ON abuse_flags(ip_hash) WHERE resolved_at IS NULL;
 CREATE INDEX idx_abuse_flags_user_id ON abuse_flags(user_id) WHERE resolved_at IS NULL;
+CREATE INDEX idx_abuse_flags_user_email ON abuse_flags(user_email) WHERE resolved_at IS NULL;
 CREATE INDEX idx_abuse_flags_expires ON abuse_flags(expires_at) WHERE resolved_at IS NULL;
 
 -- RLS policy
 ALTER TABLE abuse_flags ENABLE ROW LEVEL SECURITY;
 -- Service-only table: no direct client access
 CREATE POLICY "service_role_only" ON abuse_flags FOR ALL USING (auth.role() = 'service_role');
+
+COMMENT ON TABLE abuse_flags IS 'Tracks abuse flags for identity-based abuse detection. Supports anon_id, user_id, and user_email. Phase 11.';

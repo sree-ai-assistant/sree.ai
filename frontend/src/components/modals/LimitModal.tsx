@@ -7,12 +7,14 @@ import { useNavigate } from 'react-router-dom';
 interface LimitModalProps {
   isOpen: boolean;
   onClose: () => void;
-  type: 'anonymous' | 'rate-limited' | 'tiered';
+  type: 'anonymous' | 'rate-limited' | 'tiered' | 'abuse-cooldown' | 'abuse-captcha' | 'abuse-auth' | 'abuse-restricted';
   limitInfo?: {
-    limit: number;
-    current: number;
-    resetsIn: number;
+    limit?: number;
+    current?: number;
+    resetsIn?: number;
     tier?: string;
+    message?: string;
+    severity?: number;
   };
 }
 
@@ -126,46 +128,77 @@ export const LimitModal: React.FC<LimitModalProps> = ({
             ) : (
               <>
                 <div className={styles.iconWrapper}>
-                  {type === 'rate-limited' ? <Zap size={32} /> : <AlertCircle size={32} />}
+                  {type === 'rate-limited' || type === 'abuse-cooldown' ? <Zap size={32} /> : 
+                   type === 'abuse-captcha' ? <Sparkles size={32} /> :
+                   type === 'abuse-restricted' ? <X size={32} /> :
+                   <AlertCircle size={32} />}
                 </div>
 
                 <h2 className={styles.title}>
-                  {type === 'rate-limited' ? 'Slow Down a Bit' : 'Daily Limit Reached'}
+                  {type === 'rate-limited' ? 'Slow Down a Bit' : 
+                   type === 'abuse-cooldown' ? 'Temporary Cooldown' :
+                   type === 'abuse-captcha' ? 'Verification Required' :
+                   type === 'abuse-auth' ? 'Sign In Required' :
+                   type === 'abuse-restricted' ? 'Access Restricted' :
+                   'Daily Limit Reached'}
                 </h2>
                 
                 <p className={styles.description}>
                   {type === 'rate-limited' 
                     ? "You're moving a bit too fast. Please wait a moment before sending more requests."
+                    : type === 'abuse-cooldown'
+                    ? (limitInfo?.message || "Your account has been placed on a temporary cooldown due to unusual activity.")
+                    : type === 'abuse-captcha'
+                    ? (limitInfo?.message || "Please verify you're human to continue using our services.")
+                    : type === 'abuse-auth'
+                    ? (limitInfo?.message || "To prevent abuse, anonymous access is restricted. Please sign in to continue.")
+                    : type === 'abuse-restricted'
+                    ? (limitInfo?.message || "Access from this network has been temporarily restricted.")
                     : "You've used all your free requests for today. Create an account to get more requests and save your history."}
                 </p>
 
-                {limitInfo && (
+                {limitInfo && (type === 'rate-limited' || type === 'anonymous') && limitInfo.limit !== undefined && (
                   <div className={styles.stats}>
                     <div className={styles.statItem}>
                       <span className={styles.statValue}>{limitInfo.current}/{limitInfo.limit}</span>
                       <span className={styles.statLabel}>Used Today</span>
                     </div>
+                    {limitInfo.resetsIn !== undefined && (
+                      <div className={styles.statItem}>
+                        <span className={styles.statValue}>{formatTime(limitInfo.resetsIn)}</span>
+                        <span className={styles.statLabel}>Resets In</span>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {type === 'abuse-cooldown' && limitInfo?.resetsIn && (
+                  <div className={styles.stats}>
                     <div className={styles.statItem}>
                       <span className={styles.statValue}>{formatTime(limitInfo.resetsIn)}</span>
-                      <span className={styles.statLabel}>Resets In</span>
+                      <span className={styles.statLabel}>Ends In</span>
                     </div>
                   </div>
                 )}
 
                 <div className={styles.actions}>
-                  {type === 'anonymous' ? (
+                  {type === 'anonymous' || type === 'abuse-auth' ? (
                     <>
                       <button 
                         className={styles.primaryButton}
                         onClick={() => navigate('/login')}
                       >
-                        Sign Up for Free
+                        {type === 'abuse-auth' ? 'Sign In' : 'Sign Up for Free'}
                         <ArrowRight size={18} style={{ marginLeft: '8px' }} />
                       </button>
                       <button className={styles.secondaryButton} onClick={onClose}>
                         Continue Exploring
                       </button>
                     </>
+                  ) : type === 'abuse-captcha' ? (
+                    <button className={styles.primaryButton} onClick={() => window.location.reload()}>
+                      Verify Now
+                    </button>
                   ) : (
                     <button className={styles.primaryButton} onClick={onClose}>
                       I Understand
@@ -175,8 +208,11 @@ export const LimitModal: React.FC<LimitModalProps> = ({
 
                 <div className={styles.footer}>
                   <p>
-                    Want unlimited access? {' '}
-                    <a href="/pricing" className={styles.link}>View Pricing</a>
+                    {type.startsWith('abuse-') ? (
+                      <span>If you think this is a mistake, please <a href="#" className={styles.link}>contact support</a></span>
+                    ) : (
+                      <>Want unlimited access? {' '}<a href="/pricing" className={styles.link}>View Pricing</a></>
+                    )}
                   </p>
                 </div>
               </>

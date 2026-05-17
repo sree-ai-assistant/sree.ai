@@ -20,9 +20,21 @@
 
 **Phases:** 5 (completed before GSD adoption)
 
-## Active
-
 ### v1.0 — Subscription & Rate Limiting System
 
-**Started:** 2026-05-12
+**Shipped:** 2026-05-15
 **Goal:** Build complete business logic, anonymous user tracking, pricing/rate-limit enforcement, and database architecture.
+**Status:** ✓ Completed (Phases 6-13)
+
+## Active
+
+### v2.0 — Payments & Administration
+
+**Started:** 2026-05-15
+**Goal:** Commercialize the platform by integrating payment gateways and building administration tools for scale.
+**Target features:**
+- Payment gateway integration (Stripe/Razorpay)
+- Automated subscription lifecycle
+- Admin Dashboard
+- User Analytics Dashboard
+

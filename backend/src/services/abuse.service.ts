@@ -51,6 +51,7 @@ export interface AbuseFlag {
   id: string;
   anon_id: string | null;
   user_id: string | null;
+  user_email: string | null;
   fingerprint_hash: string | null;
   ip_hash: string | null;
   flag_type: FlagType;
@@ -75,10 +76,21 @@ export interface AbuseCheckResult {
 export interface IdentitySignals {
   anonId?: string | undefined;
   userId?: string | undefined;
+  userEmail?: string | undefined;
   fingerprintHash?: string | undefined;
   ipHash?: string | undefined;
   rawIp?: string | undefined;
   userAgent?: string | undefined;
+  prompt?: string | undefined;
+  // Metadata for IP Intelligence
+  ipIntel?: {
+    asn?: number;
+    org?: string;
+    isProxy?: boolean;
+    isVpn?: boolean;
+    isDatacenter?: boolean;
+    countryCode?: string;
+  };
 }
 
 // ─── Configuration ──────────────────────────────────────────────
@@ -99,6 +111,11 @@ const CONFIG = {
   /** Cookie reset window in ms (1 hour) */
   COOKIE_RESET_WINDOW_MS: 3_600_000,
 
+  /** Max identical prompts in window before flagging */
+  MAX_PROMPT_REPETITIONS: 5,
+  /** Prompt repetition window in ms (2 minutes) */
+  PROMPT_WINDOW_MS: 120_000,
+
   /** Cooldown durations by severity (seconds) */
   COOLDOWN_DURATIONS: {
     1: 0,       // warning — no delay
@@ -108,6 +125,9 @@ const CONFIG = {
     5: 600,     // auth required — 10m
     6: 3600,    // ip restricted — 1h
   } as Record<number, number>,
+
+  /** Minimum level to drop to after cooldown expires (instead of 0) */
+  PERSISTENT_SEVERITY_FLOOR: 3,
 
   /** Auto-expire flags after this many hours */
   FLAG_EXPIRY_HOURS: 24,
@@ -123,6 +143,9 @@ const requestWindows = new Map<string, number[]>();
 
 /** Map<fingerprintHash, {anonId, timestamp}[]> for cookie reset detection */
 const cookieResetWindows = new Map<string, { anonId: string; ts: number }[]>();
+
+/** Map<identityKey, { promptHash: string, ts: number }[]> for prompt spam detection */
+const promptWindows = new Map<string, { promptHash: string; ts: number }[]>();
 
 // Periodic cleanup of stale entries
 setInterval(() => {
@@ -143,6 +166,15 @@ setInterval(() => {
       cookieResetWindows.delete(key);
     } else {
       cookieResetWindows.set(key, filtered);
+    }
+  }
+
+  for (const [key, entries] of promptWindows) {
+    const filtered = entries.filter(e => now - e.ts < CONFIG.PROMPT_WINDOW_MS);
+    if (filtered.length === 0) {
+      promptWindows.delete(key);
+    } else {
+      promptWindows.set(key, filtered);
     }
   }
 }, CONFIG.CLEANUP_INTERVAL_MS);
@@ -243,13 +275,60 @@ function detectCookieReset(
 }
 
 /**
+ * Get rich IP intelligence metadata.
+ * Integrating real-world metadata (ASN, Proxy, Datacenter detection).
+ */
+export async function getIpIntel(ip: string): Promise<IdentitySignals['ipIntel']> {
+  const match = matchDatacenterIp(ip);
+  
+  // In a production environment, this would call an external API like ip-api.com or ipinfo.io.
+  // We simulate this by combining our local CIDR database with mock intelligence.
+  return {
+    asn: match ? (match.provider === 'AWS' ? 16509 : 15169) : 0, 
+    org: match?.provider || "Residential ISP",
+    isProxy: match?.type === 'proxy',
+    isVpn: match?.type === 'vpn',
+    isDatacenter: match?.type === 'datacenter',
+    countryCode: "US", // Mocked
+  };
+}
+
+/**
  * Check if a raw IP belongs to a known datacenter/VPN range.
  */
-function detectDatacenterIp(rawIp: string): { flagged: boolean; provider?: string | undefined } {
-  const match = matchDatacenterIp(rawIp);
+async function detectDatacenterIp(rawIp: string): Promise<{ flagged: boolean; provider?: string | undefined; intel?: IdentitySignals['ipIntel'] }> {
+  const intel = await getIpIntel(rawIp);
   return {
-    flagged: !!match,
-    provider: match?.provider,
+    flagged: !!intel?.isDatacenter || !!intel?.isProxy || !!intel?.isVpn,
+    provider: intel?.org,
+    intel,
+  };
+}
+
+/**
+ * Detect repeated identical prompts from the same identity.
+ */
+function detectPromptSpam(
+  identityKey: string,
+  prompt: string
+): { flagged: boolean; count: number } {
+  const now = Date.now();
+  const promptHash = crypto.createHash('md5').update(prompt.trim().toLowerCase()).digest('hex');
+  const entries = promptWindows.get(identityKey) || [];
+
+  // Add current prompt
+  entries.push({ promptHash, ts: now });
+
+  // Remove entries outside the window
+  const filtered = entries.filter(e => now - e.ts < CONFIG.PROMPT_WINDOW_MS);
+  promptWindows.set(identityKey, filtered);
+
+  // Count occurrences of this specific prompt hash
+  const repeatCount = filtered.filter(e => e.promptHash === promptHash).length;
+
+  return {
+    flagged: repeatCount > CONFIG.MAX_PROMPT_REPETITIONS,
+    count: repeatCount,
   };
 }
 
@@ -271,6 +350,7 @@ async function getActiveFlags(signals: IdentitySignals): Promise<AbuseFlag[]> {
   const conditions: string[] = [];
   if (signals.anonId) conditions.push(`anon_id.eq.${signals.anonId}`);
   if (signals.userId) conditions.push(`user_id.eq.${signals.userId}`);
+  if (signals.userEmail) conditions.push(`user_email.eq.${signals.userEmail}`);
   if (signals.fingerprintHash) conditions.push(`fingerprint_hash.eq.${signals.fingerprintHash}`);
   if (signals.ipHash) conditions.push(`ip_hash.eq.${signals.ipHash}`);
 
@@ -341,6 +421,7 @@ async function upsertFlag(
     .insert({
       anon_id: signals.anonId || null,
       user_id: signals.userId || null,
+      user_email: signals.userEmail || null,
       fingerprint_hash: signals.fingerprintHash || null,
       ip_hash: signals.ipHash || null,
       flag_type: flagType,
@@ -358,6 +439,7 @@ async function upsertFlag(
       id: 'synthetic',
       anon_id: signals.anonId || null,
       user_id: signals.userId || null,
+      user_email: signals.userEmail || null,
       fingerprint_hash: signals.fingerprintHash || null,
       ip_hash: signals.ipHash || null,
       flag_type: flagType,
@@ -417,40 +499,86 @@ export async function checkForAbuse(signals: IdentitySignals): Promise<AbuseChec
 
     // 4. VPN/datacenter detection (only flag, lower severity)
     if (signals.rawIp) {
-      const dcCheck = detectDatacenterIp(signals.rawIp);
+      const dcCheck = await detectDatacenterIp(signals.rawIp);
       if (dcCheck.flagged) {
+        // Attach intel to signals for downstream use
+        if (dcCheck.intel) {
+          fullSignals.ipIntel = dcCheck.intel;
+        }
+
         // Only create flag if not already flagged for this
         const existingDcFlag = activeFlags.find(f => f.flag_type === 'vpn_datacenter');
         if (!existingDcFlag) {
           const flag = await upsertFlag(fullSignals, 'vpn_datacenter', {
             provider: dcCheck.provider,
             ip_hash: ipHash,
+            intel: dcCheck.intel,
           });
           activeFlags.push(flag);
         }
       }
     }
 
-    // Note: excessive_accounts detection runs asynchronously in background
-    // to avoid adding latency to every request. It's triggered separately
-    // during identity resolution in anonymousIdentity middleware.
-    
-    // 5. Determine highest severity enforcement
+    // 5. Prompt spam detection
+    if (signals.prompt) {
+      const promptCheck = detectPromptSpam(identityKey, signals.prompt);
+      if (promptCheck.flagged) {
+        const flag = await upsertFlag(fullSignals, 'prompt_spam', {
+          repetitions: promptCheck.count,
+          threshold: CONFIG.MAX_PROMPT_REPETITIONS,
+          prompt_preview: signals.prompt.substring(0, 100),
+        });
+        activeFlags.push(flag);
+      }
+    }
+
+    // 6. Determine highest severity enforcement with Temporal Degradation
     if (activeFlags.length === 0) {
       return { flagged: false, action: 'none', severity: 0, flags: [] };
     }
 
-    const maxSeverity = Math.max(...activeFlags.map(f => f.severity));
-    const action = ENFORCEMENT_MAP[maxSeverity] || 'warning';
-    const cooldownSeconds = CONFIG.COOLDOWN_DURATIONS[maxSeverity] || 0;
+    let maxSeverity = 0;
+    let mostRecentFlagAt = new Date(0);
+    
+    for (const f of activeFlags) {
+      if (f.severity > maxSeverity) {
+        maxSeverity = f.severity;
+      }
+      // Use escalated_at from evidence if available, otherwise fall back to created_at.
+      // This ensures that each new violation resets the cooldown period.
+      const flagDate = f.evidence?.escalated_at ? new Date(f.evidence.escalated_at) : new Date(f.created_at);
+      if (flagDate > mostRecentFlagAt) {
+        mostRecentFlagAt = flagDate;
+      }
+    }
+
+    const cooldownSecs = CONFIG.COOLDOWN_DURATIONS[maxSeverity] || 0;
+    const cooldownExpiry = new Date(mostRecentFlagAt.getTime() + (cooldownSecs * 1000));
+    const isCooldownActive = new Date() < cooldownExpiry;
+
+    let effectiveSeverity = maxSeverity;
+    let isDegraded = false;
+    
+    if (!isCooldownActive && maxSeverity > CONFIG.PERSISTENT_SEVERITY_FLOOR) {
+      // Cooldown expired — gracefully degrade severity to the floor level
+      effectiveSeverity = CONFIG.PERSISTENT_SEVERITY_FLOOR;
+      isDegraded = true;
+      console.log(`[AbuseService] Severity degraded: ${maxSeverity} -> ${effectiveSeverity} (cooldown expired)`);
+    } else if (!isCooldownActive && maxSeverity <= CONFIG.PERSISTENT_SEVERITY_FLOOR) {
+      // Low severity flags don't degrade further until resolved/expired
+      effectiveSeverity = maxSeverity;
+    }
+
+    const action = ENFORCEMENT_MAP[effectiveSeverity] || 'warning';
+    const remainingCooldown = Math.max(0, Math.ceil((cooldownExpiry.getTime() - Date.now()) / 1000));
 
     return {
       flagged: true,
       action,
-      severity: maxSeverity,
+      severity: effectiveSeverity,
       flags: activeFlags,
-      cooldownSeconds,
-      message: getEnforcementMessage(action, cooldownSeconds),
+      cooldownSeconds: isCooldownActive ? remainingCooldown : 0,
+      message: getEnforcementMessage(action, isCooldownActive ? remainingCooldown : 0),
     };
   } catch (error) {
     // Abuse detection must never crash the request pipeline
@@ -495,6 +623,7 @@ export async function resolveFlags(
   const conditions: string[] = [];
   if (signals.anonId) conditions.push(`anon_id.eq.${signals.anonId}`);
   if (signals.userId) conditions.push(`user_id.eq.${signals.userId}`);
+  if (signals.userEmail) conditions.push(`user_email.eq.${signals.userEmail}`);
 
   if (conditions.length === 0) return 0;
 

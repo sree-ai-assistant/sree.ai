@@ -30,50 +30,50 @@ Users can interact with the best AI models through a single premium interface �
 - ✓ Multi-layer rate limiting (Atomic per-minute/daily/monthly) — v1.0 Ph 8
 - ✓ Subscription & Feature Gating (Queue Priority, Upload Limits) — v1.0 Ph 9
 - ✓ Database schema for anonymous users and usage tracking — v1.0 Ph 6
+- ✓ BYOK quota reduction logic (0.2x quota consumption) — v1.0 Ph 10
+- ✓ Abuse detection and prevention system (pattern recognition) — v1.0 Ph 11
+- ✓ Anonymous-to-authenticated data migration — v1.0 Ph 12
+- ✓ Frontend Limit UX & Polish (modals, blocking indicators) — v1.0 Ph 13
 
 ### Active
 
 <!-- Current scope. Building toward these. -->
 
-- [ ] BYOK quota reduction logic (0.2x quota consumption)
-- [ ] Abuse detection and prevention system (pattern recognition)
-- [ ] Anonymous-to-authenticated data migration
-- [ ] Frontend Limit UX & Polish (modals, blocking indicators)
+- [ ] v2.0: Stripe/Razorpay Payment Gateway integration
+- [ ] v2.0: Admin dashboard for usage & abuse monitoring
+- [ ] v2.0: User usage analytics dashboard
+- [ ] v2.0: Team/Organization accounts (B2B features)
 
 ### Out of Scope
 
 <!-- Explicit boundaries. Includes reasoning to prevent re-adding. -->
 
-- Payment gateway integration (Stripe/Razorpay) — separate milestone after business logic is solid
-- Admin dashboard for user management — future milestone
-- Team/organization accounts — future milestone
-- Real-time usage analytics dashboard — future milestone
 - Custom model fine-tuning interface — deferred
 
-## Current Milestone: v1.0 Subscription & Rate Limiting System
+## Next Milestone: v2.0 Payments & Administration
 
-**Goal:** Build the complete business logic, anonymous user tracking, pricing/rate-limit enforcement, and database architecture for the AI SaaS platform.
+**Goal:** Commercialize the platform by integrating payment gateways and building administration tools for scale.
 
 **Target features:**
-- Anonymous user identity system (UUID + cookie + localStorage + fingerprint + IP hash)
-- Tiered subscription plans with enforced limits (Anonymous $0, Free $0, Starter $8/mo, Pro $29/mo)
-- Multi-layer rate limiting (per-minute, daily, monthly) with proper limit-exceeded UX
-- BYOK quota reduction logic (platform request = 1 quota, BYOK = 0.2 quota)
-- Abuse detection and prevention (fingerprinting, IP tracking, cooldowns)
-- Queue priority system (Anonymous=0, Free=1, Starter=2, Pro=3)
-- File upload rules per plan tier (blocked/10MB/50MB/250MB)
-- Anonymous-to-authenticated data migration (chat history, preferences, usage)
-- Database schema: anonymous_users table, enhanced subscriptions, usage tracking
+- Payment gateway integration (Stripe/Razorpay) for Starter and Pro plans
+- Automated subscription lifecycle (upgrade/downgrade/pro-rating)
+- Admin Dashboard: User management, abuse logs, manual limit overrides
+- User Analytics Dashboard: Personal usage history and token consumption breakdown
+- Team Accounts: Organization-level billing and quota sharing
+
+## Completed Milestone: v1.0 Subscription & Rate Limiting System (✓)
+
+**Goal:** Build the complete business logic, anonymous user tracking, pricing/rate-limit enforcement, and database architecture for the AI SaaS platform.
 
 ## Context
 
 - **Stack:** React 18 + Vite frontend, Express/Node.js backend, Supabase (auth + PostgreSQL)
 - **Existing DB:** users, subscriptions, usage_logs, api_keys, feature_flags, usage_counters tables
-- **Existing services:** ai.service.ts (chat/voice/image), usage.service.ts (download-only), apiKey.service.ts, file.service.ts
-- **subscription.service.ts is empty** — needs full implementation
-- **usage.service.ts only tracks downloads** — needs complete rewrite for multi-tool rate limiting
-- **No anonymous user concept exists** — needs new tables, middleware, frontend tracking
-- **Plan types already defined** in auth store as `free | starter | pro` but not enforced beyond model access
+- **Existing services:** ai.service.ts (chat/voice/image), apiKey.service.ts, file.service.ts
+- **subscription.service.ts is implemented** — provides plan lookup and feature gating
+- **usage.service.ts is implemented** — tracks multi-tool rate limiting with atomic RPC
+- **Anonymous user concept is implemented** — includes middleware and frontend tracking
+- **Plan tiers are enforced** — limits applied to chat, voice, and image generation
 
 ## Constraints
 
@@ -91,8 +91,8 @@ Users can interact with the best AI models through a single premium interface �
 | Supabase for auth + DB | Existing infrastructure, good DX, built-in RLS | ✓ Good |
 | Express backend (not serverless) | Existing architecture, streaming SSE support | ✓ Good |
 | Zustand for frontend state | Already in use, lightweight, fits the app | ✓ Good |
-| BYOK at 0.2x quota | Incentivize own keys without eliminating limits | — Pending |
-| sha256 for IP hashing | Industry standard, privacy-compliant | — Pending |
+| BYOK at 0.2x quota | Incentivize own keys without eliminating limits | ✓ Good |
+| sha256 for IP hashing | Industry standard, privacy-compliant | ✓ Good |
 
 ## Evolution
 
@@ -112,4 +112,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-05-12 after milestone v1.0 initialization*
+*Last updated: 2026-05-15 after milestone v1.0 completion*

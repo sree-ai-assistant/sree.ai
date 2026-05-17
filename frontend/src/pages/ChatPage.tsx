@@ -1,11 +1,13 @@
 import React, { useState, useRef, useEffect, useMemo, useDeferredValue } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { MessageSquare, ArrowLeft, MoreVertical, Trash2, StopCircle, RefreshCw, Lock, Clock, Sparkles } from 'lucide-react';
+import { MessageSquare, ArrowLeft, MoreVertical, Lock, Clock, Sparkles } from 'lucide-react';
 import { DashboardLayout } from '../features/dashboard/DashboardLayout';
 import { supabase } from '../lib/supabase';
 import { useChatStore } from '../store/chat.store';
 import { useAuthStore } from '../store/auth.store';
+import { useUsageStore } from '../store/usage.store';
 import { useParams, useNavigate } from 'react-router-dom';
+import { getOrCreateAnonymousIdentity, getStoredAnonId, generateFingerprintHash } from '../lib/fingerprint';
 import styles from './ChatPage.module.css';
 import { VoiceOverlay } from '../components/voice/VoiceOverlay';
 import { ChatInput } from '../components/chat/ChatInput';
@@ -34,8 +36,8 @@ const ChatPage: React.FC = () => {
 
   const [limitModal, setLimitModal] = useState<{
     isOpen: boolean;
-    type: 'anonymous' | 'tiered';
-    info?: any;
+    type: 'anonymous' | 'rate-limited' | 'tiered' | 'abuse-cooldown' | 'abuse-captcha' | 'abuse-auth' | 'abuse-restricted';
+    limitInfo?: any;
   }>({ isOpen: false, type: 'anonymous' });
 
   const { id } = useParams<{ id: string }>();
@@ -62,8 +64,13 @@ const ChatPage: React.FC = () => {
       setSession(session);
     });
 
+    // Initialize anonymous identity if not logged in
+    if (!user?.id && !getStoredAnonId()) {
+      getOrCreateAnonymousIdentity();
+    }
+
     return () => subscription.unsubscribe();
-  }, []);
+  }, [user?.id]);
 
   useEffect(() => {
     setShowVoiceOverlay(location.pathname.startsWith('/voice'));
@@ -315,7 +322,14 @@ const ChatPage: React.FC = () => {
 
     const messageContent = text || '';
     if (!messageContent.trim() && currentAttachments.length === 0) return;
-    if (isGenerating || !user?.id) return;
+    
+    let anonId = getStoredAnonId();
+    if (!user?.id && !anonId) {
+      const identity = await getOrCreateAnonymousIdentity();
+      anonId = identity.anonId;
+    }
+    
+    if (isGenerating || (!user?.id && !anonId)) return;
 
     let currentConvId = activeConversation?.id;
     const assistantOptimisticId = `temp_assistant_${Date.now()}`;
@@ -337,7 +351,7 @@ const ChatPage: React.FC = () => {
 
     if (!currentConvId) {
       const isVoice = location.pathname.startsWith('/voice');
-      const newConv = await createConversation(user.id, messageContent.slice(0, 40) + '...', isVoice ? 'voice' : 'chat');
+      const newConv = await createConversation(user?.id, messageContent.slice(0, 40) + '...', isVoice ? 'voice' : 'chat', anonId || undefined);
       if (!newConv) {
         setIsGenerating(false);
         return;
@@ -420,11 +434,15 @@ const ChatPage: React.FC = () => {
         }
       }
 
+      const anonId = getStoredAnonId() || '';
+
       const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000/api'}/ai/chat`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${currentSession?.access_token}`,
+          'Authorization': currentSession?.access_token ? `Bearer ${currentSession.access_token}` : '',
+          'X-Anon-Id': anonId,
+          'X-Fingerprint': await generateFingerprintHash()
         },
         body: JSON.stringify({
           messages: finalMessagesForRequest,
@@ -439,6 +457,53 @@ const ChatPage: React.FC = () => {
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
         
+        // Abuse Detection Handling
+        if (errorData.code === 'ABUSE_COOLDOWN') {
+          const resetsIn = errorData.retryAfter || 30;
+          setLimitModal({
+            isOpen: true,
+            type: 'abuse-cooldown',
+            limitInfo: {
+              resetsIn,
+              message: errorData.message
+            }
+          });
+          throw new Error(errorData.message || 'Temporary cooldown');
+        }
+
+        if (errorData.code === 'ABUSE_CAPTCHA_REQUIRED') {
+          setLimitModal({
+            isOpen: true,
+            type: 'abuse-captcha',
+            limitInfo: {
+              message: errorData.message
+            }
+          });
+          throw new Error('Verification required');
+        }
+
+        if (errorData.code === 'ABUSE_AUTH_REQUIRED') {
+          setLimitModal({
+            isOpen: true,
+            type: 'abuse-auth',
+            limitInfo: {
+              message: errorData.message
+            }
+          });
+          throw new Error('Authentication required');
+        }
+
+        if (errorData.code === 'ABUSE_IP_RESTRICTED') {
+          setLimitModal({
+            isOpen: true,
+            type: 'abuse-restricted',
+            limitInfo: {
+              message: errorData.message
+            }
+          });
+          throw new Error('Access restricted');
+        }
+
         if (response.status === 429) {
           const resetsIn = errorData.resetsIn || 60;
           const lockoutTime = Date.now() + (resetsIn * 1000);
@@ -447,7 +512,7 @@ const ChatPage: React.FC = () => {
           setLimitModal({
             isOpen: true,
             type: user ? 'tiered' : 'anonymous',
-            info: {
+            limitInfo: {
               limit: errorData.limit,
               current: errorData.current,
               resetsIn: errorData.resetsIn,
@@ -546,6 +611,9 @@ const ChatPage: React.FC = () => {
           optimisticId: assistantOptimisticId,
           mode: 'text' 
         });
+        
+        // Update usage indicator
+        useUsageStore.getState().incrementLocalUsage();
         
         streamingOptimisticIdRef.current = null;
         
@@ -786,7 +854,7 @@ const ChatPage: React.FC = () => {
           isOpen={limitModal.isOpen}
           onClose={() => setLimitModal(prev => ({ ...prev, isOpen: false }))}
           type={limitModal.type}
-          limitInfo={limitModal.info}
+          limitInfo={limitModal.limitInfo}
         />
       </>
     </DashboardLayout>
