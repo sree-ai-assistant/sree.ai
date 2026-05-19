@@ -15,7 +15,7 @@ import fs from 'fs';
 import { TokenManager } from '../utils/tokenManager';
 import { supabaseAdmin } from '../lib/supabase';
 import { videoService, VideoService } from '../services/video.service';
-import { getUsageStatus, type RateLimitIdentity } from '../services/usage.service';
+import { getUsageStatus, checkAndIncrementUsage, type RateLimitIdentity } from '../services/usage.service';
 import path from 'path';
 import axios from 'axios';
 // Removed static uuid import due to ESM/CJS compatibility issues
@@ -897,7 +897,7 @@ router.post('/save-api-key', authMiddleware, async (req: any, res) => {
 });
 
 // Text to Speech
-router.post('/tts', flexAuthMiddleware, abuseDetectionMiddleware(), queuePriorityMiddleware, rateLimitMiddleware('tts'), withPriorityQueue(async (req: any, res) => {
+router.post('/tts', flexAuthMiddleware, abuseDetectionMiddleware(), queuePriorityMiddleware, rateLimitMiddleware('voice', 'deepgram'), withPriorityQueue(async (req: any, res) => {
   try {
     const { text, model } = req.body;
     const userId = req.user?.id;

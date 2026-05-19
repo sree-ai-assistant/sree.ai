@@ -26,7 +26,7 @@ interface ChatState {
   activeConversation: Conversation | null;
   messages: Message[];
   loading: boolean;
-  
+
   // Actions
   fetchConversations: (userId?: string, anonId?: string) => Promise<void>;
   setActiveConversation: (conversationId: string | null) => Promise<void>;
@@ -50,7 +50,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
   fetchConversations: async (userId?: string, anonId?: string) => {
     if (!userId && !anonId) return;
     set({ loading: true });
-    
+
     let query = supabase
       .from('conversations')
       .select('*');
@@ -62,12 +62,12 @@ export const useChatStore = create<ChatState>((set, get) => ({
     }
 
     const { data } = await query.order('updated_at', { ascending: false });
-    
+
     set({ conversations: data || [], loading: false });
   },
 
   setMessages: (messages: Message[]) => set({ messages }),
-  
+
   setActiveConversation: async (conversationId: string | null) => {
     if (!conversationId) {
       set({ activeConversation: null, messages: [] });
@@ -86,14 +86,14 @@ export const useChatStore = create<ChatState>((set, get) => ({
         .select('*')
         .eq('id', conversationId)
         .single();
-      
+
       if (error || !data) {
         console.error('Conversation not found:', error);
         set({ activeConversation: null, messages: [], loading: false });
         return;
       }
       conv = data;
-      
+
       // Add to local conversations list if not present
       set(state => ({
         conversations: [conv!, ...state.conversations.filter(c => c.id !== conversationId)],
@@ -109,7 +109,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
       .select('*')
       .eq('conversation_id', conversationId)
       .order('created_at', { ascending: true });
-    
+
     // Race condition check: only update if this is still the active conversation
     if (get().activeConversation?.id !== conversationId) {
       return;
@@ -118,10 +118,10 @@ export const useChatStore = create<ChatState>((set, get) => ({
     if (msgError) {
       console.error('Error fetching messages:', msgError);
     }
-    
+
     // Filter out messages that have error metadata to ensure they don't persist on refresh
     const cleanMessages = (messages || []).filter(m => !m.metadata?.error || m.metadata?.aborted);
-    
+
     set({ messages: cleanMessages, loading: false });
   },
 
@@ -171,7 +171,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
   addMessage: async (conversationId: string, role: 'user' | 'assistant' | 'system', content: string, metadata: any = {}) => {
     const optimisticId = metadata.optimisticId || `temp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     const now = new Date().toISOString();
-    
+
     const tempMessage: Message = {
       id: optimisticId,
       conversation_id: conversationId,
@@ -185,7 +185,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
     set(state => {
       const updatedConversations = [...state.conversations];
       const convIndex = updatedConversations.findIndex(c => c.id === conversationId);
-      
+
       if (convIndex !== -1) {
         const updatedConv = { ...updatedConversations[convIndex], updated_at: now };
         updatedConversations.splice(convIndex, 1);
@@ -206,18 +206,18 @@ export const useChatStore = create<ChatState>((set, get) => ({
       .single();
 
     if (error) {
-       console.error('Error adding message:', error);
-       // Rollback on error
-       set(state => ({
-         messages: state.messages.filter(m => m.id !== optimisticId)
-       }));
-       return null;
+      console.error('Error adding message:', error);
+      // Rollback on error
+      set(state => ({
+        messages: state.messages.filter(m => m.id !== optimisticId)
+      }));
+      return null;
     }
 
     // 3. Replace temp message with real one, preserving the optimisticId for stable React keys
-    const finalMessage = { 
-      ...data, 
-      metadata: { ...data.metadata, optimisticId } 
+    const finalMessage = {
+      ...data,
+      metadata: { ...data.metadata, optimisticId }
     };
 
     set(state => ({
@@ -239,7 +239,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
   updateMessage: async (messageId: string, content: string, metadata?: any) => {
     const currentMessage = get().messages.find(m => m.id === messageId);
     const newMetadata = metadata ? { ...(currentMessage?.metadata || {}), ...metadata } : currentMessage?.metadata;
-    
+
     const updateData: any = { content };
     if (newMetadata) updateData.metadata = newMetadata;
 
@@ -295,7 +295,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
       .from('messages')
       .delete()
       .eq('conversation_id', conversationId);
-    
+
     if (exclusive) {
       query.gt('created_at', targetMsg.created_at);
     } else {

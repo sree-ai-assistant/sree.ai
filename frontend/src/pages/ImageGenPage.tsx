@@ -41,16 +41,19 @@ const PROMPT_STYLERS = [
   { label: 'Fantasy', suffix: ', epic fantasy, ethereal lighting, magical atmosphere', icon: '🧙' },
 ];
 
-interface UsageStatus {
-  allowed: boolean;
-  remainingHourly: number;
-  remainingDaily: number;
-  hourlyLimit: number;
-  dailyLimit: number;
-  currentHourly: number;
-  currentDaily: number;
-  message?: string;
-  resetsAt?: string;
+interface ImagePageUsage {
+  // Image generation
+  imageUsedDaily: number;
+  imageLimitDaily: number;
+  imageUsedMonthly: number;
+  imageLimitMonthly: number | null;
+  // Downloads
+  downloadUsedDaily: number;
+  downloadLimitDaily: number;
+  downloadUsedMonthly: number;
+  downloadLimitMonthly: number | null;
+  // Tier info
+  tier: string;
 }
 
 const UsageCountdown: React.FC<{ resetsAt: string }> = ({ resetsAt }) => {
@@ -66,7 +69,7 @@ const UsageCountdown: React.FC<{ resetsAt: string }> = ({ resetsAt }) => {
       const hours = Math.floor(diff / 3600000);
       const minutes = Math.floor((diff % 3600000) / 60000);
       const seconds = Math.floor((diff % 60000) / 1000);
-      
+
       if (hours > 0) {
         setTimeLeft(`${hours}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`);
       } else {
@@ -103,7 +106,7 @@ const ImageGenPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'generate' | 'gallery'>('generate');
   const [imageLoadErrors, setImageLoadErrors] = useState<Record<string, boolean>>({});
   const [downloadStatus, setDownloadStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
-  const [usage, setUsage] = useState<UsageStatus | null>(null);
+  const [usage, setUsage] = useState<ImagePageUsage | null>(null);
   const [usageMinimized, setUsageMinimized] = useState(true);
   const { openUpgradeModal } = useUIStore();
   const [limitModal, setLimitModal] = useState<{
@@ -121,7 +124,23 @@ const ImageGenPage: React.FC = () => {
     try {
       const res = await api.get('/ai/usage');
       if (res.data.success) {
-        setUsage(res.data.status);
+        const status = res.data.status;
+        // Prefer profileUsage (authenticated) over raw usage summaries
+        const imageData = status.profileUsage?.image || null;
+        const imageSummary = status.usage?.image || null;
+        const downloadSummary = status.usage?.download || null;
+
+        setUsage({
+          imageUsedDaily: imageData?.daily?.used ?? imageSummary?.daily?.used ?? 0,
+          imageLimitDaily: imageData?.daily?.limit ?? imageSummary?.daily?.limit ?? 0,
+          imageUsedMonthly: imageData?.monthly?.used ?? imageSummary?.monthly?.used ?? 0,
+          imageLimitMonthly: imageData?.monthly?.limit ?? imageSummary?.monthly?.limit ?? null,
+          downloadUsedDaily: downloadSummary?.daily?.used ?? 0,
+          downloadLimitDaily: downloadSummary?.daily?.limit ?? 0,
+          downloadUsedMonthly: downloadSummary?.monthly?.used ?? 0,
+          downloadLimitMonthly: downloadSummary?.monthly?.limit ?? null,
+          tier: status.tier ?? 'free',
+        });
       }
     } catch (err) {
       console.error('Failed to fetch usage:', err);
@@ -133,9 +152,12 @@ const ImageGenPage: React.FC = () => {
     fetchUsage();
   }, [fetchModels, fetchUsage]);
 
-  // Auto-expand usage card if limit is hit
+  // Auto-expand usage card if any limit is hit
   useEffect(() => {
-    if (usage && (usage.currentHourly >= usage.hourlyLimit || usage.currentDaily >= usage.dailyLimit)) {
+    if (usage && (
+      (usage.imageLimitDaily > 0 && usage.imageUsedDaily >= usage.imageLimitDaily) ||
+      (usage.downloadLimitDaily > 0 && usage.downloadUsedDaily >= usage.downloadLimitDaily)
+    )) {
       setUsageMinimized(false);
     }
   }, [usage]);
@@ -172,7 +194,7 @@ const ImageGenPage: React.FC = () => {
       if (error.response?.status === 429) {
         const errorData = error.response.data;
         const code = errorData?.code;
-        
+
         if (code === 'ABUSE_COOLDOWN' || code === 'ABUSE_CAPTCHA' || code === 'ABUSE_AUTH' || code === 'ABUSE_RESTRICTED') {
           setLimitModal({
             isOpen: true,
@@ -199,7 +221,7 @@ const ImageGenPage: React.FC = () => {
       const response = await api.get(`/ai/download?url=${encodeURIComponent(image.url)}`, {
         responseType: 'blob'
       });
-      
+
       const blob = new Blob([response.data]);
       const downloadUrl = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
@@ -209,17 +231,17 @@ const ImageGenPage: React.FC = () => {
       link.click();
       link.remove();
       window.URL.revokeObjectURL(downloadUrl);
-      
+
       setDownloadStatus('success');
       setTimeout(() => setDownloadStatus('idle'), 3000);
-      
+
       // Refresh usage after successful download
       fetchUsage();
     } catch (error: any) {
       console.error('Download error:', error);
       setDownloadStatus('error');
       setTimeout(() => setDownloadStatus('idle'), 5000);
-      
+
       if (error.response?.status === 429) {
         // The sidebar usage card will reflect the limit, but we can also alert
         alert(error.response.data?.message || 'Download limit reached');
@@ -393,9 +415,10 @@ const ImageGenPage: React.FC = () => {
                   <div className={`${styles.usageCard} ${styles.usageCardSmall} ${usageMinimized ? styles.usageCardMinimized : ''}`}>
                     <div className={styles.creditsHeader}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <span className={styles.creditsLabel}>Download Usage</span>
-                        <button 
-                          onClick={() => setUsageMinimized(!usageMinimized)} 
+                        <Sparkles size={13} style={{ opacity: 0.7 }} />
+                        <span className={styles.creditsLabel}>Usage Limits</span>
+                        <button
+                          onClick={() => setUsageMinimized(!usageMinimized)}
                           className={styles.minimizeBtn}
                           title={usageMinimized ? "Expand" : "Minimize"}
                         >
@@ -408,99 +431,140 @@ const ImageGenPage: React.FC = () => {
                     </div>
 
                     {!usageMinimized ? (
-                      <motion.div 
+                      <motion.div
                         initial={{ opacity: 0, height: 0 }}
                         animate={{ opacity: 1, height: 'auto' }}
                         exit={{ opacity: 0, height: 0 }}
                         className={styles.usageInfo}
                       >
-                        <div className={styles.usageItem}>
-                          <span>Hourly Limit</span>
-                          <span className={usage.currentHourly >= usage.hourlyLimit ? styles.usageLimitReached : ''}>
-                            {usage.currentHourly} / {usage.hourlyLimit}
-                          </span>
-                        </div>
-                        <div className={styles.usageProgressBar}>
-                          <div
-                            className={styles.usageProgressFill}
-                            style={{ width: `${Math.min(100, (usage.currentHourly / usage.hourlyLimit) * 100)}%` }}
-                          />
-                        </div>
-
-                        <div className={styles.usageItem} style={{ marginTop: '4px' }}>
-                          <span>Daily Limit</span>
-                          <span className={usage.currentDaily >= usage.dailyLimit ? styles.usageLimitReached : ''}>
-                            {usage.currentDaily} / {usage.dailyLimit}
-                          </span>
-                        </div>
-                        <div className={styles.usageProgressBar}>
-                          <div
-                            className={styles.usageProgressFill}
-                            style={{ 
-                              width: `${Math.min(100, (usage.currentDaily / usage.dailyLimit) * 100)}%`,
-                              background: 'var(--accent-color, #8b5cf6)' 
-                            }}
-                          />
-                        </div>
-
-                        {(usage.currentHourly >= usage.hourlyLimit || usage.currentDaily >= usage.dailyLimit) && usage.resetsAt && (
-                          <div className={styles.usageLimitContainer}>
-                            <p className={styles.usageLimitText}>
-                              {usage.currentHourly >= usage.hourlyLimit ? 'Hourly' : 'Daily'} limit reached. Resets in <UsageCountdown resetsAt={usage.resetsAt} />
-                            </p>
-                            <p className={styles.usageRefreshTime}>
-                              Refresh: {new Date(usage.resetsAt).toLocaleString([], { 
-                                month: 'short', 
-                                day: 'numeric', 
-                                hour: '2-digit', 
-                                minute: '2-digit' 
-                              })}
-                            </p>
-                          </div>
+                        {/* Image Generation Usage */}
+                        {usage.imageLimitDaily > 0 && (
+                          <>
+                            <div className={styles.usageItem}>
+                              <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                <Wand2 size={11} style={{ opacity: 0.6 }} /> Generations Today
+                              </span>
+                              <span className={usage.imageUsedDaily >= usage.imageLimitDaily ? styles.usageLimitReached : ''}>
+                                {usage.imageUsedDaily} / {usage.imageLimitDaily}
+                              </span>
+                            </div>
+                            <div className={styles.usageProgressBar}>
+                              <div
+                                className={styles.usageProgressFill}
+                                style={{
+                                  width: `${Math.min(100, (usage.imageUsedDaily / usage.imageLimitDaily) * 100)}%`,
+                                  background: usage.imageUsedDaily >= usage.imageLimitDaily ? '#ef4444' : 'var(--primary)'
+                                }}
+                              />
+                            </div>
+                          </>
                         )}
 
-                        <button className={styles.upgradeButtonSmall} onClick={() => openUpgradeModal('pro')} style={{ marginTop: '4px' }}>
+                        {/* Monthly image usage */}
+                        {usage.imageLimitMonthly !== null && usage.imageLimitMonthly > 0 && (
+                          <>
+                            <div className={styles.usageItem} style={{ marginTop: '6px' }}>
+                              <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                <Layers size={11} style={{ opacity: 0.6 }} />Generations Monthly
+                              </span>
+                              <span className={usage.imageUsedMonthly >= (usage.imageLimitMonthly ?? Infinity) ? styles.usageLimitReached : ''}>
+                                {usage.imageUsedMonthly} / {usage.imageLimitMonthly}
+                              </span>
+                            </div>
+                            <div className={styles.usageProgressBar}>
+                              <div
+                                className={styles.usageProgressFill}
+                                style={{
+                                  width: `${Math.min(100, (usage.imageUsedMonthly / (usage.imageLimitMonthly ?? 1)) * 100)}%`,
+                                  background: 'var(--accent-color, #8b5cf6)'
+                                }}
+                              />
+                            </div>
+                          </>
+                        )}
+
+                        {/* Download Usage */}
+                        {usage.downloadLimitDaily > 0 && (
+                          <>
+                            <div className={styles.usageItem} style={{ marginTop: '8px' }}>
+                              <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                <Download size={11} style={{ opacity: 0.6 }} /> Downloads Today
+                              </span>
+                              <span className={usage.downloadUsedDaily >= usage.downloadLimitDaily ? styles.usageLimitReached : ''}>
+                                {usage.downloadUsedDaily} / {usage.downloadLimitDaily}
+                              </span>
+                            </div>
+                            <div className={styles.usageProgressBar}>
+                              <div
+                                className={styles.usageProgressFill}
+                                style={{
+                                  width: `${Math.min(100, (usage.downloadUsedDaily / usage.downloadLimitDaily) * 100)}%`,
+                                  background: usage.downloadUsedDaily >= usage.downloadLimitDaily ? '#ef4444' : '#10b981'
+                                }}
+                              />
+                            </div>
+                          </>
+                        )}
+
+                        <button className={styles.upgradeButtonSmall} onClick={() => openUpgradeModal('pro')} style={{ marginTop: '8px' }}>
                           <Zap size={14} /> Upgrade
                         </button>
                       </motion.div>
                     ) : (
                       <div className={styles.minimizedUsageContent}>
                         <div className={styles.miniProgressGrid}>
-                          <div className={styles.usageProgressBar} title={`Hourly: ${usage.currentHourly}/${usage.hourlyLimit}`}>
-                            <div
-                              className={styles.usageProgressFill}
-                              style={{ width: `${Math.min(100, (usage.currentHourly / usage.hourlyLimit) * 100)}%` }}
-                            />
-                          </div>
-                          <div className={styles.usageProgressBar} title={`Daily: ${usage.currentDaily}/${usage.dailyLimit}`}>
-                            <div
-                              className={styles.usageProgressFill}
-                              style={{ 
-                                width: `${Math.min(100, (usage.currentDaily / usage.dailyLimit) * 100)}%`,
-                                background: 'var(--accent-color, #8b5cf6)' 
-                              }}
-                            />
-                          </div>
+                          {usage.imageLimitDaily > 0 && (
+                            <div className={styles.usageProgressBar} title={`Generations: ${usage.imageUsedDaily}/${usage.imageLimitDaily}`}>
+                              <div
+                                className={styles.usageProgressFill}
+                                style={{
+                                  width: `${Math.min(100, (usage.imageUsedDaily / usage.imageLimitDaily) * 100)}%`,
+                                  background: 'var(--primary)'
+                                }}
+                              />
+                            </div>
+                          )}
+                          {usage.downloadLimitDaily > 0 && (
+                            <div className={styles.usageProgressBar} title={`Downloads: ${usage.downloadUsedDaily}/${usage.downloadLimitDaily}`}>
+                              <div
+                                className={styles.usageProgressFill}
+                                style={{
+                                  width: `${Math.min(100, (usage.downloadUsedDaily / usage.downloadLimitDaily) * 100)}%`,
+                                  background: '#10b981'
+                                }}
+                              />
+                            </div>
+                          )}
                         </div>
                       </div>
                     )}
                   </div>
                 )}
 
+                {/* Generations Remaining Card — real data from API */}
                 <div className={styles.creditsCard}>
                   <div className={styles.creditsHeader}>
-                    <span className={styles.creditsLabel}>Image Generations Remaining</span>
+                    <span className={styles.creditsLabel}>Generations Remaining</span>
                     <Sparkles size={16} className={styles.sparkleIcon} />
                   </div>
                   <div className={styles.creditsCount}>
-                    <span className={styles.creditsValue}>{user?.credits || 0}</span>
-                    <span className={styles.creditsTotal}>
-                      / {user?.plan_type === 'pro' ? '500' : user?.plan_type === 'starter' ? '150' : '50'}
-                    </span>
+                    {usage && usage.imageLimitDaily > 0 ? (
+                      <>
+                        <span className={styles.creditsValue}>
+                          {Math.max(0, usage.imageLimitDaily - usage.imageUsedDaily)}
+                        </span>
+                        <span className={styles.creditsTotal}>/ {usage.imageLimitDaily} today</span>
+                      </>
+                    ) : (
+                      <>
+                        <span className={styles.creditsValue}>—</span>
+                        <span className={styles.creditsTotal}>No limit data</span>
+                      </>
+                    )}
                   </div>
                   <button className={styles.upgradeButton} onClick={() => openUpgradeModal('pro')}>
                     <Maximize2 size={16} />
-                    Upgrade for Unlimited
+                    Upgrade for More
                   </button>
                 </div>
               </div>
@@ -535,18 +599,18 @@ const ImageGenPage: React.FC = () => {
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: 20 }}
                   transition={{ duration: 0.4, ease: "easeOut" }}
-                  style={{ 
-                    width: '100%', 
-                    display: 'flex', 
-                    flexDirection: 'column', 
-                    alignItems: 'center', 
+                  style={{
+                    width: '100%',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
                     gap: '40px',
                     paddingBottom: '240px' // Offset for the fixed prompt section
                   }}
                 >
-                  <div 
+                  <div
                     className={styles.resultContainer}
-                    style={{ 
+                    style={{
                       aspectRatio: `${ratio.w}/${ratio.h}`,
                       maxHeight: 'calc(100vh - 380px)',
                       maxWidth: `calc((100vh - 380px) * ${ratio.w / ratio.h})`,
@@ -616,23 +680,23 @@ const ImageGenPage: React.FC = () => {
                                     downloadStatus === 'error' ? <AlertCircle size={18} /> :
                                       <Download size={18} />}
                               </button>
-                              <button 
-                                onClick={() => handleGenerate()} 
+                              <button
+                                onClick={() => handleGenerate()}
                                 className={styles.iconActionButton}
                                 title="Re-roll"
                               >
                                 <RotateCcw size={18} />
                               </button>
                             </div>
-                            <button 
-                              onClick={() => setActiveImage(null)} 
-                              style={{ 
-                                background: 'rgba(255,255,255,0.1)', 
-                                border: 'none', 
-                                color: 'white', 
-                                cursor: 'pointer', 
-                                width: '36px', 
-                                height: '36px', 
+                            <button
+                              onClick={() => setActiveImage(null)}
+                              style={{
+                                background: 'rgba(255,255,255,0.1)',
+                                border: 'none',
+                                color: 'white',
+                                cursor: 'pointer',
+                                width: '36px',
+                                height: '36px',
                                 borderRadius: '50%',
                                 display: 'flex',
                                 alignItems: 'center',
@@ -749,9 +813,9 @@ const ImageGenPage: React.FC = () => {
                             </div>
                           ) : (
                             <div className={styles.galleryImageWrapper}>
-                              <div 
-                                className={styles.galleryImageBlur} 
-                                style={{ backgroundImage: `url(${img.url})` }} 
+                              <div
+                                className={styles.galleryImageBlur}
+                                style={{ backgroundImage: `url(${img.url})` }}
                               />
                               <img
                                 src={img.url}
@@ -797,7 +861,7 @@ const ImageGenPage: React.FC = () => {
           initialIndex={lightboxIndex || 0}
         />
 
-        <LimitModal 
+        <LimitModal
           isOpen={limitModal.isOpen}
           onClose={() => setLimitModal(prev => ({ ...prev, isOpen: false }))}
           type={limitModal.type}

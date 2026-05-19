@@ -112,7 +112,61 @@ export async function checkAndIncrementMultiUsage(
     };
   }
 
+  // On success, sync plan limits into profiles so the frontend can read them
+  if (identity.type === 'authenticated' && identity.userId) {
+    syncProfileLimits(identity.userId, plan).catch(err =>
+      console.error('[UsageService] Profile limit sync failed:', err)
+    );
+  }
+
   return { allowed: true };
+}
+
+/**
+ * Fire-and-forget sync of plan limits into profiles table.
+ * The RPC already syncs the counts; this ensures the limit columns stay current.
+ */
+async function syncProfileLimits(userId: string, plan: import('../config/plans').PlanConfig) {
+  // Fetch current usage records to sync counts
+  const { data: usageRecords } = await supabaseAdmin
+    .from('usage_tracking')
+    .select('tool_type, daily_count, monthly_count')
+    .eq('user_id', userId);
+
+  const usage = {
+    chat: { daily: 0, monthly: 0 },
+    voice: { daily: 0, monthly: 0 },
+    image: { daily: 0, monthly: 0 }
+  };
+
+  if (usageRecords) {
+    for (const record of usageRecords) {
+      if (usage[record.tool_type as keyof typeof usage]) {
+        usage[record.tool_type as keyof typeof usage] = {
+          daily: record.daily_count || 0,
+          monthly: record.monthly_count || 0
+        };
+      }
+    }
+  }
+
+  await supabaseAdmin
+    .from('profiles')
+    .update({
+      chat_limit_daily: plan.limits.chat.daily,
+      chat_limit_monthly: plan.limits.chat.monthly,
+      voice_limit_daily: plan.limits.voice.daily,
+      voice_limit_monthly: plan.limits.voice.monthly,
+      image_limit_daily: plan.limits.image.daily,
+      image_limit_monthly: plan.limits.image.monthly,
+      chat_count_daily: usage.chat.daily,
+      chat_count_monthly: usage.chat.monthly,
+      voice_count_daily: usage.voice.daily,
+      voice_count_monthly: usage.voice.monthly,
+      image_count_daily: usage.image.daily,
+      image_count_monthly: usage.image.monthly,
+    })
+    .eq('id', userId);
 }
 
 /**

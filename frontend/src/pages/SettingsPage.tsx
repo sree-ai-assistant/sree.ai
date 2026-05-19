@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { 
   Save, 
@@ -23,6 +24,7 @@ import { DashboardLayout } from '../features/dashboard/DashboardLayout';
 import { SettingsSidebar } from '../components/layout/SettingsSidebar';
 import api, { sessionService, apiKeyService } from '../lib/api';
 import { useAuthStore } from '../store/auth.store';
+import { useUsageStore } from '../store/usage.store';
 import ApiKeyModal from '../components/shared/ApiKeyModal';
 import { getProviderLogo, PROVIDER_COLORS } from '../components/icons/ProviderLogos';
 import styles from './SettingsPage.module.css';
@@ -65,8 +67,23 @@ const PLAN_CONFIG: Record<string, { label: string; price: string; period: string
 
 const SettingsPage: React.FC = () => {
   const { user, updateProfile } = useAuthStore();
-  const [activeSection, setActiveSection] = useState('profile');
+  const { status: usageStatus, fetchStatus: fetchUsageStatus } = useUsageStore();
+  const [searchParams] = useSearchParams();
+  const VALID_TABS = ['profile', 'keys', 'billing', 'security', 'devices', 'notifications'];
+  const initialTab = VALID_TABS.includes(searchParams.get('tab') || '') ? searchParams.get('tab')! : 'profile';
+  const [activeSection, setActiveSection] = useState(initialTab);
   const { sidebarCollapsed: isSidebarCollapsed, setSidebarCollapsed: setIsSidebarCollapsed } = useUIStore();
+
+  // Sync activeSection when URL ?tab= changes (e.g. from Navbar dropdown)
+  useEffect(() => {
+    const tab = searchParams.get('tab');
+    if (tab && VALID_TABS.includes(tab)) {
+      setActiveSection(tab);
+    }
+  }, [searchParams]);
+
+  // Fetch live usage data for billing section
+  useEffect(() => { fetchUsageStatus(); }, [fetchUsageStatus]);
   const [profileData, setProfileData] = useState({
     display_name: user?.display_name || '',
     avatar_url: user?.avatar_url || ''
@@ -613,60 +630,93 @@ const SettingsPage: React.FC = () => {
     );
   };
 
-  const renderBillingSection = () => (
-    <motion.div 
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      className={styles.sectionContent}
-    >
-      <div className={styles.billingOverview}>
-        {(() => {
-          const plan = PLAN_CONFIG[user?.plan_type || 'free'];
-          const usedRequests = user?.requests_remaining != null ? (plan.requests - user.requests_remaining) : 0;
-          const requestPercent = plan.requests > 0 ? Math.round((usedRequests / plan.requests) * 100) : 0;
-          return (
-            <>
-              <div className={styles.planCard}>
-                <div className={styles.planInfo}>
-                  <span className={styles.currentPlanLabel}>Current Plan</span>
-                  <h2 className={styles.planName}>{plan.label} Monthly</h2>
-                  <p className={styles.planPrice}>{plan.price}<span>{plan.period}</span></p>
-                </div>
-                <div className={styles.planActions}>
-                  <button className={styles.upgradeBtn}>
-                    {user?.plan_type === 'pro' ? 'Manage Subscription' : 'Upgrade Plan'}
-                  </button>
-                </div>
-              </div>
+  const renderBillingSection = () => {
+    const plan = PLAN_CONFIG[user?.plan_type || 'free'];
+    const isAnon = usageStatus?.tier?.toLowerCase() === 'anonymous';
 
-              <div className={styles.usageGrid}>
-                <div className={styles.usageCard}>
-                  <div className={styles.usageHeader}>
-                    <span>API Calls</span>
-                    <span>{requestPercent}%</span>
-                  </div>
-                  <div className={styles.progressBar}>
-                    <div className={styles.progressFill} style={{ width: `${requestPercent}%`, background: plan.color }} />
-                  </div>
-                  <p className={styles.usageStats}>{usedRequests.toLocaleString()} / {plan.requests.toLocaleString()} requests</p>
-                </div>
-                <div className={styles.usageCard}>
-                  <div className={styles.usageHeader}>
-                    <span>Storage</span>
-                    <span>12%</span>
-                  </div>
-                  <div className={styles.progressBar}>
-                    <div className={styles.progressFill} style={{ width: '12%', background: '#10B981' }} />
-                  </div>
-                  <p className={styles.usageStats}>1.2 GB / {plan.storage}</p>
-                </div>
-              </div>
-            </>
-          );
-        })()}
-      </div>
-    </motion.div>
-  );
+    const buildServiceCard = (
+      label: string,
+      data: any,
+      barColor: string,
+      icon: string
+    ) => {
+      if (!data?.daily) return null;
+      const { used, limit } = data.daily;
+      const pct = limit > 0 ? Math.min(100, Math.round((used / limit) * 100)) : 0;
+      const remaining = Math.max(0, (limit ?? 0) - used);
+      const isWarning = pct > 80;
+      return (
+        <div className={styles.usageCard} key={label}>
+          <div className={styles.usageHeader}>
+            <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <span>{icon}</span>{label}
+            </span>
+            <span style={{ color: isWarning ? '#f59e0b' : undefined }}>{pct}%</span>
+          </div>
+          <div className={styles.progressBar}>
+            <div
+              className={styles.progressFill}
+              style={{ width: `${pct}%`, background: isWarning ? '#f59e0b' : barColor, transition: 'width 0.5s ease' }}
+            />
+          </div>
+          <p className={styles.usageStats}>
+            {used.toLocaleString()} used · {parseFloat(remaining.toFixed(1))} remaining / {(limit ?? 0).toLocaleString()} daily
+          </p>
+        </div>
+      );
+    };
+
+    const displayUsage = usageStatus?.profileUsage || {
+      chat: usageStatus?.usage?.chat,
+      voice: usageStatus?.usage?.voice,
+      image: usageStatus?.usage?.image,
+    };
+
+    return (
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        className={styles.sectionContent}
+      >
+        <div className={styles.billingOverview}>
+          {/* Plan card */}
+          <div className={styles.planCard}>
+            <div className={styles.planInfo}>
+              <span className={styles.currentPlanLabel}>Current Plan</span>
+              <h2 className={styles.planName}>{plan.label} Monthly</h2>
+              <p className={styles.planPrice}>{plan.price}<span>{plan.period}</span></p>
+            </div>
+            <div className={styles.planActions}>
+              <button className={styles.upgradeBtn}>
+                {user?.plan_type === 'pro' ? 'Manage Subscription' : 'Upgrade Plan'}
+              </button>
+            </div>
+          </div>
+
+          {/* Service usage cards */}
+          <div className={styles.usageGrid}>
+            {buildServiceCard('Chat', displayUsage?.chat, 'linear-gradient(90deg,#6366f1,#a855f7)', '💬')}
+            {buildServiceCard('Voice', displayUsage?.voice, 'linear-gradient(90deg,#10b981,#3b82f6)', '🎙️')}
+            {!isAnon && buildServiceCard('Image', displayUsage?.image, 'linear-gradient(90deg,#f43f5e,#fb923c)', '🖼️')}
+          </div>
+
+          {/* Reset info */}
+          {usageStatus?.resets_in_seconds !== undefined && (
+            <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: 8, textAlign: 'right' }}>
+              Daily limits reset in {(() => {
+                const s = Number(usageStatus.resets_in_seconds);
+                if (isNaN(s) || s <= 0) return 'tomorrow';
+                if (s < 60) return `${s}s`;
+                const m = Math.ceil(s / 60);
+                if (m < 60) return `${m}m`;
+                return `${Math.ceil(m / 60)}h`;
+              })()}
+            </p>
+          )}
+        </div>
+      </motion.div>
+    );
+  };
 
   const renderSecuritySection = () => {
     return (

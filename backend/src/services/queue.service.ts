@@ -27,8 +27,7 @@ class PriorityQueueService {
     voice: 0,
     image: 0,
     file_upload: 0,
-    download: 0,
-    tts: 0
+    download: 0
   };
 
   private readonly CONCURRENCY_LIMITS: Record<ToolType, number> = {
@@ -36,8 +35,7 @@ class PriorityQueueService {
     voice: 5,
     image: 2, // Image generation is heavy
     file_upload: 5,
-    download: 10,
-    tts: 5
+    download: 10
   };
 
   /**

@@ -13,8 +13,10 @@ export const uploadSizeValidator = (req: Request, res: Response, next: NextFunct
   const isAuth = !!(req as any).user;
   const tier = (req as any).userTier || 'anonymous';
 
-  // 1. Explicitly block anonymous uploads (Roadmap Phase 9)
-  if (!isAuth && tier === 'anonymous') {
+  // 1. Explicitly block anonymous uploads (Roadmap Phase 9), except for voice assistant recordings
+  const isVoice = (req as any).toolType === 'voice' || req.originalUrl?.includes('/voice') || req.path?.includes('/voice');
+
+  if (!isAuth && tier === 'anonymous' && !isVoice) {
     if (file && fs.existsSync(file.path)) {
       try { fs.unlinkSync(file.path); } catch (e) {}
     }
@@ -29,8 +31,8 @@ export const uploadSizeValidator = (req: Request, res: Response, next: NextFunct
 
   const plan = getPlanConfig(tier);
 
-  // 2. Size limit check
-  const limitBytes = plan.uploadLimitMb * 1024 * 1024;
+  // 2. Size limit check (allow 10MB for voice assistant even for anonymous users)
+  const limitBytes = (isVoice && tier === 'anonymous') ? 10 * 1024 * 1024 : plan.uploadLimitMb * 1024 * 1024;
 
   if (file.size > limitBytes) {
     console.warn(`[Upload Enforcement] File too large: ${file.size} bytes. Tier: ${tier}. Limit: ${limitBytes} bytes.`);

@@ -12,13 +12,16 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 16px;
 }
 
+/* ─── Logo ─────────────────────────────────── */
 .logoGroup {
   display: flex;
   align-items: center;
   gap: 12px;
   text-decoration: none;
+  flex-shrink: 0;
 }
 
 .logoBox {
@@ -45,6 +48,7 @@
   letter-spacing: -0.02em;
 }
 
+/* ─── Nav Group (center) ─────────────────── */
 .navGroup {
   display: flex;
   align-items: center;
@@ -69,6 +73,7 @@
   background: transparent;
   border: none;
   cursor: pointer;
+  white-space: nowrap;
 }
 
 .navLink:hover {
@@ -82,12 +87,9 @@
   border: 1px solid rgba(59, 130, 246, 0.2);
 }
 
+/* ─── Tools dropdown ─────────────────────── */
 .dropdownContainer {
   position: relative;
-}
-
-.rotate {
-  transform: rotate(180deg);
 }
 
 .dropdownMenu {
@@ -106,6 +108,7 @@
 .dropdownMenu.right {
   left: auto;
   right: 0;
+  width: 280px;
 }
 
 .dropdownItem {
@@ -121,6 +124,7 @@
   background: transparent;
   border: none;
   cursor: pointer;
+  text-align: left;
 }
 
 .dropdownItem:hover {
@@ -145,9 +149,89 @@
 }
 
 .itemArrow {
-  opacity: 0.2;
+  opacity: 0.3;
+  flex-shrink: 0;
 }
 
+/* ─── Right section ──────────────────────── */
+.rightSection {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-shrink: 0;
+}
+
+/* ─── Usage Pills ────────────────────────── */
+.usagePills {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.usagePill {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--border-color);
+  border-radius: 20px;
+  transition: background 0.2s ease;
+}
+
+.usagePill:hover {
+  background: rgba(255, 255, 255, 0.07);
+}
+
+.pillWarning {
+  border-color: rgba(245, 158, 11, 0.3);
+  background: rgba(245, 158, 11, 0.06);
+}
+
+.pillLabel {
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: capitalize;
+}
+
+.pillBar {
+  width: 40px;
+  height: 4px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 2px;
+  overflow: hidden;
+  position: relative;
+}
+
+.pillFill {
+  height: 100%;
+  border-radius: 2px;
+  transition: width 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.pillCount {
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: var(--text-secondary);
+  min-width: 16px;
+  text-align: right;
+}
+
+/* fill color classes */
+.chatFill {
+  background: linear-gradient(90deg, #6366f1, #a855f7);
+}
+
+.voiceFill {
+  background: linear-gradient(90deg, #10b981, #3b82f6);
+}
+
+.imageFill {
+  background: linear-gradient(90deg, #f43f5e, #fb923c);
+}
+
+/* ─── User Section ───────────────────────── */
 .userSection {
   position: relative;
 }
@@ -155,55 +239,93 @@
 .userButton {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 4px 4px 4px 16px;
+  gap: 10px;
+  padding: 4px 4px 4px 12px;
   background: rgba(255, 255, 255, 0.03);
   border: 1px solid var(--border-color);
-  border-radius: 16px;
+  border-radius: 40px;
   cursor: pointer;
   transition: background 0.2s ease;
 }
 
 .userButton:hover {
-  background: rgba(255, 255, 255, 0.06);
+  background: rgba(255, 255, 255, 0.07);
 }
 
-.userLabel {
+.userInfo {
   display: flex;
   flex-direction: column;
   align-items: flex-end;
 }
 
-.planName {
-  font-size: 0.7rem;
-  font-weight: 800;
-  text-transform: uppercase;
-  color: var(--primary);
-  letter-spacing: 0.05em;
+.userName {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  max-width: 100px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  line-height: 1.2;
 }
 
-.planAction {
+.userPlan {
   font-size: 0.65rem;
   font-weight: 500;
-  color: var(--text-muted);
+  color: var(--primary);
+  line-height: 1.2;
 }
 
 .userAvatar {
   width: 36px;
   height: 36px;
-  border-radius: 12px;
-  background: var(--bg-surface-light);
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--primary), var(--accent));
   display: flex;
   align-items: center;
   justify-content: center;
-  color: var(--text-secondary);
-  border: 1px solid var(--border-color);
+  color: white;
+  border: 2px solid rgba(255, 255, 255, 0.1);
+  flex-shrink: 0;
+  overflow: hidden;
 }
 
+.avatarImg {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.avatarInitials {
+  font-size: 0.75rem;
+  font-weight: 800;
+  color: white;
+  letter-spacing: 0.02em;
+}
+
+/* ─── Dropdown Menu (user) ───────────────── */
 .menuHeader {
-  padding: 12px 16px;
+  padding: 14px 14px 12px;
   border-bottom: 1px solid var(--border-color);
-  margin-bottom: 4px;
+  margin-bottom: 6px;
+}
+
+.menuAvatarRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.menuAvatar {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--primary), var(--accent));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  overflow: hidden;
 }
 
 .userEmail {
@@ -213,11 +335,100 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  max-width: 180px;
 }
 
 .userRole {
   font-size: 0.75rem;
+  color: var(--primary);
+  font-weight: 500;
+}
+
+/* ─── Dropdown usage block ───────────────── */
+.dropUsageBlock {
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border-color);
+  margin-bottom: 4px;
+}
+
+.dropUsageHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
   color: var(--text-muted);
+}
+
+.tierPill {
+  font-size: 0.6rem;
+  font-weight: 800;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: linear-gradient(135deg, #a855f7, #6366f1);
+  color: white;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.dropUsageRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.dropUsageRow:last-of-type {
+  margin-bottom: 0;
+}
+
+.dropUsageLabel {
+  font-size: 0.7rem;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.5);
+  text-transform: capitalize;
+  width: 36px;
+  flex-shrink: 0;
+}
+
+.dropUsageBar {
+  flex: 1;
+  height: 5px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.dropUsageFill {
+  height: 100%;
+  border-radius: 3px;
+  transition: width 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.dropUsageCount {
+  font-size: 0.65rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  width: 42px;
+  text-align: right;
+  flex-shrink: 0;
+}
+
+.dropReset {
+  font-size: 0.65rem;
+  color: var(--text-muted);
+  margin-top: 6px;
+  text-align: right;
+}
+
+.menuDivider {
+  height: 1px;
+  background: var(--border-color);
+  margin: 4px 0;
 }
 
 .danger {
@@ -225,5 +436,54 @@
 }
 
 .danger:hover {
-  background: rgba(239, 68, 68, 0.08);
+  background: rgba(239, 68, 68, 0.08) !important;
+}
+
+/* ─── Auth buttons (not logged in) ──────── */
+.authButtons {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.loginBtn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  border-radius: 12px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-decoration: none;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--border-color);
+  transition: all 0.2s ease;
+}
+
+.loginBtn:hover {
+  color: var(--text-primary);
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.signupBtn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  border-radius: 12px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: white;
+  text-decoration: none;
+  background: linear-gradient(135deg, var(--primary), var(--accent));
+  border: none;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 12px var(--primary-glow);
+}
+
+.signupBtn:hover {
+  opacity: 0.9;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 16px var(--primary-glow);
 }

@@ -8,9 +8,9 @@ interface UsageIndicatorProps {
   onUpgradeClick: () => void;
 }
 
-export const UsageIndicator: React.FC<UsageIndicatorProps> = ({ 
-  isCollapsed, 
-  onUpgradeClick 
+export const UsageIndicator: React.FC<UsageIndicatorProps> = ({
+  isCollapsed,
+  onUpgradeClick
 }) => {
   const { status, fetchStatus } = useUsageStore();
 
@@ -26,15 +26,16 @@ export const UsageIndicator: React.FC<UsageIndicatorProps> = ({
     const percentage = limit > 0 ? (used / limit) * 100 : 0;
     const isWarning = percentage > 80;
     const remaining = Math.max(0, limit - used);
+    const displayRemaining = parseFloat(remaining.toFixed(1));
 
     return (
       <div key={tool} className={styles.usageGroup}>
         <div className={styles.toolLabel}>
           <span className={styles.toolName}>{tool}</span>
-          <span>{remaining} left</span>
+          <span>{displayRemaining} left</span>
         </div>
         <div className={styles.progressWrapper}>
-          <div 
+          <div
             className={`${styles.progressBar} ${isWarning ? styles.progressBarWarning : ''} ${tool === 'voice' ? styles.voiceBar : tool === 'image' ? styles.imageBar : ''}`}
             style={{ width: `${Math.min(100, percentage)}%` }}
           />
@@ -65,7 +66,9 @@ export const UsageIndicator: React.FC<UsageIndicatorProps> = ({
       });
       maxPercentage = Math.max(...percentages, 0);
     } else if (status.usage) {
-      const percentages = Object.values(status.usage).map(u => {
+      const isAnonymous = status.tier?.toLowerCase() === 'anonymous';
+      const percentages = Object.entries(status.usage).map(([tool, u]) => {
+        if (isAnonymous && tool === 'image') return 0;
         if (!u.daily || !u.daily.limit) return 0;
         return (u.daily.used / u.daily.limit) * 100;
       });
@@ -84,18 +87,22 @@ export const UsageIndicator: React.FC<UsageIndicatorProps> = ({
           ) : (
             <Zap size={20} />
           )}
-          <div 
-            className={styles.dot} 
-            style={{ 
-              backgroundColor: isExceeded ? '#ef4444' : isWarning ? '#f59e0b' : '#22c55e' 
-            }} 
+          <div
+            className={styles.dot}
+            style={{
+              backgroundColor: isExceeded ? '#ef4444' : isWarning ? '#f59e0b' : '#22c55e'
+            }}
           />
         </div>
       </div>
     );
   }
 
-  const profileUsage = status.profileUsage;
+  const displayUsage = status.profileUsage || (status.usage ? {
+    chat: status.usage.chat,
+    voice: status.usage.voice,
+    image: status.usage.image,
+  } : null);
 
   return (
     <div className={styles.container}>
@@ -103,17 +110,17 @@ export const UsageIndicator: React.FC<UsageIndicatorProps> = ({
         <span className={styles.title}>Usage Limits</span>
         <span className={styles.tierBadge}>{status.tier}</span>
       </div>
-      
-      {profileUsage ? (
+
+      {displayUsage ? (
         <div className={styles.multiUsage}>
-          {renderProgressBar('chat', profileUsage.chat)}
-          {renderProgressBar('voice', profileUsage.voice)}
-          {renderProgressBar('image', profileUsage.image)}
+          {renderProgressBar('chat', displayUsage.chat)}
+          {renderProgressBar('voice', displayUsage.voice)}
+          {status.tier?.toLowerCase() !== 'anonymous' && renderProgressBar('image', displayUsage.image)}
         </div>
       ) : (
         <div className={styles.usageGroup}>
           <div className={styles.progressWrapper}>
-            <div 
+            <div
               className={styles.progressBar}
               style={{ width: '0%' }}
             />

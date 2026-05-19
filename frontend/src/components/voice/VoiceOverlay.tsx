@@ -228,6 +228,7 @@ export const VoiceOverlay: React.FC<VoiceOverlayProps> = ({ onClose, initialConv
 
       if (data.success) {
         const userText = data.data.text?.trim() || '';
+        const voiceSessionId = crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substring(2) + Date.now().toString(36);
 
         if (!userText) {
           const fallbackText = "Can You Say it Again? If You Are Asking Me Anything, Because, I Can't Hear Anything !!!";
@@ -264,6 +265,7 @@ export const VoiceOverlay: React.FC<VoiceOverlayProps> = ({ onClose, initialConv
             body: JSON.stringify({
               messages: [...messagesRef.current.map(m => ({ role: m.role, content: m.content })), { role: 'user', content: userText }],
               model: 'meta/llama-3.1-70b-instruct',
+              mode: 'voice',
             }),
           });
         })();
@@ -351,7 +353,7 @@ export const VoiceOverlay: React.FC<VoiceOverlayProps> = ({ onClose, initialConv
               audioQueue[index] = { text, url: '', blob: null };
               return;
             }
-            const blob = await aiService.generateSpeech(cleaned);
+            const blob = await aiService.generateSpeech(cleaned, undefined, voiceSessionId);
             const url = URL.createObjectURL(blob);
             audioQueue[index] = { text, url, blob };
           } catch (err) {

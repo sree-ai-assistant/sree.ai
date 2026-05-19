@@ -6,7 +6,7 @@
  */
 
 export type PlanTier = 'anonymous' | 'free' | 'starter' | 'pro';
-export type ToolType = 'chat' | 'voice' | 'image' | 'file_upload' | 'download' | 'tts';
+export type ToolType = 'chat' | 'voice' | 'image' | 'file_upload' | 'download';
 
 export interface ToolLimits {
   perMinute: number;
@@ -54,7 +54,6 @@ export const PLAN_CONFIGS: Readonly<Record<PlanTier, PlanConfig>> = Object.freez
       image: { perMinute: 0, daily: 0,  monthly: null },
       file_upload: { perMinute: 0, daily: 0, monthly: null },
       download: { perMinute: 0, daily: 0, monthly: null },
-      tts: { perMinute: 3, daily: 10, monthly: null },
     },
     uploadLimitMb: 0,
     requestsPerMinute: 3,
@@ -80,7 +79,6 @@ export const PLAN_CONFIGS: Readonly<Record<PlanTier, PlanConfig>> = Object.freez
       image: { perMinute: 5, daily: 5,  monthly: 30 },
       file_upload: { perMinute: 5, daily: 10, monthly: 50 },
       download: { perMinute: 10, daily: 50, monthly: 200 },
-      tts: { perMinute: 5, daily: 20, monthly: 100 },
     },
     uploadLimitMb: 10,
     requestsPerMinute: 5,
@@ -106,7 +104,6 @@ export const PLAN_CONFIGS: Readonly<Record<PlanTier, PlanConfig>> = Object.freez
       image: { perMinute: 10, daily: 30,  monthly: 70 },
       file_upload: { perMinute: 10, daily: 100, monthly: 1000 },
       download: { perMinute: 20, daily: 500, monthly: 5000 },
-      tts: { perMinute: 20, daily: 200, monthly: 2000 },
     },
     uploadLimitMb: 100,
     requestsPerMinute: 10,
@@ -132,7 +129,6 @@ export const PLAN_CONFIGS: Readonly<Record<PlanTier, PlanConfig>> = Object.freez
       image: { perMinute: 20, daily: 70,  monthly: 1000 },
       file_upload: { perMinute: 50, daily: 999, monthly: 9999 },
       download: { perMinute: 100, daily: 999, monthly: 9999 },
-      tts: { perMinute: 50, daily: 999, monthly: 9999 },
     },
     uploadLimitMb: 500,
     requestsPerMinute: 20,

@@ -251,73 +251,121 @@ export const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, setIsCollapsed })
 
   return (
     <>
-    <aside className={`${styles.sidebar} ${isCollapsed ? styles.collapsed : ''}`}>
-      <div className={styles.topSection}>
-        <div className={styles.topHeader}>
-          {!isCollapsed && (
-            <Link to="/dashboard" className={styles.brand}>
-              CORE
-            </Link>
-          )}
+      <aside className={`${styles.sidebar} ${isCollapsed ? styles.collapsed : ''}`}>
+        <div className={styles.topSection}>
+          <div className={styles.topHeader}>
+            {!isCollapsed && (
+              <Link to="/dashboard" className={styles.brand}>
+                CORE
+              </Link>
+            )}
+            <button
+              className={styles.toggleBtn}
+              onClick={() => setIsCollapsed(!isCollapsed)}
+              title={isCollapsed ? "Expand Sidebar" : "Collapse Sidebar"}
+            >
+              <PanelLeft size={18} />
+            </button>
+          </div>
+
           <button
-            className={styles.toggleBtn}
-            onClick={() => setIsCollapsed(!isCollapsed)}
-            title={isCollapsed ? "Expand Sidebar" : "Collapse Sidebar"}
+            className={`${styles.navItem} ${location.pathname === '/dashboard' ? styles.active : ''}`}
+            onClick={() => navigate('/dashboard')}
+            title="Dashboard"
           >
-            <PanelLeft size={18} />
+            <Activity size={20} />
+            {!isCollapsed && <span>Dashboard</span>}
           </button>
+
+          <button className={styles.newChatBtn} onClick={handleNewChat} title={isVoiceContext ? "New Conversation" : "New Chat"}>
+            <Plus size={22} strokeWidth={2.5} />
+            {!isCollapsed && (
+              <>
+                <span style={{ marginLeft: '4px' }}>{isVoiceContext ? "New Conversation" : "New Chat"}</span>
+                <div className={styles.cmd}>⌘K</div>
+              </>
+            )}
+          </button>
+
+          {!isCollapsed && (
+            <div className={styles.searchWrapper}>
+              <Search size={16} className={styles.searchIcon} />
+              <input
+                type="text"
+                placeholder={isVoiceContext ? "Search library..." : "Search history..."}
+                className={styles.searchInput}
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
+            </div>
+          )}
         </div>
 
-        <button 
-          className={`${styles.navItem} ${location.pathname === '/dashboard' ? styles.active : ''}`}
-          onClick={() => navigate('/dashboard')}
-          title="Dashboard"
-        >
-          <Activity size={20} />
-          {!isCollapsed && <span>Dashboard</span>}
-        </button>
 
-        <button className={styles.newChatBtn} onClick={handleNewChat} title={isVoiceContext ? "New Conversation" : "New Chat"}>
-          <Plus size={22} strokeWidth={2.5} />
-          {!isCollapsed && (
+
+        <div className={styles.historySection}>
+          {!isVoiceContext ? (
             <>
-              <span style={{ marginLeft: '4px' }}>{isVoiceContext ? "New Conversation" : "New Chat"}</span>
-              <div className={styles.cmd}>⌘K</div>
+              <div className={styles.typeSection}>
+                {!isCollapsed && (
+                  <div className={styles.typeTitle}>
+                    <MessageCircle size={16} />
+                    <span>Chat History</span>
+                  </div>
+                )}
+                {loading && conversations.length === 0 ? (
+                  <div className={styles.historyList} style={{ padding: isCollapsed ? '0' : '0 8px', display: 'flex', flexDirection: 'column', alignItems: isCollapsed ? 'center' : 'stretch' }}>
+                    {Array.from({ length: 8 }).map((_, i) => (
+                      <div
+                        key={`sidebar-skeleton-${i}`}
+                        className="skeleton"
+                        style={{
+                          height: isCollapsed ? '32px' : '36px',
+                          width: isCollapsed ? '32px' : '100%',
+                          marginBottom: '12px',
+                          borderRadius: isCollapsed ? '50%' : '8px'
+                        }}
+                      ></div>
+                    ))}
+                  </div>
+                ) : chatConversations.length === 0 ? (
+                  !isCollapsed && <div className={styles.emptyState}>No chats yet</div>
+                ) : renderList(chatConversations)}
+              </div>
+
+              <div className={styles.typeSection}>
+                {!isCollapsed && voiceConversations.length > 0 && (
+                  <div className={styles.typeTitle}>
+                    <Mic size={16} />
+                    <span>Voice Conversations</span>
+                  </div>
+                )}
+                {renderList(voiceConversations)}
+              </div>
+
+              <div className={styles.typeSection}>
+                {!isCollapsed && imageConversations.length > 0 && (
+                  <div className={styles.typeTitle}>
+                    <ImageIcon size={16} />
+                    <span>Image Gallery</span>
+                  </div>
+                )}
+                {renderList(imageConversations)}
+              </div>
             </>
-          )}
-        </button>
-
-        {!isCollapsed && (
-          <div className={styles.searchWrapper}>
-            <Search size={16} className={styles.searchIcon} />
-            <input
-              type="text"
-              placeholder={isVoiceContext ? "Search library..." : "Search history..."}
-              className={styles.searchInput}
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-            />
-          </div>
-        )}
-      </div>
-
-
-
-      <div className={styles.historySection}>
-        {!isVoiceContext ? (
-          <>
+          ) : (
             <div className={styles.typeSection}>
               {!isCollapsed && (
                 <div className={styles.typeTitle}>
-                  <MessageCircle size={16} />
-                  <span>Chat History</span>
+                  <Mic size={16} />
+                  <span>Voice Conversations</span>
                 </div>
               )}
               {loading && conversations.length === 0 ? (
                 <div className={styles.historyList} style={{ padding: isCollapsed ? '0' : '0 8px', display: 'flex', flexDirection: 'column', alignItems: isCollapsed ? 'center' : 'stretch' }}>
-                  {Array.from({ length: 8 }).map((_, i) => (
+                  {Array.from({ length: 5 }).map((_, i) => (
                     <div
-                      key={`sidebar-skeleton-${i}`}
+                      key={`voice-skeleton-${i}`}
                       className="skeleton"
                       style={{
                         height: isCollapsed ? '32px' : '36px',
@@ -328,177 +376,124 @@ export const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, setIsCollapsed })
                     ></div>
                   ))}
                 </div>
-              ) : chatConversations.length === 0 ? (
-                !isCollapsed && <div className={styles.emptyState}>No chats yet</div>
-              ) : renderList(chatConversations)}
-            </div>
-
-            <div className={styles.typeSection}>
-              {!isCollapsed && voiceConversations.length > 0 && (
-                <div className={styles.typeTitle}>
-                  <Mic size={16} />
-                  <span>Voice Conversations</span>
-                </div>
-              )}
-              {renderList(voiceConversations)}
-            </div>
-
-            <div className={styles.typeSection}>
-              {!isCollapsed && imageConversations.length > 0 && (
-                <div className={styles.typeTitle}>
-                  <ImageIcon size={16} />
-                  <span>Image Gallery</span>
-                </div>
-              )}
-              {renderList(imageConversations)}
-            </div>
-          </>
-        ) : (
-          <div className={styles.typeSection}>
-            {!isCollapsed && (
-              <div className={styles.typeTitle}>
-                <Mic size={16} />
-                <span>Voice Conversations</span>
-              </div>
-            )}
-            {loading && conversations.length === 0 ? (
-              <div className={styles.historyList} style={{ padding: isCollapsed ? '0' : '0 8px', display: 'flex', flexDirection: 'column', alignItems: isCollapsed ? 'center' : 'stretch' }}>
-                {Array.from({ length: 5 }).map((_, i) => (
-                  <div
-                    key={`voice-skeleton-${i}`}
-                    className="skeleton"
-                    style={{
-                      height: isCollapsed ? '32px' : '36px',
-                      width: isCollapsed ? '32px' : '100%',
-                      marginBottom: '12px',
-                      borderRadius: isCollapsed ? '50%' : '8px'
-                    }}
-                  ></div>
-                ))}
-              </div>
-            ) : voiceConversations.length === 0 ? (
-              !isCollapsed && <div className={styles.emptyState}>No recordings yet</div>
-            ) : renderList(voiceConversations)}
-          </div>
-        )}
-      </div>
-
-      <UsageIndicator 
-        isCollapsed={isCollapsed} 
-        onUpgradeClick={() => setShowLimitModal(true)} 
-      />
-
-      <div className={styles.bottomSection}>
-        <div className={styles.utilitiesSection}>
-          {isCollapsed ? (
-            <div className={styles.utilitiesCollapsed}>
-              <button className={styles.miniIconBtn} onClick={() => navigate('/settings')} title="Settings">
-                <Settings size={18} />
-              </button>
-              <button className={styles.miniIconBtn} onClick={() => window.open('https://github.com/your-repo/issues', '_blank')} title="Feature Request">
-                <Lightbulb size={18} />
-              </button>
-              <button className={styles.miniIconBtn} onClick={() => window.open('/help', '_blank')} title="Help & Support">
-                <HelpCircle size={18} />
-              </button>
-            </div>
-          ) : isBottomExpanded ? (
-            <div className={styles.utilitiesVertical}>
-              <button className={styles.utilityItem} onClick={() => navigate('/settings')}>
-                <Settings size={18} />
-                <span>Settings</span>
-              </button>
-              <button className={styles.utilityItem} onClick={() => window.open('https://github.com/your-repo/issues', '_blank')}>
-                <Lightbulb size={18} />
-                <span>Feature Request</span>
-              </button>
-              <button className={styles.utilityItem} onClick={() => window.open('/help', '_blank')}>
-                <HelpCircle size={18} />
-                <span>Help & Support</span>
-              </button>
-              <button className={styles.collapseToggle} onClick={() => setIsBottomExpanded(false)}>
-                <ChevronDown size={16} />
-                <span>Collapse</span>
-              </button>
-            </div>
-          ) : (
-            <div className={styles.utilitiesHorizontal}>
-              <div className={styles.miniIcons}>
-                <button className={styles.miniIconBtn} onClick={() => navigate('/settings')} title="Settings">
-                  <Settings size={16} />
-                </button>
-                <button className={styles.miniIconBtn} onClick={() => window.open('https://github.com/your-repo/issues', '_blank')} title="Feature Request">
-                  <Lightbulb size={16} />
-                </button>
-                <button className={styles.miniIconBtn} onClick={() => window.open('/help', '_blank')} title="Help & Support">
-                  <HelpCircle size={16} />
-                </button>
-              </div>
-              <button className={styles.expandToggle} onClick={() => setIsBottomExpanded(true)} title="Expand Options">
-                <ChevronUp size={16} />
-              </button>
+              ) : voiceConversations.length === 0 ? (
+                !isCollapsed && <div className={styles.emptyState}>No recordings yet</div>
+              ) : renderList(voiceConversations)}
             </div>
           )}
         </div>
 
-        <div className={styles.profileCard}>
-          <div className={styles.profileInfo}>
-            <div className={styles.avatar}>
-              <div className={styles.status} />
-              {user?.avatar_url ? (
-                <img src={user.avatar_url} alt={user.display_name || 'User'} className={styles.avatarImg} />
-              ) : (
-                (user?.display_name?.[0] || user?.email?.[0] || 'U').toUpperCase()
-              )}
-            </div>
-            {!isCollapsed && (
-              <div className={styles.details}>
-                <span className={styles.name}>{user ? (user.display_name || user.email?.split('@')[0]) : 'Guest User'}</span>
-                <div className={styles.badge}>
-                  <Zap size={10} fill="currentColor" />
-                  <span>{user ? (user.plan_type === 'pro' ? 'Pro Member' : user.plan_type === 'starter' ? 'Starter Plan' : 'Free Plan') : 'Anonymous'}</span>
+        <div className={styles.bottomSection}>
+          <div className={styles.utilitiesSection}>
+            {isCollapsed ? (
+              <div className={styles.utilitiesCollapsed}>
+                <button className={styles.miniIconBtn} onClick={() => navigate('/settings')} title="Settings">
+                  <Settings size={18} />
+                </button>
+                <button className={styles.miniIconBtn} onClick={() => window.open('https://github.com/your-repo/issues', '_blank')} title="Feature Request">
+                  <Lightbulb size={18} />
+                </button>
+                <button className={styles.miniIconBtn} onClick={() => window.open('/help', '_blank')} title="Help & Support">
+                  <HelpCircle size={18} />
+                </button>
+              </div>
+            ) : isBottomExpanded ? (
+              <div className={styles.utilitiesVertical}>
+                <button className={styles.utilityItem} onClick={() => navigate('/settings')}>
+                  <Settings size={18} />
+                  <span>Settings</span>
+                </button>
+                <button className={styles.utilityItem} onClick={() => window.open('https://github.com/your-repo/issues', '_blank')}>
+                  <Lightbulb size={18} />
+                  <span>Feature Request</span>
+                </button>
+                <button className={styles.utilityItem} onClick={() => window.open('/help', '_blank')}>
+                  <HelpCircle size={18} />
+                  <span>Help & Support</span>
+                </button>
+                <button className={styles.collapseToggle} onClick={() => setIsBottomExpanded(false)}>
+                  <ChevronDown size={16} />
+                  <span>Collapse</span>
+                </button>
+              </div>
+            ) : (
+              <div className={styles.utilitiesHorizontal}>
+                <div className={styles.miniIcons}>
+                  <button className={styles.miniIconBtn} onClick={() => navigate('/settings')} title="Settings">
+                    <Settings size={16} />
+                  </button>
+                  <button className={styles.miniIconBtn} onClick={() => window.open('https://github.com/your-repo/issues', '_blank')} title="Feature Request">
+                    <Lightbulb size={16} />
+                  </button>
+                  <button className={styles.miniIconBtn} onClick={() => window.open('/help', '_blank')} title="Help & Support">
+                    <HelpCircle size={16} />
+                  </button>
                 </div>
+                <button className={styles.expandToggle} onClick={() => setIsBottomExpanded(true)} title="Expand Options">
+                  <ChevronUp size={16} />
+                </button>
               </div>
             )}
           </div>
 
-          <div className={styles.profileActions}>
-            {user ? (
-              <button className={styles.signOutBtn} onClick={handleSignOut} title="Sign Out">
-                <LogOut size={16} />
-              </button>
-            ) : (
-              <button className={styles.signOutBtn} onClick={() => navigate('/login')} title="Sign In" style={{ color: 'var(--primary)' }}>
-                <Zap size={16} />
-              </button>
-            )}
-            {user ? (
-              <button className={styles.upgradeBtn} onClick={() => setShowLimitModal(true)} title="Upgrade Plan">
-                <Star size={16} />
-                {!isCollapsed && <span>Upgrade</span>}
-              </button>
-            ) : (
-              <button className={styles.upgradeBtn} onClick={() => navigate('/signup')} title="Create Account">
-                <Plus size={16} />
-                {!isCollapsed && <span>Join</span>}
-              </button>
-            )}
+          <div className={styles.profileCard}>
+            <div className={styles.profileInfo}>
+              <div className={styles.avatar}>
+                <div className={styles.status} />
+                {user?.avatar_url ? (
+                  <img src={user.avatar_url} alt={user.display_name || 'User'} className={styles.avatarImg} />
+                ) : (
+                  (user?.display_name?.[0] || user?.email?.[0] || 'U').toUpperCase()
+                )}
+              </div>
+              {!isCollapsed && (
+                <div className={styles.details}>
+                  <span className={styles.name}>{user ? (user.display_name || user.email?.split('@')[0]) : 'Guest User'}</span>
+                  <div className={styles.badge}>
+                    <Zap size={10} fill="currentColor" />
+                    <span>{user ? (user.plan_type === 'pro' ? 'Pro Member' : user.plan_type === 'starter' ? 'Starter Plan' : 'Free Plan') : 'Anonymous'}</span>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className={styles.profileActions}>
+              {user ? (
+                <button className={styles.signOutBtn} onClick={handleSignOut} title="Sign Out">
+                  <LogOut size={16} />
+                </button>
+              ) : (
+                <button className={styles.signOutBtn} onClick={() => navigate('/login')} title="Sign In" style={{ color: 'var(--primary)' }}>
+                  <Zap size={16} />
+                </button>
+              )}
+              {user ? (
+                <button className={styles.upgradeBtn} onClick={() => setShowLimitModal(true)} title="Upgrade Plan">
+                  <Star size={16} />
+                  {!isCollapsed && <span>Upgrade</span>}
+                </button>
+              ) : (
+                <button className={styles.upgradeBtn} onClick={() => navigate('/signup')} title="Create Account">
+                  <Plus size={16} />
+                  {!isCollapsed && <span>Join</span>}
+                </button>
+              )}
+            </div>
           </div>
         </div>
-      </div>
-    </aside>
+      </aside>
 
-    <LimitModal 
-      isOpen={showLimitModal} 
-      onClose={() => setShowLimitModal(false)}
-      type={user ? 'tiered' : 'anonymous'}
-      limitInfo={status ? {
-        limit: status.daily_limit || (chatUsage as any)?.daily?.limit || 0,
-        current: (chatUsage as any)?.daily?.used || 0,
-        resetsIn: status.resets_in_seconds,
-        tier: status.tier
-      } : undefined}
-    />
-  </>
-);
+      <LimitModal
+        isOpen={showLimitModal}
+        onClose={() => setShowLimitModal(false)}
+        type={user ? 'tiered' : 'anonymous'}
+        limitInfo={status ? {
+          limit: status.daily_limit || (chatUsage as any)?.daily?.limit || 0,
+          current: (chatUsage as any)?.daily?.used || 0,
+          resetsIn: status.resets_in_seconds,
+          tier: status.tier
+        } : undefined}
+      />
+    </>
+  );
 };

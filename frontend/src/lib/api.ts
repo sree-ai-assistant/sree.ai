@@ -58,9 +58,9 @@ api.interceptors.response.use((response) => {
 });
 
 export const aiService = {
-  generateSpeech: async (text: string, model?: string) => {
+  generateSpeech: async (text: string, model?: string, voiceSessionId?: string) => {
     try {
-      const response = await api.post('/ai/tts', { text, model }, {
+      const response = await api.post('/ai/tts', { text, model, voiceSessionId }, {
         responseType: 'blob'
       });
       return response.data;

@@ -449,7 +449,8 @@ const ChatPage: React.FC = () => {
           model: selectedModel?.model_id,
           attachments: currentAttachments.map(a => ({ name: a.file?.name || a.name, type: a.type, url: a.url, extractedText: a.extractedText })),
           messageId: userMsg?.id,
-          conversationId: currentConvId
+          conversationId: currentConvId,
+          mode: isVoiceRoute ? 'voice' : 'chat'
         }),
         signal: abortController.signal,
       });

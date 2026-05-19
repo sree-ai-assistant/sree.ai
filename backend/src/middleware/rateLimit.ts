@@ -8,6 +8,43 @@ import { ApiKeyService } from '../services/apiKey.service';
 import { resolveProvider } from '../utils/providerResolver';
 
 /**
+ * Simple in-memory TTL cache for charged voice session IDs to prevent multiple charges
+ * for consecutive sentence requests within a single voice response session.
+ */
+class SessionCache {
+  private cache = new Map<string, number>();
+  private intervalId: ReturnType<typeof setInterval>;
+
+  constructor() {
+    this.intervalId = setInterval(() => {
+      const now = Date.now();
+      for (const [key, timestamp] of this.cache.entries()) {
+        if (now - timestamp > 5 * 60 * 1000) {
+          this.cache.delete(key);
+        }
+      }
+    }, 60 * 1000);
+    if (this.intervalId && typeof this.intervalId === 'object' && 'unref' in this.intervalId) {
+      (this.intervalId as any).unref();
+    }
+  }
+
+  has(key: string): boolean {
+    return this.cache.has(key);
+  }
+
+  add(key: string) {
+    this.cache.set(key, Date.now());
+  }
+
+  clear() {
+    this.cache.clear();
+  }
+}
+
+export const voiceSessionCache = new SessionCache();
+
+/**
  * Rate Limit Middleware
  * 
  * Intercepts AI requests, checks against tiered limits (minute/daily/monthly),
@@ -16,6 +53,19 @@ import { resolveProvider } from '../utils/providerResolver';
 export const rateLimitMiddleware = (toolType: ToolType, provider?: string) => {
   return async (req: Request, res: Response, next: NextFunction) => {
     try {
+      // Determine the actual tool type based on attachments or mode parameters
+      let actualToolType = toolType;
+      if (toolType === 'chat') {
+        if (req.body?.mode === 'voice' || req.body?.isVoice === true) {
+          actualToolType = 'voice';
+        } else if (req.body?.attachments && Array.isArray(req.body.attachments)) {
+          const hasAudio = req.body.attachments.some((a: any) => a.type === 'audio');
+          if (hasAudio) {
+            actualToolType = 'voice';
+          }
+        }
+      }
+
       // 1. Resolve identity and tier from flexAuthMiddleware/anonymousIdentity
       const user = (req as any).user;
       const anonId = (req as any).anonId;
@@ -46,13 +96,42 @@ export const rateLimitMiddleware = (toolType: ToolType, provider?: string) => {
         (req as any).provider = detectedProvider;
       }
 
-      const identity: RateLimitIdentity = user
-        ? { type: 'authenticated', userId: user.id, tier }
-        : { type: 'anonymous', anonId: anonId || 'unknown', tier: 'anonymous' };
+      // For voice requests using Deepgram, check if the user has a Deepgram BYOK key
+      if (actualToolType === 'voice') {
+        const result = await ApiKeyService.getUserApiKey(user?.id, 'deepgram');
+        // If they provided a custom deepgram key, we treat it as BYOK for quota purposes.
+        // Even if they also use nvidia, deepgram is the primary cost for voice in this context.
+        if (result.source === 'user') {
+          isByok = true;
+        }
+      }
 
-      // 2. Atomic Check and Increment
-      // We increment at the start of the request to prevent race conditions.
-      const result = await checkAndIncrementUsage(identity, toolType, isByok);
+      // Check if this is a consecutive request in an already-charged voice session
+      const voiceSessionId = req.body?.voiceSessionId || req.query?.voiceSessionId;
+      let result;
+      let voiceSessionCharged = false;
+
+      if (voiceSessionId && voiceSessionCache.has(voiceSessionId as string)) {
+        voiceSessionCharged = true;
+      }
+
+      if (voiceSessionCharged) {
+        // Skip usage check and charge, allow the request for free
+        result = { allowed: true };
+      } else {
+        const identity: RateLimitIdentity = user
+          ? { type: 'authenticated', userId: user.id, tier }
+          : { type: 'anonymous', anonId: anonId || 'unknown', tier: 'anonymous' };
+
+        // 2. Atomic Check and Increment
+        // We increment at the start of the request to prevent race conditions.
+        result = await checkAndIncrementUsage(identity, actualToolType, isByok);
+
+        // If the request was allowed, register the session as charged
+        if (voiceSessionId && result.allowed) {
+          voiceSessionCache.add(voiceSessionId as string);
+        }
+      }
 
       // 2b. Abuse strict mode: halve the effective limit (ABUSE-03)
       // When abuse detection flags severity 3, limits are reduced by 50%
@@ -63,7 +142,7 @@ export const rateLimitMiddleware = (toolType: ToolType, provider?: string) => {
             success: false,
             code: 'RATE_LIMIT_EXCEEDED',
             reason: 'abuse_strict',
-            tool: toolType,
+            tool: actualToolType,
             limit: strictLimit,
             current: result.used,
             resetsIn: result.resetsIn,
@@ -79,7 +158,7 @@ export const rateLimitMiddleware = (toolType: ToolType, provider?: string) => {
           success: false,
           code: 'RATE_LIMIT_EXCEEDED',
           reason: result.reason || 'daily',
-          tool: toolType,
+          tool: actualToolType,
           limit: result.limit,
           current: result.used,
           resetsIn: result.resetsIn,
@@ -90,7 +169,7 @@ export const rateLimitMiddleware = (toolType: ToolType, provider?: string) => {
 
       // 3. Attach usage info to request
       (req as any).rateLimitInfo = result;
-      (req as any).toolType = toolType;
+      (req as any).toolType = actualToolType;
 
       next();
     } catch (error) {
