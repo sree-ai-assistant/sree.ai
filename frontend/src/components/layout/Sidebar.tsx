@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+
 import {
   Plus,
   Search,
@@ -17,8 +17,7 @@ import {
   Mic,
   MessageCircle,
   Settings,
-  Image as ImageIcon,
-  Activity
+  Image as ImageIcon
 } from 'lucide-react';
 import { useAuthStore } from '../../store/auth.store';
 import { useChatStore, type Conversation } from '../../store/chat.store';
@@ -254,11 +253,15 @@ export const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, setIsCollapsed })
       <aside className={`${styles.sidebar} ${isCollapsed ? styles.collapsed : ''}`}>
         <div className={styles.topSection}>
           <div className={styles.topHeader}>
-            {!isCollapsed && (
-              <Link to="/dashboard" className={styles.brand}>
-                CORE
-              </Link>
-            )}
+            <button className={styles.newChatBtn} onClick={handleNewChat} title={isVoiceContext ? "New Conversation" : "New Chat"}>
+              <Plus size={22} strokeWidth={2.5} />
+              {!isCollapsed && (
+                <>
+                  <span style={{ marginLeft: '4px' }}>{isVoiceContext ? "New Conversation" : "New Chat"}</span>
+                  {!isVoiceContext && <div className={styles.cmd}>⌘K</div>}
+                </>
+              )}
+            </button>
             <button
               className={styles.toggleBtn}
               onClick={() => setIsCollapsed(!isCollapsed)}
@@ -267,25 +270,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, setIsCollapsed })
               <PanelLeft size={18} />
             </button>
           </div>
-
-          <button
-            className={`${styles.navItem} ${location.pathname === '/dashboard' ? styles.active : ''}`}
-            onClick={() => navigate('/dashboard')}
-            title="Dashboard"
-          >
-            <Activity size={20} />
-            {!isCollapsed && <span>Dashboard</span>}
-          </button>
-
-          <button className={styles.newChatBtn} onClick={handleNewChat} title={isVoiceContext ? "New Conversation" : "New Chat"}>
-            <Plus size={22} strokeWidth={2.5} />
-            {!isCollapsed && (
-              <>
-                <span style={{ marginLeft: '4px' }}>{isVoiceContext ? "New Conversation" : "New Chat"}</span>
-                <div className={styles.cmd}>⌘K</div>
-              </>
-            )}
-          </button>
 
           {!isCollapsed && (
             <div className={styles.searchWrapper}>

@@ -1,11 +1,11 @@
 import React from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { 
-  User as LucideUser, 
-  Key, 
-  CreditCard, 
-  Shield, 
+import {
+  User as LucideUser,
+  Key,
+  CreditCard,
+  Shield,
   ChevronLeft,
   LogOut,
   HelpCircle,
@@ -101,7 +101,7 @@ export const SettingsSidebar: React.FC<SettingsSidebarProps> = ({
                   className={`${styles.navItem} ${isActive ? styles.active : ''}`}
                   onClick={() => onSectionChange(item.id)}
                 >
-                  <div className={styles.iconContainer} style={{ 
+                  <div className={styles.iconContainer} style={{
                     color: isActive ? 'white' : item.color,
                     background: isActive ? item.color : `${item.color}15`
                   }}>
@@ -114,7 +114,7 @@ export const SettingsSidebar: React.FC<SettingsSidebarProps> = ({
                     </div>
                   )}
                   {isActive && !isCollapsed && (
-                    <motion.div 
+                    <motion.div
                       layoutId="activeGlow"
                       className={styles.activeGlow}
                       style={{ background: item.color }}
@@ -180,7 +180,7 @@ export const SettingsSidebar: React.FC<SettingsSidebarProps> = ({
               )}
               <div className={styles.statusDot} />
             </div>
-            <input 
+            <input
               type="file"
               ref={fileInputRef}
               className={styles.hiddenInput}
@@ -213,7 +213,7 @@ export const SettingsSidebar: React.FC<SettingsSidebarProps> = ({
         </div>
       </div>
 
-      <button 
+      <button
         className={styles.collapseButton}
         onClick={() => setIsCollapsed(!isCollapsed)}
       >
