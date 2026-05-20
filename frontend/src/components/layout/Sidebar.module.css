@@ -212,14 +212,28 @@
   transition: opacity var(--transition-fast);
 }
 
-.collapsed .topSection,
-.collapsed .historySection,
-.collapsed .bottomSection {
-  padding: 24px 8px;
+.collapsed .topSection {
+  padding: 16px 8px 8px 8px;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 20px;
+  gap: 12px;
+}
+
+.collapsed .historySection {
+  padding: 8px 8px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+.collapsed .bottomSection {
+  padding: 12px 8px 16px 8px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
 }
 
 .collapsed .topHeader {
@@ -328,6 +342,19 @@
 
 .collapsed .arrow {
   display: none;
+}
+
+.collapsed .dateGroup {
+  margin-top: 8px;
+}
+
+.collapsed .typeSection {
+  margin-bottom: 8px;
+}
+
+.collapsed .utilitiesSection {
+  margin: 4px 0;
+  padding: 4px;
 }
 
 .itemDate {
