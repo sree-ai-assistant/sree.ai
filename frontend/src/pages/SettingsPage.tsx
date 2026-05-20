@@ -69,8 +69,9 @@ const SettingsPage: React.FC = () => {
   const { user, updateProfile } = useAuthStore();
   const { status: usageStatus, fetchStatus: fetchUsageStatus } = useUsageStore();
   const [searchParams] = useSearchParams();
-  const VALID_TABS = ['profile', 'keys', 'billing', 'security', 'devices', 'notifications'];
-  const initialTab = VALID_TABS.includes(searchParams.get('tab') || '') ? searchParams.get('tab')! : 'profile';
+  const VALID_TABS = ['profile', 'keys', 'billing', 'security', 'notifications'];
+  const rawTab = searchParams.get('tab');
+  const initialTab = rawTab === 'devices' ? 'security' : (VALID_TABS.includes(rawTab || '') ? rawTab! : 'profile');
   const [activeSection, setActiveSection] = useState(initialTab);
   const { sidebarCollapsed: isSidebarCollapsed, setSidebarCollapsed: setIsSidebarCollapsed } = useUIStore();
 
@@ -218,12 +219,14 @@ const SettingsPage: React.FC = () => {
     }
 
     let location = 'Local';
+    let ip_address = '';
     try {
       // Use a more reliable free service or fallback to TZ
       const ipRes = await fetch('https://api.db-ip.com/v2/free/self').catch(() => null);
       if (ipRes && ipRes.ok) {
         const data = await ipRes.json();
         location = `${data.city || 'Unknown City'}, ${data.countryName || 'Unknown Country'}`;
+        ip_address = data.ipAddress || '';
       } else {
         const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
         location = tz.split('/').pop()?.replace('_', ' ') || 'Local';
@@ -232,7 +235,7 @@ const SettingsPage: React.FC = () => {
       console.warn('Location detection failed', e);
     }
 
-    const details = { os, browser, location, browserVersion: version, device_id: getPersistentDeviceId() };
+    const details = { os, browser, location, ip_address, browserVersion: version, device_id: getPersistentDeviceId() };
     return details;
   };
 
@@ -719,6 +722,21 @@ const SettingsPage: React.FC = () => {
   };
 
   const renderSecuritySection = () => {
+    const formatLastActive = (dateStr: string) => {
+      const date = new Date(dateStr);
+      const now = new Date();
+      const diffInMs = now.getTime() - date.getTime();
+      const diffInMins = Math.floor(diffInMs / (1000 * 60));
+      const diffInHours = Math.floor(diffInMs / (1000 * 60 * 60));
+      const diffInDays = Math.floor(diffInMs / (1000 * 60 * 60 * 24));
+
+      if (diffInMins < 1) return 'Just now';
+      if (diffInMins < 60) return `${diffInMins}m ago`;
+      if (diffInHours < 24) return `${diffInHours}h ago`;
+      if (diffInDays < 7) return `${diffInDays}d ago`;
+      return date.toLocaleDateString();
+    };
+
     return (
       <motion.div 
         initial={{ opacity: 0, y: 10 }}
@@ -726,6 +744,7 @@ const SettingsPage: React.FC = () => {
         className={styles.sectionContent}
       >
         <div className={styles.settingsGrid}>
+          {/* Security Card */}
           <div className={styles.settingsCard}>
             <div className={styles.cardHeaderSmall}>
               <h3 className={styles.cardTitle}>Security Overview</h3>
@@ -759,34 +778,8 @@ const SettingsPage: React.FC = () => {
               </div>
             </div>
           </div>
-        </div>
-      </motion.div>
-    );
-  };
 
-  const renderDevicesSection = () => {
-    const formatLastActive = (dateStr: string) => {
-      const date = new Date(dateStr);
-      const now = new Date();
-      const diffInMs = now.getTime() - date.getTime();
-      const diffInMins = Math.floor(diffInMs / (1000 * 60));
-      const diffInHours = Math.floor(diffInMs / (1000 * 60 * 60));
-      const diffInDays = Math.floor(diffInMs / (1000 * 60 * 60 * 24));
-
-      if (diffInMins < 1) return 'Just now';
-      if (diffInMins < 60) return `${diffInMins}m ago`;
-      if (diffInHours < 24) return `${diffInHours}h ago`;
-      if (diffInDays < 7) return `${diffInDays}d ago`;
-      return date.toLocaleDateString();
-    };
-
-    return (
-      <motion.div 
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        className={styles.sectionContent}
-      >
-        <div className={styles.settingsGrid}>
+          {/* Active Sessions Card inside Security */}
           <div className={styles.settingsCard}>
             <div className={styles.cardHeaderSmall}>
               <div className={styles.headerWithIcon}>
@@ -899,7 +892,6 @@ const SettingsPage: React.FC = () => {
       case 'keys': return renderKeysSection();
       case 'billing': return renderBillingSection();
       case 'security': return renderSecuritySection();
-      case 'devices': return renderDevicesSection();
       case 'notifications': return renderNotificationsSection();
       default: return renderProfileSection();
     }

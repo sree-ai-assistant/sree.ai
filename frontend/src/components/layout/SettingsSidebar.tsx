@@ -60,7 +60,6 @@ export const SettingsSidebar: React.FC<SettingsSidebarProps> = ({
     { id: 'keys', label: 'API Keys', icon: Key, color: '#8B5CF6' },
     { id: 'billing', label: 'Billing & Usage', icon: CreditCard, color: '#10B981' },
     { id: 'security', label: 'Security', icon: Shield, color: '#F59E0B' },
-    { id: 'devices', label: 'Devices', icon: Smartphone, color: '#6366F1' },
     { id: 'notifications', label: 'Notifications', icon: Bell, color: '#EC4899' },
   ];
 
