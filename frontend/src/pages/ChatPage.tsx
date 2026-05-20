@@ -118,6 +118,8 @@ const ChatPage: React.FC = () => {
   const streamingIdRef = useRef<string | null>(null);
   const streamingOptimisticIdRef = useRef<string | null>(null);
   const fullContentRef = useRef('');
+  const isStreamFinishedRef = useRef(false);
+  const displayedMessageLengthRef = useRef(0);
 
   // Performance: Memoize Markdown components to prevent heavy re-renders
   const markdownComponents = useMemo(() => ({
@@ -171,10 +173,6 @@ const ChatPage: React.FC = () => {
     filterThinkingTags(displayedStreamingMessage), 
     [displayedStreamingMessage]
   );
-
-  // Performance: Use deferred value for the heavy Markdown rendering
-  // This lets React prioritize scrolling and user input over text updates
-  const deferredStreamingMessage = useDeferredValue(filteredStreamingMessage);
 
   const estimateTokens = (messages: any[]) => {
     let totalChars = 0;
@@ -265,6 +263,7 @@ const ChatPage: React.FC = () => {
       if (typewriterIntervalRef.current) clearInterval(typewriterIntervalRef.current);
       setDisplayedStreamingMessage('');
       fullContentRef.current = '';
+      displayedMessageLengthRef.current = 0;
       return;
     }
 
@@ -275,21 +274,27 @@ const ChatPage: React.FC = () => {
         if (fullContentRef.current.length > prev.length) {
           const bufferSize = fullContentRef.current.length - prev.length;
           
+          let nextMessage = prev;
           // Adaptive scaling:
           // If stream is finished, dump everything much faster
-          if (isStreamFinished) {
-            if (bufferSize < 400) return fullContentRef.current;
-            return fullContentRef.current.slice(0, prev.length + Math.max(200, Math.floor(bufferSize / 1.5)));
+          if (isStreamFinishedRef.current) {
+            if (bufferSize < 400) {
+              nextMessage = fullContentRef.current;
+            } else {
+              nextMessage = fullContentRef.current.slice(0, prev.length + Math.max(200, Math.floor(bufferSize / 1.5)));
+            }
+          } else {
+            // Dynamic increments for "live" feel while handling bursts
+            // Increased values for a "snappier" feel
+            const increment = bufferSize > 2000 ? 800 :
+                              bufferSize > 1000 ? 400 : 
+                              bufferSize > 400 ? 150 : 
+                              bufferSize > 100 ? 60 : 25;
+            
+            nextMessage = fullContentRef.current.slice(0, prev.length + increment);
           }
-
-          // Dynamic increments for "live" feel while handling bursts
-          // Increased values for a "snappier" feel
-          const increment = bufferSize > 2000 ? 800 :
-                            bufferSize > 1000 ? 400 : 
-                            bufferSize > 400 ? 150 : 
-                            bufferSize > 100 ? 60 : 25;
-          
-          return fullContentRef.current.slice(0, prev.length + increment);
+          displayedMessageLengthRef.current = nextMessage.length;
+          return nextMessage;
         }
         return prev;
       });
@@ -384,6 +389,8 @@ const ChatPage: React.FC = () => {
     abortControllerRef.current = abortController;
 
     setIsStreamFinished(false);
+    isStreamFinishedRef.current = false;
+    displayedMessageLengthRef.current = 0;
     let assistantMessage = '';
     let isStreamFinishedLocal = false;
     let isSaved = false;
@@ -556,6 +563,7 @@ const ChatPage: React.FC = () => {
             isStreamFinishedLocal = true;
             if (streamingIdRef.current === currentConvId) {
               setIsStreamFinished(true);
+              isStreamFinishedRef.current = true;
             }
             break;
           }
@@ -567,6 +575,7 @@ const ChatPage: React.FC = () => {
                 isStreamFinishedLocal = true;
                 if (streamingIdRef.current === currentConvId) {
                   setIsStreamFinished(true);
+                  isStreamFinishedRef.current = true;
                 }
                 break;
               }
@@ -599,7 +608,7 @@ const ChatPage: React.FC = () => {
         // Wait for typewriter to fully catch up before saving to prevent content jump/flash
         // Only wait if we are still looking at the same conversation
         let waitCount = 0;
-        while (streamingIdRef.current === currentConvId && fullContentRef.current.length > displayedStreamingMessage.length && waitCount < 30) {
+        while (streamingIdRef.current === currentConvId && fullContentRef.current.length > displayedMessageLengthRef.current && waitCount < 30) {
           await new Promise(r => setTimeout(r, 30));
           waitCount++;
         }
@@ -794,7 +803,7 @@ const ChatPage: React.FC = () => {
                     index={messages.length}
                     message={{ 
                       role: 'assistant', 
-                      content: deferredStreamingMessage,
+                      content: filteredStreamingMessage,
                       metadata: { 
                         mode: 'text',
                         optimisticId: streamingOptimisticIdRef.current 

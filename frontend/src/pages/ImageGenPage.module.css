@@ -636,6 +636,13 @@
   filter: drop-shadow(0 0 5px rgba(255, 255, 255, 0.5));
 }
 
+.creditsHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+}
+
 .usageCard {
   background: rgba(15, 15, 15, 0.4);
   border: 1px solid var(--border-color);
@@ -670,8 +677,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 2px;
-  border-radius: 4px;
+  padding: 4px;
+  border-radius: 6px;
   transition: all 0.2s ease;
 }
 

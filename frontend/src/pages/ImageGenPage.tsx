@@ -417,6 +417,11 @@ const ImageGenPage: React.FC = () => {
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                         <Sparkles size={13} style={{ opacity: 0.7 }} />
                         <span className={styles.creditsLabel}>Usage Limits</span>
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <button onClick={fetchUsage} className={styles.refreshUsageBtn} title="Refresh limits">
+                          <RefreshCcw size={14} />
+                        </button>
                         <button
                           onClick={() => setUsageMinimized(!usageMinimized)}
                           className={styles.minimizeBtn}
@@ -425,9 +430,6 @@ const ImageGenPage: React.FC = () => {
                           <ChevronDown size={14} style={{ transform: usageMinimized ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.3s ease' }} />
                         </button>
                       </div>
-                      <button onClick={fetchUsage} className={styles.refreshUsageBtn} title="Refresh limits">
-                        <RefreshCcw size={14} />
-                      </button>
                     </div>
 
                     {!usageMinimized ? (

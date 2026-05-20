@@ -15,6 +15,13 @@ export const DashboardLayout: React.FC<{
   
   // Use prop if provided, otherwise use global store state
   const collapsed = isCollapsed !== undefined ? isCollapsed : sidebarCollapsed;
+  
+  React.useEffect(() => {
+    if (defaultCollapsed !== undefined) {
+      setSidebarCollapsed(defaultCollapsed);
+    }
+  }, [defaultCollapsed, setSidebarCollapsed]);
+
   const onToggle = (val: boolean) => {
     if (setIsCollapsed) {
       setIsCollapsed(val);

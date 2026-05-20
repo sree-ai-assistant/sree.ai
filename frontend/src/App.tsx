@@ -51,8 +51,15 @@ function App() {
         <Route path="/voice" element={<ChatPage />} />
         <Route path="/voice/chat/:id?" element={<ChatPage />} />
 
-        {/* Public/Protected Hybrid Routes */}
-        <Route path="/images" element={<ImageGenPage />} />
+        {/* Protected Routes */}
+        <Route
+          path="/images/:id?"
+          element={
+            <ProtectedRoute>
+              <ImageGenPage />
+            </ProtectedRoute>
+          }
+        />
         <Route
           path="/settings"
           element={

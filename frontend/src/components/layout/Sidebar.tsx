@@ -78,6 +78,14 @@ export const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, setIsCollapsed })
   }, [user?.id, fetchConversations]);
 
   const menuRef = React.useRef<HTMLDivElement>(null);
+  const searchInputRef = React.useRef<HTMLInputElement>(null);
+
+  const handleExpandAndSearch = () => {
+    setIsCollapsed(false);
+    setTimeout(() => {
+      searchInputRef.current?.focus();
+    }, 100);
+  };
 
   // Click outside to close dropdown
   useEffect(() => {
@@ -253,15 +261,11 @@ export const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, setIsCollapsed })
       <aside className={`${styles.sidebar} ${isCollapsed ? styles.collapsed : ''}`}>
         <div className={styles.topSection}>
           <div className={styles.topHeader}>
-            <button className={styles.newChatBtn} onClick={handleNewChat} title={isVoiceContext ? "New Conversation" : "New Chat"}>
-              <Plus size={22} strokeWidth={2.5} />
-              {!isCollapsed && (
-                <>
-                  <span style={{ marginLeft: '4px' }}>{isVoiceContext ? "New Conversation" : "New Chat"}</span>
-                  {!isVoiceContext && <div className={styles.cmd}>⌘K</div>}
-                </>
-              )}
-            </button>
+            {!isCollapsed && (
+              <span className={styles.brand}>
+                {isVoiceContext ? "SREE AI VOICE" : "SREE AI CHAT"}
+              </span>
+            )}
             <button
               className={styles.toggleBtn}
               onClick={() => setIsCollapsed(!isCollapsed)}
@@ -271,10 +275,29 @@ export const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, setIsCollapsed })
             </button>
           </div>
 
-          {!isCollapsed && (
+          <button className={styles.newChatBtn} onClick={handleNewChat} title={isVoiceContext ? "New Conversation" : "New Chat"}>
+            <Plus size={22} strokeWidth={2.5} />
+            {!isCollapsed && (
+              <>
+                <span style={{ marginLeft: '4px' }}>{isVoiceContext ? "New Conversation" : "New Chat"}</span>
+                {!isVoiceContext && <div className={styles.cmd}>⌘K</div>}
+              </>
+            )}
+          </button>
+
+          {isCollapsed ? (
+            <button
+              className={styles.collapsedSearchBtn}
+              onClick={handleExpandAndSearch}
+              title="Search History"
+            >
+              <Search size={18} />
+            </button>
+          ) : (
             <div className={styles.searchWrapper}>
               <Search size={16} className={styles.searchIcon} />
               <input
+                ref={searchInputRef}
                 type="text"
                 placeholder={isVoiceContext ? "Search library..." : "Search history..."}
                 className={styles.searchInput}
