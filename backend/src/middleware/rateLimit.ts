@@ -1,5 +1,5 @@
 import type { Request, Response, NextFunction } from 'express';
-import { checkAndIncrementUsage, type RateLimitIdentity } from '../services/usage.service';
+import { checkAndIncrementUsage, checkRateLimit, type RateLimitIdentity } from '../services/usage.service';
 import { canAccessFeature, type SubscriptionRecord } from '../services/subscription.service';
 import type { ToolType, PlanConfig } from '../config/plans';
 
@@ -123,12 +123,22 @@ export const rateLimitMiddleware = (toolType: ToolType, provider?: string) => {
           ? { type: 'authenticated', userId: user.id, tier }
           : { type: 'anonymous', anonId: anonId || 'unknown', tier: 'anonymous' };
 
-        // 2. Atomic Check and Increment
-        // We increment at the start of the request to prevent race conditions.
-        result = await checkAndIncrementUsage(identity, actualToolType, isByok);
+        // 2. Atomic Check and Increment OR Check Only
+        if (actualToolType === 'chat') {
+          // For chat requests, only perform a read-only check.
+          // Credits will be consumed in the route handler only upon successful AI response.
+          result = await checkRateLimit(identity, actualToolType);
+          if (!result.allowed) {
+            const limitName = result.reason === 'minute' ? 'per minute' : result.reason === 'daily' ? 'daily' : 'monthly';
+            result.message = `Chat ${limitName} limit reached (${result.used}/${result.limit}). Please upgrade or try again later.`;
+          }
+        } else {
+          // We increment at the start of the request to prevent race conditions for other tools.
+          result = await checkAndIncrementUsage(identity, actualToolType, isByok);
+        }
 
         // If the request was allowed, register the session as charged
-        if (voiceSessionId && result.allowed) {
+        if (voiceSessionId && result.allowed && actualToolType !== 'chat') {
           voiceSessionCache.add(voiceSessionId as string);
         }
       }

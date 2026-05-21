@@ -191,6 +191,17 @@ async function updateMessageInDb(messageId: string, updates: { content?: any, me
 
 // Streaming Chat Completion
 router.post('/chat', flexAuthMiddleware, abuseDetectionMiddleware(), queuePriorityMiddleware, featureGateMiddleware('basicChat'), rateLimitMiddleware('chat'), withPriorityQueue(async (req: any, res) => {
+  const writeSSE = (data: any) => {
+    if (typeof data === 'string') {
+      res.write(`data: ${data}\n\n`);
+    } else {
+      res.write(`data: ${JSON.stringify(data)}\n\n`);
+    }
+    if (typeof (res as any).flush === 'function') {
+      (res as any).flush();
+    }
+  };
+
   try {
     const { v4: uuidv4 } = await import('uuid');
     const { messages, model, attachments, messageId, conversationId } = req.body;
@@ -198,6 +209,7 @@ router.post('/chat', flexAuthMiddleware, abuseDetectionMiddleware(), queuePriori
     const isAuth = !!userId;
     const tier = (req as any).userTier as PlanTier || 'anonymous';
     const planConfig = PLANS[tier];
+    const isByok = (req as any).isByok || false;
 
     // 0. Model Gating: Check if user has access to the requested model
     const { data: modelInfo } = await supabaseAdmin
@@ -216,9 +228,14 @@ router.post('/chat', flexAuthMiddleware, abuseDetectionMiddleware(), queuePriori
     }
 
     // Set headers for streaming early
+    // Set headers for streaming early with buffer disabling
     res.setHeader('Content-Type', 'text/event-stream');
     res.setHeader('Cache-Control', 'no-cache');
     res.setHeader('Connection', 'keep-alive');
+    res.setHeader('X-Accel-Buffering', 'no');
+    res.setHeader('Content-Encoding', 'none');
+    res.flushHeaders();
+
 
     // Add X-Anon-Context-Active header for anonymous users (ANON-06)
     if (tier === 'anonymous') {
@@ -235,7 +252,7 @@ router.post('/chat', flexAuthMiddleware, abuseDetectionMiddleware(), queuePriori
 
       if (docAttachments.length > 0) {
         console.log(`[AI Route] Processing ${docAttachments.length} document attachments`);
-        res.write(`data: ${JSON.stringify({ status: 'Preparing documents...' })}\n\n`);
+        writeSSE({ status: 'Preparing documents...' });
         const startTime = Date.now();
 
         try {
@@ -247,7 +264,7 @@ router.post('/chat', flexAuthMiddleware, abuseDetectionMiddleware(), queuePriori
             }
 
             console.log(`[AI Route] Backend extraction starting for ${doc.name}`);
-            res.write(`data: ${JSON.stringify({ status: `Reading ${doc.name}...` })}\n\n`);
+            writeSSE({ status: `Reading ${doc.name}...` });
 
             try {
               const text = await Promise.race([
@@ -259,7 +276,7 @@ router.post('/chat', flexAuthMiddleware, abuseDetectionMiddleware(), queuePriori
 
               const isSpreadsheet = ['xlsx', 'xls', 'xlsm', 'xlsb', 'ods', 'csv', 'tsv'].some(ext => doc.name.toLowerCase().endsWith(ext));
               const statusText = isSpreadsheet ? `Analyzing Sheets in ${doc.name}...` : `Processing ${doc.name}...`;
-              res.write(`data: ${JSON.stringify({ status: statusText })}\n\n`);
+              writeSSE({ status: statusText });
 
               console.log(`[AI Route] Successfully extracted ${text.length} chars from ${doc.name}`);
               return { name: doc.name, text };
@@ -274,8 +291,7 @@ router.post('/chat', flexAuthMiddleware, abuseDetectionMiddleware(), queuePriori
           results.push(...extractionResults);
           console.log(`[AI Route] Extraction phase complete. Total docs: ${results.length}`);
 
-          res.write(`data: ${JSON.stringify({ status: 'Optimizing context for AI...' })}\n\n`);
-
+          writeSSE({ status: 'Optimizing context for AI...' });
 
           let contextText = "\n\n### CONTEXT FROM ATTACHED DOCUMENTS ###\n";
           contextText += "The user has provided the following documents as reference. Please analyze them and use the information to answer questions or perform requested tasks. If the documents contain data, refer to specific document names if relevant.\n\n";
@@ -284,7 +300,6 @@ router.post('/chat', flexAuthMiddleware, abuseDetectionMiddleware(), queuePriori
             contextText += `${result.text}\n`;
             contextText += `#### END OF ${result.name}\n\n`;
           }
-
 
           // Use TokenManager for truncation
           contextText = TokenManager.truncateDocumentText(contextText, 100000);
@@ -312,11 +327,10 @@ router.post('/chat', flexAuthMiddleware, abuseDetectionMiddleware(), queuePriori
             };
           }
 
-          res.write(`data: ${JSON.stringify({ extractedContext: contextText })}\n\n`);
-          res.write(`data: ${JSON.stringify({ status: 'Thinking...' })}\n\n`);
+          writeSSE({ status: 'Thinking...' });
         } catch (error) {
           console.error('[AI Route] Error during document extraction:', error);
-          res.write(`data: ${JSON.stringify({ error: 'Failed to process some documents. Attempting to continue anyway...' })}\n\n`);
+          writeSSE({ error: 'Failed to process some documents. Attempting to continue anyway...' });
         }
       }
 
@@ -333,7 +347,7 @@ router.post('/chat', flexAuthMiddleware, abuseDetectionMiddleware(), queuePriori
         const { key: deepgramApiKey } = await ApiKeyService.getUserApiKey(userId, 'deepgram');
         if (deepgramApiKey) {
           for (const audio of audioAttachments) {
-            res.write(`data: ${JSON.stringify({ status: `Transcribing ${audio.name}...` })}\n\n`);
+            writeSSE({ status: `Transcribing ${audio.name}...` });
             try {
               const tempPath = path.join(process.cwd(), 'uploads', `temp-audio-${uuidv4()}-${audio.name}`);
               await fileService.downloadFile(audio.url, tempPath);
@@ -370,7 +384,7 @@ router.post('/chat', flexAuthMiddleware, abuseDetectionMiddleware(), queuePriori
         for (const video of videoAttachments) {
           const videoName = video.name || 'video.mp4';
           console.log(`[AI Route] Processing video: ${videoName}`);
-          res.write(`data: ${JSON.stringify({ status: `Downloading ${videoName}...` })}\n\n`);
+          writeSSE({ status: `Downloading ${videoName}...` });
           const sanitizedName = videoName.replace(/[^a-z0-9.]/gi, '_');
           const tempVideoPath = path.join(process.cwd(), 'uploads', `temp-video-${uuidv4()}-${sanitizedName}`);
 
@@ -378,7 +392,7 @@ router.post('/chat', flexAuthMiddleware, abuseDetectionMiddleware(), queuePriori
             await fileService.downloadFile(video.url, tempVideoPath);
             console.log(`[AI Route] Downloaded ${video.name} to ${tempVideoPath}`);
 
-            res.write(`data: ${JSON.stringify({ status: `Analyzing ${video.name} duration...` })}\n\n`);
+            writeSSE({ status: `Analyzing ${video.name} duration...` });
 
             // Determine optimal frame count based on video duration
             let frameCount = 5;
@@ -390,15 +404,15 @@ router.post('/chat', flexAuthMiddleware, abuseDetectionMiddleware(), queuePriori
               console.warn(`[AI Route] Could not read duration, defaulting to ${frameCount} frames:`, durationErr.message);
             }
 
-            res.write(`data: ${JSON.stringify({ status: `Extracting ${frameCount} key frames from ${video.name}...` })}\n\n`);
+            writeSSE({ status: `Extracting ${frameCount} key frames from ${video.name}...` });
             const framePaths = await videoService.extractFrames(tempVideoPath, frameCount);
             console.log(`[AI Route] Extracted ${framePaths.length} frames from ${video.name}`);
 
             if (framePaths.length === 0) {
               console.warn(`[AI Route] No frames were extracted from ${video.name}`);
-              res.write(`data: ${JSON.stringify({ status: `Warning: No frames could be extracted from ${video.name}. This might be due to video format or length.` })}\n\n`);
+              writeSSE({ status: `Warning: No frames could be extracted from ${video.name}. This might be due to video format or length.` });
             } else {
-              res.write(`data: ${JSON.stringify({ status: `Uploading ${framePaths.length} visual frames...` })}\n\n`);
+              writeSSE({ status: `Uploading ${framePaths.length} visual frames...` });
               // Upload frames to R2 and inject into message content
               const lastMessage = processedMessages[processedMessages.length - 1];
               if (lastMessage && lastMessage.role === 'user') {
@@ -438,7 +452,7 @@ router.post('/chat', flexAuthMiddleware, abuseDetectionMiddleware(), queuePriori
                   });
                 }
               }
-              res.write(`data: ${JSON.stringify({ status: `Frames extracted and uploaded for ${video.name}` })}\n\n`);
+              writeSSE({ status: `Frames extracted and uploaded for ${video.name}` });
 
               // Store video reference in conversation for future context
               if (conversationId) {
@@ -451,7 +465,7 @@ router.post('/chat', flexAuthMiddleware, abuseDetectionMiddleware(), queuePriori
             videoService.cleanup(framePaths);
           } catch (err: any) {
             console.error(`[AI Route] Video processing failed for ${video.name}:`, err);
-            res.write(`data: ${JSON.stringify({ status: `Error processing ${video.name}: ${err.message || 'Unknown error'}` })}\n\n`);
+            writeSSE({ status: `Error processing ${video.name}: ${err.message || 'Unknown error'}` });
           } finally {
             // Always cleanup the temp video file
             if (fs.existsSync(tempVideoPath)) {
@@ -485,7 +499,7 @@ router.post('/chat', flexAuthMiddleware, abuseDetectionMiddleware(), queuePriori
 
         if (referencedVideos.length > 0) {
           console.log(`[AI Route] Re-processing ${referencedVideos.length} previously uploaded video(s) for context`);
-          res.write(`data: ${JSON.stringify({ status: `Recalling ${referencedVideos.length} previous video(s)...` })}\n\n`);
+          writeSSE({ status: `Recalling ${referencedVideos.length} previous video(s)...` });
 
           for (const refVideo of referencedVideos) {
             const sanitizedName = refVideo.name.replace(/[^a-z0-9.]/gi, '_');
@@ -493,10 +507,10 @@ router.post('/chat', flexAuthMiddleware, abuseDetectionMiddleware(), queuePriori
             const tempVideoPath = path.join(process.cwd(), 'uploads', `temp-recall-${uuidv4Recall()}-${sanitizedName}`);
 
             try {
-              res.write(`data: ${JSON.stringify({ status: `Downloading ${refVideo.name} from history...` })}\n\n`);
+              writeSSE({ status: `Downloading ${refVideo.name} from history...` });
               await fileService.downloadFile(refVideo.url, tempVideoPath);
 
-              res.write(`data: ${JSON.stringify({ status: `Extracting frames from ${refVideo.name}...` })}\n\n`);
+              writeSSE({ status: `Extracting frames from ${refVideo.name}...` });
               const framePaths = await videoService.extractFrames(tempVideoPath, 5);
 
               if (framePaths.length > 0) {
@@ -513,7 +527,7 @@ router.post('/chat', flexAuthMiddleware, abuseDetectionMiddleware(), queuePriori
                     lastMessage.content.unshift({ type: 'text', text: recallInstruction });
                   }
 
-                  res.write(`data: ${JSON.stringify({ status: `Uploading recalled frames for ${refVideo.name}...` })}\n\n`);
+                  writeSSE({ status: `Uploading recalled frames for ${refVideo.name}...` });
                   for (let i = 0; i < framePaths.length; i++) {
                     const framePath = framePaths[i];
                     if (!framePath) continue;
@@ -533,13 +547,13 @@ router.post('/chat', flexAuthMiddleware, abuseDetectionMiddleware(), queuePriori
                   }
                 }
 
-                res.write(`data: ${JSON.stringify({ status: `Video "${refVideo.name}" recalled successfully` })}\n\n`);
+                writeSSE({ status: `Video "${refVideo.name}" recalled successfully` });
               }
 
               videoService.cleanup(framePaths);
             } catch (err: any) {
               console.error(`[AI Route] Failed to recall video ${refVideo.name}:`, err);
-              res.write(`data: ${JSON.stringify({ status: `Could not recall ${refVideo.name}: ${err.message}` })}\n\n`);
+              writeSSE({ status: `Could not recall ${refVideo.name}: ${err.message}` });
             } finally {
               if (fs.existsSync(tempVideoPath)) {
                 try { fs.unlinkSync(tempVideoPath); } catch (_) { }
@@ -579,11 +593,12 @@ router.post('/chat', flexAuthMiddleware, abuseDetectionMiddleware(), queuePriori
               type: 'image_url',
               image_url: { url: img.url }
             }))
-          ]
+          ],
+          metadata: msg.metadata
         };
       }
 
-      return { role: msg.role, content: msg.content };
+      return { role: msg.role, content: msg.content, metadata: msg.metadata };
     });
 
 
@@ -597,7 +612,7 @@ router.post('/chat', flexAuthMiddleware, abuseDetectionMiddleware(), queuePriori
           message: 'NVIDIA API Key not found. Please add it in settings.'
         });
       } else {
-        res.write(`data: ${JSON.stringify({ error: 'NVIDIA API Key not found' })}\n\n`);
+        writeSSE({ error: 'NVIDIA API Key not found' });
         res.end();
         return;
       }
@@ -607,24 +622,36 @@ router.post('/chat', flexAuthMiddleware, abuseDetectionMiddleware(), queuePriori
     const optimizedMessages = TokenManager.compressMessages(apiMessages);
 
     const stream = await aiService.streamChat(nvidiaApiKey, optimizedMessages, model, (status) => {
-      res.write(`data: ${JSON.stringify({ status })}\n\n`);
+      writeSSE({ status });
     });
 
     for await (const chunk of stream) {
       const content = chunk.choices[0]?.delta?.content || '';
       if (content) {
-        res.write(`data: ${JSON.stringify({ content })}\n\n`);
+        writeSSE({ content });
       }
     }
 
-    res.write('data: [DONE]\n\n');
+    // Increment usage ONLY upon successful AI stream completion
+    try {
+      const identity: RateLimitIdentity = req.user
+        ? { type: 'authenticated', userId: req.user.id, tier }
+        : { type: 'anonymous', anonId: req.anonId || 'unknown', tier: 'anonymous' };
+
+      await checkAndIncrementUsage(identity, 'chat', isByok);
+      console.log(`[AI Route] Successfully charged chat credit for user: ${userId || req.anonId}`);
+    } catch (chargeErr) {
+      console.error('[AI Route] Failed to charge credit post-stream:', chargeErr);
+    }
+
+    writeSSE('[DONE]');
     res.end();
   } catch (error: any) {
     console.error('AI Stream Error:', error);
     if (!res.headersSent) {
       res.status(500).json({ success: false, message: error.message });
     } else {
-      res.write(`data: ${JSON.stringify({ error: error.message })}\n\n`);
+      writeSSE({ error: error.message });
       res.end();
     }
   }

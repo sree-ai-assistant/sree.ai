@@ -58,23 +58,36 @@ export const useUsageStore = create<UsageState>((set, get) => ({
 
   incrementLocalUsage: () => {
     const { status } = get();
-    if (status && status.usage && status.usage.chat) {
-      const chatUsage = status.usage.chat;
-      set({
-        status: {
-          ...status,
-          usage: {
-            ...status.usage,
-            chat: {
-              ...chatUsage,
-              minute: { ...chatUsage.minute, used: chatUsage.minute.used + 1 },
-              daily: { ...chatUsage.daily, used: chatUsage.daily.used + 1 },
-              monthly: { ...chatUsage.monthly, used: chatUsage.monthly.used + 1 },
-              total: { ...chatUsage.total, used: chatUsage.total.used + 1 },
-            }
+    if (status) {
+      const updatedStatus = { ...status };
+      
+      if (status.usage && status.usage.chat) {
+        const chatUsage = status.usage.chat;
+        updatedStatus.usage = {
+          ...status.usage,
+          chat: {
+            ...chatUsage,
+            minute: { ...chatUsage.minute, used: chatUsage.minute.used + 1 },
+            daily: { ...chatUsage.daily, used: chatUsage.daily.used + 1 },
+            monthly: { ...chatUsage.monthly, used: chatUsage.monthly.used + 1 },
+            total: { ...chatUsage.total, used: (chatUsage.total?.used || 0) + 1 },
           }
-        }
-      });
+        };
+      }
+
+      if (status.profileUsage && status.profileUsage.chat) {
+        const chatProfileUsage = status.profileUsage.chat;
+        updatedStatus.profileUsage = {
+          ...status.profileUsage,
+          chat: {
+            ...chatProfileUsage,
+            daily: { ...chatProfileUsage.daily, used: chatProfileUsage.daily.used + 1 },
+            monthly: { ...chatProfileUsage.monthly, used: chatProfileUsage.monthly.used + 1 }
+          }
+        };
+      }
+
+      set({ status: updatedStatus });
     }
   }
 
