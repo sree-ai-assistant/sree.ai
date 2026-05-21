@@ -46,7 +46,7 @@
   position: absolute;
   top: calc(100% + 8px);
   left: -45px;
-  width: 350px;
+  width: 400px;
   background: var(--bg-secondary, #121212);
   backdrop-filter: blur(20px);
   border: 1px solid var(--glass-border);

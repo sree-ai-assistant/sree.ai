@@ -21,7 +21,8 @@
   align-items: center;
   gap: 12px;
   text-decoration: none;
-  flex-shrink: 0;
+  flex: 1 1 0%;
+  min-width: max-content;
 }
 
 .logoBox {
@@ -57,6 +58,9 @@
   padding: 4px;
   border-radius: 16px;
   border: 1px solid var(--border-color);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  margin: 0 auto;
+  flex-shrink: 0;
 }
 
 .navLink {
@@ -158,7 +162,9 @@
   display: flex;
   align-items: center;
   gap: 12px;
-  flex-shrink: 0;
+  flex: 1 1 0%;
+  justify-content: flex-end;
+  min-width: max-content;
 }
 
 /* ─── Usage Pills ────────────────────────── */
@@ -170,17 +176,29 @@
 
 .usagePill {
   display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 5px 10px;
-  background: rgba(255, 255, 255, 0.04);
+  flex-direction: column;
+  gap: 5px;
+  padding: 6px 12px;
+  background: rgba(255, 255, 255, 0.02);
   border: 1px solid var(--border-color);
-  border-radius: 20px;
-  transition: background 0.2s ease;
+  border-radius: 12px;
+  min-width: 110px;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
 }
 
 .usagePill:hover {
-  background: rgba(255, 255, 255, 0.07);
+  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(255, 255, 255, 0.12);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.usagePillHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  gap: 8px;
 }
 
 .pillWarning {
@@ -189,16 +207,17 @@
 }
 
 .pillLabel {
-  font-size: 0.7rem;
+  font-size: 0.65rem;
   font-weight: 600;
   color: var(--text-muted);
-  text-transform: capitalize;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
 }
 
 .pillBar {
-  width: 40px;
+  width: 100%;
   height: 4px;
-  background: rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.06);
   border-radius: 2px;
   overflow: hidden;
   position: relative;
@@ -211,10 +230,9 @@
 }
 
 .pillCount {
-  font-size: 0.7rem;
+  font-size: 0.65rem;
   font-weight: 700;
-  color: var(--text-secondary);
-  min-width: 16px;
+  color: var(--text-primary);
   text-align: right;
 }
 
@@ -240,16 +258,25 @@
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 4px 4px 4px 12px;
+  padding: 5px 5px 5px 12px;
   background: rgba(255, 255, 255, 0.03);
+  backdrop-filter: blur(10px);
   border: 1px solid var(--border-color);
-  border-radius: 40px;
+  border-radius: 20px;
   cursor: pointer;
-  transition: background 0.2s ease;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 }
 
 .userButton:hover {
-  background: rgba(255, 255, 255, 0.07);
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(59, 130, 246, 0.3);
+  box-shadow: 0 4px 20px var(--primary-glow);
+  transform: translateY(-1px);
+}
+
+.userButton:active {
+  transform: scale(0.98);
 }
 
 .userInfo {
@@ -271,14 +298,16 @@
 
 .userPlan {
   font-size: 0.65rem;
-  font-weight: 500;
+  font-weight: 600;
   color: var(--primary);
   line-height: 1.2;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
 }
 
 .userAvatar {
-  width: 36px;
-  height: 36px;
+  width: 32px;
+  height: 32px;
   border-radius: 50%;
   background: linear-gradient(135deg, var(--primary), var(--accent));
   display: flex;
@@ -288,6 +317,13 @@
   border: 2px solid rgba(255, 255, 255, 0.1);
   flex-shrink: 0;
   overflow: hidden;
+  box-shadow: 0 0 8px rgba(139, 92, 246, 0.3);
+  transition: all 0.2s ease;
+}
+
+.userButton:hover .userAvatar {
+  border-color: var(--primary);
+  box-shadow: 0 0 12px rgba(59, 130, 246, 0.5);
 }
 
 .avatarImg {
@@ -486,4 +522,237 @@
   opacity: 0.9;
   transform: translateY(-1px);
   box-shadow: 0 4px 16px var(--primary-glow);
+}
+
+/* ─── Skeleton Styles ────────────────────── */
+.userSkeletonButton {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 5px 5px 5px 12px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid var(--border-color);
+  border-radius: 20px;
+  min-width: 120px;
+  height: 44px;
+}
+
+.userSkeletonInfo {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+}
+
+.usageSkeletonPill {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding: 6px 12px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  min-width: 110px;
+  width: max-content;
+  height: auto;
+}
+
+.usageSkeletonHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  gap: 8px;
+}
+
+/* ─── Responsive Media Queries ───────────── */
+@media (max-width: 1200px) {
+  /* .logoText {
+    display: none;
+  } */
+
+  .userInfo {
+    display: none;
+  }
+
+  .userSkeletonInfo {
+    display: none;
+  }
+
+  .userButton {
+    padding: 6px;
+    border-radius: 50%;
+  }
+
+  .userSkeletonButton {
+    padding: 6px;
+    border-radius: 50%;
+    min-width: unset;
+    width: 44px;
+  }
+}
+
+@media (max-width: 920px) {
+  .navLink span {
+    display: none;
+  }
+}
+
+@media (max-width: 780px) {
+  /* .logoText {
+    display: none;
+  } */
+
+  .rightSection {
+    display: flex;
+    flex: 0 0 auto;
+  }
+
+
+
+  .navGroup {
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+    margin: 0;
+  }
+
+
+
+  .navLinkChevron {
+    display: none !important;
+  }
+
+  .navLink {
+    padding: 8px 12px;
+    border-radius: 10px;
+  }
+
+  .dropdownMenu {
+    left: 50%;
+    transform: translateX(-50%);
+  }
+}
+
+@media (max-width: 650px) {
+
+  .userSection,
+  .userSkeletonButton,
+  .authButtons {
+    display: none !important;
+  }
+}
+
+@media (max-width: 550px) {
+  .navbar {
+    padding: 0 12px !important;
+    height: 54px;
+  }
+
+  .logoBox {
+    width: 32px !important;
+    height: 32px !important;
+    border-radius: 8px !important;
+  }
+
+  .logoBox svg {
+    width: 16px !important;
+    height: 16px !important;
+  }
+
+  .navGroup {
+    gap: 2px !important;
+    padding: 3px !important;
+  }
+
+  .navLink {
+    padding: 6px 8px !important;
+    border-radius: 8px !important;
+  }
+
+  .usagePill {
+    flex-direction: row !important;
+    align-items: center !important;
+    padding: 4px 8px !important;
+    min-width: unset !important;
+    gap: 4px !important;
+    background: rgba(255, 255, 255, 0.03) !important;
+    border-radius: 8px !important;
+  }
+
+  .pillBar {
+    display: none !important;
+  }
+
+  .usagePillHeader {
+    gap: 4px !important;
+  }
+
+  .pillLabel {
+    font-size: 0.6rem !important;
+  }
+
+  .pillCount {
+    font-size: 0.6rem !important;
+  }
+
+  .usageSkeletonPill {
+    flex-direction: row !important;
+    align-items: center !important;
+    padding: 4px 8px !important;
+    min-width: unset !important;
+    width: auto !important;
+    height: auto !important;
+    gap: 4px !important;
+    background: rgba(255, 255, 255, 0.03) !important;
+    border-radius: 8px !important;
+  }
+
+  .usageSkeletonPill>div:last-child {
+    display: none !important;
+  }
+
+  .usageSkeletonHeader {
+    width: auto !important;
+    gap: 4px !important;
+  }
+
+  .usageSkeletonHeader>div:first-child {
+    width: 25px !important;
+    height: 8px !important;
+  }
+
+  .usageSkeletonHeader>div:last-child {
+    width: 20px !important;
+    height: 8px !important;
+  }
+
+  .navGroup {
+    left: 55%;
+  }
+}
+
+@media (max-width: 400px) {
+  .usagePillHeader {
+    flex-direction: column;
+  }
+
+  .logoGroup {
+    gap: 8px;
+  }
+
+  .logoText {
+    font-size: 0.95rem;
+  }
+
+}
+
+@media (max-width: 385px) {
+  .logoText {
+    display: none;
+  }
+
+  .navGroup {
+    left: 50%;
+  }
 }

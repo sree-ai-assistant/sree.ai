@@ -25,8 +25,8 @@ import { useUsageStore } from '../../store/usage.store';
 import styles from './Navbar.module.css';
 
 export const Navbar: React.FC = () => {
-  const { user, signOut } = useAuthStore();
-  const { status, fetchStatus } = useUsageStore();
+  const { user, signOut, loading: authLoading } = useAuthStore();
+  const { status, fetchStatus, loading: usageLoading } = useUsageStore();
   const location = useLocation();
   const navigate = useNavigate();
   const [isToolsOpen, setIsToolsOpen] = useState(false);
@@ -84,26 +84,44 @@ export const Navbar: React.FC = () => {
 
   // Compute usage pills — chat page: chat only | voice page: voice only | elsewhere: nothing
   const usagePills = () => {
+    const isVoicePage = location.pathname.startsWith('/voice');
+
+    if (usageLoading || !status) {
+      if (isChatPage || isVoicePage) {
+        return (
+          <div className={styles.usagePills}>
+            <div className={styles.usageSkeletonPill}>
+              <div className={styles.usageSkeletonHeader}>
+                <div className="skeleton" style={{ width: '40px', height: '10px', borderRadius: '3px' }} />
+                <div className="skeleton" style={{ width: '30px', height: '10px', borderRadius: '3px' }} />
+              </div>
+              <div className="skeleton" style={{ width: '100%', height: '6px', borderRadius: '3px', marginTop: '6px' }} />
+            </div>
+          </div>
+        );
+      }
+      return null;
+    }
+
     if (!status?.usage) return null;
 
     const buildPill = (tool: string, data: any, colorClass: string) => {
       if (!data?.daily) return null;
       const { used, limit } = data.daily;
-      const remaining = Math.max(0, (limit ?? 0) - used);
       const pct = limit > 0 ? Math.min(100, (used / limit) * 100) : 0;
       const isWarning = pct > 80;
       return (
         <div key={tool} className={`${styles.usagePill} ${isWarning ? styles.pillWarning : ''}`}>
-          <span className={styles.pillLabel}>{tool}</span>
+          <div className={styles.usagePillHeader}>
+            <span className={styles.pillLabel}>{tool}</span>
+            <span className={styles.pillCount}>{used}/{limit ?? '∞'}</span>
+          </div>
           <div className={styles.pillBar}>
             <div className={`${styles.pillFill} ${colorClass}`} style={{ width: `${pct}%` }} />
           </div>
-          <span className={styles.pillCount}>{parseFloat(remaining.toFixed(1))}</span>
         </div>
       );
     };
-
-    const isVoicePage = location.pathname.startsWith('/voice');
 
     if (isChatPage) {
       const chatData = status.profileUsage?.chat || status.usage?.chat;
@@ -219,11 +237,13 @@ export const Navbar: React.FC = () => {
             className={styles.navLink}
             onClick={() => setIsToolsOpen(!isToolsOpen)}
           >
+            <Sparkles size={18} />
             <span>Tools</span>
             <motion.div
               animate={{ rotate: isToolsOpen ? 180 : 0 }}
               transition={{ duration: 0.2 }}
               style={{ display: 'flex', alignItems: 'center' }}
+              className={styles.navLinkChevron}
             >
               <ChevronDown size={14} />
             </motion.div>
@@ -258,7 +278,15 @@ export const Navbar: React.FC = () => {
         {usagePills()}
 
         {/* User menu or Login/Signup */}
-        {user ? (
+        {authLoading ? (
+          <div className={styles.userSkeletonButton}>
+            <div className={styles.userSkeletonInfo}>
+              <div className="skeleton" style={{ width: '60px', height: '10px', borderRadius: '3px' }} />
+              <div className="skeleton" style={{ width: '45px', height: '8px', borderRadius: '3px', marginTop: '4px' }} />
+            </div>
+            <div className="skeleton skeleton-circle" style={{ width: '32px', height: '32px' }} />
+          </div>
+        ) : user ? (
           <div className={styles.userSection} ref={userMenuRef}>
             <button
               onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
