@@ -120,6 +120,9 @@ export const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, setIsCollapsed })
     } else {
       navigate('/chat');
     }
+    if (window.innerWidth <= 768) {
+      setIsCollapsed(true);
+    }
   };
 
   const handleSelectConversation = (id: string) => {
@@ -128,6 +131,16 @@ export const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, setIsCollapsed })
     const conv = conversations.find(c => c.id === id);
     if (conv?.type === 'image') navigate('/images');
     else navigate(`/chat/${id}`);
+    if (window.innerWidth <= 768) {
+      setIsCollapsed(true);
+    }
+  };
+
+  const handleNavigate = (path: string) => {
+    navigate(path);
+    if (window.innerWidth <= 768) {
+      setIsCollapsed(true);
+    }
   };
 
   const handleDelete = async (e: React.MouseEvent, id: string) => {
@@ -394,7 +407,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, setIsCollapsed })
           <div className={styles.utilitiesSection}>
             {isCollapsed ? (
               <div className={styles.utilitiesCollapsed}>
-                <button className={styles.miniIconBtn} onClick={() => navigate('/settings')} title="Settings">
+                <button className={styles.miniIconBtn} onClick={() => handleNavigate('/settings')} title="Settings">
                   <Settings size={18} />
                 </button>
                 <button className={styles.miniIconBtn} onClick={() => window.open('https://github.com/your-repo/issues', '_blank')} title="Feature Request">
@@ -406,7 +419,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, setIsCollapsed })
               </div>
             ) : isBottomExpanded ? (
               <div className={styles.utilitiesVertical}>
-                <button className={styles.utilityItem} onClick={() => navigate('/settings')}>
+                <button className={styles.utilityItem} onClick={() => handleNavigate('/settings')}>
                   <Settings size={18} />
                   <span>Settings</span>
                 </button>
@@ -426,7 +439,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, setIsCollapsed })
             ) : (
               <div className={styles.utilitiesHorizontal}>
                 <div className={styles.miniIcons}>
-                  <button className={styles.miniIconBtn} onClick={() => navigate('/settings')} title="Settings">
+                  <button className={styles.miniIconBtn} onClick={() => handleNavigate('/settings')} title="Settings">
                     <Settings size={16} />
                   </button>
                   <button className={styles.miniIconBtn} onClick={() => window.open('https://github.com/your-repo/issues', '_blank')} title="Feature Request">
@@ -470,7 +483,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, setIsCollapsed })
                   <LogOut size={16} />
                 </button>
               ) : (
-                <button className={styles.signOutBtn} onClick={() => navigate('/login')} title="Sign In" style={{ color: 'var(--primary)' }}>
+                <button className={styles.signOutBtn} onClick={() => handleNavigate('/login')} title="Sign In" style={{ color: 'var(--primary)' }}>
                   <Zap size={16} />
                 </button>
               )}
@@ -480,7 +493,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, setIsCollapsed })
                   {!isCollapsed && <span>Upgrade</span>}
                 </button>
               ) : (
-                <button className={styles.upgradeBtn} onClick={() => navigate('/signup')} title="Create Account">
+                <button className={styles.upgradeBtn} onClick={() => handleNavigate('/signup')} title="Create Account">
                   <Plus size={16} />
                   {!isCollapsed && <span>Join</span>}
                 </button>

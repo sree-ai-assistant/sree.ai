@@ -19,7 +19,7 @@
 }
 
 .topSection {
-  padding: 24px 16px;
+  padding: 16px 16px;
   display: flex;
   flex-direction: column;
   gap: 16px;
@@ -936,4 +936,25 @@
 .usageIconCollapsed {
   color: var(--primary);
   filter: drop-shadow(0 0 5px var(--primary-glow));
+}
+
+@media (max-width: 768px) {
+  .sidebar {
+    width: var(--sidebar-width) !important;
+    transform: translateX(0);
+    transition: transform var(--transition-normal);
+    z-index: 100;
+    box-shadow: 10px 0 30px rgba(0, 0, 0, 0.6);
+    background: rgba(15, 15, 20, 0.96) !important;
+  }
+
+  .sidebar.collapsed {
+    transform: translateX(-100%);
+    box-shadow: none;
+    width: var(--sidebar-width) !important;
+  }
+
+  .toggleBtn {
+    display: none !important;
+  }
 }

@@ -53,6 +53,13 @@ export const DashboardLayout: React.FC<{
       <div className={styles.layoutBody}>
         {renderSidebar()}
         
+        {!collapsed && (
+          <div 
+            className={styles.mobileBackdrop} 
+            onClick={() => onToggle(true)}
+          />
+        )}
+        
         <main className={`${styles.mainContent} ${collapsed ? styles.collapsed : ''}`}>
           {children}
         </main>

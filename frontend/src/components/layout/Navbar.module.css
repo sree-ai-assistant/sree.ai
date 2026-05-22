@@ -641,6 +641,18 @@
   .authButtons {
     display: none !important;
   }
+
+  /* Force show user section & buttons on images page even under max-width 650px screen sizes */
+  .userSection.showOnImagePage,
+  .userSkeletonButton.showOnImagePage,
+  .authButtons.showOnImagePage {
+    display: flex !important;
+  }
+
+  /* Hide image page usage pill on small screens to prevent navbar crowding */
+  .imagePagePills {
+    display: none !important;
+  }
 }
 
 @media (max-width: 550px) {
@@ -730,6 +742,7 @@
   .navGroup {
     left: 55%;
   }
+
 }
 
 @media (max-width: 400px) {

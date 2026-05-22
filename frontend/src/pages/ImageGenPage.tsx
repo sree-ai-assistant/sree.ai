@@ -107,13 +107,15 @@ const ImageGenPage: React.FC = () => {
   const [imageLoadErrors, setImageLoadErrors] = useState<Record<string, boolean>>({});
   const [downloadStatus, setDownloadStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
   const [usage, setUsage] = useState<ImagePageUsage | null>(null);
-  const [usageMinimized, setUsageMinimized] = useState(true);
+  const [usageMinimized, setUsageMinimized] = useState(() => window.innerWidth <= 768 ? false : true);
   const { openUpgradeModal } = useUIStore();
   const [limitModal, setLimitModal] = useState<{
     isOpen: boolean;
     type: 'anonymous' | 'rate-limited' | 'tiered' | 'abuse-cooldown' | 'abuse-captcha' | 'abuse-auth' | 'abuse-restricted';
     limitInfo?: any;
   }>({ isOpen: false, type: 'anonymous' });
+
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
   const promptRef = useRef<HTMLTextAreaElement>(null);
 
@@ -285,7 +287,7 @@ const ImageGenPage: React.FC = () => {
         <AnimatePresence mode="popLayout">
           {activeTab === 'generate' && (
             <motion.aside
-              className={styles.sidebar}
+              className={`${styles.sidebar} ${isSettingsOpen ? styles.sidebarOpen : ''}`}
               initial={{ opacity: 0, width: 0, x: -20 }}
               animate={{ opacity: 1, width: 320, x: 0 }}
               exit={{ opacity: 0, width: 0, x: -20 }}
@@ -297,6 +299,13 @@ const ImageGenPage: React.FC = () => {
               }}
             >
               <div className={styles.sidebarContent}>
+                <div className={styles.sidebarHeader}>
+                  <span className={styles.sidebarTitle}>Parameters</span>
+                  <button className={styles.closeSidebarBtn} onClick={() => setIsSettingsOpen(false)}>
+                    <X size={18} />
+                  </button>
+                </div>
+
                 <div className={styles.section}>
                   <span className={styles.sectionLabel}>Model Selection</span>
                   <DropdownMenu.Root>
@@ -574,21 +583,41 @@ const ImageGenPage: React.FC = () => {
           )}
         </AnimatePresence>
 
+        {isSettingsOpen && (
+          <div 
+            className={styles.sidebarBackdrop} 
+            onClick={() => setIsSettingsOpen(false)} 
+          />
+        )}
+
         <motion.main layout className={styles.main}>
-          <div style={{ padding: '24px 40px 0' }}>
-            <div className={styles.tabHeader}>
-              <button
-                className={`${styles.tabButton} ${activeTab === 'generate' ? styles.tabButtonActive : ''}`}
-                onClick={() => setActiveTab('generate')}
-              >
-                Create
-              </button>
-              <button
-                className={`${styles.tabButton} ${activeTab === 'gallery' ? styles.tabButtonActive : ''}`}
-                onClick={() => setActiveTab('gallery')}
-              >
-                Collection
-              </button>
+          <div className={styles.headerContainer}>
+            <div className={styles.tabHeader} style={{ justifyContent: 'space-between', alignItems: 'center' }}>
+              <div style={{ display: 'flex', gap: '24px' }}>
+                <button
+                  className={`${styles.tabButton} ${activeTab === 'generate' ? styles.tabButtonActive : ''}`}
+                  onClick={() => setActiveTab('generate')}
+                >
+                  Create
+                </button>
+                <button
+                  className={`${styles.tabButton} ${activeTab === 'gallery' ? styles.tabButtonActive : ''}`}
+                  onClick={() => setActiveTab('gallery')}
+                >
+                  Collection
+                </button>
+              </div>
+
+              {activeTab === 'generate' && (
+                <button
+                  className={styles.settingsToggleBtn}
+                  onClick={() => setIsSettingsOpen(!isSettingsOpen)}
+                  title="Generation Settings"
+                >
+                  <Sliders size={16} />
+                  <span>Parameters</span>
+                </button>
+              )}
             </div>
           </div>
 
@@ -736,17 +765,11 @@ const ImageGenPage: React.FC = () => {
                       <div style={{ flex: 1, position: 'relative' }}>
                         <textarea
                           ref={promptRef}
-                          className="chat-input"
+                          className={`${styles.promptTextarea} chat-input`}
                           placeholder="A cosmic landscape with purple nebulas and floating islands..."
                           value={settings.prompt}
                           onChange={e => updateSettings({ prompt: e.target.value })}
                           onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleGenerate(); } }}
-                          style={{
-                            background: 'rgba(255,255,255,0.05)',
-                            border: '1px solid var(--border-color)',
-                            borderRadius: '16px', padding: '16px', minHeight: '60px',
-                            fontSize: '1rem', width: '100%', resize: 'none'
-                          }}
                         />
                       </div>
                       <button

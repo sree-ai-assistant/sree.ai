@@ -798,3 +798,191 @@
   border-radius: 2px;
   transition: width 0.3s ease;
 }
+
+/* Responsive Overrides & New Classes */
+.headerContainer {
+  padding: 24px 40px 0;
+  width: 100%;
+}
+
+.settingsToggleBtn {
+  display: none;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  border-radius: 12px;
+  border: 1px solid var(--border-color);
+  background: rgba(255, 255, 255, 0.05);
+  color: white;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.settingsToggleBtn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: var(--primary);
+}
+
+.sidebarHeader {
+  display: none;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+  width: 100%;
+}
+
+.sidebarTitle {
+  font-weight: 700;
+  font-size: 1.1rem;
+  color: white;
+}
+
+.closeSidebarBtn {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px;
+  border-radius: 8px;
+  transition: all 0.2s ease;
+}
+
+.closeSidebarBtn:hover {
+  color: white;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.sidebarBackdrop {
+  display: none;
+}
+
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+@media (max-width: 768px) {
+  .headerContainer {
+    padding: 16px 16px 0;
+  }
+
+  .viewport {
+    padding: 16px !important;
+    gap: 24px !important;
+  }
+
+  .promptSection {
+    position: fixed !important;
+    bottom: 16px !important;
+    left: 16px !important;
+    right: 16px !important;
+    width: auto !important;
+    max-width: none !important;
+    transform: none !important;
+    padding: 16px !important;
+    border-radius: 16px !important;
+    z-index: 90 !important;
+  }
+
+  /* setting toggle parameters */
+  .settingsToggleBtn {
+    display: flex;
+  }
+
+  .sidebarHeader {
+    display: flex;
+  }
+
+  .sidebar {
+    position: fixed !important;
+    top: 64px !important;
+    bottom: 0 !important;
+    left: 0 !important;
+    width: 300px !important;
+    z-index: 100 !important;
+    background: rgba(15, 15, 15, 0.95) !important;
+    backdrop-filter: blur(25px) !important;
+    transform: translateX(-100%) !important;
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+    border-right: 1px solid var(--border-color) !important;
+    height: calc(100vh - 64px) !important;
+    opacity: 1 !important;
+  }
+
+  .sidebarOpen {
+    transform: translateX(0) !important;
+  }
+
+  .sidebarBackdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    top: 64px;
+    background: rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(4px);
+    z-index: 95;
+    animation: fadeIn 0.2s ease;
+  }
+}
+
+/* Prompt textarea custom and responsive styling to prevent placeholder scrolling */
+.promptTextarea {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--border-color);
+  border-radius: 16px;
+  padding: 16px;
+  min-height: 60px;
+  font-size: 1rem;
+  width: 100%;
+  resize: none;
+  color: white;
+  transition: all 0.3s ease;
+}
+
+.promptTextarea:focus {
+  border-color: var(--primary) !important;
+  background: rgba(255, 255, 255, 0.08) !important;
+  box-shadow: 0 0 20px var(--primary-glow-low) !important;
+  outline: none;
+}
+
+@media (max-width: 768px) {
+  .promptTextarea {
+    padding: 10px 12px !important;
+    min-height: 65px !important;
+    font-size: 0.9rem !important;
+  }
+}
+
+/* Mobile responsive optimizations for parameters sidebar footer & usage limits overlay */
+@media (max-width: 1024px) {
+  .sidebar {
+    height: calc(100dvh - 64px) !important;
+  }
+
+  .sidebarFooter {
+    padding: 16px !important;
+    gap: 10px !important;
+  }
+
+  .usageCard {
+    padding: 12px !important;
+    gap: 8px !important;
+  }
+
+  .upgradeButton {
+    padding: 8px !important;
+    font-size: 0.8rem !important;
+  }
+}

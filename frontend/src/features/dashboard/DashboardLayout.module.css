@@ -45,3 +45,36 @@
 .mainContent::-webkit-scrollbar-thumb:hover {
   background: var(--text-muted);
 }
+
+.mobileBackdrop {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  .mobileBackdrop {
+    display: block;
+    position: fixed;
+    top: 64px;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+    z-index: 90;
+    animation: fadeIn var(--transition-fast) ease-out;
+  }
+
+  .mainContent {
+    margin-left: 0 !important;
+  }
+  
+  .mainContent.collapsed {
+    margin-left: 0 !important;
+  }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}

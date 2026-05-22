@@ -1,15 +1,15 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { 
-  MessageSquare, 
-  Mic, 
-  ImageIcon, 
-  Video, 
-  ChevronDown, 
-  User, 
-  Settings, 
-  LogOut, 
+import {
+  MessageSquare,
+  Mic,
+  ImageIcon,
+  Video,
+  ChevronDown,
+  User,
+  Settings,
+  LogOut,
   Zap,
   ChevronRight,
   ShieldCheck,
@@ -22,11 +22,13 @@ import {
 } from 'lucide-react';
 import { useAuthStore } from '../../store/auth.store';
 import { useUsageStore } from '../../store/usage.store';
+import { useUIStore } from '../../store/ui.store';
 import styles from './Navbar.module.css';
 
 export const Navbar: React.FC = () => {
   const { user, signOut, loading: authLoading } = useAuthStore();
   const { status, fetchStatus, loading: usageLoading } = useUsageStore();
+  const { toggleSidebar } = useUIStore();
   const location = useLocation();
   const navigate = useNavigate();
   const [isToolsOpen, setIsToolsOpen] = useState(false);
@@ -35,6 +37,7 @@ export const Navbar: React.FC = () => {
   const userMenuRef = useRef<HTMLDivElement>(null);
 
   const isChatPage = location.pathname.startsWith('/chat') || location.pathname === '/';
+  const isImagesPage = location.pathname.startsWith('/images');
 
   useEffect(() => {
     fetchStatus();
@@ -82,12 +85,12 @@ export const Navbar: React.FC = () => {
     setIsToolsOpen(false);
   }, [location.pathname]);
 
-  // Compute usage pills — chat page: chat only | voice page: voice only | elsewhere: nothing
+  // Compute usage pills — chat page: chat only | voice page: voice only | image page: image only | elsewhere: nothing
   const usagePills = () => {
     const isVoicePage = location.pathname.startsWith('/voice');
 
     if (usageLoading || !status) {
-      if (isChatPage || isVoicePage) {
+      if (isChatPage || isVoicePage || isImagesPage) {
         return (
           <div className={styles.usagePills}>
             <div className={styles.usageSkeletonPill}>
@@ -137,6 +140,15 @@ export const Navbar: React.FC = () => {
       return (
         <div className={styles.usagePills}>
           {buildPill('Voice', voiceData, styles.voiceFill)}
+        </div>
+      );
+    }
+
+    if (isImagesPage) {
+      const imageData = status.profileUsage?.image || status.usage?.image;
+      return (
+        <div className={`${styles.usagePills} ${styles.imagePagePills}`}>
+          {buildPill('Image', imageData, styles.imageFill)}
         </div>
       );
     }
@@ -209,7 +221,12 @@ export const Navbar: React.FC = () => {
   return (
     <nav className={styles.navbar}>
       {/* Left: Logo */}
-      <Link to="/" className={styles.logoGroup}>
+      <Link to="/" className={styles.logoGroup} onClick={(e) => {
+        if (window.innerWidth <= 768) {
+          e.preventDefault();
+          toggleSidebar();
+        }
+      }}>
         <div className={styles.logoBox}>
           <Zap size={20} fill="currentColor" />
         </div>
@@ -223,17 +240,18 @@ export const Navbar: React.FC = () => {
             key={link.to}
             to={link.to}
             className={`${styles.navLink} ${location.pathname === link.to || (link.to === '/chat' && location.pathname === '/') ? styles.active : ''}`}
+            title={link.label}
           >
             {link.icon}
             <span>{link.label}</span>
           </Link>
         ))}
 
-        <div 
+        <div
           className={styles.dropdownContainer}
           ref={toolsRef}
         >
-          <button 
+          <button
             className={styles.navLink}
             onClick={() => setIsToolsOpen(!isToolsOpen)}
           >
@@ -248,7 +266,7 @@ export const Navbar: React.FC = () => {
               <ChevronDown size={14} />
             </motion.div>
           </button>
-          
+
           <AnimatePresence>
             {isToolsOpen && (
               <motion.div
@@ -279,7 +297,7 @@ export const Navbar: React.FC = () => {
 
         {/* User menu or Login/Signup */}
         {authLoading ? (
-          <div className={styles.userSkeletonButton}>
+          <div className={`${styles.userSkeletonButton} ${isImagesPage ? styles.showOnImagePage : ''}`}>
             <div className={styles.userSkeletonInfo}>
               <div className="skeleton" style={{ width: '60px', height: '10px', borderRadius: '3px' }} />
               <div className="skeleton" style={{ width: '45px', height: '8px', borderRadius: '3px', marginTop: '4px' }} />
@@ -287,7 +305,7 @@ export const Navbar: React.FC = () => {
             <div className="skeleton skeleton-circle" style={{ width: '32px', height: '32px' }} />
           </div>
         ) : user ? (
-          <div className={styles.userSection} ref={userMenuRef}>
+          <div className={`${styles.userSection} ${isImagesPage ? styles.showOnImagePage : ''}`} ref={userMenuRef}>
             <button
               onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
               className={styles.userButton}
@@ -345,7 +363,7 @@ export const Navbar: React.FC = () => {
                     </div>
                     <ChevronRight size={14} className={styles.itemArrow} />
                   </button>
-                  
+
                   <button
                     className={styles.dropdownItem}
                     onClick={() => { navigate('/settings'); setIsUserMenuOpen(false); }}
@@ -358,8 +376,8 @@ export const Navbar: React.FC = () => {
                   </button>
 
                   <div className={styles.menuDivider} />
-                  
-                  <button 
+
+                  <button
                     onClick={() => signOut()}
                     className={`${styles.dropdownItem} ${styles.danger}`}
                   >
@@ -374,7 +392,7 @@ export const Navbar: React.FC = () => {
           </div>
         ) : (
           /* Not logged in: show Login + Signup buttons */
-          <div className={styles.authButtons}>
+          <div className={`${styles.authButtons} ${isImagesPage ? styles.showOnImagePage : ''}`}>
             <Link to="/login" className={styles.loginBtn}>
               <LogIn size={16} />
               <span>Login</span>
