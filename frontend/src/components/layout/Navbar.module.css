@@ -571,20 +571,20 @@
     display: none;
   } */
 
-  .userInfo {
+  .userInfo:not(.showUserInfo) {
     display: none;
   }
 
-  .userSkeletonInfo {
+  .userSkeletonInfo:not(.showSkeletonInfo) {
     display: none;
   }
 
-  .userButton {
+  .userSection:not(.showOnSettingsPage) .userButton {
     padding: 6px;
     border-radius: 50%;
   }
 
-  .userSkeletonButton {
+  .userSkeletonButton:not(.showOnSettingsPage) {
     padding: 6px;
     border-radius: 50%;
     min-width: unset;
@@ -642,9 +642,11 @@
     display: none !important;
   }
 
-  /* Force show user section & buttons on images page even under max-width 650px screen sizes */
+  /* Force show user section & buttons on images page and settings page even under max-width 650px screen sizes */
   .userSection.showOnImagePage,
+  .userSection.showOnSettingsPage,
   .userSkeletonButton.showOnImagePage,
+  .userSkeletonButton.showOnSettingsPage,
   .authButtons.showOnImagePage {
     display: flex !important;
   }

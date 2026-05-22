@@ -38,6 +38,7 @@ export const Navbar: React.FC = () => {
 
   const isChatPage = location.pathname.startsWith('/chat') || location.pathname === '/';
   const isImagesPage = location.pathname.startsWith('/images');
+  const isSettingsPage = location.pathname.startsWith('/settings');
 
   useEffect(() => {
     fetchStatus();
@@ -297,20 +298,20 @@ export const Navbar: React.FC = () => {
 
         {/* User menu or Login/Signup */}
         {authLoading ? (
-          <div className={`${styles.userSkeletonButton} ${isImagesPage ? styles.showOnImagePage : ''}`}>
-            <div className={styles.userSkeletonInfo}>
+          <div className={`${styles.userSkeletonButton} ${isImagesPage ? styles.showOnImagePage : ''} ${isSettingsPage ? styles.showOnSettingsPage : ''}`}>
+            <div className={`${styles.userSkeletonInfo} ${isSettingsPage ? styles.showSkeletonInfo : ''}`}>
               <div className="skeleton" style={{ width: '60px', height: '10px', borderRadius: '3px' }} />
               <div className="skeleton" style={{ width: '45px', height: '8px', borderRadius: '3px', marginTop: '4px' }} />
             </div>
             <div className="skeleton skeleton-circle" style={{ width: '32px', height: '32px' }} />
           </div>
         ) : user ? (
-          <div className={`${styles.userSection} ${isImagesPage ? styles.showOnImagePage : ''}`} ref={userMenuRef}>
+          <div className={`${styles.userSection} ${isImagesPage ? styles.showOnImagePage : ''} ${isSettingsPage ? styles.showOnSettingsPage : ''}`} ref={userMenuRef}>
             <button
               onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
               className={styles.userButton}
             >
-              <div className={styles.userInfo}>
+              <div className={`${styles.userInfo} ${isSettingsPage ? styles.showUserInfo : ''}`}>
                 <span className={styles.userName}>{displayName}</span>
                 <span className={styles.userPlan}>{planLabel} Plan</span>
               </div>
