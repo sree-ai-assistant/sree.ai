@@ -1201,11 +1201,123 @@
 
 /* ── Responsive ── */
 @media (max-width: 768px) {
-  .pageContent { padding: 20px 16px 60px; }
-  .profileHero { flex-direction: column; gap: 20px; }
-  .profileIdentity { align-items: flex-start; margin-left: 0; text-align: left; }
-  .formRow { grid-template-columns: 1fr; }
-  .usageGrid { grid-template-columns: 1fr; }
-  .settingsHeader { padding: 16px 20px; }
-  .pageTitle { font-size: 1.4rem; }
+  .pageContent {
+    padding: 20px 16px 60px;
+  }
+  .profileHero {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 20px;
+    padding: 20px;
+  }
+  .profileIdentity {
+    align-items: flex-start;
+    margin-left: 0;
+    text-align: left;
+  }
+  .formRow {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+  .usageGrid {
+    grid-template-columns: 1fr;
+  }
+  .settingsHeader {
+    padding: 16px 20px;
+  }
+  .pageTitle {
+    font-size: 1.4rem;
+  }
+  .cardBody {
+    padding: 16px;
+  }
+  .cardHeaderSmall {
+    padding: 18px 16px 14px;
+  }
+  .cardFooter {
+    padding: 16px;
+  }
+  .planCard {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 20px;
+    padding: 20px;
+  }
+  .upgradeBtn {
+    width: 100%;
+    justify-content: center;
+  }
+}
+
+@media (max-width: 580px) {
+  .settingsHeader {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 16px;
+  }
+  .headerActions {
+    width: 100%;
+  }
+  .helpBtn {
+    width: 100%;
+    justify-content: center;
+  }
+}
+
+@media (max-width: 480px) {
+  .pageContent {
+    padding: 16px 12px 60px;
+  }
+  .avatarSection {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 16px;
+  }
+  .avatarActions {
+    width: 100%;
+    justify-content: flex-start;
+  }
+  .providerItem {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 16px;
+  }
+  .providerButton {
+    width: 100%;
+    justify-content: center;
+  }
+  .savedKeyItem {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 16px;
+  }
+  .savedKeyActions {
+    justify-content: flex-end;
+    border-top: 1px solid rgba(255, 255, 255, 0.05);
+    padding-top: 12px;
+    width: 100%;
+  }
+  .securityItem {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 16px;
+  }
+  .securityItem button {
+    width: 100%;
+    justify-content: center;
+  }
+  .deviceItem {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+  .logoutDeviceBtn {
+    width: 100%;
+    margin-top: 4px;
+    justify-content: center;
+  }
+  .activeIndicator {
+    width: 100%;
+    justify-content: center;
+  }
 }

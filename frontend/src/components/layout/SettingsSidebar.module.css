@@ -454,41 +454,23 @@
 /* ── Responsive ── */
 @media (max-width: 768px) {
   .sidebar {
-    width: 80px !important;
+    width: var(--sidebar-width) !important;
+    transform: translateX(0);
+    transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    z-index: 100;
+    box-shadow: 10px 0 30px rgba(0, 0, 0, 0.6);
+    background: rgba(10, 10, 16, 0.96) !important;
+    backdrop-filter: blur(32px);
+    -webkit-backdrop-filter: blur(32px);
   }
 
-  .backText,
-  .groupLabel,
-  .itemLabel,
-  .activeArrow,
-  .userMeta,
-  .planBadge {
-    display: none;
+  .sidebar.collapsed {
+    transform: translateX(-100%);
+    box-shadow: none;
+    width: var(--sidebar-width) !important;
   }
 
-  .navItem {
-    justify-content: center;
-    padding: 9px 0;
-    gap: 0;
-  }
-
-  .userSection {
-    background: transparent;
-    border-color: transparent;
-    padding: 0;
-    justify-content: center;
-  }
-
-  .sidebarContent {
-    padding: 20px 6px;
-  }
-
-  .header {
-    padding: 20px 8px;
-  }
-
-  .backLink {
-    justify-content: center;
-    padding: 10px;
+  .collapseButton {
+    display: none !important;
   }
 }
