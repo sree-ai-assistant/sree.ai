@@ -143,11 +143,57 @@ export async function restoreIdentity(input: RestoreIdentityInput): Promise<Anon
 
 /**
  * Update last_seen_at timestamp on every anonymous request (ANON-06).
+ * Also syncs daily usage counts and metadata (country, last_request_at).
  */
-export async function touchLastSeen(anonId: string): Promise<void> {
+export async function touchLastSeen(anonId: string, options?: {
+  country?: string | undefined;
+  isAiRequest?: boolean | undefined;
+}): Promise<void> {
+  const now = new Date().toISOString();
+  const updates: Record<string, any> = {
+    last_seen_at: now,
+  };
+
+  // Update country if provided and not already set
+  if (options?.country) {
+    updates.country = options.country;
+  }
+
+  // Update last_request_at for AI-specific requests
+  if (options?.isAiRequest) {
+    updates.last_request_at = now;
+  }
+
+  // Sync daily usage counts from usage_tracking table
+  try {
+    const { data: usageRecords } = await supabaseAdmin
+      .from('usage_tracking')
+      .select('tool_type, daily_count, last_daily_reset')
+      .eq('anon_id', anonId)
+      .in('tool_type', ['chat', 'voice']);
+
+    if (usageRecords && usageRecords.length > 0) {
+      const nowMs = Date.now();
+      for (const record of usageRecords) {
+        const lastReset = new Date(record.last_daily_reset).getTime();
+        const isStale = nowMs - lastReset >= 86400000; // 24 hours
+        const count = isStale ? 0 : (record.daily_count || 0);
+
+        if (record.tool_type === 'chat') {
+          updates.daily_chat_count = count;
+        } else if (record.tool_type === 'voice') {
+          updates.daily_voice_count = count;
+        }
+      }
+    }
+  } catch (err) {
+    // Non-critical — don't block the request
+    console.error('[AnonymousService] Failed to sync usage counts:', err);
+  }
+
   await supabaseAdmin
     .from('anonymous_users')
-    .update({ last_seen_at: new Date().toISOString() })
+    .update(updates)
     .eq('anon_id', anonId);
 }
 
@@ -167,12 +213,15 @@ export async function resolveAnonymousIdentity(params: {
   rawIp: string;
   userAgent?: string | undefined;
   country?: string | undefined;
+  isAiRequest?: boolean;
 }): Promise<{ user: AnonymousUser; isNew: boolean; restoredId?: string }> {
+  const touchOptions = { country: params.country, isAiRequest: params.isAiRequest };
+
   // 1. Try lookup by provided anon_id
   if (params.anonId) {
     const existing = await getByAnonId(params.anonId);
     if (existing) {
-      await touchLastSeen(existing.anon_id);
+      await touchLastSeen(existing.anon_id, touchOptions);
       return { user: existing, isNew: false };
     }
   }
@@ -184,7 +233,7 @@ export async function resolveAnonymousIdentity(params: {
   });
 
   if (restored) {
-    await touchLastSeen(restored.anon_id);
+    await touchLastSeen(restored.anon_id, touchOptions);
     return { user: restored, isNew: false, restoredId: restored.anon_id };
   }
 

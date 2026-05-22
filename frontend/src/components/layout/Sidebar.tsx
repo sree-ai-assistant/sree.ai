@@ -423,7 +423,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, setIsCollapsed })
                   <Settings size={18} />
                   <span>Settings</span>
                 </button>
-                <button className={styles.utilityItem} onClick={() => window.open('https://github.com/your-repo/issues', '_blank')}>
+                <button className={styles.utilityItem} onClick={() => window.open('https://github.com/sree-ai-assistant/sree.ai/issues', '_blank')}>
                   <Lightbulb size={18} />
                   <span>Feature Request</span>
                 </button>
@@ -442,7 +442,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, setIsCollapsed })
                   <button className={styles.miniIconBtn} onClick={() => handleNavigate('/settings')} title="Settings">
                     <Settings size={16} />
                   </button>
-                  <button className={styles.miniIconBtn} onClick={() => window.open('https://github.com/your-repo/issues', '_blank')} title="Feature Request">
+                  <button className={styles.miniIconBtn} onClick={() => window.open('https://github.com/sree-ai-assistant/sree.ai/issues', '_blank')} title="Feature Request">
                     <Lightbulb size={16} />
                   </button>
                   <button className={styles.miniIconBtn} onClick={() => window.open('/help', '_blank')} title="Help & Support">

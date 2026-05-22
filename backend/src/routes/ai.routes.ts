@@ -234,13 +234,11 @@ router.post('/chat', flexAuthMiddleware, abuseDetectionMiddleware(), queuePriori
     res.setHeader('Connection', 'keep-alive');
     res.setHeader('X-Accel-Buffering', 'no');
     res.setHeader('Content-Encoding', 'none');
-    res.flushHeaders();
-
-
     // Add X-Anon-Context-Active header for anonymous users (ANON-06)
     if (tier === 'anonymous') {
       res.setHeader('X-Anon-Context-Active', 'true');
     }
+    res.flushHeaders();
 
     // 1. Process incoming messages to include context from metadata for the AI
     // but keep it hidden from the UI (which uses the clean content)

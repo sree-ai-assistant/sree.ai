@@ -93,7 +93,7 @@ export const Navbar: React.FC = () => {
     if (usageLoading || !status) {
       if (isChatPage || isVoicePage || isImagesPage) {
         return (
-          <div className={styles.usagePills}>
+          <div className={styles.usagePills} onClick={() => { navigate('/settings?tab=billing'); setIsUserMenuOpen(false); }}>
             <div className={styles.usageSkeletonPill}>
               <div className={styles.usageSkeletonHeader}>
                 <div className="skeleton" style={{ width: '40px', height: '10px', borderRadius: '3px' }} />
@@ -130,7 +130,7 @@ export const Navbar: React.FC = () => {
     if (isChatPage) {
       const chatData = status.profileUsage?.chat || status.usage?.chat;
       return (
-        <div className={styles.usagePills}>
+        <div className={styles.usagePills} onClick={() => { if (user) { navigate('/settings?tab=billing'); setIsUserMenuOpen(false); } }}>
           {buildPill('Chat', chatData, styles.chatFill)}
         </div>
       );
@@ -139,7 +139,7 @@ export const Navbar: React.FC = () => {
     if (isVoicePage) {
       const voiceData = status.profileUsage?.voice || status.usage?.voice;
       return (
-        <div className={styles.usagePills}>
+        <div className={styles.usagePills} onClick={() => { if (user) { navigate('/settings?tab=billing'); setIsUserMenuOpen(false); } }}>
           {buildPill('Voice', voiceData, styles.voiceFill)}
         </div>
       );
@@ -148,7 +148,7 @@ export const Navbar: React.FC = () => {
     if (isImagesPage) {
       const imageData = status.profileUsage?.image || status.usage?.image;
       return (
-        <div className={`${styles.usagePills} ${styles.imagePagePills}`}>
+        <div className={`${styles.usagePills} ${styles.imagePagePills}`} onClick={() => { if (user) { navigate('/settings?tab=billing'); setIsUserMenuOpen(false); } }}>
           {buildPill('Image', imageData, styles.imageFill)}
         </div>
       );
@@ -392,12 +392,8 @@ export const Navbar: React.FC = () => {
             </AnimatePresence>
           </div>
         ) : (
-          /* Not logged in: show Login + Signup buttons */
+          /* Not logged in: show Sign Up button only */
           <div className={`${styles.authButtons} ${isImagesPage ? styles.showOnImagePage : ''}`}>
-            <Link to="/login" className={styles.loginBtn}>
-              <LogIn size={16} />
-              <span>Login</span>
-            </Link>
             <Link to="/signup" className={styles.signupBtn}>
               <UserPlus size={16} />
               <span>Sign Up</span>

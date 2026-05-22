@@ -629,8 +629,12 @@
   }
 
   .dropdownMenu {
-    left: 50%;
+    left: -50%;
     transform: translateX(-50%);
+  }
+
+  .signupBtn span {
+    display: none !important;
   }
 }
 
@@ -654,6 +658,11 @@
   /* Hide image page usage pill on small screens to prevent navbar crowding */
   .imagePagePills {
     display: none !important;
+  }
+
+  .dropdownMenu {
+    left: -300%;
+    transform: translateX(-50%);
   }
 }
 
@@ -745,11 +754,27 @@
     left: 55%;
   }
 
+  .userInfo {
+    display: none !important;
+  }
+
+  .userSkeletonInfo {
+    display: none !important;
+  }
+
+  .userButton {
+    padding: 5px;
+  }
+
+  .usagePillHeader {
+    flex-direction: column;
+  }
 }
 
 @media (max-width: 400px) {
-  .usagePillHeader {
-    flex-direction: column;
+  .dropdownMenu {
+    left: -530%;
+    transform: translateX(-50%);
   }
 
   .logoGroup {

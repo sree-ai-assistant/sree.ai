@@ -83,13 +83,17 @@ export const anonymousIdentityMiddleware = async (
     const fingerprintHash = req.headers['x-fingerprint'] as string | undefined;
     const rawIp = getClientIp(req);
     const userAgent = req.headers['user-agent'] || undefined;
+    const country = (req.headers['cf-ipcountry'] as string) || undefined;
+
+    // Detect if this is an AI request (chat, voice, image) for last_request_at tracking
+    const isAiRequest = /\/ai\/(chat|voice|image)/.test(req.originalUrl || req.url);
 
     // If no fingerprint provided, we can't do much — set minimal anonymous context
     if (!fingerprintHash) {
       if (anonId) {
         const existing = await getByAnonId(anonId);
         if (existing) {
-          await touchLastSeen(existing.anon_id);
+          await touchLastSeen(existing.anon_id, { country, isAiRequest });
           (req as any).anonymousUser = existing;
           (req as any).userTier = 'anonymous';
           return next();
@@ -106,6 +110,8 @@ export const anonymousIdentityMiddleware = async (
       fingerprintHash,
       rawIp,
       userAgent,
+      country,
+      isAiRequest,
     });
 
     // Fire-and-forget abuse detection (ABUSE-03)

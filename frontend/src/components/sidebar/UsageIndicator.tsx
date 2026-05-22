@@ -45,13 +45,21 @@ export const UsageIndicator: React.FC<UsageIndicatorProps> = ({
   };
 
   const formatTime = (seconds: any) => {
-    const s = Number(seconds);
+    const s = Math.floor(Number(seconds));
     if (isNaN(s) || s <= 0) return 'tomorrow'; // Fallback if resets_in_seconds is missing
-    if (s < 60) return `${s}s`;
-    const minutes = Math.ceil(s / 60);
-    if (minutes < 60) return `${minutes}m`;
-    const hours = Math.ceil(minutes / 60);
-    return `${hours}h`;
+
+    const days = Math.floor(s / 86400);
+    const hours = Math.floor((s % 86400) / 3600);
+    const minutes = Math.floor((s % 3600) / 60);
+    const secs = s % 60;
+
+    const parts: string[] = [];
+    if (days > 0) parts.push(`${days}d`);
+    if (hours > 0) parts.push(`${hours}h`);
+    if (minutes > 0) parts.push(`${minutes}m`);
+    if (parts.length === 0) parts.push(`${secs}s`); // only show seconds if < 1 minute
+
+    return parts.join(' ');
   };
 
 

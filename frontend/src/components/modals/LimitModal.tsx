@@ -27,11 +27,21 @@ export const LimitModal: React.FC<LimitModalProps> = ({
   const navigate = useNavigate();
 
   const formatTime = (seconds: number) => {
-    if (seconds < 60) return `${seconds}s`;
-    const minutes = Math.ceil(seconds / 60);
-    if (minutes < 60) return `${minutes}m`;
-    const hours = Math.ceil(minutes / 60);
-    return `${hours}h`;
+    const s = Math.floor(seconds);
+    if (s <= 0) return '0s';
+
+    const days = Math.floor(s / 86400);
+    const hours = Math.floor((s % 86400) / 3600);
+    const minutes = Math.floor((s % 3600) / 60);
+    const secs = s % 60;
+
+    const parts: string[] = [];
+    if (days > 0) parts.push(`${days}d`);
+    if (hours > 0) parts.push(`${hours}h`);
+    if (minutes > 0) parts.push(`${minutes}m`);
+    if (parts.length === 0) parts.push(`${secs}s`); // only show seconds if < 1 minute
+
+    return parts.join(' ');
   };
 
   const pricingTiers = [
