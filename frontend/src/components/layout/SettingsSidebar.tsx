@@ -75,7 +75,15 @@ export const SettingsSidebar: React.FC<SettingsSidebarProps> = ({
   return (
     <aside className={`${styles.sidebar} ${isCollapsed ? styles.collapsed : ''}`}>
       <div className={styles.header}>
-        <Link to="/dashboard" className={styles.backLink}>
+        <Link
+          to="/dashboard"
+          className={styles.backLink}
+          onClick={() => {
+            if (window.innerWidth <= 768) {
+              setIsCollapsed(true);
+            }
+          }}
+        >
           <div className={styles.backIcon}>
             <ArrowLeft size={16} />
           </div>
@@ -98,7 +106,12 @@ export const SettingsSidebar: React.FC<SettingsSidebarProps> = ({
                 <button
                   key={item.id}
                   className={`${styles.navItem} ${isActive ? styles.active : ''}`}
-                  onClick={() => onSectionChange(item.id)}
+                  onClick={() => {
+                    onSectionChange(item.id);
+                    if (window.innerWidth <= 768) {
+                      setIsCollapsed(true);
+                    }
+                  }}
                 >
                   <div className={styles.iconContainer} style={{
                     color: isActive ? 'white' : item.color,
@@ -128,14 +141,30 @@ export const SettingsSidebar: React.FC<SettingsSidebarProps> = ({
         <div className={styles.navGroup} style={{ marginTop: 'auto' }}>
           {!isCollapsed && <div className={styles.groupLabel}>Support</div>}
           <nav className={styles.nav}>
-            <button className={styles.navItem}>
+            <button
+              className={styles.navItem}
+              onClick={() => {
+                window.open('/help', '_blank');
+                if (window.innerWidth <= 768) {
+                  setIsCollapsed(true);
+                }
+              }}
+            >
               <div className={styles.iconContainer} style={{ color: '#6366F1', background: '#6366F115' }}>
                 <HelpCircle size={18} />
               </div>
               {!isCollapsed && <span className={styles.itemLabel}>Help Center</span>}
             </button>
 
-            <button className={styles.navItem}>
+            <button
+              className={styles.navItem}
+              onClick={() => {
+                window.open('https://github.com/your-repo/issues', '_blank');
+                if (window.innerWidth <= 768) {
+                  setIsCollapsed(true);
+                }
+              }}
+            >
               <div className={styles.iconContainer} style={{ color: '#10B981', background: '#10B98115', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 <span style={{ fontSize: '18px', lineHeight: 1 }}>💡</span>
               </div>
@@ -147,7 +176,15 @@ export const SettingsSidebar: React.FC<SettingsSidebarProps> = ({
               )}
             </button>
 
-            <button className={styles.navItem} onClick={handleSignOut}>
+            <button
+              className={styles.navItem}
+              onClick={() => {
+                handleSignOut();
+                if (window.innerWidth <= 768) {
+                  setIsCollapsed(true);
+                }
+              }}
+            >
               <div className={styles.iconContainer} style={{ color: '#EF4444', background: '#EF444415' }}>
                 <LogOut size={18} />
               </div>
