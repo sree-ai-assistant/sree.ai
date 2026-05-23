@@ -44,11 +44,13 @@ const StatCard: React.FC<{
 );
 
 const Dashboard: React.FC = () => {
-  const { user } = useAuthStore();
+  const { user, initialized } = useAuthStore();
   const { conversations, fetchConversations, loading } = useChatStore();
   const navigate = useNavigate();
 
   useEffect(() => {
+    if (!initialized) return;
+
     const init = async () => {
       if (user?.id) {
         fetchConversations(user.id);
@@ -58,7 +60,7 @@ const Dashboard: React.FC = () => {
       }
     };
     init();
-  }, [user?.id, fetchConversations]);
+  }, [user?.id, initialized, fetchConversations]);
 
   const recentActivities = conversations.slice(0, 4).map(c => ({
     title: c.title,

@@ -103,9 +103,9 @@ export const useAuthStore = create<AuthState>((set) => ({
             }
           });
 
-          // Trigger data migration if an anonymous ID exists (MIG-04)
+          // Trigger data migration ONLY during explicit SIGNED_IN login/signup flow (MIG-04)
           const anonId = getStoredAnonId();
-          if (anonId) {
+          if (event === 'SIGNED_IN' && anonId) {
             try {
               console.log('[AuthStore] Triggering anonymous data migration...');
               await userService.migrateAnonymousData(anonId);

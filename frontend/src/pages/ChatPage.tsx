@@ -20,7 +20,7 @@ import { ChatMessage } from '../components/chat/ChatMessage';
 import { LimitModal } from '../components/modals/LimitModal';
 
 const ChatPage: React.FC = () => {
-  const { user } = useAuthStore();
+  const { user, initialized } = useAuthStore();
   const [session, setSession] = useState<any>(null);
   const [lockTimeRemaining, setLockTimeRemaining] = useState<number>(0);
   const { selectedModel } = useModelStore();
@@ -64,13 +64,13 @@ const ChatPage: React.FC = () => {
       setSession(session);
     });
 
-    // Initialize anonymous identity if not logged in
-    if (!user?.id && !getStoredAnonId()) {
+    // Initialize anonymous identity if not logged in AND auth is fully initialized
+    if (initialized && !user?.id && !getStoredAnonId()) {
       getOrCreateAnonymousIdentity();
     }
 
     return () => subscription.unsubscribe();
-  }, [user?.id]);
+  }, [user?.id, initialized]);
 
   useEffect(() => {
     setShowVoiceOverlay(location.pathname.startsWith('/voice'));

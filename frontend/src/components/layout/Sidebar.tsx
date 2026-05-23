@@ -38,7 +38,7 @@ interface SidebarProps {
 
 export const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, setIsCollapsed }) => {
   const navigate = useNavigate();
-  const { user, signOut } = useAuthStore();
+  const { user, signOut, initialized } = useAuthStore();
   const { status } = useUsageStore();
   const chatUsage = status?.usage?.chat || (status?.usage ? Object.values(status.usage)[0] : null);
 
@@ -66,6 +66,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, setIsCollapsed })
   };
 
   useEffect(() => {
+    if (!initialized) return;
+
     const initConversations = async () => {
       if (user?.id) {
         fetchConversations(user.id);
@@ -75,7 +77,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, setIsCollapsed })
       }
     };
     initConversations();
-  }, [user?.id, fetchConversations]);
+  }, [user?.id, initialized, fetchConversations]);
 
   const menuRef = React.useRef<HTMLDivElement>(null);
   const searchInputRef = React.useRef<HTMLInputElement>(null);
