@@ -19,6 +19,35 @@ export interface AIModel {
   created_at: string;
 }
 
+const MODELS_CACHE_KEY = 'sree_models_cache';
+const CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
+
+interface CachedModels {
+  models: AIModel[];
+  cachedAt: number;
+}
+
+function getCachedModels(): CachedModels | null {
+  try {
+    const raw = localStorage.getItem(MODELS_CACHE_KEY);
+    if (!raw) return null;
+    const parsed: CachedModels = JSON.parse(raw);
+    if (!Array.isArray(parsed.models) || typeof parsed.cachedAt !== 'number') return null;
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+function setCachedModels(models: AIModel[]): void {
+  try {
+    const cache: CachedModels = { models, cachedAt: Date.now() };
+    localStorage.setItem(MODELS_CACHE_KEY, JSON.stringify(cache));
+  } catch (e) {
+    console.warn('Failed to cache models:', e);
+  }
+}
+
 interface ModelState {
   models: AIModel[];
   selectedModel: AIModel | null;
@@ -26,9 +55,43 @@ interface ModelState {
   visionRequired: boolean;
   
   // Actions
-  fetchModels: () => Promise<void>;
+  fetchModels: (forceRefresh?: boolean) => Promise<void>;
   setSelectedModel: (modelId: string) => void;
   setVisionRequired: (required: boolean) => void;
+}
+
+/**
+ * Applies model selection logic given a list of models and the current store state.
+ * Extracted to avoid duplication between cached-path and API-path.
+ */
+function resolveSelectedModel(
+  models: AIModel[],
+  currentSelected: AIModel | null,
+  visionRequired: boolean
+): AIModel | null {
+  // Re-sync the selected model with the list to get updated details
+  let updatedSelected = currentSelected
+    ? models.find((m) => m.model_id === currentSelected.model_id) ?? null
+    : null;
+
+  // If the selected model is now in maintenance, we need to pick a new one
+  if (updatedSelected?.in_maintenance) {
+    updatedSelected = null;
+  }
+
+  // If vision is required and current model isn't vision, auto-select a vision model
+  if (visionRequired && (!updatedSelected || !updatedSelected.is_vision)) {
+    updatedSelected = models.find((m) => m.is_vision && !m.in_maintenance) || updatedSelected;
+  }
+
+  return (
+    updatedSelected ||
+    models.find((m) => !m.is_image && m.model_id === 'meta/llama-3.1-70b-instruct' && !m.in_maintenance) ||
+    models.find((m) => !m.is_image && !m.in_maintenance) ||
+    models.find((m) => !m.is_image) ||
+    models[0] ||
+    null
+  );
 }
 
 export const useModelStore = create<ModelState>()(
@@ -39,7 +102,22 @@ export const useModelStore = create<ModelState>()(
       loading: false,
       visionRequired: false,
 
-      fetchModels: async () => {
+      fetchModels: async (forceRefresh = false) => {
+        // --- Check localStorage cache first ---
+        if (!forceRefresh) {
+          const cached = getCachedModels();
+          if (cached && (Date.now() - cached.cachedAt < CACHE_TTL_MS) && cached.models.length > 0) {
+            // Cache is fresh — use it, but only if the store is currently empty
+            // (avoids overwriting in-memory state on every mount)
+            if (get().models.length === 0) {
+              const selected = resolveSelectedModel(cached.models, get().selectedModel, get().visionRequired);
+              set({ models: cached.models, selectedModel: selected, loading: false });
+            }
+            return;
+          }
+        }
+
+        // --- Fetch from API ---
         set({ loading: true });
         try {
           let session = null;
@@ -63,36 +141,25 @@ export const useModelStore = create<ModelState>()(
           
           if (data.success) {
             const models = data.data;
-            const currentSelected = get().selectedModel;
-            const visionReq = get().visionRequired;
-            
-            // Re-sync the selected model with the freshly fetched list to get updated details
-            let updatedSelected = currentSelected 
-              ? models.find((m: AIModel) => m.model_id === currentSelected.model_id) 
-              : null;
+            const selected = resolveSelectedModel(models, get().selectedModel, get().visionRequired);
 
-            // If the selected model is now in maintenance, we need to pick a new one
-            if (updatedSelected?.in_maintenance) {
-              updatedSelected = null;
-            }
+            // Update localStorage cache
+            setCachedModels(models);
 
-            // If vision is required and current model isn't vision, auto-select a vision model
-            if (visionReq && (!updatedSelected || !updatedSelected.is_vision)) {
-              updatedSelected = models.find((m: AIModel) => m.is_vision && !m.in_maintenance) || updatedSelected;
-            }
-
-            set({ 
-              models,
-              selectedModel: updatedSelected || 
-                             models.find((m: AIModel) => !m.is_image && m.model_id === 'meta/llama-3.1-70b-instruct' && !m.in_maintenance) || 
-                             models.find((m: AIModel) => !m.is_image && !m.in_maintenance) || 
-                             models.find((m: AIModel) => !m.is_image) ||
-                             models[0],
-              loading: false 
-            });
+            set({ models, selectedModel: selected, loading: false });
           }
         } catch (error) {
           console.error('Error fetching models:', error);
+
+          // On network failure, try to hydrate from stale cache so the UI isn't empty
+          if (get().models.length === 0) {
+            const staleCache = getCachedModels();
+            if (staleCache && staleCache.models.length > 0) {
+              const selected = resolveSelectedModel(staleCache.models, get().selectedModel, get().visionRequired);
+              set({ models: staleCache.models, selectedModel: selected });
+            }
+          }
+
           set({ loading: false });
         }
       },

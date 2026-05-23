@@ -123,6 +123,8 @@ export const useAuthStore = create<AuthState>((set) => ({
           useChatStore.getState().clearStore();
           useUsageStore.getState().clearStore();
           useImageStore.getState().clearStore();
+          // Clear cached models so the next session fetches fresh tier-appropriate data
+          localStorage.removeItem('sree_models_cache');
           
           if (window.location.pathname !== '/chat' && window.location.pathname !== '/') {
             window.location.href = '/chat';

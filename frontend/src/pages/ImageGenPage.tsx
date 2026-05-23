@@ -585,9 +585,9 @@ const ImageGenPage: React.FC = () => {
         </AnimatePresence>
 
         {isSettingsOpen && (
-          <div 
-            className={styles.sidebarBackdrop} 
-            onClick={() => setIsSettingsOpen(false)} 
+          <div
+            className={styles.sidebarBackdrop}
+            onClick={() => setIsSettingsOpen(false)}
           />
         )}
 
