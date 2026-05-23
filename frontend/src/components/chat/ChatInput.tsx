@@ -68,7 +68,21 @@ export const ChatInput: React.FC<ChatInputProps> = ({
     setVisionRequired(requiresVision);
   }, [attachments, setVisionRequired]);
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  const adjustHeight = () => {
+    const textarea = textareaRef.current;
+    if (textarea) {
+      textarea.style.height = 'auto';
+      textarea.style.height = `${Math.min(textarea.scrollHeight, 200)}px`;
+    }
+  };
+
+  React.useEffect(() => {
+    adjustHeight();
+  }, [internalValue]);
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (disabled) return;
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
@@ -332,17 +346,19 @@ export const ChatInput: React.FC<ChatInputProps> = ({
         )}
 
         <div className={styles.inputInner}>
-          <button className={styles.iconBtn} onClick={() => !disabled && fileInputRef.current?.click()} disabled={disabled} style={disabled ? { opacity: 0.5, cursor: 'not-allowed' } : {}}>
+          <button className={`${styles.iconBtn} ${styles.plusBtn}`} onClick={() => !disabled && fileInputRef.current?.click()} disabled={disabled} style={disabled ? { opacity: 0.5, cursor: 'not-allowed' } : {}}>
             <Plus size={22} />
           </button>
           
-          <input
+          <textarea
+            ref={textareaRef}
             className={styles.input}
             value={internalValue}
             onChange={(e) => setInternalValue(e.target.value)}
             onKeyDown={handleKeyDown}
             placeholder={placeholderText || "Ask anything"}
             disabled={disabled}
+            rows={1}
           />
           
           <div className={styles.inputActions}>
