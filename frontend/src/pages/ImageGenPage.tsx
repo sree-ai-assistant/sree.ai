@@ -142,9 +142,9 @@ const ImageGenPage: React.FC = () => {
     };
   }, [usageStatus]);
 
-  const fetchUsage = useCallback(async () => {
+  const fetchUsage = useCallback(async (isManualRefresh: boolean = false) => {
     try {
-      await fetchUsageStatus();
+      await fetchUsageStatus(isManualRefresh);
     } catch (err) {
       console.error('Failed to fetch usage:', err);
     }
@@ -152,7 +152,7 @@ const ImageGenPage: React.FC = () => {
 
   useEffect(() => {
     fetchModels();
-    fetchUsage();
+    fetchUsage(false);
   }, [fetchModels, fetchUsage]);
 
   // Auto-expand usage card if any limit is hit
@@ -429,7 +429,7 @@ const ImageGenPage: React.FC = () => {
                         <span className={styles.creditsLabel}>Usage Limits</span>
                       </div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                        <button onClick={fetchUsage} className={styles.refreshUsageBtn} title="Refresh limits">
+                        <button onClick={() => fetchUsage(true)} className={styles.refreshUsageBtn} title="Refresh limits">
                           <RefreshCcw size={14} />
                         </button>
                         <button

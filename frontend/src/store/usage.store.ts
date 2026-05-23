@@ -195,7 +195,7 @@ interface UsageState {
   status: UsageStatus | null;
   loading: boolean;
   error: string | null;
-  fetchStatus: () => Promise<void>;
+  fetchStatus: (isManualRefresh?: boolean) => Promise<void>;
   incrementLocalUsage: (tool?: 'chat' | 'voice' | 'image') => void;
   clearStore: () => void;
 }
@@ -205,40 +205,42 @@ export const useUsageStore = create<UsageState>((set, get) => ({
   loading: false,
   error: null,
 
-  fetchStatus: async () => {
-    const now = Date.now();
-    let timestamps: number[] = [];
-    try {
-      const stored = localStorage.getItem('usage_fetch_timestamps');
-      if (stored) {
-        timestamps = JSON.parse(stored);
+  fetchStatus: async (isManualRefresh = false) => {
+    if (isManualRefresh) {
+      const now = Date.now();
+      let timestamps: number[] = [];
+      try {
+        const stored = localStorage.getItem('usage_fetch_timestamps');
+        if (stored) {
+          timestamps = JSON.parse(stored);
+        }
+      } catch (e) {
+        console.error(e);
       }
-    } catch (e) {
-      console.error(e);
-    }
 
-    // Keep only timestamps within the last 60 seconds
-    timestamps = timestamps.filter(t => now - t < 60000);
+      // Keep only timestamps within the last 60 seconds
+      timestamps = timestamps.filter(t => now - t < 60000);
 
-    if (timestamps.length >= 5) {
-      const oldest = timestamps[0];
-      const resetsAt = oldest + 60000;
+      if (timestamps.length >= 5) {
+        const oldest = timestamps[0];
+        const resetsAt = oldest + 60000;
 
-      // Dismiss existing toast to refresh the countdown view
-      toast.dismiss('usage-rate-limit-toast');
+        // Dismiss existing toast to refresh the countdown view
+        toast.dismiss('usage-rate-limit-toast');
 
-      toast.custom(
-        (t) => React.createElement(RateLimitToast, { resetsAt, toastId: t.id, visible: t.visible }),
-        { id: 'usage-rate-limit-toast', duration: 10000 }
-      );
-      return;
-    }
+        toast.custom(
+          (t) => React.createElement(RateLimitToast, { resetsAt, toastId: t.id, visible: t.visible }),
+          { id: 'usage-rate-limit-toast', duration: 10000 }
+        );
+        return;
+      }
 
-    timestamps.push(now);
-    try {
-      localStorage.setItem('usage_fetch_timestamps', JSON.stringify(timestamps));
-    } catch (e) {
-      console.error(e);
+      timestamps.push(now);
+      try {
+        localStorage.setItem('usage_fetch_timestamps', JSON.stringify(timestamps));
+      } catch (e) {
+        console.error(e);
+      }
     }
 
     set({ loading: true, error: null });
