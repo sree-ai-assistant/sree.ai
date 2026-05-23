@@ -409,9 +409,9 @@ export const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, setIsCollapsed })
           <div className={styles.utilitiesSection}>
             {isCollapsed ? (
               <div className={styles.utilitiesCollapsed}>
-                <button className={styles.miniIconBtn} onClick={() => handleNavigate('/settings')} title="Settings">
+                {user ? <button className={styles.miniIconBtn} onClick={() => handleNavigate('/settings')} title="Settings">
                   <Settings size={18} />
-                </button>
+                </button> : " "}
                 <button className={styles.miniIconBtn} onClick={() => window.open('https://github.com/your-repo/issues', '_blank')} title="Feature Request">
                   <Lightbulb size={18} />
                 </button>
