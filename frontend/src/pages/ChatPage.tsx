@@ -644,8 +644,7 @@ const ChatPage: React.FC = () => {
         });
         
         // Update usage indicator
-        useUsageStore.getState().incrementLocalUsage();
-        useUsageStore.getState().fetchStatus().catch(err => console.error('Failed to sync usage store:', err));
+        useUsageStore.getState().incrementLocalUsage(isVoiceRoute ? 'voice' : 'chat');
         
         streamingOptimisticIdRef.current = null;
         

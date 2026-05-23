@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -13,7 +13,7 @@ import { useModelStore } from '../store/model.store';
 import { useImageStore } from '../store/image.store';
 import api from '../lib/api';
 import { useUIStore } from '../store/ui.store';
-import toast from 'react-hot-toast';
+import { useUsageStore } from '../store/usage.store';
 import styles from './ImageGenPage.module.css';
 import { ImageSidebar } from '../components/images/ImageSidebar';
 import { ConfirmModal } from '../components/shared/ConfirmModal';
@@ -106,7 +106,8 @@ const ImageGenPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'generate' | 'gallery'>('generate');
   const [imageLoadErrors, setImageLoadErrors] = useState<Record<string, boolean>>({});
   const [downloadStatus, setDownloadStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
-  const [usage, setUsage] = useState<ImagePageUsage | null>(null);
+  const { status: usageStatus, fetchStatus: fetchUsageStatus } = useUsageStore();
+
   const [usageMinimized, setUsageMinimized] = useState(() => window.innerWidth <= 768 ? false : true);
   const { openUpgradeModal } = useUIStore();
   const [limitModal, setLimitModal] = useState<{
@@ -122,32 +123,32 @@ const ImageGenPage: React.FC = () => {
   // Get image-capable models
   const imageModels = models.filter(m => m.is_image && !m.in_maintenance);
 
+  const usage = useMemo<ImagePageUsage | null>(() => {
+    if (!usageStatus) return null;
+    const imageData = usageStatus.profileUsage?.image || null;
+    const imageSummary = usageStatus.usage?.image || null;
+    const downloadSummary = usageStatus.usage?.download || null;
+
+    return {
+      imageUsedDaily: imageData?.daily?.used ?? imageSummary?.daily?.used ?? 0,
+      imageLimitDaily: imageData?.daily?.limit ?? imageSummary?.daily?.limit ?? 0,
+      imageUsedMonthly: imageData?.monthly?.used ?? imageSummary?.monthly?.used ?? 0,
+      imageLimitMonthly: imageData?.monthly?.limit ?? imageSummary?.monthly?.limit ?? null,
+      downloadUsedDaily: downloadSummary?.daily?.used ?? 0,
+      downloadLimitDaily: downloadSummary?.daily?.limit ?? 0,
+      downloadUsedMonthly: downloadSummary?.monthly?.used ?? 0,
+      downloadLimitMonthly: downloadSummary?.monthly?.limit ?? null,
+      tier: usageStatus.tier ?? 'free',
+    };
+  }, [usageStatus]);
+
   const fetchUsage = useCallback(async () => {
     try {
-      const res = await api.get('/ai/usage');
-      if (res.data.success) {
-        const status = res.data.status;
-        // Prefer profileUsage (authenticated) over raw usage summaries
-        const imageData = status.profileUsage?.image || null;
-        const imageSummary = status.usage?.image || null;
-        const downloadSummary = status.usage?.download || null;
-
-        setUsage({
-          imageUsedDaily: imageData?.daily?.used ?? imageSummary?.daily?.used ?? 0,
-          imageLimitDaily: imageData?.daily?.limit ?? imageSummary?.daily?.limit ?? 0,
-          imageUsedMonthly: imageData?.monthly?.used ?? imageSummary?.monthly?.used ?? 0,
-          imageLimitMonthly: imageData?.monthly?.limit ?? imageSummary?.monthly?.limit ?? null,
-          downloadUsedDaily: downloadSummary?.daily?.used ?? 0,
-          downloadLimitDaily: downloadSummary?.daily?.limit ?? 0,
-          downloadUsedMonthly: downloadSummary?.monthly?.used ?? 0,
-          downloadLimitMonthly: downloadSummary?.monthly?.limit ?? null,
-          tier: status.tier ?? 'free',
-        });
-      }
+      await fetchUsageStatus();
     } catch (err) {
       console.error('Failed to fetch usage:', err);
     }
-  }, []);
+  }, [fetchUsageStatus]);
 
   useEffect(() => {
     fetchModels();

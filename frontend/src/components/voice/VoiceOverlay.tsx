@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { X } from 'lucide-react';
 import { useChatStore } from '../../store/chat.store';
 import { useAuthStore } from '../../store/auth.store';
+import { useUsageStore } from '../../store/usage.store';
 import { supabase } from '../../lib/supabase';
 import { useNavigate } from 'react-router-dom';
 import { VoiceVisualizer } from './VoiceVisualizer';
@@ -453,6 +454,9 @@ export const VoiceOverlay: React.FC<VoiceOverlayProps> = ({ onClose, initialConv
           if (currentConvId) {
             await addMessage(currentConvId, 'user', userText, { mode: 'voice' });
             await addMessage(currentConvId, 'assistant', fullAiText, { mode: 'voice' });
+
+            // Increment local voice usage count!
+            useUsageStore.getState().incrementLocalUsage('voice');
 
             if (!initialConversationId && currentConvId) {
               navigate(`/voice/chat/${currentConvId}`, { replace: true });

@@ -119,7 +119,7 @@ export const useImageStore = create<ImageState>((set, get) => ({
       const response = await api.post('/ai/image', params);
       if (response.data.success) {
         // Increment usage count locally immediately after a successful request
-        useUsageStore.getState().incrementLocalUsage();
+        useUsageStore.getState().incrementLocalUsage('image');
 
         const img = response.data.data.images[0];
         if (img) {
