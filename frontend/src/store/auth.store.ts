@@ -2,6 +2,9 @@ import { create } from 'zustand';
 import { supabase } from '../lib/supabase';
 import { userService } from '../lib/api';
 import { getStoredAnonId, clearAnonId } from '../lib/fingerprint';
+import { useChatStore } from './chat.store';
+import { useUsageStore } from './usage.store';
+import { useImageStore } from './image.store';
 
 export interface User {
   id: string;
@@ -115,9 +118,15 @@ export const useAuthStore = create<AuthState>((set) => ({
               console.error('[AuthStore] Migration failed:', err);
             }
           }
-        }
- else if (event === 'SIGNED_OUT') {
+        } else if (event === 'SIGNED_OUT') {
           set({ user: null });
+          useChatStore.getState().clearStore();
+          useUsageStore.getState().clearStore();
+          useImageStore.getState().clearStore();
+          
+          if (window.location.pathname !== '/chat' && window.location.pathname !== '/') {
+            window.location.href = '/chat';
+          }
         }
       });
 
@@ -146,5 +155,9 @@ export const useAuthStore = create<AuthState>((set) => ({
   signOut: async () => {
     await supabase.auth.signOut();
     set({ user: null });
+    useChatStore.getState().clearStore();
+    useUsageStore.getState().clearStore();
+    useImageStore.getState().clearStore();
+    window.location.href = '/chat';
   },
 }));

@@ -205,17 +205,24 @@ const ChatPage: React.FC = () => {
       streamingIdRef.current = null;
     }
 
-    if (id && id !== activeConversation?.id) {
-      setActiveConversation(id);
-    } else if (!id) {
-      setActiveConversation(null);
-    }
+    const loadConversation = async () => {
+      if (id && id !== activeConversation?.id) {
+        const success = await setActiveConversation(id);
+        if (!success) {
+          console.log('[ChatPage] Conversation activation failed. Redirecting to /chat.');
+          navigate('/chat');
+        }
+      } else if (!id) {
+        setActiveConversation(null);
+      }
+    };
+    loadConversation();
     
     return () => {
       // Clean up on unmount
       if (typewriterIntervalRef.current) clearInterval(typewriterIntervalRef.current);
     };
-  }, [id, setActiveConversation]);
+  }, [id, setActiveConversation, navigate, activeConversation?.id]);
 
   useEffect(() => {
     return () => {

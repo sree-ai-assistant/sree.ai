@@ -29,7 +29,7 @@ interface ChatState {
 
   // Actions
   fetchConversations: (userId?: string, anonId?: string) => Promise<void>;
-  setActiveConversation: (conversationId: string | null) => Promise<void>;
+  setActiveConversation: (conversationId: string | null) => Promise<boolean>;
   createConversation: (userId: string | undefined, title: string, type?: 'chat' | 'voice' | 'image', anonId?: string) => Promise<Conversation | null>;
   deleteConversation: (conversationId: string) => Promise<void>;
   addMessage: (conversationId: string, role: 'user' | 'assistant' | 'system', content: string, metadata?: any) => Promise<Message | null>;
@@ -39,6 +39,7 @@ interface ChatState {
   truncateHistory: (conversationId: string, fromMessageId: string) => Promise<void>;
   clearActiveConversation: () => void;
   setMessages: (messages: Message[]) => void;
+  clearStore: () => void;
 }
 
 export const useChatStore = create<ChatState>((set, get) => ({
@@ -71,7 +72,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
   setActiveConversation: async (conversationId: string | null) => {
     if (!conversationId) {
       set({ activeConversation: null, messages: [] });
-      return;
+      return true;
     }
 
     set({ loading: true });
@@ -90,7 +91,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
       if (error || !data) {
         console.error('Conversation not found:', error);
         set({ activeConversation: null, messages: [], loading: false });
-        return;
+        return false;
       }
       conv = data;
 
@@ -112,7 +113,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
     // Race condition check: only update if this is still the active conversation
     if (get().activeConversation?.id !== conversationId) {
-      return;
+      return true;
     }
 
     if (msgError) {
@@ -123,6 +124,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
     const cleanMessages = (messages || []).filter(m => !m.metadata?.error || m.metadata?.aborted);
 
     set({ messages: cleanMessages, loading: false });
+    return true;
   },
 
   createConversation: async (userId: string | undefined, title: string, type: 'chat' | 'voice' | 'image' = 'chat', anonId?: string) => {
@@ -319,5 +321,9 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
   clearActiveConversation: () => {
     set({ activeConversation: null, messages: [] });
+  },
+
+  clearStore: () => {
+    set({ conversations: [], activeConversation: null, messages: [], loading: false });
   }
 }));

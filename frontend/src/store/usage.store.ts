@@ -197,6 +197,7 @@ interface UsageState {
   error: string | null;
   fetchStatus: () => Promise<void>;
   incrementLocalUsage: (tool?: 'chat' | 'voice' | 'image') => void;
+  clearStore: () => void;
 }
 
 export const useUsageStore = create<UsageState>((set, get) => ({
@@ -286,6 +287,10 @@ export const useUsageStore = create<UsageState>((set, get) => ({
 
       set({ status: updatedStatus });
     }
+  },
+
+  clearStore: () => {
+    set({ status: null, loading: false, error: null });
   }
 
 }));

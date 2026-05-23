@@ -44,6 +44,7 @@ interface ImageState {
   updateSettings: (settings: Partial<ImageSettings>) => void;
   resetGenerationState: () => void;
   setFocusedGenerationId: (id: string | null) => void;
+  clearStore: () => void;
 }
 
 const DEFAULT_SETTINGS: ImageSettings = {
@@ -159,4 +160,16 @@ export const useImageStore = create<ImageState>((set, get) => ({
       toast.error('Failed to delete image');
     }
   },
+
+  clearStore: () => {
+    set({ 
+      history: [], 
+      activeImage: null, 
+      isGenerating: false, 
+      isFetchingHistory: false, 
+      settings: DEFAULT_SETTINGS, 
+      currentGenerationId: null, 
+      focusedGenerationId: null 
+    });
+  }
 }));
