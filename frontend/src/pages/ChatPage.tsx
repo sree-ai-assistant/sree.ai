@@ -625,6 +625,18 @@ const ChatPage: React.FC = () => {
         // Final catch up
         setDisplayedStreamingMessage(finalContent);
         
+        // Clear generating/streaming state BEFORE adding the message to the store
+        // to prevent rendering the streaming message as a duplicate during the DB write.
+        if (streamingIdRef.current === currentConvId) {
+          setIsGenerating(false);
+          setIsProcessingVideo(false);
+          setStreamingMessage('');
+          setDisplayedStreamingMessage('');
+          fullContentRef.current = '';
+          setStreamingStatus(null);
+          streamingIdRef.current = null;
+        }
+        
         // Add to store with the same optimistic ID used for streaming
         await addMessage(currentConvId, 'assistant', finalContent, { 
           optimisticId: assistantOptimisticId,
