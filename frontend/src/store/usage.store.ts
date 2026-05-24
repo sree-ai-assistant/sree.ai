@@ -196,7 +196,7 @@ interface UsageState {
   loading: boolean;
   error: string | null;
   fetchStatus: (isManualRefresh?: boolean) => Promise<void>;
-  incrementLocalUsage: (tool?: 'chat' | 'voice' | 'image') => void;
+  incrementLocalUsage: (tool?: 'chat' | 'voice' | 'image', amount?: number) => void;
   clearStore: () => void;
 }
 
@@ -256,7 +256,7 @@ export const useUsageStore = create<UsageState>((set, get) => ({
     }
   },
 
-  incrementLocalUsage: (tool: 'chat' | 'voice' | 'image' = 'chat') => {
+  incrementLocalUsage: (tool: 'chat' | 'voice' | 'image' = 'chat', amount: number = 1) => {
     const { status } = get();
     if (status) {
       const updatedStatus = { ...status };
@@ -267,10 +267,10 @@ export const useUsageStore = create<UsageState>((set, get) => ({
           ...status.usage,
           [tool]: {
             ...toolUsage,
-            minute: { ...toolUsage.minute, used: toolUsage.minute.used + 1 },
-            daily: { ...toolUsage.daily, used: toolUsage.daily.used + 1 },
-            monthly: { ...toolUsage.monthly, used: toolUsage.monthly.used + 1 },
-            total: { ...toolUsage.total, used: (toolUsage.total?.used || 0) + 1 },
+            minute: { ...toolUsage.minute, used: toolUsage.minute.used + amount },
+            daily: { ...toolUsage.daily, used: toolUsage.daily.used + amount },
+            monthly: { ...toolUsage.monthly, used: toolUsage.monthly.used + amount },
+            total: { ...toolUsage.total, used: (toolUsage.total?.used || 0) + amount },
           }
         };
       }
@@ -281,8 +281,8 @@ export const useUsageStore = create<UsageState>((set, get) => ({
           ...status.profileUsage,
           [tool]: {
             ...toolProfileUsage,
-            daily: { ...toolProfileUsage.daily, used: toolProfileUsage.daily.used + 1 },
-            monthly: { ...toolProfileUsage.monthly, used: toolProfileUsage.monthly.used + 1 }
+            daily: { ...toolProfileUsage.daily, used: toolProfileUsage.daily.used + amount },
+            monthly: { ...toolProfileUsage.monthly, used: toolProfileUsage.monthly.used + amount }
           }
         };
       }

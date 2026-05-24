@@ -650,8 +650,11 @@ const ChatPage: React.FC = () => {
           mode: 'text' 
         });
         
-        // Update usage indicator
-        useUsageStore.getState().incrementLocalUsage(isVoiceRoute ? 'voice' : 'chat');
+        // Update usage indicator — only for chat mode
+        // Voice credits are charged by VoiceOverlay via /voice-complete endpoint
+        if (!isVoiceRoute) {
+          useUsageStore.getState().incrementLocalUsage('chat');
+        }
         
         streamingOptimisticIdRef.current = null;
         

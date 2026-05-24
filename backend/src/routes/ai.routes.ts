@@ -631,15 +631,21 @@ router.post('/chat', flexAuthMiddleware, abuseDetectionMiddleware(), queuePriori
     }
 
     // Increment usage ONLY upon successful AI stream completion
-    try {
-      const identity: RateLimitIdentity = req.user
-        ? { type: 'authenticated', userId: req.user.id, tier }
-        : { type: 'anonymous', anonId: req.anonId || 'unknown', tier: 'anonymous' };
+    // Skip charging for voice-mode requests — voice credits are charged via /voice-complete
+    const isVoiceMode = req.body?.mode === 'voice';
+    if (!isVoiceMode) {
+      try {
+        const identity: RateLimitIdentity = req.user
+          ? { type: 'authenticated', userId: req.user.id, tier }
+          : { type: 'anonymous', anonId: req.anonId || 'unknown', tier: 'anonymous' };
 
-      await checkAndIncrementUsage(identity, 'chat', isByok);
-      console.log(`[AI Route] Successfully charged chat credit for user: ${userId || req.anonId}`);
-    } catch (chargeErr) {
-      console.error('[AI Route] Failed to charge credit post-stream:', chargeErr);
+        await checkAndIncrementUsage(identity, 'chat', isByok);
+        console.log(`[AI Route] Successfully charged chat credit for user: ${userId || req.anonId}`);
+      } catch (chargeErr) {
+        console.error('[AI Route] Failed to charge credit post-stream:', chargeErr);
+      }
+    } else {
+      console.log(`[AI Route] Skipping chat credit charge for voice-mode request (user: ${userId || req.anonId})`);
     }
 
     writeSSE('[DONE]');
@@ -951,5 +957,90 @@ router.post('/tts', flexAuthMiddleware, abuseDetectionMiddleware(), queuePriorit
     res.status(500).json({ success: false, message: error.message });
   }
 }));
+
+/**
+ * @route   POST /api/ai/voice-complete
+ * @desc    Charge voice credits after a full voice flow (STT → Chat → TTS) completes.
+ *          Credit cost is based on total response duration:
+ *          - ≤ 5 seconds  → 1 voice credit
+ *          - > 5 and ≤ 10 → 3 voice credits
+ *          - > 10 seconds → 5 voice credits
+ * @access  Private
+ */
+router.post('/voice-complete', flexAuthMiddleware, async (req: any, res: any) => {
+  try {
+    const { durationSeconds, voiceSessionId } = req.body;
+    const userId = req.user?.id;
+    const anonId = req.anonId;
+    const tier = (req as any).userTier || 'anonymous';
+
+    if (typeof durationSeconds !== 'number' || durationSeconds < 0) {
+      return res.status(400).json({ success: false, message: 'Valid durationSeconds is required' });
+    }
+
+    // Prevent duplicate charges for the same voice session
+    if (voiceSessionId) {
+      const { voiceSessionCache } = await import('../middleware/rateLimit');
+      const chargeKey = `complete_${voiceSessionId}`;
+      if (voiceSessionCache.has(chargeKey)) {
+        console.log(`[AI Route] Voice session ${voiceSessionId} already charged, skipping`);
+        return res.json({ success: true, creditsCharged: 0, message: 'Already charged' });
+      }
+      voiceSessionCache.add(chargeKey);
+    }
+
+    // Determine credit cost based on total duration
+    let creditsToCharge: number;
+    if (durationSeconds <= 5) {
+      creditsToCharge = 1;
+    } else if (durationSeconds <= 10) {
+      creditsToCharge = 3;
+    } else {
+      creditsToCharge = 5;
+    }
+
+    const identity: RateLimitIdentity = userId
+      ? { type: 'authenticated', userId, tier }
+      : { type: 'anonymous', anonId: anonId || 'unknown', tier: 'anonymous' as any };
+
+    // Check if user has BYOK for deepgram (voice)
+    let isByok = false;
+    if (userId) {
+      const result = await ApiKeyService.getUserApiKey(userId, 'deepgram');
+      if (result.source === 'user') isByok = true;
+    }
+
+    // Charge the voice credits
+    const { checkAndIncrementMultiUsage } = await import('../services/usage.service');
+    const result = await checkAndIncrementMultiUsage(identity, [
+      { tool: 'voice', amount: creditsToCharge, isByok }
+    ]);
+
+    if (!result.allowed) {
+      return res.status(429).json({
+        success: false,
+        code: 'RATE_LIMIT_EXCEEDED',
+        reason: result.reason,
+        tool: 'voice',
+        limit: result.limit,
+        current: result.used,
+        resetsIn: result.resetsIn,
+        message: result.message || 'Voice usage limit exceeded.',
+        upgradeUrl: '/pricing'
+      });
+    }
+
+    console.log(`[AI Route] Charged ${creditsToCharge} voice credit(s) for ${durationSeconds}s response (user: ${userId || anonId})`);
+
+    res.json({
+      success: true,
+      creditsCharged: creditsToCharge,
+      durationSeconds,
+    });
+  } catch (error: any) {
+    console.error('[AI Route] Voice complete error:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
 
 export default router;

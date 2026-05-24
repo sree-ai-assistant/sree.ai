@@ -132,6 +132,14 @@ export const rateLimitMiddleware = (toolType: ToolType, provider?: string) => {
             const limitName = result.reason === 'minute' ? 'per minute' : result.reason === 'daily' ? 'daily' : 'monthly';
             result.message = `Chat ${limitName} limit reached (${result.used}/${result.limit}). Please upgrade or try again later.`;
           }
+        } else if (actualToolType === 'voice') {
+          // Voice credits are charged ONCE at the end of the full voice flow
+          // via the /voice-complete endpoint. Here we only check limits (read-only).
+          result = await checkRateLimit(identity, actualToolType);
+          if (!result.allowed) {
+            const limitName = result.reason === 'minute' ? 'per minute' : result.reason === 'daily' ? 'daily' : 'monthly';
+            result.message = `Voice ${limitName} limit reached (${result.used}/${result.limit}). Please upgrade or try again later.`;
+          }
         } else {
           // We increment at the start of the request to prevent race conditions for other tools.
           result = await checkAndIncrementUsage(identity, actualToolType, isByok);

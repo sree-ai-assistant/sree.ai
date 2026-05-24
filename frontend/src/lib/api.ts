@@ -86,6 +86,10 @@ export const aiService = {
     });
     return response.data;
   },
+  voiceComplete: async (durationSeconds: number, voiceSessionId?: string) => {
+    const response = await api.post('/ai/voice-complete', { durationSeconds, voiceSessionId });
+    return response.data;
+  },
 };
 
 export const sessionService = {

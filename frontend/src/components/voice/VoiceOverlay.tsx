@@ -219,6 +219,9 @@ export const VoiceOverlay: React.FC<VoiceOverlayProps> = ({ onClose, initialConv
       return;
     }
 
+    // Track the start time of the entire voice flow (STT → Chat → TTS)
+    const voiceFlowStartTime = Date.now();
+
     try {
       setStatus('transcribing');
       const audioBlob = new Blob(chunksRef.current, { type: 'audio/webm' });
@@ -302,41 +305,85 @@ export const VoiceOverlay: React.FC<VoiceOverlayProps> = ({ onClose, initialConv
           setStatus('speaking');
 
           let playedIndex = 0;
+          let cumulativeText = '';
           while (true) {
             if (playedIndex < audioQueue.length) {
               const item = audioQueue[playedIndex];
 
-              // If audio is not ready yet, wait
-              if (!item.url) {
-                await new Promise(r => setTimeout(r, 100));
+              // If url is empty string, TTS failed or text was empty — show text but skip audio
+              if (item.url === '') {
+                cumulativeText += item.text;
+                setDisplayedAiResponse(filterThinkingTags(cumulativeText));
+                playedIndex++;
                 continue;
               }
 
-              // Sync: Play audio and start typewriter for this sentence
+              // If audio is not ready yet (url is null), wait for it with a timeout
+              if (item.url === null) {
+                const waitStart = Date.now();
+                while (audioQueue[playedIndex].url === null) {
+                  if (Date.now() - waitStart > 10000) {
+                    // 10s timeout — TTS fetch is stuck, skip this chunk
+                    console.warn(`[Voice] TTS fetch timeout for chunk ${playedIndex}, skipping`);
+                    audioQueue[playedIndex] = { ...audioQueue[playedIndex], url: '' };
+                    break;
+                  }
+                  await new Promise(r => setTimeout(r, 100));
+                }
+                continue; // Re-check the item (might be '' now or a valid url)
+              }
+
+              // Play audio and typewrite text
               if (audioRef.current) {
-                audioRef.current.src = item.url;
-                const audioPromise = new Promise(resolve => {
-                  audioRef.current!.onended = resolve;
+                const audio = audioRef.current;
+                audio.src = item.url;
+
+                const audioPromise = new Promise<void>((resolve) => {
+                  let resolved = false;
+                  const done = () => { if (!resolved) { resolved = true; resolve(); } };
+                  audio.onended = done;
+                  audio.onerror = () => {
+                    console.warn('[Voice] Audio playback error, skipping segment');
+                    done();
+                  };
+                  // Safety timeout: 20s max per audio segment
+                  setTimeout(done, 20000);
                 });
-                audioRef.current.play();
 
-                // Type this specific sentence
-                const prevText = fullAiText.slice(0, fullAiText.indexOf(item.text));
+                try {
+                  await audio.play();
+                } catch (playErr) {
+                  console.warn('[Voice] Audio play() rejected, skipping segment:', playErr);
+                  cumulativeText += item.text;
+                  setDisplayedAiResponse(filterThinkingTags(cumulativeText));
+                  playedIndex++;
+                  continue;
+                }
 
-                // Update displayed response up to previous sentences if needed
-                setDisplayedAiResponse(filterThinkingTags(prevText));
-                await typewriter(filterThinkingTags(item.text), (val) => setDisplayedAiResponse(filterThinkingTags(prevText) + val), 20);
+                // Typewrite this chunk while audio plays
+                setDisplayedAiResponse(filterThinkingTags(cumulativeText));
+                await typewriter(filterThinkingTags(item.text), (val) => setDisplayedAiResponse(filterThinkingTags(cumulativeText) + val), 20);
+                cumulativeText += item.text;
 
                 await audioPromise;
+
+                // Clean up audio handlers
+                audio.onended = null;
+                audio.onerror = null;
+              } else {
+                cumulativeText += item.text;
+                setDisplayedAiResponse(filterThinkingTags(cumulativeText));
               }
 
               playedIndex++;
             } else {
               if (readerDone && playedIndex >= audioQueue.length) break;
-              await new Promise(r => setTimeout(r, 100));
+              await new Promise(r => setTimeout(r, 150));
             }
           }
 
+          // Ensure full response is displayed
+          setDisplayedAiResponse(filterThinkingTags(fullAiText));
           isProcessingQueue = false;
           setStatus('listening');
           setTimeout(startRecording, 500);
@@ -347,7 +394,16 @@ export const VoiceOverlay: React.FC<VoiceOverlayProps> = ({ onClose, initialConv
           return filtered.replace(/[*\/()]/g, '').trim();
         };
 
-        const fetchSentenceAudio = async (text: string, index: number) => {
+        // Limit concurrent TTS fetches
+        let activeTTSFetches = 0;
+        const MAX_CONCURRENT_TTS = 3;
+
+        const fetchChunkAudio = async (text: string, index: number) => {
+          // Wait if too many concurrent fetches
+          while (activeTTSFetches >= MAX_CONCURRENT_TTS) {
+            await new Promise(r => setTimeout(r, 50));
+          }
+          activeTTSFetches++;
           try {
             const cleaned = cleanTextForTTS(text);
             if (!cleaned) {
@@ -358,13 +414,30 @@ export const VoiceOverlay: React.FC<VoiceOverlayProps> = ({ onClose, initialConv
             const url = URL.createObjectURL(blob);
             audioQueue[index] = { text, url, blob };
           } catch (err) {
-            console.error('Sentence TTS error:', err);
-            // On error, mark as "ready" with no URL to skip
+            console.error('[Voice] TTS fetch error:', err);
             audioQueue[index] = { text, url: '', blob: null };
+          } finally {
+            activeTTSFetches--;
           }
         };
 
-        let currentSentence = '';
+        // Batching: accumulate text into chunks of ~200 chars or 3+ sentence boundaries
+        let currentChunk = '';
+        let sentenceCount = 0;
+        const MIN_CHUNK_CHARS = 150;
+        const MAX_CHUNK_SENTENCES = 3;
+
+        const flushChunk = () => {
+          const s = currentChunk.trim();
+          if (!s) return;
+          const chunkIdx = audioQueue.length;
+          audioQueue.push({ text: s, url: null, blob: null });
+          fetchChunkAudio(s, chunkIdx);
+          if (!isProcessingQueue) processPlaybackQueue();
+          currentChunk = '';
+          sentenceCount = 0;
+        };
+
         let buffer = '';
         const processStream = async () => {
           try {
@@ -396,18 +469,15 @@ export const VoiceOverlay: React.FC<VoiceOverlayProps> = ({ onClose, initialConv
                     if (parsed.content) {
                       const content = parsed.content;
                       fullAiText += content;
-                      currentSentence += content;
+                      currentChunk += content;
 
-                      // Sentence detection: ., !, ?, or \n
+                      // Detect sentence boundaries
                       if (/[.!?\n]/.test(content)) {
-                        const s = currentSentence.trim();
-                        if (s) {
-                          const sentenceIdx = audioQueue.length;
-                          audioQueue.push({ text: s, url: null, blob: null });
-                          fetchSentenceAudio(s, sentenceIdx);
-                          if (!isProcessingQueue) processPlaybackQueue();
+                        sentenceCount++;
+                        // Flush when chunk is large enough OR has enough sentences
+                        if (currentChunk.length >= MIN_CHUNK_CHARS || sentenceCount >= MAX_CHUNK_SENTENCES) {
+                          flushChunk();
                         }
-                        currentSentence = '';
                       }
                     }
                   } catch (e) { }
@@ -415,18 +485,15 @@ export const VoiceOverlay: React.FC<VoiceOverlayProps> = ({ onClose, initialConv
               }
 
               if (done) {
+                // Flush remaining text as the final chunk BEFORE setting readerDone
+                flushChunk();
                 readerDone = true;
-                // Process final sentence if any
-                if (currentSentence.trim()) {
-                  const s = currentSentence.trim();
-                  audioQueue.push({ text: s, url: null, blob: null });
-                  fetchSentenceAudio(s, audioQueue.length - 1);
-                }
                 break;
               }
             }
           } catch (err) {
             console.error('Stream read error:', err);
+            flushChunk();
             readerDone = true;
           }
         };
@@ -439,7 +506,23 @@ export const VoiceOverlay: React.FC<VoiceOverlayProps> = ({ onClose, initialConv
           await new Promise(r => setTimeout(r, 100));
         }
 
-        // setAiResponse(fullAiText);
+        // Calculate total voice flow duration in seconds
+        const voiceFlowDurationSeconds = (Date.now() - voiceFlowStartTime) / 1000;
+
+        // Charge voice credits based on total flow duration via the backend
+        // This runs regardless of conversation creation success
+        try {
+          const result = await aiService.voiceComplete(voiceFlowDurationSeconds, voiceSessionId);
+          const creditsCharged = result.creditsCharged || 1;
+          console.log(`[Voice] Charged ${creditsCharged} voice credit(s) for ${voiceFlowDurationSeconds.toFixed(1)}s flow`);
+          useUsageStore.getState().incrementLocalUsage('voice', creditsCharged);
+          // Sync from server to ensure usage indicator is accurate
+          useUsageStore.getState().fetchStatus();
+        } catch (chargeErr) {
+          console.error('[Voice] Failed to charge voice credits:', chargeErr);
+          // Fallback: increment by 1 locally
+          useUsageStore.getState().incrementLocalUsage('voice', 1);
+        }
 
         if (user?.id) {
           let currentConvId = conversationIdRef.current;
@@ -454,9 +537,6 @@ export const VoiceOverlay: React.FC<VoiceOverlayProps> = ({ onClose, initialConv
           if (currentConvId) {
             await addMessage(currentConvId, 'user', userText, { mode: 'voice' });
             await addMessage(currentConvId, 'assistant', fullAiText, { mode: 'voice' });
-
-            // Increment local voice usage count!
-            useUsageStore.getState().incrementLocalUsage('voice');
 
             if (!initialConversationId && currentConvId) {
               navigate(`/voice/chat/${currentConvId}`, { replace: true });
