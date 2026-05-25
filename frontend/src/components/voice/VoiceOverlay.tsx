@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, AlertTriangle, Clock, ArrowRight, Sparkles } from 'lucide-react';
+import { X, AlertTriangle, Clock, ArrowRight, Sparkles, Mic } from 'lucide-react';
 import { useChatStore } from '../../store/chat.store';
 import { useAuthStore } from '../../store/auth.store';
 import { useUsageStore } from '../../store/usage.store';
@@ -229,6 +229,15 @@ export const VoiceOverlay: React.FC<VoiceOverlayProps> = ({ onClose, initialConv
     }, 1000);
     return () => clearInterval(interval);
   }, [countdown, startRecording]);
+
+  const handleVisualizerClick = () => {
+    if (status === 'idle') {
+      setIsSessionActive(true);
+      setTimeout(() => {
+        startRecording();
+      }, 50);
+    }
+  };
 
   const processVoice = async () => {
     const recordingDuration = Date.now() - recordingStartTimeRef.current;
@@ -740,13 +749,31 @@ export const VoiceOverlay: React.FC<VoiceOverlayProps> = ({ onClose, initialConv
         </div>
       ) : (
         <>
-          <div className={styles.visualizerWrapper}>
+          <div 
+            className={`${styles.visualizerWrapper} ${status === 'idle' ? styles.clickableVisualizer : ''}`}
+            onClick={status === 'idle' ? handleVisualizerClick : undefined}
+          >
             <VoiceVisualizer
               stream={stream}
               audioElement={audioRef.current}
               isActive={true}
               isGray={status === 'idle' || status === 'transcribing' || status === 'thinking'}
             />
+            {status === 'idle' && (
+              <motion.div 
+                initial={{ opacity: 0, scale: 0.8 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ duration: 0.4, ease: 'easeOut' }}
+                className={styles.centerStartBtn}
+              >
+                <div className={styles.micCircle}>
+                  <Mic size={36} className={styles.micIcon} />
+                  <div className={styles.pulseRing1} />
+                  <div className={styles.pulseRing2} />
+                </div>
+                <span className={styles.tapToStartText}>Tap to speak</span>
+              </motion.div>
+            )}
           </div>
 
           <div onClick={repeat} className={styles.statusIndicator}>
