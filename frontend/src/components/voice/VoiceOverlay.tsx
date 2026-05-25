@@ -63,11 +63,14 @@ export const VoiceOverlay: React.FC<VoiceOverlayProps> = ({ onClose, initialConv
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
   const animationFrameRef = useRef<number | null>(null);
+  const streamRef = useRef<MediaStream | null>(null);
 
   const SILENCE_THRESHOLD = 20; // Increased from 5 to ignore more background noise
   const SILENCE_DURATION = 3000; // 3 seconds as requested
 
   const recordingStartTimeRef = useRef<number>(0);
+  const shouldProcessRef = useRef<boolean>(true);
+  const isUnmountedRef = useRef<boolean>(false);
 
   const filterThinkingTags = (content: string) => {
     if (!content) return '';
@@ -115,6 +118,8 @@ export const VoiceOverlay: React.FC<VoiceOverlayProps> = ({ onClose, initialConv
 
   const startRecording = useCallback(async () => {
     if (!isSessionActive) return;
+    shouldProcessRef.current = true;
+    isUnmountedRef.current = false;
 
     try {
       setTranscript('');
@@ -128,6 +133,7 @@ export const VoiceOverlay: React.FC<VoiceOverlayProps> = ({ onClose, initialConv
         }
       });
       setStream(audioStream);
+      streamRef.current = audioStream;
 
       const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
       const source = audioContext.createMediaStreamSource(audioStream);
@@ -146,6 +152,10 @@ export const VoiceOverlay: React.FC<VoiceOverlayProps> = ({ onClose, initialConv
       };
 
       recorder.onstop = () => {
+        if (isUnmountedRef.current || !shouldProcessRef.current) {
+          console.log('[Voice] shouldProcess is false or component unmounted, discarding chunk.');
+          return;
+        }
         processVoice();
       };
 
@@ -202,13 +212,20 @@ export const VoiceOverlay: React.FC<VoiceOverlayProps> = ({ onClose, initialConv
     }
   }, [isSessionActive]);
 
-  const stopRecording = () => {
+  const stopRecording = (shouldProcess = true) => {
+    shouldProcessRef.current = shouldProcess;
     if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
       mediaRecorderRef.current.stop();
-      if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
-      stream?.getTracks().forEach(track => track.stop());
-      setStream(null);
     }
+    if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(track => {
+        track.stop();
+        console.log('[Voice] Stopped track:', track.label);
+      });
+      streamRef.current = null;
+    }
+    setStream(null);
   };
 
   // Countdown timer logic
@@ -624,7 +641,7 @@ export const VoiceOverlay: React.FC<VoiceOverlayProps> = ({ onClose, initialConv
         const upgradeUrl = errorData?.upgradeUrl || '/pricing';
         
         setIsSessionActive(false);
-        stopRecording();
+        stopRecording(false);
         if (audioRef.current) {
           audioRef.current.pause();
           audioRef.current.src = '';
@@ -647,7 +664,7 @@ export const VoiceOverlay: React.FC<VoiceOverlayProps> = ({ onClose, initialConv
 
   const handleManualClose = () => {
     setIsSessionActive(false);
-    stopRecording();
+    stopRecording(false);
     if (audioRef.current) {
       audioRef.current.pause();
       audioRef.current.src = '';
@@ -659,9 +676,31 @@ export const VoiceOverlay: React.FC<VoiceOverlayProps> = ({ onClose, initialConv
     const timer = setTimeout(startRecording, 1000);
     return () => {
       clearTimeout(timer);
-      if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
     };
   }, [startRecording]);
+
+  useEffect(() => {
+    return () => {
+      isUnmountedRef.current = true;
+      shouldProcessRef.current = false;
+      if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
+      
+      // Forcefully release the mic when component unmounts or changes pages
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach(track => {
+          track.stop();
+          console.log('[Voice] Stopped track on unmount:', track.label);
+        });
+        streamRef.current = null;
+      }
+
+      if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
+        try {
+          mediaRecorderRef.current.stop();
+        } catch (e) {}
+      }
+    };
+  }, []);
   const repeat = () => {
     if (audioRef.current) {
 
