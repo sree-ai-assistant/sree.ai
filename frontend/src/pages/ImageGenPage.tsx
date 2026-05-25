@@ -7,6 +7,7 @@ import {
   Maximize2, History, Layers, Sliders, Palette, Eye, Settings, HelpCircle, LogOut,
   Check, AlertCircle, Lock
 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { DashboardLayout } from '../features/dashboard/DashboardLayout';
 import { useAuthStore } from '../store/auth.store';
@@ -87,6 +88,7 @@ const UsageCountdown: React.FC<{ resetsAt: string }> = ({ resetsAt }) => {
 };
 
 const ImageGenPage: React.FC = () => {
+  const navigate = useNavigate();
   const { user } = useAuthStore();
   const { models, fetchModels } = useModelStore();
   const {
@@ -376,14 +378,42 @@ const ImageGenPage: React.FC = () => {
                                 onSelect={(e) => {
                                   if (!accessible) {
                                     e.preventDefault(); // Keep dropdown open
-                                    toast.error('Upgrade your plan to Access Premium Models', {
-                                      icon: '🔒',
-                                      style: {
-                                        background: '#1a1a1a',
-                                        color: '#fff',
-                                        border: '1px solid rgba(255, 255, 255, 0.1)'
+                                    toast.error(
+                                      (t) => (
+                                        <span>
+                                          Upgrade your plan to Access Premium Models{' '}
+                                          <button
+                                            onClick={() => {
+                                              toast.dismiss(t.id);
+                                              navigate('/settings?tab=billing');
+                                            }}
+                                            style={{
+                                              background: 'none',
+                                              border: 'none',
+                                              color: '#3b82f6',
+                                              textDecoration: 'underline',
+                                              padding: 0,
+                                              font: 'inherit',
+                                              cursor: 'pointer',
+                                              fontWeight: 'bold',
+                                              marginLeft: '4px'
+                                            }}
+                                          >
+                                            Upgrade
+                                          </button>
+                                        </span>
+                                      ),
+                                      {
+                                        icon: '🔒',
+                                        style: {
+                                          background: '#1a1a1a',
+                                          color: '#fff',
+                                          border: '1px solid rgba(255, 255, 255, 0.1)',
+                                          borderRadius: '10px',
+                                          padding: '12px 16px'
+                                        }
                                       }
-                                    });
+                                    );
                                     openUpgradeModal(m.tier_required as 'starter' | 'pro');
                                     return;
                                   }
