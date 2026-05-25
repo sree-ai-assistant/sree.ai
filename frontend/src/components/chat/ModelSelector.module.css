@@ -94,6 +94,17 @@
   border-color: rgba(255, 255, 255, 0.1);
 }
 
+.modelItem.locked {
+  opacity: 0.55;
+  cursor: pointer;
+  transition: opacity 0.2s ease;
+}
+
+.modelItem.locked:hover {
+  opacity: 0.8;
+  background: rgba(255, 255, 255, 0.03) !important;
+}
+
 .modelItem.selected {
   background: rgba(59, 130, 246, 0.1);
   border-color: var(--primary, #3b82f6);
@@ -104,7 +115,6 @@
   filter: grayscale(0.5);
 }
 
-.modelItem.locked,
 .modelItem.maintenance {
   cursor: default;
 }

@@ -986,3 +986,14 @@
     font-size: 0.8rem !important;
   }
 }
+
+.lockedItem {
+  opacity: 0.55;
+  cursor: pointer;
+  transition: opacity 0.2s ease;
+}
+
+.lockedItem:hover {
+  opacity: 0.8;
+  background: rgba(255, 255, 255, 0.03) !important;
+}

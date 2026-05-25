@@ -5,8 +5,9 @@ import {
   Image as ImageIcon, Wand2, Trash2, Loader2, Sparkles,
   Download, Settings2, ChevronDown, Zap, X, RotateCcw, RefreshCcw, Copy, LayoutGrid, Plus,
   Maximize2, History, Layers, Sliders, Palette, Eye, Settings, HelpCircle, LogOut,
-  Check, AlertCircle
+  Check, AlertCircle, Lock
 } from 'lucide-react';
+import toast from 'react-hot-toast';
 import { DashboardLayout } from '../features/dashboard/DashboardLayout';
 import { useAuthStore } from '../store/auth.store';
 import { useModelStore } from '../store/model.store';
@@ -120,8 +121,37 @@ const ImageGenPage: React.FC = () => {
 
   const promptRef = useRef<HTMLTextAreaElement>(null);
 
-  // Get image-capable models
-  const imageModels = models.filter(m => m.is_image && !m.in_maintenance);
+  const canAccess = useCallback((tier: string) => {
+    const userTier = (user?.plan_type || 'free').toLowerCase();
+    const modelTier = tier.toLowerCase();
+    const ranks = { 'free': 0, 'starter': 1, 'pro': 2 };
+    return ranks[userTier as keyof typeof ranks] >= ranks[modelTier as keyof typeof ranks];
+  }, [user]);
+
+  // Get image-capable models sorted by accessibility first, then standard ranks/parameters
+  const imageModels = useMemo(() => {
+    return models
+      .filter(m => m.is_image && !m.in_maintenance)
+      .sort((a, b) => {
+        // Accessible models always go above locked models
+        const accA = canAccess(a.tier_required);
+        const accB = canAccess(b.tier_required);
+        if (accA && !accB) return -1;
+        if (!accA && accB) return 1;
+
+        // Otherwise sort by rank/tier requirement
+        const ranks = { 'free': 0, 'starter': 1, 'pro': 2 };
+        const rankA = ranks[(a.tier_required?.toLowerCase() || 'free') as keyof typeof ranks] ?? 0;
+        const rankB = ranks[(b.tier_required?.toLowerCase() || 'free') as keyof typeof ranks] ?? 0;
+        if (rankA !== rankB) return rankA - rankB;
+
+        // Prefer fast models
+        if (a.is_fast && !b.is_fast) return -1;
+        if (!a.is_fast && b.is_fast) return 1;
+
+        return 0;
+      });
+  }, [models, canAccess]);
 
   const usage = useMemo<ImagePageUsage | null>(() => {
     if (!usageStatus) return null;
@@ -165,13 +195,15 @@ const ImageGenPage: React.FC = () => {
     }
   }, [usage]);
 
-  // Auto-select first image model
+  // Auto-select first image model (preferring accessible models)
   useEffect(() => {
     if (imageModels.length > 0 && !settings.modelId) {
-      const fast = imageModels.find(m => m.is_fast) || imageModels[0];
+      const accessibleModels = imageModels.filter(m => canAccess(m.tier_required));
+      const candidates = accessibleModels.length > 0 ? accessibleModels : imageModels;
+      const fast = candidates.find(m => m.is_fast) || candidates[0];
       updateSettings({ modelId: fast.model_id });
     }
-  }, [imageModels, settings.modelId, updateSettings]);
+  }, [imageModels, settings.modelId, updateSettings, canAccess]);
 
   const selectedModel = imageModels.find(m => m.model_id === settings.modelId);
   const isFlux = settings.modelId.toLowerCase().includes('flux');
@@ -313,7 +345,10 @@ const ImageGenPage: React.FC = () => {
                     <DropdownMenu.Trigger asChild>
                       <button className={styles.dropdownTrigger}>
                         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '2px' }}>
-                          <span style={{ fontWeight: 600, fontSize: '0.9rem' }}>{selectedModel?.name || 'Select Model'}</span>
+                          <span style={{ fontWeight: 600, fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            {selectedModel?.name || 'Select Model'}
+                            {selectedModel && !canAccess(selectedModel.tier_required) && <Lock size={12} />}
+                          </span>
                           <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
                             {selectedModel?.is_fast ? 'Ultra Fast' : 'High Quality'}
                           </span>
@@ -330,21 +365,44 @@ const ImageGenPage: React.FC = () => {
                           exit={{ opacity: 0, y: -10, scale: 0.95 }}
                           transition={{ duration: 0.15 }}
                         >
-                          {imageModels.map(m => (
-                            <DropdownMenu.Item
-                              key={m.model_id}
-                              className={`${styles.dropdownItem} ${settings.modelId === m.model_id ? styles.dropdownItemActive : ''}`}
-                              onSelect={() => updateSettings({ modelId: m.model_id })}
-                            >
-                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
-                                <span style={{ fontWeight: 600 }}>{m.name}</span>
-                                {m.is_fast && <Zap size={12} className="text-success" />}
-                              </div>
-                              <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                                {m.is_fast ? 'Ultra Fast' : 'High Quality'}
-                              </span>
-                            </DropdownMenu.Item>
-                          ))}
+                          {imageModels.map(m => {
+                            const accessible = canAccess(m.tier_required);
+                            const isSelected = settings.modelId === m.model_id;
+
+                            return (
+                              <DropdownMenu.Item
+                                key={m.model_id}
+                                className={`${styles.dropdownItem} ${isSelected ? styles.dropdownItemActive : ''} ${!accessible ? styles.lockedItem : ''}`}
+                                onSelect={(e) => {
+                                  if (!accessible) {
+                                    e.preventDefault(); // Keep dropdown open
+                                    toast.error('Upgrade your plan to Access Premium Models', {
+                                      icon: '🔒',
+                                      style: {
+                                        background: '#1a1a1a',
+                                        color: '#fff',
+                                        border: '1px solid rgba(255, 255, 255, 0.1)'
+                                      }
+                                    });
+                                    openUpgradeModal(m.tier_required as 'starter' | 'pro');
+                                    return;
+                                  }
+                                  updateSettings({ modelId: m.model_id });
+                                }}
+                              >
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', opacity: !accessible ? 0.55 : 1 }}>
+                                  <span style={{ fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                    {m.name}
+                                    {!accessible && <Lock size={12} style={{ opacity: 0.8 }} />}
+                                  </span>
+                                  {m.is_fast && <Zap size={12} className="text-success" />}
+                                </div>
+                                <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', opacity: !accessible ? 0.55 : 1 }}>
+                                  {m.is_fast ? 'Ultra Fast' : 'High Quality'} {!accessible && `(Requires ${m.tier_required})`}
+                                </span>
+                              </DropdownMenu.Item>
+                            );
+                          })}
                         </motion.div>
                       </DropdownMenu.Content>
                     </DropdownMenu.Portal>

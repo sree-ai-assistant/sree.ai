@@ -43,6 +43,13 @@ export const ModelSelector: React.FC = () => {
   const sortedModels = [...filteredModels].sort((a, b) => {
     if (a.in_maintenance && !b.in_maintenance) return 1;
     if (!a.in_maintenance && b.in_maintenance) return -1;
+    
+    // Accessible models always go above locked models
+    const accA = canAccess(a.tier_required);
+    const accB = canAccess(b.tier_required);
+    if (accA && !accB) return -1;
+    if (!accA && accB) return 1;
+
     if (visionRequired) {
       if (a.is_vision && !b.is_vision) return -1;
       if (!a.is_vision && b.is_vision) return 1;
@@ -132,6 +139,14 @@ export const ModelSelector: React.FC = () => {
                           }
 
                           if (!accessible) {
+                            toast.error('Upgrade your plan to Access Premium Models', {
+                              icon: '🔒',
+                              style: {
+                                background: '#1a1a1a',
+                                color: '#fff',
+                                border: '1px solid rgba(255, 255, 255, 0.1)'
+                              }
+                            });
                             openUpgradeModal(model.tier_required as 'starter' | 'pro');
                             return;
                           }

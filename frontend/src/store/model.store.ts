@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { supabase } from '../lib/supabase';
+import { useAuthStore } from './auth.store';
 
 export interface AIModel {
   id: string;
@@ -25,6 +26,7 @@ const CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
 interface CachedModels {
   models: AIModel[];
   cachedAt: number;
+  tier?: string;
 }
 
 function getCachedModels(): CachedModels | null {
@@ -39,9 +41,9 @@ function getCachedModels(): CachedModels | null {
   }
 }
 
-function setCachedModels(models: AIModel[]): void {
+function setCachedModels(models: AIModel[], tier: string): void {
   try {
-    const cache: CachedModels = { models, cachedAt: Date.now() };
+    const cache: CachedModels = { models, cachedAt: Date.now(), tier };
     localStorage.setItem(MODELS_CACHE_KEY, JSON.stringify(cache));
   } catch (e) {
     console.warn('Failed to cache models:', e);
@@ -103,11 +105,18 @@ export const useModelStore = create<ModelState>()(
       visionRequired: false,
 
       fetchModels: async (forceRefresh = false) => {
+        const currentTier = useAuthStore.getState().user?.plan_type || 'anonymous';
+
         // --- Check localStorage cache first ---
         if (!forceRefresh) {
           const cached = getCachedModels();
-          if (cached && (Date.now() - cached.cachedAt < CACHE_TTL_MS) && cached.models.length > 0) {
-            // Cache is fresh — use it, but only if the store is currently empty
+          if (
+            cached && 
+            cached.tier === currentTier && 
+            (Date.now() - cached.cachedAt < CACHE_TTL_MS) && 
+            cached.models.length > 0
+          ) {
+            // Cache is fresh and matching tier — use it, but only if the store is currently empty
             // (avoids overwriting in-memory state on every mount)
             if (get().models.length === 0) {
               const selected = resolveSelectedModel(cached.models, get().selectedModel, get().visionRequired);
@@ -144,7 +153,7 @@ export const useModelStore = create<ModelState>()(
             const selected = resolveSelectedModel(models, get().selectedModel, get().visionRequired);
 
             // Update localStorage cache
-            setCachedModels(models);
+            setCachedModels(models, currentTier);
 
             set({ models, selectedModel: selected, loading: false });
           }

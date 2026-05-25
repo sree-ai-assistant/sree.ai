@@ -106,6 +106,12 @@ export const useAuthStore = create<AuthState>((set) => ({
             }
           });
 
+          // Clear cached models so the new session gets the fresh tier-appropriate data (MIG-04)
+          localStorage.removeItem('sree_models_cache');
+          import('./model.store').then(({ useModelStore }) => {
+            useModelStore.getState().fetchModels(true).catch(err => console.error('Failed to refetch models on auth change:', err));
+          }).catch(err => console.error('Failed to import model store:', err));
+
           // Trigger data migration ONLY during explicit SIGNED_IN login/signup flow (MIG-04)
           const anonId = getStoredAnonId();
           if (event === 'SIGNED_IN' && anonId) {

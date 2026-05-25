@@ -16,11 +16,7 @@ router.get('/', flexAuthMiddleware, async (req, res) => {
       .select('*')
       .order('tier_required', { ascending: true });
 
-    // If the plan doesn't allow all models, filter by tier
-    if (!planConfig.features.allModels) {
-      query = query.eq('tier_required', 'free');
-    }
-
+    // Return all models so that frontend can display locked/premium models to entice upgrades
     const { data: models, error } = await query;
 
     if (error) throw error;
