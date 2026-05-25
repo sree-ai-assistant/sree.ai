@@ -204,3 +204,162 @@
     opacity: 1;
   }
 }
+
+/* ── Rate Limit Modal Styles ── */
+.rateLimitCard {
+  background: rgba(255, 255, 255, 0.035);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 2rem;
+  padding: 3rem 2.5rem;
+  backdrop-filter: blur(24px) saturate(160%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.25rem;
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.6);
+  max-width: 480px;
+  width: 90%;
+  margin: 0 auto;
+  animation: scaleUp 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+@keyframes scaleUp {
+  from { transform: scale(0.9); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+
+.rateLimitIcon {
+  font-size: 3.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  background: rgba(245, 158, 11, 0.1);
+  color: #f59e0b;
+  margin-bottom: 0.5rem;
+  animation: pulseGlow 2s infinite;
+  border: 1px solid rgba(245, 158, 11, 0.2);
+}
+
+@keyframes pulseGlow {
+  0%, 100% { 
+    transform: scale(1); 
+    box-shadow: 0 0 16px rgba(245, 158, 11, 0.2);
+  }
+  50% { 
+    transform: scale(1.06); 
+    box-shadow: 0 0 32px rgba(245, 158, 11, 0.5);
+  }
+}
+
+.rateLimitTitle {
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: white;
+  margin: 0;
+  letter-spacing: -0.02em;
+  text-align: center;
+}
+
+.rateLimitMessage {
+  font-size: 0.95rem;
+  line-height: 1.55;
+  color: rgba(255, 255, 255, 0.5);
+  margin: 0 0 0.5rem;
+  text-align: center;
+}
+
+.timerCircle {
+  position: relative;
+  width: 140px;
+  height: 140px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  margin: 0.5rem 0;
+}
+
+.timerProgressSvg {
+  position: absolute;
+  top: 0;
+  left: 0;
+  transform: rotate(-90deg);
+  width: 100%;
+  height: 100%;
+}
+
+.timerNumber {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+}
+
+.timerVal {
+  font-size: 2.5rem;
+  font-weight: 800;
+  color: white;
+  font-family: 'SF Mono', 'Fira Code', monospace;
+  text-shadow: 0 0 12px rgba(255, 255, 255, 0.25);
+}
+
+.timerUnit {
+  font-size: 0.72rem;
+  color: rgba(255, 255, 255, 0.45);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-top: 4px;
+}
+
+.rateLimitActions {
+  display: flex;
+  gap: 12px;
+  width: 100%;
+  margin-top: 1rem;
+}
+
+.rateLimitBtn {
+  flex: 1;
+  padding: 12px 20px;
+  border-radius: 14px;
+  font-weight: 700;
+  font-size: 0.88rem;
+  cursor: pointer;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  font-family: inherit;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.rateLimitPrimaryBtn {
+  background: linear-gradient(135deg, #a855f7, #6366f1);
+  color: white;
+  border: none;
+  box-shadow: 0 8px 24px rgba(99, 102, 241, 0.25);
+}
+
+.rateLimitPrimaryBtn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 32px rgba(99, 102, 241, 0.45);
+}
+
+.rateLimitSecondaryBtn {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.rateLimitSecondaryBtn:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.15);
+  color: white;
+  transform: translateY(-1px);
+}

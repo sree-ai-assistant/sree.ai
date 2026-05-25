@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X } from 'lucide-react';
+import { X, AlertTriangle, Clock, ArrowRight, Sparkles } from 'lucide-react';
 import { useChatStore } from '../../store/chat.store';
 import { useAuthStore } from '../../store/auth.store';
 import { useUsageStore } from '../../store/usage.store';
@@ -29,6 +29,14 @@ export const VoiceOverlay: React.FC<VoiceOverlayProps> = ({ onClose, initialConv
   useEffect(() => {
     conversationIdRef.current = conversationId;
   }, [conversationId]);
+
+  // Rate Limit State
+  const [rateLimitInfo, setRateLimitInfo] = useState<{
+    message: string;
+    resetsIn: number;
+    upgradeUrl: string;
+  } | null>(null);
+  const [countdown, setCountdown] = useState<number>(0);
 
   // Sync state with props (important for "New Chat" navigation)
   useEffect(() => {
@@ -203,6 +211,25 @@ export const VoiceOverlay: React.FC<VoiceOverlayProps> = ({ onClose, initialConv
     }
   };
 
+  // Countdown timer logic
+  useEffect(() => {
+    if (countdown <= 0) return;
+    const interval = setInterval(() => {
+      setCountdown((prev) => {
+        if (prev <= 1) {
+          clearInterval(interval);
+          setRateLimitInfo(null);
+          setIsSessionActive(true);
+          // Resume voice loop seamlessly once time is up
+          setTimeout(startRecording, 500);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [countdown, startRecording]);
+
   const processVoice = async () => {
     const recordingDuration = Date.now() - recordingStartTimeRef.current;
 
@@ -289,6 +316,41 @@ export const VoiceOverlay: React.FC<VoiceOverlayProps> = ({ onClose, initialConv
         }, 2000);
 
         const chatResponse = await chatRequestPromise;
+
+        if (!chatResponse.ok) {
+          try {
+            const errorText = await chatResponse.text();
+            let errorData;
+            try {
+              errorData = JSON.parse(errorText);
+            } catch (e) {
+              errorData = { message: errorText };
+            }
+            if (chatResponse.status === 429 || errorData?.code === 'RATE_LIMIT_EXCEEDED') {
+              const resetsIn = errorData?.resetsIn || 30;
+              const message = errorData?.message || 'Usage rate limit reached. Please try again later.';
+              const upgradeUrl = errorData?.upgradeUrl || '/pricing';
+              
+              setIsSessionActive(false);
+              stopRecording();
+              if (audioRef.current) {
+                audioRef.current.pause();
+                audioRef.current.src = '';
+              }
+              stopLoadingMessages();
+              
+              setRateLimitInfo({
+                message,
+                resetsIn,
+                upgradeUrl
+              });
+              setCountdown(resetsIn);
+              setStatus('idle');
+              return;
+            }
+          } catch (e) {}
+          throw new Error(`Chat request failed with status ${chatResponse.status}`);
+        }
 
         const reader = chatResponse.body?.getReader();
         const decoder = new TextDecoder();
@@ -546,6 +608,37 @@ export const VoiceOverlay: React.FC<VoiceOverlayProps> = ({ onClose, initialConv
       }
     } catch (err: any) {
       console.error('Voice Processing Error:', err);
+      
+      let errorData = err.response?.data;
+      if (err.response?.data instanceof Blob) {
+        try {
+          const text = await err.response.data.text();
+          errorData = JSON.parse(text);
+        } catch (e) {}
+      }
+
+      if (err.response?.status === 429 || errorData?.code === 'RATE_LIMIT_EXCEEDED') {
+        const resetsIn = errorData?.resetsIn || 30;
+        const message = errorData?.message || 'Usage rate limit reached. Please try again later.';
+        const upgradeUrl = errorData?.upgradeUrl || '/pricing';
+        
+        setIsSessionActive(false);
+        stopRecording();
+        if (audioRef.current) {
+          audioRef.current.pause();
+          audioRef.current.src = '';
+        }
+        
+        setRateLimitInfo({
+          message,
+          resetsIn,
+          upgradeUrl
+        });
+        setCountdown(resetsIn);
+        setStatus('idle');
+        return;
+      }
+      
       setStatus('idle');
       setTimeout(startRecording, 2000);
     }
@@ -576,100 +669,166 @@ export const VoiceOverlay: React.FC<VoiceOverlayProps> = ({ onClose, initialConv
   }
   return (
     <div className={styles.overlayContainer}>
-      <div className={styles.visualizerWrapper}>
-        <VoiceVisualizer
-          stream={stream}
-          audioElement={audioRef.current}
-          isActive={true}
-          isGray={status === 'idle' || status === 'transcribing' || status === 'thinking'}
-        />
-      </div>
-
       <div className={styles.topBar}>
         <button onClick={handleManualClose} className={styles.closeButton}>
           <X size={24} />
         </button>
       </div>
 
-      <div onClick={repeat} className={styles.statusIndicator}>
-        <div className={`${styles.statusDot} ${styles[status]}`} />
-        <span>
-          {status === 'listening' ? 'AI is Listening' :
-            status === 'speaking' ? 'AI is Speaking' :
-              status === 'thinking' ? 'AI is Thinking' : 'Ready'}
-        </span>
-      </div>
+      {rateLimitInfo ? (
+        <div className={styles.rateLimitCard}>
+          <div className={styles.rateLimitIcon}>
+            <AlertTriangle size={36} />
+          </div>
+          <h2 className={styles.rateLimitTitle}>Rate Limit Reached</h2>
+          <p className={styles.rateLimitMessage}>{rateLimitInfo.message}</p>
+          
+          <div className={styles.timerCircle}>
+            <svg className={styles.timerProgressSvg} viewBox="0 0 100 100">
+              <circle
+                cx="50"
+                cy="50"
+                r="44"
+                stroke="rgba(255, 255, 255, 0.05)"
+                strokeWidth="6"
+                fill="none"
+              />
+              <circle
+                cx="50"
+                cy="50"
+                r="44"
+                stroke="#f59e0b"
+                strokeWidth="6"
+                fill="none"
+                strokeDasharray={`${2 * Math.PI * 44}`}
+                strokeDashoffset={`${2 * Math.PI * 44 * (1 - countdown / (rateLimitInfo.resetsIn || 30))}`}
+                strokeLinecap="round"
+                style={{ transition: 'stroke-dashoffset 1s linear' }}
+              />
+            </svg>
+            <div className={styles.timerNumber}>
+              <span className={styles.timerVal}>{countdown}</span>
+              <span className={styles.timerUnit}>Secs</span>
+            </div>
+          </div>
 
-      <div className={styles.contentOverlay}>
-        <AnimatePresence>
-          {transcript && !showFlyingTranscript && (
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0 }}
-              className={styles.transcriptArea}
+          <div className={styles.rateLimitActions}>
+            <button
+              onClick={() => {
+                setIsSessionActive(true);
+                setRateLimitInfo(null);
+                startRecording();
+              }}
+              className={`${styles.rateLimitBtn} ${styles.rateLimitSecondaryBtn}`}
             >
-              <p className={styles.userText}>{transcript}</p>
-            </motion.div>
-          )}
+              <Clock size={16} />
+              Try Now
+            </button>
+            <button
+              onClick={() => {
+                handleManualClose();
+                navigate(rateLimitInfo.upgradeUrl);
+              }}
+              className={`${styles.rateLimitBtn} ${styles.rateLimitPrimaryBtn}`}
+            >
+              <Sparkles size={16} />
+              Upgrade Plan
+              <ArrowRight size={14} />
+            </button>
+          </div>
+        </div>
+      ) : (
+        <>
+          <div className={styles.visualizerWrapper}>
+            <VoiceVisualizer
+              stream={stream}
+              audioElement={audioRef.current}
+              isActive={true}
+              isGray={status === 'idle' || status === 'transcribing' || status === 'thinking'}
+            />
+          </div>
 
-          {showFlyingTranscript && (
-            <motion.div
-              initial={{ opacity: 1, x: '-50%', y: '100px', scale: 1 }}
-              animate={{ opacity: 0, x: '-50%', y: '-200px', scale: 0.5 }}
-              transition={{ duration: 1.5, ease: 'easeInOut' }}
-              className={styles.animatedTranscript}
-              style={{ left: '50%' }}
-            >
-              {transcript}
-            </motion.div>
-          )}
-        </AnimatePresence>
+          <div onClick={repeat} className={styles.statusIndicator}>
+            <div className={`${styles.statusDot} ${styles[status]}`} />
+            <span>
+              {status === 'listening' ? 'AI is Listening' :
+                status === 'speaking' ? 'AI is Speaking' :
+                  status === 'thinking' ? 'AI is Thinking' : 'Ready'}
+            </span>
+          </div>
 
-        <AnimatePresence mode="wait">
-          {loadingMessage && (
-            <motion.div
-              key={loadingMessage}
-              initial={{ opacity: 0, y: 40, rotateX: 90 }}
-              animate={{ opacity: 1, y: 0, rotateX: 0 }}
-              exit={{ opacity: 0, y: -40, rotateX: -90 }}
-              transition={{ duration: 1, ease: 'easeInOut' }}
-              className={styles.loadingArea}
-              style={{ perspective: '1000px' }}
-            >
-              <div className={styles.loadingText}>
-                {loadingMessage}
-                <motion.span
-                  animate={{ opacity: [0, 1, 0] }}
-                  transition={{ repeat: Infinity, duration: 1.5 }}
-                  className={styles.dots}
+          <div className={styles.contentOverlay}>
+            <AnimatePresence>
+              {transcript && !showFlyingTranscript && (
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0 }}
+                  className={styles.transcriptArea}
                 >
-                  ...
-                </motion.span>
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-        <AnimatePresence>
-          {displayedAiResponse && (
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.9 }}
-              className={styles.aiResponseArea}
-            >
-              <div className={styles.aiText}>
-                {displayedAiResponse.split(/(\*\*.*?\*\*)/g).map((part, i) =>
-                  part.startsWith('**') && part.endsWith('**') ?
-                    <strong key={i} style={{ color: 'white', fontWeight: 700 }}>{part.slice(2, -2)}</strong> :
-                    part
-                )}
-                {status === 'thinking' && !loadingMessage && <span className={styles.streamingCursor}>|</span>}
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </div>
+                  <p className={styles.userText}>{transcript}</p>
+                </motion.div>
+              )}
+
+              {showFlyingTranscript && (
+                <motion.div
+                  initial={{ opacity: 1, x: '-50%', y: '100px', scale: 1 }}
+                  animate={{ opacity: 0, x: '-50%', y: '-200px', scale: 0.5 }}
+                  transition={{ duration: 1.5, ease: 'easeInOut' }}
+                  className={styles.animatedTranscript}
+                  style={{ left: '50%' }}
+                >
+                  {transcript}
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            <AnimatePresence mode="wait">
+              {loadingMessage && (
+                <motion.div
+                  key={loadingMessage}
+                  initial={{ opacity: 0, y: 40, rotateX: 90 }}
+                  animate={{ opacity: 1, y: 0, rotateX: 0 }}
+                  exit={{ opacity: 0, y: -40, rotateX: -90 }}
+                  transition={{ duration: 1, ease: 'easeInOut' }}
+                  className={styles.loadingArea}
+                  style={{ perspective: '1000px' }}
+                >
+                  <div className={styles.loadingText}>
+                    {loadingMessage}
+                    <motion.span
+                      animate={{ opacity: [0, 1, 0] }}
+                      transition={{ repeat: Infinity, duration: 1.5 }}
+                      className={styles.dots}
+                    >
+                      ...
+                    </motion.span>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+            <AnimatePresence>
+              {displayedAiResponse && (
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.9 }}
+                  className={styles.aiResponseArea}
+                >
+                  <div className={styles.aiText}>
+                    {displayedAiResponse.split(/(\*\*.*?\*\*)/g).map((part, i) =>
+                      part.startsWith('**') && part.endsWith('**') ?
+                        <strong key={i} style={{ color: 'white', fontWeight: 700 }}>{part.slice(2, -2)}</strong> :
+                        part
+                    )}
+                    {status === 'thinking' && !loadingMessage && <span className={styles.streamingCursor}>|</span>}
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+        </>
+      )}
 
       <audio ref={audioRef} style={{ display: 'none' }} />
     </div>
