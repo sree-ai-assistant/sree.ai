@@ -3,8 +3,12 @@ import { authMiddleware } from '../middleware/auth';
 import { supabaseAdmin } from '../lib/supabase';
 import { ApiKeyService } from '../services/apiKey.service';
 import { migrateDataToUser } from '../services/anonymous.service';
+import multer from 'multer';
+import fs from 'fs';
+import path from 'path';
 
 const router = Router();
+const avatarUpload = multer({ dest: 'uploads/avatars/', limits: { fileSize: 5 * 1024 * 1024 } });
 
 // Protected profile route
 router.get('/profile', authMiddleware, async (req: any, res) => {
@@ -18,6 +22,128 @@ router.get('/profile', authMiddleware, async (req: any, res) => {
     if (error) throw error;
 
     res.json({ success: true, data: profile });
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// Update profile (display name)
+router.patch('/profile', authMiddleware, async (req: any, res) => {
+  try {
+    const { display_name } = req.body;
+    const userId = req.user.id;
+
+    if (display_name !== undefined && (typeof display_name !== 'string' || display_name.length > 100)) {
+      return res.status(400).json({ success: false, message: 'Invalid display name' });
+    }
+
+    const { error } = await supabaseAdmin
+      .from('profiles')
+      .update({ display_name, updated_at: new Date().toISOString() })
+      .eq('id', userId);
+
+    if (error) throw error;
+
+    res.json({ success: true, message: 'Profile updated' });
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// Upload avatar
+router.post('/avatar', authMiddleware, avatarUpload.single('avatar'), async (req: any, res) => {
+  try {
+    const file = req.file;
+    if (!file) {
+      return res.status(400).json({ success: false, message: 'No file uploaded' });
+    }
+
+    const userId = req.user.id;
+    const ext = path.extname(file.originalname) || '.png';
+    const storagePath = `avatars/${userId}${ext}`;
+
+    const fileBuffer = fs.readFileSync(file.path);
+
+    // Upload to Supabase Storage
+    const { error: uploadError } = await supabaseAdmin
+      .storage
+      .from('assets')
+      .upload(storagePath, fileBuffer, {
+        contentType: file.mimetype,
+        upsert: true
+      });
+
+    // Clean up temp file
+    fs.unlinkSync(file.path);
+
+    if (uploadError) throw uploadError;
+
+    // Get public URL
+    const { data: urlData } = supabaseAdmin
+      .storage
+      .from('assets')
+      .getPublicUrl(storagePath);
+
+    const avatar_url = urlData.publicUrl + `?t=${Date.now()}`;
+
+    // Update profile
+    const { error: updateError } = await supabaseAdmin
+      .from('profiles')
+      .update({ avatar_url, updated_at: new Date().toISOString() })
+      .eq('id', userId);
+
+    if (updateError) throw updateError;
+
+    res.json({ success: true, avatar_url });
+  } catch (error: any) {
+    // Clean up temp file on error
+    if (req.file?.path) {
+      try { fs.unlinkSync(req.file.path); } catch (e) {}
+    }
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// Remove avatar
+router.delete('/avatar', authMiddleware, async (req: any, res) => {
+  try {
+    const userId = req.user.id;
+
+    // Try to remove from storage (best effort for different extensions)
+    for (const ext of ['.png', '.jpg', '.jpeg', '.webp']) {
+      await supabaseAdmin.storage.from('assets').remove([`avatars/${userId}${ext}`]);
+    }
+
+    // Clear avatar_url in profile
+    const { error } = await supabaseAdmin
+      .from('profiles')
+      .update({ avatar_url: null, updated_at: new Date().toISOString() })
+      .eq('id', userId);
+
+    if (error) throw error;
+
+    res.json({ success: true, message: 'Avatar removed' });
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// Change password
+router.post('/change-password', authMiddleware, async (req: any, res) => {
+  try {
+    const { new_password } = req.body;
+
+    if (!new_password || new_password.length < 6) {
+      return res.status(400).json({ success: false, message: 'Password must be at least 6 characters' });
+    }
+
+    const { error } = await supabaseAdmin.auth.admin.updateUserById(req.user.id, {
+      password: new_password
+    });
+
+    if (error) throw error;
+
+    res.json({ success: true, message: 'Password changed successfully' });
   } catch (error: any) {
     res.status(500).json({ success: false, message: error.message });
   }

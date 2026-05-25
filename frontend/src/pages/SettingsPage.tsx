@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Save, 
   ShieldCheck, 
@@ -18,7 +18,11 @@ import {
   Fingerprint,
   Monitor,
   Laptop,
-  Lock
+  Lock,
+  Eye,
+  EyeOff,
+  X,
+  AlertCircle
 } from 'lucide-react';
 import { DashboardLayout } from '../features/dashboard/DashboardLayout';
 import { SettingsSidebar } from '../components/layout/SettingsSidebar';
@@ -96,6 +100,27 @@ const SettingsPage: React.FC = () => {
   const [lastSaved, setLastSaved] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [sessions, setSessions] = useState<UserSession[]>([]);
+
+  // Password Change Modal State
+  const [passwordModalOpen, setPasswordModalOpen] = useState(false);
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [passwordStatus, setPasswordStatus] = useState<'idle' | 'saving' | 'success' | 'error'>('idle');
+  const [passwordError, setPasswordError] = useState('');
+
+  // Notification Preferences State
+  const [notifPrefs, setNotifPrefs] = useState(() => {
+    const saved = localStorage.getItem('sree_notif_prefs');
+    return saved ? JSON.parse(saved) : {
+      email_updates: true,
+      security_alerts: true,
+      usage_alerts: true,
+      marketing: false
+    };
+  });
+
   const hasSyncedRef = useRef(false);
   useEffect(() => {
     if (hasSyncedRef.current) return;
@@ -309,8 +334,8 @@ const SettingsPage: React.FC = () => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    if (file.size > 2 * 1024 * 1024) {
-      alert('File size must be less than 2MB');
+    if (file.size > 5 * 1024 * 1024) {
+      alert('File size must be less than 5MB');
       return;
     }
 
@@ -349,6 +374,59 @@ const SettingsPage: React.FC = () => {
       console.error('Error updating profile:', error);
       setStatus('error');
     }
+  };
+
+  const handleRemoveAvatar = async () => {
+    try {
+      setStatus('saving');
+      setLastSaved('profile');
+      await api.delete('/user/avatar');
+      setProfileData(prev => ({ ...prev, avatar_url: '' }));
+      await updateProfile({ avatar_url: '' });
+      setStatus('success');
+      setTimeout(() => setStatus('idle'), 2000);
+    } catch (error) {
+      console.error('Error removing avatar:', error);
+      setStatus('error');
+    }
+  };
+
+  const handleChangePassword = async () => {
+    setPasswordError('');
+    
+    if (!newPassword || newPassword.length < 6) {
+      setPasswordError('Password must be at least 6 characters');
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      setPasswordError('Passwords do not match');
+      return;
+    }
+
+    try {
+      setPasswordStatus('saving');
+      await api.post('/user/change-password', { new_password: newPassword });
+      setPasswordStatus('success');
+      setTimeout(() => {
+        setPasswordModalOpen(false);
+        setNewPassword('');
+        setConfirmPassword('');
+        setPasswordStatus('idle');
+        setShowNewPassword(false);
+        setShowConfirmPassword(false);
+      }, 1500);
+    } catch (error: any) {
+      setPasswordError(error.response?.data?.message || 'Failed to change password');
+      setPasswordStatus('error');
+    }
+  };
+
+  const handleToggleNotif = (key: string) => {
+    setNotifPrefs((prev: any) => {
+      const updated = { ...prev, [key]: !prev[key] };
+      localStorage.setItem('sree_notif_prefs', JSON.stringify(updated));
+      return updated;
+    });
   };
 
   const renderProfileSection = () => (
@@ -394,7 +472,7 @@ const SettingsPage: React.FC = () => {
                     {status === 'saving' && lastSaved === 'profile' ? 'Uploading...' : 'Upload Image'}
                   </button>
                   {profileData.avatar_url && (
-                    <button className={styles.textActionBtnDanger}>Remove</button>
+                    <button className={styles.textActionBtnDanger} onClick={handleRemoveAvatar} disabled={status === 'saving'}>Remove</button>
                   )}
                 </div>
               </div>
@@ -477,7 +555,7 @@ const SettingsPage: React.FC = () => {
                   <p>Last changed 3 months ago</p>
                 </div>
               </div>
-              <button className={styles.secondaryButton}>Change</button>
+              <button className={styles.secondaryButton} onClick={() => setPasswordModalOpen(true)}>Change</button>
             </div>
             <div className={styles.securityItem}>
               <div className={styles.securityInfo}>
@@ -487,7 +565,7 @@ const SettingsPage: React.FC = () => {
                   <p>Add an extra layer of security</p>
                 </div>
               </div>
-              <button className={styles.secondaryButton}>Enable</button>
+              <button className={styles.secondaryButton} disabled title="Coming soon">Coming Soon</button>
             </div>
           </div>
         </div>
@@ -800,7 +878,7 @@ const SettingsPage: React.FC = () => {
                     <p className={styles.securityDesc}>Last updated 3 months ago</p>
                   </div>
                 </div>
-                <button className={styles.secondaryButton}>Change Password</button>
+                <button className={styles.secondaryButton} onClick={() => setPasswordModalOpen(true)}>Change Password</button>
               </div>
               
               <div className={styles.securityItem}>
@@ -813,7 +891,7 @@ const SettingsPage: React.FC = () => {
                     <p className={styles.securityDesc}>Add an extra layer of security to your account.</p>
                   </div>
                 </div>
-                <button className={styles.secondaryButton}>Configure</button>
+                <button className={styles.secondaryButton} disabled title="Coming soon">Coming Soon</button>
               </div>
             </div>
           </div>
@@ -914,7 +992,7 @@ const SettingsPage: React.FC = () => {
                   <p className={styles.notifDesc}>{pref.desc}</p>
                 </div>
                 <div className={styles.toggleSwitch}>
-                  <input type="checkbox" id={pref.id} defaultChecked />
+                  <input type="checkbox" id={pref.id} checked={notifPrefs[pref.id] ?? true} onChange={() => handleToggleNotif(pref.id)} />
                   <label htmlFor={pref.id}></label>
                 </div>
               </div>
@@ -937,6 +1015,7 @@ const SettingsPage: React.FC = () => {
   };
 
   return (
+    <>
     <DashboardLayout 
       isCollapsed={isSidebarCollapsed}
       setIsCollapsed={setIsSidebarCollapsed}
@@ -980,6 +1059,143 @@ const SettingsPage: React.FC = () => {
         </div>
       </div>
     </DashboardLayout>
+
+      {/* Password Change Modal */}
+      <AnimatePresence>
+        {passwordModalOpen && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            style={{
+              position: 'fixed', inset: 0, zIndex: 9999,
+              background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(6px)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              padding: '1rem'
+            }}
+            onClick={() => { setPasswordModalOpen(false); setPasswordError(''); setPasswordStatus('idle'); }}
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              onClick={(e) => e.stopPropagation()}
+              style={{
+                background: 'var(--bg-secondary, #1a1a2e)',
+                borderRadius: 16, padding: '2rem', width: '100%', maxWidth: 420,
+                border: '1px solid rgba(255,255,255,0.08)',
+                boxShadow: '0 24px 48px rgba(0,0,0,0.4)'
+              }}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+                <h3 style={{ margin: 0, fontSize: '1.15rem', fontWeight: 700, color: 'var(--text-primary, #fff)' }}>Change Password</h3>
+                <button
+                  onClick={() => { setPasswordModalOpen(false); setPasswordError(''); setPasswordStatus('idle'); }}
+                  style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: 4 }}
+                >
+                  <X size={20} />
+                </button>
+              </div>
+
+              {passwordStatus === 'success' ? (
+                <div style={{ textAlign: 'center', padding: '2rem 0' }}>
+                  <CheckCircle2 size={48} color="#10B981" style={{ marginBottom: 12 }} />
+                  <p style={{ color: '#10B981', fontWeight: 600, fontSize: '1rem' }}>Password changed successfully!</p>
+                </div>
+              ) : (
+                <>
+                  {passwordError && (
+                    <div style={{
+                      display: 'flex', alignItems: 'center', gap: 8, padding: '0.75rem 1rem',
+                      borderRadius: 10, marginBottom: '1rem',
+                      background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.2)',
+                      color: '#ef4444', fontSize: '0.85rem'
+                    }}>
+                      <AlertCircle size={16} />
+                      {passwordError}
+                    </div>
+                  )}
+
+                  <div style={{ marginBottom: '1rem' }}>
+                    <label style={{ display: 'block', fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: 6, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>New Password</label>
+                    <div style={{ position: 'relative' }}>
+                      <input
+                        type={showNewPassword ? 'text' : 'password'}
+                        value={newPassword}
+                        onChange={(e) => setNewPassword(e.target.value)}
+                        placeholder="Min 6 characters"
+                        style={{
+                          width: '100%', padding: '0.75rem 2.5rem 0.75rem 0.85rem',
+                          borderRadius: 10, border: '1px solid rgba(255,255,255,0.1)',
+                          background: 'rgba(255,255,255,0.04)', color: 'var(--text-primary, #fff)',
+                          fontSize: '0.9rem', outline: 'none', boxSizing: 'border-box'
+                        }}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowNewPassword(!showNewPassword)}
+                        style={{
+                          position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)',
+                          background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: 4
+                        }}
+                      >
+                        {showNewPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                      </button>
+                    </div>
+                  </div>
+
+                  <div style={{ marginBottom: '1.5rem' }}>
+                    <label style={{ display: 'block', fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: 6, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Confirm Password</label>
+                    <div style={{ position: 'relative' }}>
+                      <input
+                        type={showConfirmPassword ? 'text' : 'password'}
+                        value={confirmPassword}
+                        onChange={(e) => setConfirmPassword(e.target.value)}
+                        placeholder="Re-enter new password"
+                        style={{
+                          width: '100%', padding: '0.75rem 2.5rem 0.75rem 0.85rem',
+                          borderRadius: 10, border: '1px solid rgba(255,255,255,0.1)',
+                          background: 'rgba(255,255,255,0.04)', color: 'var(--text-primary, #fff)',
+                          fontSize: '0.9rem', outline: 'none', boxSizing: 'border-box'
+                        }}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                        style={{
+                          position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)',
+                          background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: 4
+                        }}
+                      >
+                        {showConfirmPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                      </button>
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={handleChangePassword}
+                    disabled={passwordStatus === 'saving'}
+                    style={{
+                      width: '100%', padding: '0.75rem', borderRadius: 10, border: 'none',
+                      background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
+                      color: '#fff', fontWeight: 700, fontSize: '0.9rem', cursor: 'pointer',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                      opacity: passwordStatus === 'saving' ? 0.6 : 1
+                    }}
+                  >
+                    {passwordStatus === 'saving' ? (
+                      <><RefreshCw size={16} className={styles.spinning} /> Changing...</>
+                    ) : (
+                      <><Lock size={16} /> Change Password</>
+                    )}
+                  </button>
+                </>
+              )}
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </>
   );
 };
 
