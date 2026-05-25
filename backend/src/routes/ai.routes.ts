@@ -969,7 +969,7 @@ router.post('/tts', flexAuthMiddleware, abuseDetectionMiddleware(), queuePriorit
  */
 router.post('/voice-complete', flexAuthMiddleware, async (req: any, res: any) => {
   try {
-    const { durationSeconds, voiceSessionId } = req.body;
+    const { durationSeconds, voiceSessionId, apiCallsCount } = req.body;
     const userId = req.user?.id;
     const anonId = req.anonId;
     const tier = (req as any).userTier || 'anonymous';
@@ -989,11 +989,12 @@ router.post('/voice-complete', flexAuthMiddleware, async (req: any, res: any) =>
       voiceSessionCache.add(chargeKey);
     }
 
-    // Determine credit cost based on total duration
+    // Determine credit cost based on total API calls count [voice + chat + TTS]
+    const count = typeof apiCallsCount === 'number' ? apiCallsCount : 3; // fallback to 3 calls
     let creditsToCharge: number;
-    if (durationSeconds <= 5) {
+    if (count < 5) {
       creditsToCharge = 1;
-    } else if (durationSeconds <= 10) {
+    } else if (count >= 5 && count <= 10) {
       creditsToCharge = 3;
     } else {
       creditsToCharge = 5;

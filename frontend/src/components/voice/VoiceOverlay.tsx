@@ -260,6 +260,7 @@ export const VoiceOverlay: React.FC<VoiceOverlayProps> = ({ onClose, initialConv
       if (data.success) {
         const userText = data.data.text?.trim() || '';
         const voiceSessionId = crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substring(2) + Date.now().toString(36);
+        let ttsCallsCount = 0;
 
         if (!userText) {
           const fallbackText = "Can You Say it Again? If You Are Asking Me Anything, Because, I Can't Hear Anything !!!";
@@ -472,6 +473,7 @@ export const VoiceOverlay: React.FC<VoiceOverlayProps> = ({ onClose, initialConv
               audioQueue[index] = { text, url: '', blob: null };
               return;
             }
+            ttsCallsCount++;
             const blob = await aiService.generateSpeech(cleaned, undefined, voiceSessionId);
             const url = URL.createObjectURL(blob);
             audioQueue[index] = { text, url, blob };
@@ -571,15 +573,14 @@ export const VoiceOverlay: React.FC<VoiceOverlayProps> = ({ onClose, initialConv
         // Calculate total voice flow duration in seconds
         const voiceFlowDurationSeconds = (Date.now() - voiceFlowStartTime) / 1000;
 
-        // Charge voice credits based on total flow duration via the backend
+        // Charge voice credits based on total API calls [voice + chat + TTS] count
         // This runs regardless of conversation creation success
+        const apiCallsCount = 2 + ttsCallsCount;
         try {
-          const result = await aiService.voiceComplete(voiceFlowDurationSeconds, voiceSessionId);
+          const result = await aiService.voiceComplete(voiceFlowDurationSeconds, voiceSessionId, apiCallsCount);
           const creditsCharged = result.creditsCharged || 1;
-          console.log(`[Voice] Charged ${creditsCharged} voice credit(s) for ${voiceFlowDurationSeconds.toFixed(1)}s flow`);
+          console.log(`[Voice] Charged ${creditsCharged} voice credit(s) based on ${apiCallsCount} API calls`);
           useUsageStore.getState().incrementLocalUsage('voice', creditsCharged);
-          // Sync from server to ensure usage indicator is accurate
-          useUsageStore.getState().fetchStatus();
         } catch (chargeErr) {
           console.error('[Voice] Failed to charge voice credits:', chargeErr);
           // Fallback: increment by 1 locally
