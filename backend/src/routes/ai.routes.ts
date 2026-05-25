@@ -996,8 +996,10 @@ router.post('/voice-complete', flexAuthMiddleware, async (req: any, res: any) =>
       creditsToCharge = 1;
     } else if (count >= 5 && count <= 10) {
       creditsToCharge = 3;
-    } else {
+    } else if (count > 10 && count <= 18) {
       creditsToCharge = 5;
+    } else {
+      creditsToCharge = 10;
     }
 
     const identity: RateLimitIdentity = userId
