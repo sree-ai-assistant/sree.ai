@@ -644,27 +644,66 @@ const SettingsPage: React.FC = () => {
       icon: string
     ) => {
       if (!data?.daily) return null;
-      const { used, limit } = data.daily;
-      const pct = limit > 0 ? Math.min(100, Math.round((used / limit) * 100)) : 0;
-      const remaining = Math.max(0, (limit ?? 0) - used);
-      const isWarning = pct > 80;
+
+      // Daily calculations
+      const dailyUsed = data.daily.used || 0;
+      const dailyLimit = data.daily.limit;
+      const dailyPct = dailyLimit > 0 ? Math.min(100, Math.round((dailyUsed / dailyLimit) * 100)) : 0;
+      const dailyRemaining = dailyLimit ? Math.max(0, dailyLimit - dailyUsed) : 0;
+      const isDailyWarning = dailyPct > 80;
+
+      // Monthly calculations
+      const monthlyUsed = data.monthly?.used || 0;
+      const monthlyLimit = data.monthly?.limit;
+      const monthlyPct = monthlyLimit > 0 ? Math.min(100, Math.round((monthlyUsed / monthlyLimit) * 100)) : 0;
+      const monthlyRemaining = monthlyLimit ? Math.max(0, monthlyLimit - monthlyUsed) : 0;
+      const isMonthlyWarning = monthlyPct > 80;
+
       return (
         <div className={styles.usageCard} key={label}>
-          <div className={styles.usageHeader}>
-            <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <span>{icon}</span>{label}
+          <div className={styles.usageHeader} style={{ marginBottom: 16 }}>
+            <span style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: '1rem', fontWeight: 700 }}>
+              <span style={{ fontSize: '1.2rem' }}>{icon}</span>{label}
             </span>
-            <span style={{ color: isWarning ? '#f59e0b' : undefined }}>{pct}%</span>
           </div>
-          <div className={styles.progressBar}>
-            <div
-              className={styles.progressFill}
-              style={{ width: `${pct}%`, background: isWarning ? '#f59e0b' : barColor, transition: 'width 0.5s ease' }}
-            />
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+            {/* Daily limit block */}
+            <div>
+              <div className={styles.usageHeader} style={{ marginBottom: 6 }}>
+                <span style={{ color: 'rgba(255,255,255,0.4)', fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 700 }}>Daily Limit</span>
+                <span style={{ color: isDailyWarning ? '#f59e0b' : undefined, fontSize: '0.8rem', fontWeight: 700 }}>{dailyPct}%</span>
+              </div>
+              <div className={styles.progressBar}>
+                <div
+                  className={styles.progressFill}
+                  style={{ width: `${dailyPct}%`, background: isDailyWarning ? '#f59e0b' : barColor, transition: 'width 0.5s ease' }}
+                />
+              </div>
+              <p className={styles.usageStats} style={{ marginTop: 6, fontSize: '0.75rem' }}>
+                {dailyUsed.toLocaleString()} used · {parseFloat(dailyRemaining.toFixed(1))} remaining / {dailyLimit ? dailyLimit.toLocaleString() : '∞'} daily
+              </p>
+            </div>
+
+            {/* Monthly limit block */}
+            {data.monthly && (
+              <div>
+                <div className={styles.usageHeader} style={{ marginBottom: 6 }}>
+                  <span style={{ color: 'rgba(255,255,255,0.4)', fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 700 }}>Monthly Limit</span>
+                  <span style={{ color: isMonthlyWarning ? '#f59e0b' : undefined, fontSize: '0.8rem', fontWeight: 700 }}>{monthlyPct}%</span>
+                </div>
+                <div className={styles.progressBar}>
+                  <div
+                    className={styles.progressFill}
+                    style={{ width: `${monthlyPct}%`, background: isMonthlyWarning ? '#f59e0b' : barColor, transition: 'width 0.5s ease' }}
+                  />
+                </div>
+                <p className={styles.usageStats} style={{ marginTop: 6, fontSize: '0.75rem' }}>
+                  {monthlyUsed.toLocaleString()} used · {parseFloat(monthlyRemaining.toFixed(1))} remaining / {monthlyLimit ? monthlyLimit.toLocaleString() : '∞'} monthly
+                </p>
+              </div>
+            )}
           </div>
-          <p className={styles.usageStats}>
-            {used.toLocaleString()} used · {parseFloat(remaining.toFixed(1))} remaining / {(limit ?? 0).toLocaleString()} daily
-          </p>
         </div>
       );
     };
