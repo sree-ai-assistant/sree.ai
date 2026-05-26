@@ -47,10 +47,10 @@ function App() {
         <Route path="/signup" element={<SignupPage />} />
 
         {/* Public/Protected Hybrid Routes */}
-        <Route path="/" element={<ChatPage />} />
+        <Route path="/" element={<Navigate to="/chat" replace />} />
         <Route path="/chat/:id?" element={<ChatPage />} />
         <Route path="/dashboard" element={<Dashboard />} />
-        <Route path="/voice" element={<ChatPage />} />
+        <Route path="/voice" element={<Navigate to="/voice/chat" replace />} />
         <Route path="/voice/chat/:id?" element={<ChatPage />} />
 
         {/* Protected Routes */}

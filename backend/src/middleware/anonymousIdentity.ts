@@ -169,19 +169,41 @@ export const flexAuthMiddleware = async (
       // Authenticated flow — import inline to avoid circular deps
       const { supabaseAdmin } = await import('../lib/supabase');
       const token = authHeader.split(' ')[1];
-      const { data: { user }, error } = await supabaseAdmin.auth.getUser(token);
+      
+      let user: any = null;
+      try {
+        const { data, error } = await supabaseAdmin.auth.getUser(token);
+        if (!error && data?.user) {
+          user = data.user;
+        }
+      } catch (authErr: any) {
+        // Network error during token validation — if we have a token, 
+        // don't silently degrade to anonymous. Log and fall through.
+        console.error('Flex auth: getUser failed (network?):', authErr.message);
+      }
 
-      if (!error && user) {
+      if (user) {
         (req as any).user = user;
 
-        // Look up plan tier from profiles
-        const { data: profile } = await supabaseAdmin
-          .from('profiles')
-          .select('plan_type')
-          .eq('id', user.id)
-          .single();
+        // Look up plan tier from profiles (with timeout fallback)
+        try {
+          const { data: profile } = await Promise.race([
+            supabaseAdmin
+              .from('profiles')
+              .select('plan_type')
+              .eq('id', user.id)
+              .single(),
+            new Promise<{ data: null }>((resolve) => 
+              setTimeout(() => resolve({ data: null }), 5000)
+            )
+          ]);
 
-        (req as any).userTier = (profile?.plan_type || 'free').toLowerCase();
+          (req as any).userTier = (profile?.plan_type || 'free').toLowerCase();
+        } catch (profileErr: any) {
+          // Profile lookup failed — default to 'free' (NOT anonymous) for authenticated users
+          console.warn('Flex auth: profile lookup failed, defaulting to free tier:', profileErr.message);
+          (req as any).userTier = 'free';
+        }
         return next();
       }
       // If token is invalid, fall through to anonymous

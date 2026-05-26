@@ -123,7 +123,22 @@ export const useChatStore = create<ChatState>((set, get) => ({
     // Filter out messages that have error metadata to ensure they don't persist on refresh
     const cleanMessages = (messages || []).filter(m => !m.metadata?.error || m.metadata?.aborted);
 
-    set({ messages: cleanMessages, loading: false });
+    // Keep local optimistic messages (e.g. temp_user_ or temp_assistant_) to prevent them disappearing during loading
+    const localOptimisticMessages = get().messages.filter(m => m.id.startsWith('temp_'));
+
+    // Merge them, avoiding duplicates
+    const mergedMessages = [...cleanMessages];
+    for (const localMsg of localOptimisticMessages) {
+      const isAlreadyIncluded = mergedMessages.some(m => 
+        m.id === localMsg.id || 
+        (m.metadata?.optimisticId && m.metadata?.optimisticId === localMsg.metadata?.optimisticId)
+      );
+      if (!isAlreadyIncluded) {
+        mergedMessages.push(localMsg);
+      }
+    }
+
+    set({ messages: mergedMessages, loading: false });
     return true;
   },
 
@@ -132,24 +147,36 @@ export const useChatStore = create<ChatState>((set, get) => ({
     if (userId) insertData.user_id = userId;
     if (anonId) insertData.anon_id = anonId;
 
-    const { data, error } = await supabase
-      .from('conversations')
-      .insert([insertData])
-      .select()
-      .single();
+    const attemptCreate = async () => {
+      const { data, error } = await supabase
+        .from('conversations')
+        .insert([insertData])
+        .select()
+        .single();
+      return { data, error };
+    };
 
-    if (error) {
-      console.error('Error creating conversation:', error);
+    let result = await attemptCreate();
+    if (result.error) {
+      console.warn('Conversation create failed, refreshing session and retrying:', result.error.message);
+      try {
+        await supabase.auth.refreshSession();
+      } catch (_) { /* ignore refresh errors */ }
+      result = await attemptCreate();
+    }
+
+    if (result.error) {
+      console.error('Error creating conversation:', result.error);
       return null;
     }
 
     set(state => ({
-      conversations: [data, ...state.conversations],
-      activeConversation: data,
+      conversations: [result.data, ...state.conversations],
+      activeConversation: result.data,
       messages: []
     }));
 
-    return data;
+    return result.data;
   },
 
   deleteConversation: async (conversationId: string) => {
@@ -200,26 +227,59 @@ export const useChatStore = create<ChatState>((set, get) => ({
       };
     });
 
-    // 2. Persist to DB
-    const { data, error } = await supabase
-      .from('messages')
-      .insert([{ conversation_id: conversationId, role, content, metadata: { ...metadata, optimisticId } }])
-      .select()
-      .single();
+    // 2. Persist to DB (with retry on RLS/auth failures)
+    let persistedData: any = null;
+    let persistError: any = null;
 
-    if (error) {
-      console.error('Error adding message:', error);
-      // Rollback on error
-      set(state => ({
-        messages: state.messages.filter(m => m.id !== optimisticId)
-      }));
-      return null;
+    const attemptInsert = async () => {
+      const { data, error } = await supabase
+        .from('messages')
+        .insert([{ conversation_id: conversationId, role, content, metadata: { ...metadata, optimisticId } }])
+        .select()
+        .single();
+      return { data, error };
+    };
+
+    const result = await attemptInsert();
+    if (result.error) {
+      console.warn('Message insert failed, refreshing session and retrying:', result.error.message);
+      // Refresh session and retry once — handles expired tokens / RLS issues
+      try {
+        await supabase.auth.refreshSession();
+      } catch (_) { /* ignore refresh errors */ }
+      const retry = await attemptInsert();
+      if (retry.error) {
+        persistError = retry.error;
+        console.error('Message insert failed after retry:', retry.error);
+      } else {
+        persistedData = retry.data;
+      }
+    } else {
+      persistedData = result.data;
+    }
+
+    if (persistError) {
+      // Instead of rolling back and returning null (which kills the chat flow),
+      // keep the optimistic message so the AI request can still proceed.
+      // The backend uses supabaseAdmin (service_role) for its own message operations.
+      console.warn('Keeping optimistic message despite DB error — chat flow will continue.');
+      
+      // Update conversation timestamp in background (best effort)
+      supabase
+        .from('conversations')
+        .update({ updated_at: now })
+        .eq('id', conversationId)
+        .then(({ error }) => {
+          if (error) console.error('Error updating conversation timestamp:', error);
+        });
+
+      return tempMessage;
     }
 
     // 3. Replace temp message with real one, preserving the optimisticId for stable React keys
     const finalMessage = {
-      ...data,
-      metadata: { ...data.metadata, optimisticId }
+      ...persistedData,
+      metadata: { ...persistedData.metadata, optimisticId }
     };
 
     set(state => ({

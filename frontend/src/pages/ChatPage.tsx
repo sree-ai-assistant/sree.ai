@@ -195,7 +195,10 @@ const ChatPage: React.FC = () => {
   useEffect(() => {
     // If ID changes, clear the UI streaming state for the NEW conversation
     // but don't abort the background request so it can finish in its own chat
-    if (id !== streamingIdRef.current) {
+    const normalizedId = id || null;
+    const normalizedStreamingId = streamingIdRef.current || null;
+    
+    if (normalizedId !== normalizedStreamingId) {
       setIsGenerating(false);
       setStreamingMessage('');
       setDisplayedStreamingMessage('');
