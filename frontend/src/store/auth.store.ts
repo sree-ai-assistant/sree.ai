@@ -5,6 +5,7 @@ import { getStoredAnonId, clearAnonId } from '../lib/fingerprint';
 import { useChatStore } from './chat.store';
 import { useUsageStore } from './usage.store';
 import { useImageStore } from './image.store';
+import { useModelStore } from './model.store';
 
 export interface User {
   id: string;
@@ -83,6 +84,7 @@ export const useAuthStore = create<AuthState>((set) => ({
         }
       } else {
         set({ user: null, loading: false, initialized: true });
+        useModelStore.getState().fetchModels(false).catch(err => console.error('Failed to fetch models for anonymous user:', err));
       }
 
       // Listen for auth changes
@@ -106,11 +108,8 @@ export const useAuthStore = create<AuthState>((set) => ({
             }
           });
 
-          // Clear cached models so the new session gets the fresh tier-appropriate data (MIG-04)
-          localStorage.removeItem('sree_models_cache');
-          import('./model.store').then(({ useModelStore }) => {
-            useModelStore.getState().fetchModels(true).catch(err => console.error('Failed to refetch models on auth change:', err));
-          }).catch(err => console.error('Failed to import model store:', err));
+          // Let model.store handle cached models based on 24-hour expiration
+          useModelStore.getState().fetchModels(false).catch(err => console.error('Failed to fetch models:', err));
 
           // Trigger data migration ONLY during explicit SIGNED_IN login/signup flow (MIG-04)
           const anonId = getStoredAnonId();
@@ -129,8 +128,8 @@ export const useAuthStore = create<AuthState>((set) => ({
           useChatStore.getState().clearStore();
           useUsageStore.getState().clearStore();
           useImageStore.getState().clearStore();
-          // Clear cached models so the next session fetches fresh tier-appropriate data
-          localStorage.removeItem('sree_models_cache');
+          // Let model.store handle cached models based on 24-hour expiration
+          useModelStore.getState().fetchModels(false).catch(err => console.error('Failed to fetch anonymous models on sign out:', err));
           
           if (window.location.pathname !== '/chat' && window.location.pathname !== '/') {
             window.location.href = '/chat';

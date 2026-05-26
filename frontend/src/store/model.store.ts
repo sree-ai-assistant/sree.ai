@@ -1,7 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { supabase } from '../lib/supabase';
-import { useAuthStore } from './auth.store';
 
 export interface AIModel {
   id: string;
@@ -20,42 +19,15 @@ export interface AIModel {
   created_at: string;
 }
 
-const MODELS_CACHE_KEY = 'sree_models_cache';
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
-
-interface CachedModels {
-  models: AIModel[];
-  cachedAt: number;
-  tier?: string;
-}
-
-function getCachedModels(): CachedModels | null {
-  try {
-    const raw = localStorage.getItem(MODELS_CACHE_KEY);
-    if (!raw) return null;
-    const parsed: CachedModels = JSON.parse(raw);
-    if (!Array.isArray(parsed.models) || typeof parsed.cachedAt !== 'number') return null;
-    return parsed;
-  } catch {
-    return null;
-  }
-}
-
-function setCachedModels(models: AIModel[], tier: string): void {
-  try {
-    const cache: CachedModels = { models, cachedAt: Date.now(), tier };
-    localStorage.setItem(MODELS_CACHE_KEY, JSON.stringify(cache));
-  } catch (e) {
-    console.warn('Failed to cache models:', e);
-  }
-}
 
 interface ModelState {
   models: AIModel[];
   selectedModel: AIModel | null;
+  cachedAt: number;
   loading: boolean;
   visionRequired: boolean;
-  
+
   // Actions
   fetchModels: (forceRefresh?: boolean) => Promise<void>;
   setSelectedModel: (modelId: string) => void;
@@ -71,17 +43,14 @@ function resolveSelectedModel(
   currentSelected: AIModel | null,
   visionRequired: boolean
 ): AIModel | null {
-  // Re-sync the selected model with the list to get updated details
   let updatedSelected = currentSelected
     ? models.find((m) => m.model_id === currentSelected.model_id) ?? null
     : null;
 
-  // If the selected model is now in maintenance, we need to pick a new one
   if (updatedSelected?.in_maintenance) {
     updatedSelected = null;
   }
 
-  // If vision is required and current model isn't vision, auto-select a vision model
   if (visionRequired && (!updatedSelected || !updatedSelected.is_vision)) {
     updatedSelected = models.find((m) => m.is_vision && !m.in_maintenance) || updatedSelected;
   }
@@ -96,88 +65,96 @@ function resolveSelectedModel(
   );
 }
 
+// --- Hydration gate: resolved once Zustand finishes restoring from localStorage ---
+let resolveHydration: () => void;
+const hydrationReady = new Promise<void>((r) => { resolveHydration = r; });
+
+// --- Deduplication lock: prevents concurrent API fetches ---
+let inFlightFetch: Promise<void> | null = null;
+
 export const useModelStore = create<ModelState>()(
   persist(
     (set, get) => ({
       models: [],
       selectedModel: null,
+      cachedAt: 0,
       loading: false,
       visionRequired: false,
 
       fetchModels: async (forceRefresh = false) => {
-        const currentTier = useAuthStore.getState().user?.plan_type || 'anonymous';
+        // Wait for Zustand to finish hydrating persisted state from localStorage.
+        // Without this, get() returns defaults (models:[], cachedAt:0) and the
+        // cache check always fails, causing a redundant API call on every page load.
+        await hydrationReady;
 
-        // --- Check localStorage cache first ---
+        // --- Check hydrated in-memory cache ---
         if (!forceRefresh) {
-          const cached = getCachedModels();
+          const { models, cachedAt } = get();
           if (
-            cached && 
-            cached.tier === currentTier && 
-            (Date.now() - cached.cachedAt < CACHE_TTL_MS) && 
-            cached.models.length > 0
+            models.length > 0 &&
+            cachedAt > 0 &&
+            (Date.now() - cachedAt < CACHE_TTL_MS)
           ) {
-            // Cache is fresh and matching tier — use it, but only if the store is currently empty
-            // (avoids overwriting in-memory state on every mount)
-            if (get().models.length === 0) {
-              const selected = resolveSelectedModel(cached.models, get().selectedModel, get().visionRequired);
-              set({ models: cached.models, selectedModel: selected, loading: false });
-            }
+            const selected = resolveSelectedModel(models, get().selectedModel, get().visionRequired);
+            set({ selectedModel: selected, loading: false });
             return;
           }
         }
 
-        // --- Fetch from API ---
-        set({ loading: true });
-        try {
-          let session = null;
-          try {
-            const { data } = await Promise.race([
-              supabase.auth.getSession(),
-              new Promise<any>((_, reject) => setTimeout(() => reject(new Error('Session fetch timeout')), 3000))
-            ]);
-            session = data?.session;
-          } catch (e) {
-            console.warn('Model store session fetch timeout');
-          }
-          
-          const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000/api'}/models`, {
-            headers: {
-              'Authorization': `Bearer ${session?.access_token}`,
-            },
-          });
-          
-          const data = await response.json();
-          
-          if (data.success) {
-            const models = data.data;
-            const selected = resolveSelectedModel(models, get().selectedModel, get().visionRequired);
-
-            // Update localStorage cache
-            setCachedModels(models, currentTier);
-
-            set({ models, selectedModel: selected, loading: false });
-          }
-        } catch (error) {
-          console.error('Error fetching models:', error);
-
-          // On network failure, try to hydrate from stale cache so the UI isn't empty
-          if (get().models.length === 0) {
-            const staleCache = getCachedModels();
-            if (staleCache && staleCache.models.length > 0) {
-              const selected = resolveSelectedModel(staleCache.models, get().selectedModel, get().visionRequired);
-              set({ models: staleCache.models, selectedModel: selected });
-            }
-          }
-
-          set({ loading: false });
+        // --- Deduplicate: if a fetch is already in flight, piggyback on it ---
+        if (inFlightFetch) {
+          return inFlightFetch;
         }
+
+        const doFetch = async () => {
+          set({ loading: true });
+          try {
+            let session = null;
+            try {
+              const { data } = await Promise.race([
+                supabase.auth.getSession(),
+                new Promise<any>((_, reject) => setTimeout(() => reject(new Error('Session fetch timeout')), 3000))
+              ]);
+              session = data?.session;
+            } catch (e) {
+              console.warn('Model store session fetch timeout');
+            }
+
+            const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000/api'}/models`, {
+              headers: {
+                'Authorization': `Bearer ${session?.access_token}`,
+              },
+            });
+
+            const data = await response.json();
+
+            if (data.success) {
+              const models = data.data;
+              const selected = resolveSelectedModel(models, get().selectedModel, get().visionRequired);
+              set({
+                models,
+                selectedModel: selected,
+                cachedAt: Date.now(),
+                loading: false
+              });
+            }
+          } catch (error) {
+            console.error('Error fetching models:', error);
+            set({ loading: false });
+          } finally {
+            inFlightFetch = null;
+          }
+        };
+
+        inFlightFetch = doFetch();
+        return inFlightFetch;
       },
 
       setSelectedModel: (modelId: string) => {
         const model = get().models.find(m => m.model_id === modelId);
         if (model) {
           if (model.in_maintenance) {
-            return; // Prevent selection of maintenance models
+            return;
           }
           set({ selectedModel: model });
         }
@@ -197,8 +174,18 @@ export const useModelStore = create<ModelState>()(
     }),
     {
       name: 'model-storage',
-      // Only persist selectedModel to ensure the UI shows the choice immediately on reload
-      partialize: (state) => ({ selectedModel: state.selectedModel }),
+      partialize: (state) => ({
+        models: state.models,
+        selectedModel: state.selectedModel,
+        cachedAt: state.cachedAt,
+      }),
+      onRehydrateStorage: () => {
+        // Called when hydration completes — unblock any waiting fetchModels calls
+        return () => {
+          resolveHydration();
+        };
+      },
     }
   )
 );
+

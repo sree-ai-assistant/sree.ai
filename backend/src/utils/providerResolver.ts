@@ -59,6 +59,7 @@ const PROVIDER_MAP: Record<string, string> = {
   'mistralai/mistral-large-3-675b-instruct-2512': 'nvidia',
   'mistralai/mistral-medium-3.5-128b': 'nvidia',
   'mistralai/mistral-nemotron': 'nvidia',
+  'moonshotai/kimi-k2.6': 'nvidia',
   'nvidia/nemotron-nano-12b-v2-vl': 'nvidia',
   'nvidia/nemotron-3-nano-30b-a3b': 'nvidia',
   'nvidia/nemotron-3-nano-omni-30b-a3b-reasoning': 'nvidia',
@@ -124,6 +125,7 @@ export async function resolveProvider(modelId: string): Promise<string> {
       normalizedId.includes('openai/') ||
       normalizedId.includes('microsoft/') ||
       normalizedId.includes('qwen/') ||
+      normalizedId.includes('moonshotai/') ||
       normalizedId.includes('deepseek-ai/')) {
     resolved = 'nvidia';
   }

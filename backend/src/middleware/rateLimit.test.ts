@@ -8,13 +8,14 @@ vi.hoisted(() => {
 import { describe, it, expect, beforeEach } from 'vitest';
 import type { Request, Response, NextFunction } from 'express';
 import { rateLimitMiddleware } from './rateLimit';
-import { checkAndIncrementUsage } from '../services/usage.service';
+import { checkAndIncrementUsage, checkRateLimit } from '../services/usage.service';
 import { ApiKeyService } from '../services/apiKey.service';
 import { resolveProvider } from '../utils/providerResolver';
 
 // Mock dependencies
 vi.mock('../services/usage.service', () => ({
   checkAndIncrementUsage: vi.fn(),
+  checkRateLimit: vi.fn(),
 }));
 
 vi.mock('../services/apiKey.service', () => ({
@@ -49,51 +50,48 @@ describe('rateLimitMiddleware', () => {
   });
 
   it('should treat normal chat request as chat tool', async () => {
-    vi.mocked(checkAndIncrementUsage).mockResolvedValue({ allowed: true });
+    vi.mocked(checkRateLimit).mockResolvedValue({ allowed: true });
     
     const middleware = rateLimitMiddleware('chat');
     await middleware(req as Request, res as Response, next);
     
-    expect(checkAndIncrementUsage).toHaveBeenCalledWith(
+    expect(checkRateLimit).toHaveBeenCalledWith(
       expect.any(Object),
-      'chat',
-      false
+      'chat'
     );
     expect(next).toHaveBeenCalled();
   });
 
   it('should detect voice request when req.body.mode is voice', async () => {
-    vi.mocked(checkAndIncrementUsage).mockResolvedValue({ allowed: true });
+    vi.mocked(checkRateLimit).mockResolvedValue({ allowed: true });
     req.body = { mode: 'voice' };
     
     const middleware = rateLimitMiddleware('chat');
     await middleware(req as Request, res as Response, next);
     
-    expect(checkAndIncrementUsage).toHaveBeenCalledWith(
+    expect(checkRateLimit).toHaveBeenCalledWith(
       expect.any(Object),
-      'voice',
-      false
+      'voice'
     );
     expect(next).toHaveBeenCalled();
   });
 
   it('should detect voice request when req.body.isVoice is true', async () => {
-    vi.mocked(checkAndIncrementUsage).mockResolvedValue({ allowed: true });
+    vi.mocked(checkRateLimit).mockResolvedValue({ allowed: true });
     req.body = { isVoice: true };
     
     const middleware = rateLimitMiddleware('chat');
     await middleware(req as Request, res as Response, next);
     
-    expect(checkAndIncrementUsage).toHaveBeenCalledWith(
+    expect(checkRateLimit).toHaveBeenCalledWith(
       expect.any(Object),
-      'voice',
-      false
+      'voice'
     );
     expect(next).toHaveBeenCalled();
   });
 
   it('should detect voice request when req.body.attachments has audio type', async () => {
-    vi.mocked(checkAndIncrementUsage).mockResolvedValue({ allowed: true });
+    vi.mocked(checkRateLimit).mockResolvedValue({ allowed: true });
     req.body = {
       attachments: [
         { type: 'image' },
@@ -104,10 +102,9 @@ describe('rateLimitMiddleware', () => {
     const middleware = rateLimitMiddleware('chat');
     await middleware(req as Request, res as Response, next);
     
-    expect(checkAndIncrementUsage).toHaveBeenCalledWith(
+    expect(checkRateLimit).toHaveBeenCalledWith(
       expect.any(Object),
-      'voice',
-      false
+      'voice'
     );
     expect(next).toHaveBeenCalled();
   });

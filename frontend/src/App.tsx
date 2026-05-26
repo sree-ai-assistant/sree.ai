@@ -16,6 +16,8 @@ function App() {
   const { initialize } = useAuthStore();
 
   useEffect(() => {
+    // One-time cleanup: remove legacy cache key that is no longer used
+    try { localStorage.removeItem('sree_models_cache'); } catch (_) { /* ignore */ }
     initialize();
   }, [initialize]);
 
