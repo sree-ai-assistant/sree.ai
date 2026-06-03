@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { X, Save, RefreshCw, Key } from 'lucide-react';
 import { getProviderLogo, PROVIDER_COLORS } from '../icons/ProviderLogos';
-import { validateApiKey } from '../../services/providerValidation.service';
+import { validateApiKey, SUPPORTED_PROVIDERS } from '../../services/providerValidation.service';
 import styles from './ApiKeyModal.module.css';
 
 interface ApiKeyModalProps {
@@ -130,7 +130,7 @@ const ApiKeyModal: React.FC<ApiKeyModalProps> = ({ isOpen, onClose, onSave, prov
               className={styles.fieldInputKey}
               value={apiKey}
               onChange={(e) => setApiKey(e.target.value)}
-              placeholder="sk-xxxxxxxxxxxxxxxxxxxxxxxx"
+              placeholder={SUPPORTED_PROVIDERS.find(p => p.id === provider.toLowerCase())?.placeholder || 'sk-xxxxxxxxxxxxxxxxxxxxxxxx'}
             />
             <span className={styles.fieldHint}>Your key is encrypted and stored securely.</span>
           </div>
