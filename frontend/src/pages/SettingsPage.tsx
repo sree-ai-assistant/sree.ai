@@ -26,7 +26,7 @@ import {
 } from 'lucide-react';
 import { DashboardLayout } from '../features/dashboard/DashboardLayout';
 import { SettingsSidebar } from '../components/layout/SettingsSidebar';
-import api, { sessionService, apiKeyService } from '../lib/api';
+import api, { sessionService, apiKeyService, userService } from '../lib/api';
 import { useAuthStore } from '../store/auth.store';
 import { useUsageStore } from '../store/usage.store';
 import ApiKeyModal from '../components/shared/ApiKeyModal';
@@ -70,7 +70,7 @@ const PLAN_CONFIG: Record<string, { label: string; price: string; period: string
 };
 
 const SettingsPage: React.FC = () => {
-  const { user, updateProfile } = useAuthStore();
+  const { user, updateProfile, signOut } = useAuthStore();
   const { status: usageStatus, fetchStatus: fetchUsageStatus } = useUsageStore();
   const [searchParams] = useSearchParams();
   const VALID_TABS = ['profile', 'keys', 'billing', 'security', 'notifications'];
@@ -109,6 +109,36 @@ const SettingsPage: React.FC = () => {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [passwordStatus, setPasswordStatus] = useState<'idle' | 'saving' | 'success' | 'error'>('idle');
   const [passwordError, setPasswordError] = useState('');
+
+  // Account Deletion State
+  const [deleteAccountModalOpen, setDeleteAccountModalOpen] = useState(false);
+  const [deleteConfirmationText, setDeleteConfirmationText] = useState('');
+  const [deleteError, setDeleteError] = useState('');
+  const [deletingAccount, setDeletingAccount] = useState(false);
+
+  const handleDeleteAccount = async () => {
+    if (deleteConfirmationText !== 'DELETE') {
+      setDeleteError('Please type "DELETE" to confirm');
+      return;
+    }
+
+    try {
+      setDeletingAccount(true);
+      setDeleteError('');
+      
+      // Call backend to delete data and user auth record
+      await userService.deleteAccount();
+
+      // Sign out from client side
+      await signOut();
+
+      // Close modal
+      setDeleteAccountModalOpen(false);
+    } catch (err: any) {
+      setDeleteError(err.response?.data?.message || err.message || 'Failed to delete account');
+      setDeletingAccount(false);
+    }
+  };
 
   // Notification Preferences State
   const [notifPrefs, setNotifPrefs] = useState(() => {
@@ -962,6 +992,28 @@ const SettingsPage: React.FC = () => {
               </div>
             </div>
           </div>
+
+          {/* Danger Zone Card */}
+          <div className={`${styles.settingsCard} ${styles.dangerCard}`}>
+            <div className={styles.cardHeaderSmall}>
+              <h3 className={styles.cardTitle} style={{ color: '#EF4444' }}>Danger Zone</h3>
+              <p className={styles.cardSubtitle}>Irreversible actions that will permanently affect your account.</p>
+            </div>
+            <div className={styles.cardBody}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1.5rem', flexWrap: 'wrap' }}>
+                <div style={{ display: 'flex', gap: '14px', alignItems: 'center' }}>
+                  <div className={styles.securityIconBox} style={{ color: '#EF4444', backgroundColor: 'rgba(239, 68, 68, 0.08)' }}>
+                    <Trash2 size={20} />
+                  </div>
+                  <div>
+                    <h4 className={styles.securityName}>Delete Account</h4>
+                    <p className={styles.securityDesc}>Permanently delete your account, connected API keys, usage tracking data, and all chat history.</p>
+                  </div>
+                </div>
+                <button className={styles.dangerButton} onClick={() => { setDeleteAccountModalOpen(true); setDeleteConfirmationText(''); setDeleteError(''); }}>Delete Account</button>
+              </div>
+            </div>
+          </div>
         </div>
       </motion.div>
     );
@@ -1191,6 +1243,124 @@ const SettingsPage: React.FC = () => {
                   </button>
                 </>
               )}
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Delete Account Modal */}
+      <AnimatePresence>
+        {deleteAccountModalOpen && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            style={{
+              position: 'fixed', inset: 0, zIndex: 9999,
+              background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(6px)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              padding: '1rem'
+            }}
+            onClick={() => { if (!deletingAccount) setDeleteAccountModalOpen(false); }}
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              onClick={(e) => e.stopPropagation()}
+              style={{
+                background: 'var(--bg-secondary, #1a1a2e)',
+                borderRadius: 16, padding: '2rem', width: '100%', maxWidth: 440,
+                border: '1px solid rgba(239,68,68,0.2)',
+                boxShadow: '0 24px 48px rgba(0,0,0,0.5)'
+              }}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+                <h3 style={{ margin: 0, fontSize: '1.15rem', fontWeight: 700, color: '#ef4444' }}>Delete Account</h3>
+                <button
+                  disabled={deletingAccount}
+                  onClick={() => setDeleteAccountModalOpen(false)}
+                  style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: 4 }}
+                >
+                  <X size={20} />
+                </button>
+              </div>
+
+              <div style={{
+                display: 'flex', alignItems: 'flex-start', gap: 12, padding: '1rem',
+                borderRadius: 10, marginBottom: '1.5rem',
+                background: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.15)',
+                color: '#f87171', fontSize: '0.85rem', lineHeight: 1.5
+              }}>
+                <AlertCircle size={18} style={{ flexShrink: 0, marginTop: 2, color: '#ef4444' }} />
+                <div>
+                  <strong style={{ display: 'block', marginBottom: 4, color: '#ef4444' }}>Warning: This is permanent!</strong>
+                  Deleting your account will purge all your personal info, usage statistics, active sessions, saved API keys, and all conversation logs. This action cannot be undone.
+                </div>
+              </div>
+
+              {deleteError && (
+                <div style={{
+                  display: 'flex', alignItems: 'center', gap: 8, padding: '0.75rem 1rem',
+                  borderRadius: 10, marginBottom: '1rem',
+                  background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.2)',
+                  color: '#ef4444', fontSize: '0.85rem'
+                }}>
+                  <AlertCircle size={16} />
+                  {deleteError}
+                </div>
+              )}
+
+              <div style={{ marginBottom: '1.5rem' }}>
+                <label style={{ display: 'block', fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: 8, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                  Type <span style={{ color: '#ef4444', fontFamily: 'monospace', fontSize: '0.9rem' }}>DELETE</span> to confirm
+                </label>
+                <input
+                  type="text"
+                  disabled={deletingAccount}
+                  value={deleteConfirmationText}
+                  onChange={(e) => setDeleteConfirmationText(e.target.value)}
+                  placeholder="Type DELETE"
+                  style={{
+                    width: '100%', padding: '0.75rem 0.85rem',
+                    borderRadius: 10, border: '1px solid rgba(255,255,255,0.1)',
+                    background: 'rgba(255,255,255,0.04)', color: 'var(--text-primary, #fff)',
+                    fontSize: '0.9rem', outline: 'none', boxSizing: 'border-box'
+                  }}
+                />
+              </div>
+
+              <div style={{ display: 'flex', gap: 12 }}>
+                <button
+                  type="button"
+                  disabled={deletingAccount}
+                  onClick={() => setDeleteAccountModalOpen(false)}
+                  style={{
+                    flex: 1, padding: '0.75rem', borderRadius: 10, border: '1px solid rgba(255,255,255,0.1)',
+                    background: 'rgba(255,255,255,0.04)', color: 'var(--text-primary, #fff)',
+                    fontWeight: 600, fontSize: '0.9rem', cursor: 'pointer'
+                  }}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleDeleteAccount}
+                  disabled={deletingAccount || deleteConfirmationText !== 'DELETE'}
+                  style={{
+                    flex: 1, padding: '0.75rem', borderRadius: 10, border: 'none',
+                    background: '#ef4444',
+                    color: '#fff', fontWeight: 700, fontSize: '0.9rem', cursor: 'pointer',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                    opacity: (deletingAccount || deleteConfirmationText !== 'DELETE') ? 0.6 : 1
+                  }}
+                >
+                  {deletingAccount ? (
+                    <><RefreshCw size={16} className={styles.spinning} /> Deleting...</>
+                  ) : (
+                    <><Trash2 size={16} /> Delete Account</>
+                  )}
+                </button>
+              </div>
             </motion.div>
           </motion.div>
         )}

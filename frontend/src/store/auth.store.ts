@@ -15,6 +15,7 @@ export interface User {
   plan_type: 'free' | 'starter' | 'pro';
   requests_remaining?: number;
   credits?: number;
+  onboarding_completed?: boolean;
 }
 
 interface AuthState {
@@ -52,7 +53,7 @@ export const useAuthStore = create<AuthState>((set) => ({
         // Fetch additional user profile data from public.profiles
         const { data: profile } = await supabase
           .from('profiles')
-          .select('id, email, display_name, avatar_url, plan_type, requests_remaining')
+          .select('id, email, display_name, avatar_url, plan_type, requests_remaining, onboarding_completed')
           .eq('id', session.user.id)
           .single();
 
@@ -65,7 +66,8 @@ export const useAuthStore = create<AuthState>((set) => ({
               avatar_url: profile.avatar_url,
               plan_type: profile.plan_type as 'free' | 'starter' | 'pro',
               requests_remaining: profile.requests_remaining,
-              credits: profile.requests_remaining
+              credits: profile.requests_remaining,
+              onboarding_completed: profile.onboarding_completed ?? false,
             }, 
             loading: false, 
             initialized: true 
@@ -92,7 +94,7 @@ export const useAuthStore = create<AuthState>((set) => ({
         if ((event === 'SIGNED_IN' || event === 'INITIAL_SESSION') && session?.user) {
           const { data: profile } = await supabase
             .from('profiles')
-            .select('display_name, avatar_url, plan_type, requests_remaining')
+            .select('display_name, avatar_url, plan_type, requests_remaining, onboarding_completed')
             .eq('id', session.user.id)
             .single();
           
@@ -104,7 +106,8 @@ export const useAuthStore = create<AuthState>((set) => ({
               avatar_url: profile?.avatar_url,
               plan_type: (profile?.plan_type as 'free' | 'starter' | 'pro') || 'free',
               requests_remaining: profile?.requests_remaining,
-              credits: profile?.requests_remaining
+              credits: profile?.requests_remaining,
+              onboarding_completed: profile?.onboarding_completed ?? false,
             }
           });
 

@@ -8,5 +8,6 @@ export default defineConfig({
       '**/.{idea,git,cache,output,temp}/**'
     ],
     include: ['src/**/*.test.ts'],
+    setupFiles: ['./vitest.setup.ts'],
   },
 });

@@ -30,7 +30,7 @@ interface ChatState {
   // Actions
   fetchConversations: (userId?: string, anonId?: string) => Promise<void>;
   setActiveConversation: (conversationId: string | null) => Promise<boolean>;
-  createConversation: (userId: string | undefined, title: string, type?: 'chat' | 'voice' | 'image', anonId?: string) => Promise<Conversation | null>;
+  createConversation: (userId: string | undefined, title: string, type?: 'chat' | 'voice' | 'image', anonId?: string, customId?: string) => Promise<Conversation | null>;
   deleteConversation: (conversationId: string) => Promise<void>;
   addMessage: (conversationId: string, role: 'user' | 'assistant' | 'system', content: string, metadata?: any) => Promise<Message | null>;
   updateMessage: (messageId: string, content: string, metadata?: any) => Promise<void>;
@@ -142,8 +142,9 @@ export const useChatStore = create<ChatState>((set, get) => ({
     return true;
   },
 
-  createConversation: async (userId: string | undefined, title: string, type: 'chat' | 'voice' | 'image' = 'chat', anonId?: string) => {
+  createConversation: async (userId: string | undefined, title: string, type: 'chat' | 'voice' | 'image' = 'chat', anonId?: string, customId?: string) => {
     const insertData: any = { title, type };
+    if (customId) insertData.id = customId;
     if (userId) insertData.user_id = userId;
     if (anonId) insertData.anon_id = anonId;
 
@@ -171,9 +172,9 @@ export const useChatStore = create<ChatState>((set, get) => ({
     }
 
     set(state => ({
-      conversations: [result.data, ...state.conversations],
+      conversations: [result.data, ...state.conversations.filter(c => c.id !== result.data.id)],
       activeConversation: result.data,
-      messages: []
+      messages: state.messages.length > 0 ? state.messages : []
     }));
 
     return result.data;
@@ -221,8 +222,13 @@ export const useChatStore = create<ChatState>((set, get) => ({
         updatedConversations.unshift(updatedConv);
       }
 
+      const exists = state.messages.some(m => m.id === optimisticId || (m.metadata?.optimisticId && m.metadata.optimisticId === optimisticId));
+      const newMessages = exists 
+        ? state.messages.map(m => (m.id === optimisticId || (m.metadata?.optimisticId && m.metadata.optimisticId === optimisticId)) ? { ...m, conversation_id: conversationId } : m)
+        : [...state.messages, tempMessage];
+
       return {
-        messages: [...state.messages, tempMessage],
+        messages: newMessages,
         conversations: updatedConversations
       };
     });

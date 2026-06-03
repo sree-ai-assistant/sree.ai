@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { X, Save, RefreshCw, Key } from 'lucide-react';
 import { getProviderLogo, PROVIDER_COLORS } from '../icons/ProviderLogos';
+import { validateApiKey } from '../../services/providerValidation.service';
 import styles from './ApiKeyModal.module.css';
 
 interface ApiKeyModalProps {
@@ -43,6 +44,15 @@ const ApiKeyModal: React.FC<ApiKeyModalProps> = ({ isOpen, onClose, onSave, prov
     try {
       setSaving(true);
       setError('');
+
+      // Validate the API key first
+      const validation = await validateApiKey(provider.toLowerCase(), apiKey.trim());
+      if (validation.status === 'invalid') {
+        setError(validation.message || 'Invalid API key');
+        setSaving(false);
+        return;
+      }
+
       const finalName = name.trim() || `${provider.toLowerCase()}_key-${new Date().toLocaleDateString('en-GB').replace(/\//g, '-')}`;
       await onSave({ name: finalName, provider: provider.toLowerCase(), key: apiKey.trim() });
       onClose();
@@ -141,7 +151,7 @@ const ApiKeyModal: React.FC<ApiKeyModalProps> = ({ isOpen, onClose, onSave, prov
             ) : (
               <Key size={16} />
             )}
-            {saving ? 'Saving...' : 'Save Key'}
+            {saving ? 'Validating & Saving...' : 'Save Key'}
           </button>
         </div>
       </form>

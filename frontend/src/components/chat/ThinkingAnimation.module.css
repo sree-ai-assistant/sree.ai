@@ -33,17 +33,13 @@
 .neonText {
   position: relative;
   z-index: 2;
-  background: linear-gradient(90deg, #fff, #3b82f6, #fff);
-  background-size: 200% auto;
+  color: #60a5fa;
+  background: linear-gradient(90deg, #ffffff, #60a5fa, #3b82f6);
   -webkit-background-clip: text;
+  background-clip: text;
   -webkit-text-fill-color: transparent;
-  animation: text-shine 3s linear infinite;
-}
-
-@keyframes text-shine {
-  to {
-    background-position: 200% center;
-  }
+  text-shadow: 0 0 10px rgba(96, 165, 250, 0.3);
+  font-weight: 600;
 }
 
 .waveOverlay {

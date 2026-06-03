@@ -24,10 +24,18 @@ export const LoginForm: React.FC = () => {
       if (authError) throw authError;
 
       if (data.user) {
-        // Update user state (Zustand)
-        // Note: The auth listener in useAuthStore will also handle this, 
-        // but we navigate here to provide immediate feedback.
-        navigate('/');
+        // Check if onboarding is completed
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('onboarding_completed')
+          .eq('id', data.user.id)
+          .single();
+
+        if (profile && !profile.onboarding_completed) {
+          navigate('/onboarding');
+        } else {
+          navigate('/');
+        }
       }
     } catch (err: any) {
       setError(err.message || 'Failed to sign in');
@@ -45,7 +53,7 @@ export const LoginForm: React.FC = () => {
       )}
 
       <div className="auth-input-group">
-        <label className="auth-label">Email Address</label>
+        <label className="auth-label" htmlFor="login-email">Email Address</label>
         <input 
           id="login-email"
           type="email" 
@@ -58,7 +66,7 @@ export const LoginForm: React.FC = () => {
       </div>
 
       <div className="auth-input-group">
-        <label className="auth-label">Password</label>
+        <label className="auth-label" htmlFor="login-password">Password</label>
         <input 
           id="login-password"
           type="password" 

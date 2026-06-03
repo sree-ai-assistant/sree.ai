@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { authMiddleware } from '../middleware/auth';
 import { supabaseAdmin } from '../lib/supabase';
 import { ApiKeyService } from '../services/apiKey.service';
+import { ProviderValidationService } from '../services/providerValidation.service';
 import { migrateDataToUser } from '../services/anonymous.service';
 import multer from 'multer';
 import fs from 'fs';
@@ -360,6 +361,93 @@ router.delete('/sessions/:id', authMiddleware, async (req: any, res) => {
   }
 });
 
+// --- API Key Validation ---
+
+// Validate API Key (used by Onboarding & Settings)
+router.post('/settings/keys/validate', authMiddleware, async (req: any, res) => {
+  try {
+    const { provider, key } = req.body;
+
+    if (!provider || !key) {
+      return res.status(400).json({ valid: false, message: 'Provider and key are required' });
+    }
+
+    const result = await ProviderValidationService.validate(provider, key);
+    res.json(result);
+  } catch (error: any) {
+    res.status(500).json({ valid: false, message: 'Validation service unavailable' });
+  }
+});
+
+// --- Onboarding Routes ---
+
+// Get onboarding status
+router.get('/onboarding/status', authMiddleware, async (req: any, res) => {
+  try {
+    const { data, error } = await supabaseAdmin
+      .from('profiles')
+      .select('onboarding_completed, onboarding_step, display_name, date_of_birth, description')
+      .eq('id', req.user.id)
+      .single();
+
+    if (error) throw error;
+
+    res.json({ success: true, data });
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// Complete onboarding
+router.post('/onboarding/complete', authMiddleware, async (req: any, res) => {
+  try {
+    const { display_name, date_of_birth, description } = req.body;
+    const userId = req.user.id;
+
+    // Validate required fields
+    if (!display_name || display_name.trim().length < 2 || display_name.trim().length > 60) {
+      return res.status(400).json({ success: false, message: 'Name must be between 2 and 60 characters' });
+    }
+
+    if (!date_of_birth) {
+      return res.status(400).json({ success: false, message: 'Date of birth is required' });
+    }
+
+    // Validate age (minimum 13 years)
+    const dob = new Date(date_of_birth);
+    const today = new Date();
+    const age = today.getFullYear() - dob.getFullYear();
+    const monthDiff = today.getMonth() - dob.getMonth();
+    const actualAge = monthDiff < 0 || (monthDiff === 0 && today.getDate() < dob.getDate()) ? age - 1 : age;
+    
+    if (actualAge < 13) {
+      return res.status(400).json({ success: false, message: 'You must be at least 13 years old' });
+    }
+
+    if (description && description.length > 500) {
+      return res.status(400).json({ success: false, message: 'Description must be under 500 characters' });
+    }
+
+    const { error } = await supabaseAdmin
+      .from('profiles')
+      .update({
+        display_name: display_name.trim(),
+        date_of_birth,
+        description: description?.trim() || null,
+        onboarding_completed: true,
+        onboarding_step: 2,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', userId);
+
+    if (error) throw error;
+
+    res.json({ success: true, message: 'Onboarding completed successfully' });
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
 // --- Migration Routes ---
 
 /**
@@ -383,6 +471,51 @@ router.post('/migrate', authMiddleware, async (req: any, res) => {
     });
   } catch (error: any) {
     res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// Delete account (Security Section)
+router.delete('/account', authMiddleware, async (req: any, res) => {
+  try {
+    const userId = req.user.id;
+
+    // 1. Delete associated data manually to avoid foreign key constraint violations
+    await supabaseAdmin.from('user_sessions').delete().eq('user_id', userId);
+    await supabaseAdmin.from('trusted_devices').delete().eq('user_id', userId);
+    await supabaseAdmin.from('api_keys').delete().eq('user_id', userId);
+    await supabaseAdmin.from('user_images').delete().eq('user_id', userId);
+
+    // To delete messages, we need conversation IDs
+    const { data: userConvs } = await supabaseAdmin
+      .from('conversations')
+      .select('id')
+      .eq('user_id', userId);
+
+    if (userConvs && userConvs.length > 0) {
+      const convIds = userConvs.map(c => c.id);
+      await supabaseAdmin.from('messages').delete().in('conversation_id', convIds);
+    }
+
+    await supabaseAdmin.from('conversations').delete().eq('user_id', userId);
+    await supabaseAdmin.from('subscriptions').delete().eq('user_id', userId);
+    await supabaseAdmin.from('usage_tracking').delete().eq('user_id', userId);
+    
+    // Dissolve link to migrated anonymous users
+    await supabaseAdmin
+      .from('anonymous_users')
+      .update({ migrated_to_user_id: null, migrated_at: null })
+      .eq('migrated_to_user_id', userId);
+
+    await supabaseAdmin.from('profiles').delete().eq('id', userId);
+
+    // 2. Delete user from Supabase auth
+    const { error: authError } = await supabaseAdmin.auth.admin.deleteUser(userId);
+    if (authError) throw authError;
+
+    res.json({ success: true, message: 'Account deleted successfully' });
+  } catch (error: any) {
+    console.error('Account deletion error:', error);
+    res.status(500).json({ success: false, message: error.message || 'Failed to delete account' });
   }
 });
 

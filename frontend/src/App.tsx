@@ -7,6 +7,7 @@ import Dashboard from './pages/Dashboard';
 import ChatPage from './pages/ChatPage';
 import ImageGenPage from './pages/ImageGenPage';
 import SettingsPage from './pages/SettingsPage';
+import OnboardingPage from './pages/OnboardingPage';
 import ProtectedRoute from './components/auth/ProtectedRoute';
 import { supabase } from './lib/supabase';
 
@@ -46,12 +47,43 @@ function App() {
         <Route path="/login" element={<LoginPage />} />
         <Route path="/signup" element={<SignupPage />} />
 
+        {/* Onboarding Route (protected — requires auth) */}
+        <Route
+          path="/onboarding"
+          element={
+            <OnboardingGuard>
+              <OnboardingPage />
+            </OnboardingGuard>
+          }
+        />
+
         {/* Public/Protected Hybrid Routes */}
         <Route path="/" element={<Navigate to="/chat" replace />} />
-        <Route path="/chat/:id?" element={<ChatPage />} />
-        <Route path="/dashboard" element={<Dashboard />} />
+        <Route
+          path="/chat/:id?"
+          element={
+            <HybridOnboardingGuard>
+              <ChatPage />
+            </HybridOnboardingGuard>
+          }
+        />
+        <Route
+          path="/dashboard"
+          element={
+            <HybridOnboardingGuard>
+              <Dashboard />
+            </HybridOnboardingGuard>
+          }
+        />
         <Route path="/voice" element={<Navigate to="/voice/chat" replace />} />
-        <Route path="/voice/chat/:id?" element={<ChatPage />} />
+        <Route
+          path="/voice/chat/:id?"
+          element={
+            <HybridOnboardingGuard>
+              <ChatPage />
+            </HybridOnboardingGuard>
+          }
+        />
 
         {/* Protected Routes */}
         <Route
@@ -76,6 +108,81 @@ function App() {
       </Routes>
     </Router>
   );
+}
+
+/**
+ * HybridOnboardingGuard — If a user is logged in (authenticated) but
+ * has not completed onboarding, they are redirected to /onboarding.
+ * Anonymous (non-logged in) users are allowed to pass through.
+ */
+function HybridOnboardingGuard({ children }: { children: React.ReactNode }) {
+  const { user, loading, initialize } = useAuthStore();
+
+  useEffect(() => {
+    initialize();
+  }, [initialize]);
+
+  if (loading) {
+    return (
+      <div style={{
+        height: '100vh',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        background: 'var(--bg-dark)',
+        color: 'white'
+      }}>
+        <div className="loader">Loading...</div>
+      </div>
+    );
+  }
+
+  // Logged in but onboarding not completed -> redirect to onboarding wizard
+  if (user && user.onboarding_completed === false) {
+    return <Navigate to="/onboarding" replace />;
+  }
+
+  return <>{children}</>;
+}
+
+/**
+ * OnboardingGuard — Ensures only authenticated users who haven't
+ * completed onboarding can access /onboarding. Already-onboarded
+ * users are redirected to the app.
+ */
+function OnboardingGuard({ children }: { children: React.ReactNode }) {
+  const { user, loading, initialize } = useAuthStore();
+
+  useEffect(() => {
+    initialize();
+  }, [initialize]);
+
+  if (loading) {
+    return (
+      <div style={{
+        height: '100vh',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        background: 'var(--bg-dark)',
+        color: 'white'
+      }}>
+        <div className="loader">Loading...</div>
+      </div>
+    );
+  }
+
+  // Not logged in — redirect to login
+  if (!user) {
+    return <Navigate to="/login" replace />;
+  }
+
+  // Already completed onboarding — redirect to app
+  if (user.onboarding_completed) {
+    return <Navigate to="/chat" replace />;
+  }
+
+  return <>{children}</>;
 }
 
 export default App;

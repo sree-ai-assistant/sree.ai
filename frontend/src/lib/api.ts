@@ -139,6 +139,10 @@ export const userService = {
     const response = await api.post('/user/migrate', { anon_id: anonId });
     return response.data;
   },
+  deleteAccount: async () => {
+    const response = await api.delete('/user/account');
+    return response.data;
+  },
 };
 
 export const usageService = {

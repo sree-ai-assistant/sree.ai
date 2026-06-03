@@ -19,6 +19,17 @@ import { CodeBlock } from '../components/chat/CodeBlock';
 import { ChatMessage } from '../components/chat/ChatMessage';
 import { LimitModal } from '../components/modals/LimitModal';
 
+const generateUUID = () => {
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+    return crypto.randomUUID();
+  }
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+    const r = Math.random() * 16 | 0;
+    const v = c === 'x' ? r : (r & 0x3 | 0x8);
+    return v.toString(16);
+  });
+};
+
 const ChatPage: React.FC = () => {
   const { user, initialized } = useAuthStore();
   const [session, setSession] = useState<any>(null);
@@ -193,12 +204,16 @@ const ChatPage: React.FC = () => {
   };
 
   useEffect(() => {
-    // If ID changes, clear the UI streaming state for the NEW conversation
-    // but don't abort the background request so it can finish in its own chat
     const normalizedId = id || null;
     const normalizedStreamingId = streamingIdRef.current || null;
     
-    if (normalizedId !== normalizedStreamingId) {
+    const shouldClear = (normalizedId && normalizedId !== normalizedStreamingId) || 
+                        (!normalizedId && !activeConversation?.id && !isGenerating);
+    
+    console.log('[ChatPage useEffect] id:', id, 'streamingId:', streamingIdRef.current, 'activeConvId:', activeConversation?.id, 'shouldClear:', shouldClear);
+    
+    if (shouldClear) {
+      console.log('[ChatPage useEffect] CLEARING STREAMING STATE!');
       setIsGenerating(false);
       setStreamingMessage('');
       setDisplayedStreamingMessage('');
@@ -210,22 +225,19 @@ const ChatPage: React.FC = () => {
 
     const loadConversation = async () => {
       if (id && id !== activeConversation?.id) {
+        console.log('[ChatPage useEffect] loadConversation calling setActiveConversation for id:', id);
         const success = await setActiveConversation(id);
         if (!success) {
           console.log('[ChatPage] Conversation activation failed. Redirecting to /chat.');
           navigate('/chat');
         }
-      } else if (!id) {
+      } else if (!id && !isGenerating) {
+        console.log('[ChatPage useEffect] loadConversation clearing active conversation');
         setActiveConversation(null);
       }
     };
     loadConversation();
-    
-    return () => {
-      // Clean up on unmount
-      if (typewriterIntervalRef.current) clearInterval(typewriterIntervalRef.current);
-    };
-  }, [id, setActiveConversation, navigate, activeConversation?.id]);
+  }, [id, setActiveConversation, navigate, activeConversation?.id, isGenerating]);
 
   useEffect(() => {
     return () => {
@@ -369,27 +381,69 @@ const ChatPage: React.FC = () => {
 
     // Initialize streaming refs early to prevent UI reset on navigation
     streamingOptimisticIdRef.current = assistantOptimisticId;
-    if (currentConvId) {
-      streamingIdRef.current = currentConvId;
-    }
 
-    if (!currentConvId) {
-      const isVoice = location.pathname.startsWith('/voice');
-      const newConv = await createConversation(user?.id, messageContent.slice(0, 40) + '...', isVoice ? 'voice' : 'chat', anonId || undefined);
+    const isVoice = location.pathname.startsWith('/voice');
+    const tempConvId = currentConvId || generateUUID();
+    const isNewConversation = !currentConvId;
+
+    if (isNewConversation) {
+      currentConvId = tempConvId;
+      streamingIdRef.current = tempConvId;
+
+      // 1. Optimistically set activeConversation and messages in store so UI renders immediately
+      const tempConv: any = {
+        id: tempConvId,
+        title: messageContent.slice(0, 40) + '...',
+        type: isVoice ? 'voice' : 'chat',
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        user_id: user?.id,
+        anon_id: anonId || undefined
+      };
+      
+      const userOptimisticId = `temp_user_${Date.now()}`;
+      const tempUserMsg: any = {
+        id: userOptimisticId,
+        conversation_id: tempConvId,
+        role: 'user',
+        content: messageContent,
+        metadata: {
+          mode: 'text',
+          optimisticId: userOptimisticId,
+          attachments: currentAttachments.map(a => ({ name: a.file?.name || a.name, type: a.type, url: a.url, extractedText: a.extractedText }))
+        },
+        created_at: new Date().toISOString()
+      };
+
+      useChatStore.setState({
+        conversations: [tempConv, ...useChatStore.getState().conversations],
+        activeConversation: tempConv,
+        messages: [tempUserMsg]
+      });
+
+      // 2. Navigate immediately
+      navigate(isVoice ? `/voice/chat/${tempConvId}` : `/chat/${tempConvId}`, { replace: true });
+
+      // 3. Database inserts in background, but awaited in sequence so backend Chat is correct
+      const newConv = await createConversation(user?.id, messageContent.slice(0, 40) + '...', isVoice ? 'voice' : 'chat', anonId || undefined, tempConvId);
       if (!newConv) {
         setIsGenerating(false);
         return;
       }
-      currentConvId = newConv.id;
-      streamingIdRef.current = currentConvId;
-      navigate(isVoice ? `/voice/chat/${newConv.id}` : `/chat/${newConv.id}`, { replace: true });
+    } else {
+      streamingIdRef.current = currentConvId || null;
     }
 
     let userMsg: any = null;
     if (!isRetry) {
-      // addMessage is now optimistic, so it will update the UI immediately
-      const userOptimisticId = `temp_user_${Date.now()}`;
-      userMsg = await addMessage(currentConvId, 'user', messageContent, {
+      // Find the optimistic ID if we already added it in the isNewConversation block,
+      // otherwise generate a new one.
+      const existingTempMsg = isNewConversation 
+        ? useChatStore.getState().messages.find(m => m.id.startsWith('temp_user_'))
+        : null;
+      const userOptimisticId = existingTempMsg?.id || `temp_user_${Date.now()}`;
+
+      userMsg = await addMessage(currentConvId!, 'user', messageContent, {
         optimisticId: userOptimisticId,
         mode: 'text',
         attachments: currentAttachments.map(a => ({ name: a.file?.name || a.name, type: a.type, url: a.url, extractedText: a.extractedText }))
@@ -746,7 +800,7 @@ const ChatPage: React.FC = () => {
             ref={scrollContainerRef}
             onScroll={onScroll}
           >
-            {(chatLoading || (id && activeConversation?.id !== id)) ? (
+            {(id && (chatLoading || (activeConversation && activeConversation.id !== id))) ? (
               <div className={styles.loadingState}>
                 {Array.from({ length: 3 }).map((_, i) => (
                   <div key={`msg-skeleton-${i}`} className={`${styles.messageRow} ${i % 2 === 0 ? '' : styles.user}`}>

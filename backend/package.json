@@ -39,6 +39,7 @@
     "pdf-parse": "^2.4.5",
     "tiktoken": "^1.0.22",
     "uuid": "^14.0.0",
+    "ws": "^8.21.0",
     "xlsx": "^0.18.5",
     "zod": "^4.3.6"
   },
@@ -55,6 +56,7 @@
     "@types/pdf-parse": "^1.1.5",
     "@types/supertest": "^7.2.0",
     "@types/uuid": "^10.0.0",
+    "@types/ws": "^8.18.1",
     "supertest": "^7.2.2",
     "ts-node-dev": "^2.0.0",
     "typescript": "^5.9.3",
