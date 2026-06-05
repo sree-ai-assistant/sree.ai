@@ -371,6 +371,27 @@
 }
 .fieldGroup input::placeholder { color: rgba(255,255,255,0.25); }
 
+.fieldGroup textarea {
+  width: 100%;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 12px;
+  padding: 13px 16px;
+  color: white;
+  font-size: 0.95rem;
+  transition: all 0.25s;
+  font-family: inherit;
+  resize: vertical;
+  min-height: 100px;
+}
+.fieldGroup textarea:focus {
+  background: rgba(255,255,255,0.06);
+  border-color: var(--primary);
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(99,102,241,0.12);
+}
+.fieldGroup textarea::placeholder { color: rgba(255,255,255,0.25); }
+
 .readOnlyField {
   display: flex;
   align-items: center;

@@ -110,7 +110,7 @@ class AiService {
     });
   }
 
-  async streamChat(apiKey: string, messages: any[], model: string = 'meta/llama-3.1-70b-instruct', onStatus?: (status: string) => void) {
+  async streamChat(apiKey: string, messages: any[], model: string = 'meta/llama-3.1-70b-instruct', onStatus?: (status: string) => void, userId?: string) {
     const openai = this.getNvidiaClient(apiKey);
 
     // 1. Fetch model configuration
@@ -130,6 +130,39 @@ class AiService {
     let systemContent = systemMessages.length > 0
       ? systemMessages.map(m => m.content).join('\n\n')
       : this.DEFAULT_SYSTEM_PROMPT;
+
+    // Fetch and append user personalization settings if authenticated
+    if (userId) {
+      try {
+        const { data: profile } = await supabaseAdmin
+          .from('profiles')
+          .select('nickname, occupation, custom_instructions, more_about_you')
+          .eq('id', userId)
+          .single();
+
+        if (profile) {
+          const parts: string[] = [];
+          if (profile.nickname?.trim()) {
+            parts.push(`- Nickname/Preferred Name: "${profile.nickname.trim()}". Address the user by this name when appropriate.`);
+          }
+          if (profile.occupation?.trim()) {
+            parts.push(`- Occupation/Context: "${profile.occupation.trim()}". Tailor professional/industry context to this occupation.`);
+          }
+          if (profile.more_about_you?.trim()) {
+            parts.push(`- About the user (interests, values, background): "${profile.more_about_you.trim()}". Keep this context in mind.`);
+          }
+          if (profile.custom_instructions?.trim()) {
+            parts.push(`- Custom behavior, style, and tone instructions: "${profile.custom_instructions.trim()}". You MUST strictly adhere to these instruction preferences.`);
+          }
+
+          if (parts.length > 0) {
+            systemContent += `\n\n### USER PERSONALIZATION CONTEXT & INSTRUCTIONS\n${parts.join('\n')}\n`;
+          }
+        }
+      } catch (err: any) {
+        console.error(`[AiService] Failed to fetch profile for personalization context:`, err.message);
+      }
+    }
 
     // 2. Start with the single merged system message
     const processedMessages: any[] = [{ role: 'system', content: systemContent }];

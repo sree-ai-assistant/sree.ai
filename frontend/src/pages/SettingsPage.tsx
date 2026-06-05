@@ -91,8 +91,25 @@ const SettingsPage: React.FC = () => {
   useEffect(() => { fetchUsageStatus(); }, [fetchUsageStatus]);
   const [profileData, setProfileData] = useState({
     display_name: user?.display_name || '',
-    avatar_url: user?.avatar_url || ''
+    avatar_url: user?.avatar_url || '',
+    nickname: user?.nickname || '',
+    occupation: user?.occupation || '',
+    custom_instructions: user?.custom_instructions || '',
+    more_about_you: user?.more_about_you || ''
   });
+
+  useEffect(() => {
+    if (user) {
+      setProfileData({
+        display_name: user.display_name || '',
+        avatar_url: user.avatar_url || '',
+        nickname: user.nickname || '',
+        occupation: user.occupation || '',
+        custom_instructions: user.custom_instructions || '',
+        more_about_you: user.more_about_you || ''
+      });
+    }
+  }, [user]);
   const [savedKeys, setSavedKeys] = useState<SavedApiKey[]>([]);
   const [keyModalOpen, setKeyModalOpen] = useState(false);
   const [keyModalProvider, setKeyModalProvider] = useState('');
@@ -395,9 +412,19 @@ const SettingsPage: React.FC = () => {
       setStatus('saving');
       setLastSaved('profile');
       await api.patch('/user/profile', {
-        display_name: profileData.display_name
+        display_name: profileData.display_name,
+        nickname: profileData.nickname,
+        occupation: profileData.occupation,
+        custom_instructions: profileData.custom_instructions,
+        more_about_you: profileData.more_about_you
       });
-      await updateProfile({ display_name: profileData.display_name });
+      await updateProfile({
+        display_name: profileData.display_name,
+        nickname: profileData.nickname,
+        occupation: profileData.occupation,
+        custom_instructions: profileData.custom_instructions,
+        more_about_you: profileData.more_about_you
+      });
       setStatus('success');
       setTimeout(() => setStatus('idle'), 2000);
     } catch (error) {
@@ -567,6 +594,79 @@ const SettingsPage: React.FC = () => {
                 <Save size={16} />
               )}
               {status === 'saving' ? 'Saving...' : 'Save Profile'}
+            </button>
+          </div>
+        </div>
+
+        <div className={styles.settingsCard}>
+          <div className={styles.cardHeaderSmall}>
+            <h3 className={styles.cardTitle}>Personalization</h3>
+            <p className={styles.cardSubtitle}>Customize how the AI assistant responds to and interacts with you.</p>
+          </div>
+          <div className={styles.cardBody}>
+            <div className={styles.formSection}>
+              <div className={styles.fieldGroup} style={{ marginBottom: '24px' }}>
+                <label>Custom Instructions</label>
+                <textarea 
+                  value={profileData.custom_instructions}
+                  onChange={(e) => setProfileData(prev => ({ ...prev, custom_instructions: e.target.value }))}
+                  placeholder="Additional behavior, style, and tone preferences..."
+                  maxLength={1000}
+                />
+                <span className={styles.fieldHint}>Specify how you would like the AI to behave, respond, or format its outputs.</span>
+              </div>
+
+              <h4 style={{ marginBottom: '16px', fontSize: '0.9rem', color: 'rgba(255,255,255,0.7)', fontWeight: '600' }}>About You</h4>
+
+              <div className={styles.formRow} style={{ marginBottom: '24px' }}>
+                <div className={styles.fieldGroup}>
+                  <label>Nickname</label>
+                  <input 
+                    type="text" 
+                    value={profileData.nickname}
+                    onChange={(e) => setProfileData(prev => ({ ...prev, nickname: e.target.value }))}
+                    placeholder="What should the AI call you?"
+                    maxLength={100}
+                  />
+                  <span className={styles.fieldHint}>Your preferred name or moniker.</span>
+                </div>
+                <div className={styles.fieldGroup}>
+                  <label>Occupation</label>
+                  <input 
+                    type="text" 
+                    value={profileData.occupation}
+                    onChange={(e) => setProfileData(prev => ({ ...prev, occupation: e.target.value }))}
+                    placeholder="E.g. Wedding photographer, Software Developer"
+                    maxLength={100}
+                  />
+                  <span className={styles.fieldHint}>What you do, to help customize industry-specific context.</span>
+                </div>
+              </div>
+
+              <div className={styles.fieldGroup}>
+                <label>More About You</label>
+                <textarea 
+                  value={profileData.more_about_you}
+                  onChange={(e) => setProfileData(prev => ({ ...prev, more_about_you: e.target.value }))}
+                  placeholder="Interests, values, or preferences to keep in mind..."
+                  maxLength={1000}
+                />
+                <span className={styles.fieldHint}>Share details about your hobbies, projects, or background.</span>
+              </div>
+            </div>
+          </div>
+          <div className={styles.cardFooter}>
+            <button 
+              className={styles.actionButton}
+              onClick={handleUpdateProfile}
+              disabled={status === 'saving'}
+            >
+              {status === 'saving' ? (
+                <RefreshCw className={styles.spinning} size={16} />
+              ) : (
+                <Save size={16} />
+              )}
+              {status === 'saving' ? 'Saving...' : 'Save Personalization'}
             </button>
           </div>
         </div>

@@ -621,7 +621,7 @@ router.post('/chat', flexAuthMiddleware, abuseDetectionMiddleware(), queuePriori
 
     const stream = await aiService.streamChat(nvidiaApiKey, optimizedMessages, model, (status) => {
       writeSSE({ status });
-    });
+    }, userId);
 
     for await (const chunk of stream) {
       const content = chunk.choices[0]?.delta?.content || '';

@@ -16,6 +16,10 @@ export interface User {
   requests_remaining?: number;
   credits?: number;
   onboarding_completed?: boolean;
+  nickname?: string;
+  occupation?: string;
+  custom_instructions?: string;
+  more_about_you?: string;
 }
 
 interface AuthState {
@@ -53,7 +57,7 @@ export const useAuthStore = create<AuthState>((set) => ({
         // Fetch additional user profile data from public.profiles
         const { data: profile } = await supabase
           .from('profiles')
-          .select('id, email, display_name, avatar_url, plan_type, requests_remaining, onboarding_completed')
+          .select('id, email, display_name, avatar_url, plan_type, requests_remaining, onboarding_completed, nickname, occupation, custom_instructions, more_about_you')
           .eq('id', session.user.id)
           .single();
 
@@ -68,6 +72,10 @@ export const useAuthStore = create<AuthState>((set) => ({
               requests_remaining: profile.requests_remaining,
               credits: profile.requests_remaining,
               onboarding_completed: profile.onboarding_completed ?? false,
+              nickname: profile.nickname,
+              occupation: profile.occupation,
+              custom_instructions: profile.custom_instructions,
+              more_about_you: profile.more_about_you,
             }, 
             loading: false, 
             initialized: true 
@@ -94,7 +102,7 @@ export const useAuthStore = create<AuthState>((set) => ({
         if ((event === 'SIGNED_IN' || event === 'INITIAL_SESSION') && session?.user) {
           const { data: profile } = await supabase
             .from('profiles')
-            .select('display_name, avatar_url, plan_type, requests_remaining, onboarding_completed')
+            .select('display_name, avatar_url, plan_type, requests_remaining, onboarding_completed, nickname, occupation, custom_instructions, more_about_you')
             .eq('id', session.user.id)
             .single();
           
@@ -108,6 +116,10 @@ export const useAuthStore = create<AuthState>((set) => ({
               requests_remaining: profile?.requests_remaining,
               credits: profile?.requests_remaining,
               onboarding_completed: profile?.onboarding_completed ?? false,
+              nickname: profile?.nickname,
+              occupation: profile?.occupation,
+              custom_instructions: profile?.custom_instructions,
+              more_about_you: profile?.more_about_you,
             }
           });
 

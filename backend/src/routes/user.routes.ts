@@ -28,19 +28,52 @@ router.get('/profile', authMiddleware, async (req: any, res) => {
   }
 });
 
-// Update profile (display name)
+// Update profile (display name & personalization details)
 router.patch('/profile', authMiddleware, async (req: any, res) => {
   try {
-    const { display_name } = req.body;
+    const { display_name, nickname, occupation, custom_instructions, more_about_you } = req.body;
     const userId = req.user.id;
 
-    if (display_name !== undefined && (typeof display_name !== 'string' || display_name.length > 100)) {
-      return res.status(400).json({ success: false, message: 'Invalid display name' });
+    const updates: any = { updated_at: new Date().toISOString() };
+
+    if (display_name !== undefined) {
+      if (typeof display_name !== 'string' || display_name.length > 100) {
+        return res.status(400).json({ success: false, message: 'Invalid display name' });
+      }
+      updates.display_name = display_name;
+    }
+
+    if (nickname !== undefined) {
+      if (typeof nickname !== 'string' || nickname.length > 100) {
+        return res.status(400).json({ success: false, message: 'Invalid nickname' });
+      }
+      updates.nickname = nickname;
+    }
+
+    if (occupation !== undefined) {
+      if (typeof occupation !== 'string' || occupation.length > 100) {
+        return res.status(400).json({ success: false, message: 'Invalid occupation' });
+      }
+      updates.occupation = occupation;
+    }
+
+    if (custom_instructions !== undefined) {
+      if (typeof custom_instructions !== 'string' || custom_instructions.length > 1000) {
+        return res.status(400).json({ success: false, message: 'Invalid custom instructions' });
+      }
+      updates.custom_instructions = custom_instructions;
+    }
+
+    if (more_about_you !== undefined) {
+      if (typeof more_about_you !== 'string' || more_about_you.length > 1000) {
+        return res.status(400).json({ success: false, message: 'Invalid info' });
+      }
+      updates.more_about_you = more_about_you;
     }
 
     const { error } = await supabaseAdmin
       .from('profiles')
-      .update({ display_name, updated_at: new Date().toISOString() })
+      .update(updates)
       .eq('id', userId);
 
     if (error) throw error;
