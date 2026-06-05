@@ -39,7 +39,6 @@ const ChatPage: React.FC = () => {
     activeConversation,
     messages,
     addMessage,
-    loading: chatLoading,
     setActiveConversation,
     createConversation,
     setMessages
@@ -140,6 +139,9 @@ const ChatPage: React.FC = () => {
   const fullContentRef = useRef('');
   const isStreamFinishedRef = useRef(false);
   const displayedMessageLengthRef = useRef(0);
+  // Local loading state for conversation messages — isolated from the shared
+  // store `loading` which is also set by Sidebar's fetchConversations.
+  const [isLoadingConversation, setIsLoadingConversation] = useState(false);
 
   // Performance: Memoize Markdown components to prevent heavy re-renders
   const markdownComponents = useMemo(() => ({
@@ -210,10 +212,7 @@ const ChatPage: React.FC = () => {
     const shouldClear = (normalizedId && normalizedId !== normalizedStreamingId) || 
                         (!normalizedId && !activeConversation?.id && !isGenerating);
     
-    console.log('[ChatPage useEffect] id:', id, 'streamingId:', streamingIdRef.current, 'activeConvId:', activeConversation?.id, 'shouldClear:', shouldClear);
-    
     if (shouldClear) {
-      console.log('[ChatPage useEffect] CLEARING STREAMING STATE!');
       setIsGenerating(false);
       setStreamingMessage('');
       setDisplayedStreamingMessage('');
@@ -225,14 +224,18 @@ const ChatPage: React.FC = () => {
 
     const loadConversation = async () => {
       if (id && id !== activeConversation?.id) {
-        console.log('[ChatPage useEffect] loadConversation calling setActiveConversation for id:', id);
+        // Skip loading from DB when we're actively streaming or just finished
+        // streaming — the optimistic state set by handleSend is already correct.
+        if (streamingIdRef.current === id || isGenerating) {
+          return;
+        }
+        setIsLoadingConversation(true);
         const success = await setActiveConversation(id);
+        setIsLoadingConversation(false);
         if (!success) {
-          console.log('[ChatPage] Conversation activation failed. Redirecting to /chat.');
           navigate('/chat');
         }
       } else if (!id && !isGenerating) {
-        console.log('[ChatPage useEffect] loadConversation clearing active conversation');
         setActiveConversation(null);
       }
     };
@@ -800,7 +803,7 @@ const ChatPage: React.FC = () => {
             ref={scrollContainerRef}
             onScroll={onScroll}
           >
-            {(id && (chatLoading || (activeConversation && activeConversation.id !== id))) ? (
+            {(!isGenerating && id && (isLoadingConversation || (activeConversation && activeConversation.id !== id))) ? (
               <div className={styles.loadingState}>
                 {Array.from({ length: 3 }).map((_, i) => (
                   <div key={`msg-skeleton-${i}`} className={`${styles.messageRow} ${i % 2 === 0 ? '' : styles.user}`}>
