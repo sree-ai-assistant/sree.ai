@@ -181,10 +181,12 @@
   padding: 6px 12px;
   background: rgba(255, 255, 255, 0.02);
   border: 1px solid var(--border-color);
-  border-radius: 12px;
+  border-radius: 14px;
   min-width: 110px;
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  justify-content: space-around;
+  min-height: 2.8rem;
 }
 
 .usagePill:hover {
@@ -262,7 +264,7 @@
   background: rgba(255, 255, 255, 0.03);
   backdrop-filter: blur(10px);
   border: 1px solid var(--border-color);
-  border-radius: 20px;
+  border-radius: 14px;
   cursor: pointer;
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
@@ -701,6 +703,7 @@
     gap: 4px !important;
     background: rgba(255, 255, 255, 0.03) !important;
     border-radius: 8px !important;
+    min-height: unset;
   }
 
   .pillBar {
@@ -709,6 +712,7 @@
 
   .usagePillHeader {
     gap: 4px !important;
+    margin-bottom: 0;
   }
 
   .pillLabel {

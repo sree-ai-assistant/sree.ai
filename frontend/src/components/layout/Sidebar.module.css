@@ -175,7 +175,7 @@
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 10px 12px;
+  padding: 8px 12px;
   border-radius: 10px;
   background: transparent;
   border: none;
@@ -808,7 +808,7 @@
 }
 
 .dateGroup {
-  margin-top: 20px;
+  margin-top: 8px;
 }
 
 .dateLabel {
