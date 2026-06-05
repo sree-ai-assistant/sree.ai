@@ -64,6 +64,7 @@ const PROVIDER_MAP: Record<string, string> = {
   'nvidia/nemotron-3-nano-30b-a3b': 'nvidia',
   'nvidia/nemotron-3-nano-omni-30b-a3b-reasoning': 'nvidia',
   'nvidia/nemotron-3-super-120b-a12b': 'nvidia',
+  'nvidia/nemotron-3-ultra-550b-a55b': 'nvidia',
   'nvidia/nvidia-nemotron-nano-9b-v2': 'nvidia',
   'microsoft/phi-4-multimodal-instruct': 'nvidia',
   'qwen/qwen3-coder-480b-a35b-instruct': 'nvidia',
