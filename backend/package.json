@@ -7,7 +7,8 @@
     "dev": "ts-node-dev --respawn --transpile-only --ignore-diagnostics 5107 src/index.ts",
     "build": "tsc",
     "start": "node dist/index.js",
-    "test": "vitest run"
+    "test": "vitest run",
+    "benchmark": "ts-node src/scratch/rateLimitBenchmark.ts"
   },
   "keywords": [],
   "author": "",
