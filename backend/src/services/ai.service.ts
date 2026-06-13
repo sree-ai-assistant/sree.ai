@@ -110,8 +110,28 @@ class AiService {
     });
   }
 
-  async streamChat(apiKey: string, messages: any[], model: string = 'meta/llama-3.1-70b-instruct', onStatus?: (status: string) => void, userId?: string) {
-    const openai = this.getNvidiaClient(apiKey);
+  private getGoogleClient(apiKey: string) {
+    return new OpenAI({
+      apiKey,
+      baseURL: 'https://generativelanguage.googleapis.com/v1beta/openai/',
+    });
+  }
+
+  /**
+   * Returns the appropriate OpenAI-compatible client based on model provider.
+   */
+  private getClientForModel(apiKey: string, provider: string) {
+    switch (provider) {
+      case 'google':
+        return this.getGoogleClient(apiKey);
+      case 'nvidia':
+      default:
+        return this.getNvidiaClient(apiKey);
+    }
+  }
+
+  async streamChat(apiKey: string, messages: any[], model: string = 'meta/llama-3.1-70b-instruct', onStatus?: (status: string) => void, userId?: string, provider: string = 'nvidia'): Promise<any> {
+    const openai = this.getClientForModel(apiKey, provider);
 
     // 1. Fetch model configuration
     const { data: modelInfo } = await supabaseAdmin
@@ -384,14 +404,24 @@ class AiService {
           console.log(`[AiService] Last message role: ${lastMsg.role} | Content type: ${typeof lastMsg.content} | Multimodal: ${isMultimodal}`);
         }
         
-        console.log(`[AiService] Sending request to model ${model} with ${sanitized.length} messages.`);
-        return await openai.chat.completions.create({
+        console.log(`[AiService] Sending request to model ${model} with ${sanitized.length} messages. Provider: ${provider}`);
+        
+        // Build provider-aware request params
+        // Google's OpenAI-compatible endpoint requires max_completion_tokens (rejects max_tokens with 400)
+        const requestParams: any = {
           model,
           messages: sanitized as any,
           stream: true,
-          max_tokens: reservedTokens,
           temperature: 0.7,
-        });
+        };
+
+        if (provider === 'google') {
+          requestParams.max_completion_tokens = reservedTokens;
+        } else {
+          requestParams.max_tokens = reservedTokens;
+        }
+
+        return await openai.chat.completions.create(requestParams);
 
       } catch (error: any) {
         const errorResponse = error.response?.data || error.data || error;

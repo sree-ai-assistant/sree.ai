@@ -601,16 +601,18 @@ router.post('/chat', flexAuthMiddleware, abuseDetectionMiddleware(), queuePriori
 
 
     // Get API key from middleware (which handles user overrides)
-    const nvidiaApiKey = req.apiKey;
+    const apiKey = req.apiKey;
+    const provider = (req as any).provider || 'nvidia';
 
-    if (!nvidiaApiKey) {
+    if (!apiKey) {
+      const providerName = provider.charAt(0).toUpperCase() + provider.slice(1);
       if (!res.headersSent) {
         return res.status(400).json({
           success: false,
-          message: 'NVIDIA API Key not found. Please add it in settings.'
+          message: `${providerName} API Key not found. Please add it in settings.`
         });
       } else {
-        writeSSE({ error: 'NVIDIA API Key not found' });
+        writeSSE({ error: `${providerName} API Key not found` });
         res.end();
         return;
       }
@@ -619,9 +621,9 @@ router.post('/chat', flexAuthMiddleware, abuseDetectionMiddleware(), queuePriori
     // Optimize token usage by compressing history
     const optimizedMessages = TokenManager.compressMessages(apiMessages);
 
-    const stream = await aiService.streamChat(nvidiaApiKey, optimizedMessages, model, (status) => {
+    const stream = await aiService.streamChat(apiKey, optimizedMessages, model, (status) => {
       writeSSE({ status });
-    }, userId);
+    }, userId, provider);
 
     for await (const chunk of stream) {
       const content = chunk.choices[0]?.delta?.content || '';

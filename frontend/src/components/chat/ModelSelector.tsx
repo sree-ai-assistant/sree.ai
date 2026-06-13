@@ -1,13 +1,20 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
-import { motion, AnimatePresence } from 'framer-motion';
-import { ChevronDown, Lock, Cpu, Eye, Crown, Search, Sparkles } from 'lucide-react';
+import { ChevronDown, Lock, Cpu, Eye, Crown, Search, Zap } from 'lucide-react';
 import { useModelStore } from '../../store/model.store';
 import { useAuthStore } from '../../store/auth.store';
 import { useUIStore } from '../../store/ui.store';
 import { useNavigate } from 'react-router-dom';
+import { getProviderLogo } from '../icons/ProviderLogos';
 import styles from './ModelSelector.module.css';
 import toast from 'react-hot-toast';
+
+type ProviderTab = 'all' | 'nvidia' | 'google';
+
+const PROVIDER_TABS: { id: ProviderTab; label: string; provider: string }[] = [
+  { id: 'nvidia', label: 'Nvidia', provider: 'nvidia' },
+  { id: 'google', label: 'Google', provider: 'google' },
+];
 
 export const ModelSelector: React.FC = () => {
   const navigate = useNavigate();
@@ -16,10 +23,24 @@ export const ModelSelector: React.FC = () => {
   const { openUpgradeModal } = useUIStore();
   const [isOpen, setIsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [activeTab, setActiveTab] = useState<ProviderTab>('all');
 
   useEffect(() => {
     fetchModels();
   }, [fetchModels]);
+
+  // Auto-detect active provider tab from selected model only when dropdown opens
+  const prevIsOpen = React.useRef(false);
+  useEffect(() => {
+    if (isOpen && !prevIsOpen.current && selectedModel) {
+      const provider = selectedModel.provider?.toLowerCase();
+      const match = PROVIDER_TABS.find(t => t.provider === provider);
+      if (match) {
+        setActiveTab(match.id);
+      }
+    }
+    prevIsOpen.current = isOpen;
+  }, [isOpen, selectedModel]);
 
   const canAccess = (tier: string) => {
     const userTier = (user?.plan_type || 'free').toLowerCase();
@@ -28,6 +49,13 @@ export const ModelSelector: React.FC = () => {
     return ranks[userTier as keyof typeof ranks] >= ranks[modelTier as keyof typeof ranks];
   };
 
+  // Compute which providers actually have chat models
+  const availableProviders = useMemo(() => {
+    const chatModels = models.filter(m => !m.is_image);
+    const providerSet = new Set(chatModels.map(m => m.provider?.toLowerCase()));
+    return PROVIDER_TABS.filter(t => providerSet.has(t.provider));
+  }, [models]);
+
   if (loading && !selectedModel) {
     return (
       <div className={`${styles.selectorButton} skeleton`} style={{ width: '160px', height: '38px', border: 'none' }}>
@@ -35,18 +63,30 @@ export const ModelSelector: React.FC = () => {
     );
   }
 
-  const filteredModels = models.filter(model =>
-    !model.is_image && (
-      (model.name?.toLowerCase() || '').includes(searchQuery.toLowerCase()) ||
-      (model.description?.toLowerCase() || '').includes(searchQuery.toLowerCase())
-    )
-  );
+  const filteredModels = models.filter(model => {
+    if (model.is_image) return false;
+
+    // Provider filter
+    if (activeTab !== 'all') {
+      const modelProvider = model.provider?.toLowerCase();
+      if (modelProvider !== activeTab) return false;
+    }
+
+    // Search filter
+    if (searchQuery) {
+      return (
+        (model.name?.toLowerCase() || '').includes(searchQuery.toLowerCase()) ||
+        (model.description?.toLowerCase() || '').includes(searchQuery.toLowerCase())
+      );
+    }
+
+    return true;
+  });
 
   const sortedModels = [...filteredModels].sort((a, b) => {
     if (a.in_maintenance && !b.in_maintenance) return 1;
     if (!a.in_maintenance && b.in_maintenance) return -1;
     
-    // Accessible models always go above locked models
     const accA = canAccess(a.tier_required);
     const accB = canAccess(b.tier_required);
     if (accA && !accB) return -1;
@@ -66,7 +106,12 @@ export const ModelSelector: React.FC = () => {
 
   return (
     <div className={styles.container}>
-      <DropdownMenu.Root open={isOpen} onOpenChange={setIsOpen}>
+      <DropdownMenu.Root open={isOpen} onOpenChange={(open) => {
+        setIsOpen(open);
+        if (!open) {
+          setSearchQuery('');
+        }
+      }}>
         <DropdownMenu.Trigger asChild>
           <button
             className={styles.selectorButton}
@@ -88,7 +133,30 @@ export const ModelSelector: React.FC = () => {
             className={styles.dropdown}
             sideOffset={8}
             align="start"
+            onCloseAutoFocus={(e) => e.preventDefault()}
           >
+            {/* Provider Tabs */}
+            <div className={styles.providerTabs}>
+              {availableProviders.map((tab) => (
+                <button
+                  key={tab.id}
+                  className={`${styles.providerTab} ${activeTab === tab.id ? styles.providerTabActive : ''}`}
+                  onPointerDown={(e) => {
+                    e.stopPropagation();
+                    e.preventDefault();
+                    setActiveTab(tab.id);
+                  }}
+                  type="button"
+                >
+                  <span className={styles.providerTabLogo}>
+                    {getProviderLogo(tab.provider, 18)}
+                  </span>
+                  <span className={styles.providerTabLabel}>{tab.label}</span>
+                </button>
+              ))}
+            </div>
+
+            {/* Search */}
             <div className={styles.searchContainer}>
               <Search size={14} className={styles.searchIcon} />
               <input
@@ -126,7 +194,7 @@ export const ModelSelector: React.FC = () => {
                         key={model.model_id}
                         className={`${styles.modelItem} ${isSelected ? styles.selected : ''} ${!accessible ? styles.locked : ''} ${isFaded ? styles.faded : ''} ${inMaintenance ? styles.maintenance : ''}`}
                         onSelect={(e) => {
-                          e.preventDefault(); // Handle selection manually to manage maintenance/locks
+                          e.preventDefault();
 
                           if (inMaintenance) {
                             toast.error('This model is currently in maintenance.', {
@@ -201,7 +269,7 @@ export const ModelSelector: React.FC = () => {
                           <div className={styles.modelName}>
                             {model.is_vision && <span className={styles.visionBadge}>Vision</span>}
                             {inMaintenance && <span className={styles.maintenanceBadge} title="In Maintenance">⚠️</span>}
-                            {model.name} <span title='Faster Model'> {model.is_fast && ' ⚡'}</span>
+                            {model.name} {model.is_fast && <Zap size={14} className={styles.fastIcon} />}
                             {model.is_new && <span className={styles.newBadge}>NEW</span>}
                           </div>
                           {inMaintenance ? (
@@ -226,7 +294,7 @@ export const ModelSelector: React.FC = () => {
                   })
                 ) : (
                   <div className={styles.noResults}>
-                    No models found matching "{searchQuery}"
+                    No models found{searchQuery ? ` matching "${searchQuery}"` : ` for this provider`}
                   </div>
                 )
               )}

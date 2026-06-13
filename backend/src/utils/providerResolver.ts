@@ -73,6 +73,19 @@ const PROVIDER_MAP: Record<string, string> = {
   'stabilityai/stable-diffusion-3-5-large': 'nvidia',
   'stepfun-ai/step-3.5-flash': 'nvidia',
   'stockmark/stockmark-2-100b-instruct': 'nvidia',
+
+  // Google Gemini (Direct API)
+  'gemini-2.5-pro': 'google',
+  'gemini-2.5-flash': 'google',
+  'gemini-2.5-flash-lite': 'google',
+  'gemini-3': 'google',
+  'gemini-3.1-pro': 'google',
+  'gemini-3.5-flash': 'google',
+  'gemini-flash-latest': 'google',
+  'gemini-flash-lite-latest': 'google',
+  'gemini-3-flash-preview': 'google',
+  'gemini-3.1-flash-lite-preview': 'google',
+  'gemini-3.1-flash-lite': 'google',
 };
 
 /**
@@ -114,10 +127,15 @@ export async function resolveProvider(modelId: string): Promise<string> {
     return provider;
   }
 
-  // 4. Prefix/Infix matching for Nvidia ecosystem (Safety net)
+  // 4. Prefix/Infix matching for providers (Safety net)
   let resolved: string | null = null;
   
-  if (normalizedId.includes('meta/') || 
+  // Google Gemini models use a simple model_id like 'gemini-X.X-...'
+  if (normalizedId.startsWith('gemini-') || normalizedId.startsWith('gemini/')) {
+    resolved = 'google';
+  }
+
+  if (!resolved && (normalizedId.includes('meta/') || 
       normalizedId.includes('mistralai/') || 
       normalizedId.includes('nvidia/') ||
       normalizedId.includes('stabilityai/') ||
@@ -127,7 +145,7 @@ export async function resolveProvider(modelId: string): Promise<string> {
       normalizedId.includes('microsoft/') ||
       normalizedId.includes('qwen/') ||
       normalizedId.includes('moonshotai/') ||
-      normalizedId.includes('deepseek-ai/')) {
+      normalizedId.includes('deepseek-ai/'))) {
     resolved = 'nvidia';
   }
 
