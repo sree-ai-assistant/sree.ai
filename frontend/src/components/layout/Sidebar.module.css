@@ -436,7 +436,7 @@
 }
 
 .utilitiesSection {
-  margin: 12px 0;
+  /* margin: 12px 0; */
   padding: 6px;
   background: rgba(255, 255, 255, 0.02);
   border: 1px solid var(--border-color);
@@ -609,10 +609,23 @@
   gap: 12px;
 }
 
+.profileCard.proCard {
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px;
+  gap: 8px;
+}
+
+.profileCard.proCard .profileActions {
+  width: auto;
+}
+
 .profileInfo {
   display: flex;
   align-items: center;
   gap: 12px;
+  min-width: 0;
 }
 
 .avatar {
@@ -649,12 +662,16 @@
 .details {
   display: flex;
   flex-direction: column;
+  min-width: 0;
 }
 
 .name {
   font-size: 0.9rem;
   font-weight: 600;
   color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .badge {

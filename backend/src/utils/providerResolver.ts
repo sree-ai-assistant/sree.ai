@@ -86,6 +86,10 @@ const PROVIDER_MAP: Record<string, string> = {
   'gemini-3-flash-preview': 'google',
   'gemini-3.1-flash-lite-preview': 'google',
   'gemini-3.1-flash-lite': 'google',
+
+  // Groq API
+  'groq/compound': 'groq',
+  'groq/compound-mini': 'groq',
 };
 
 /**
@@ -133,6 +137,10 @@ export async function resolveProvider(modelId: string): Promise<string> {
   // Google Gemini models use a simple model_id like 'gemini-X.X-...'
   if (normalizedId.startsWith('gemini-') || normalizedId.startsWith('gemini/')) {
     resolved = 'google';
+  }
+
+  if (normalizedId.startsWith('groq/')) {
+    resolved = 'groq';
   }
 
   if (!resolved && (normalizedId.includes('meta/') || 

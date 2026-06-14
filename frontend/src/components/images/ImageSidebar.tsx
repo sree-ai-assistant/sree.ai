@@ -227,7 +227,7 @@ export const ImageSidebar: React.FC<ImageSidebarProps> = ({
           )}
         </div>
 
-        <div className={styles.profileCard}>
+        <div className={`${styles.profileCard} ${(!isCollapsed && user?.plan_type === 'pro') ? styles.proCard : ''}`}>
           <div className={styles.profileInfo}>
             <div className={styles.avatar}>
               <div className={styles.status} />
@@ -252,10 +252,12 @@ export const ImageSidebar: React.FC<ImageSidebarProps> = ({
             <button className={styles.signOutBtn} onClick={handleSignOut} title="Sign Out">
               <LogOut size={16} />
             </button>
-            <button className={styles.upgradeBtn} onClick={() => navigate('/settings')} title="Upgrade Plan">
-              <Star size={16} />
-              {!isCollapsed && <span>Upgrade</span>}
-            </button>
+            {user?.plan_type !== 'pro' && (
+              <button className={styles.upgradeBtn} onClick={() => navigate('/settings')} title="Upgrade Plan">
+                <Star size={16} />
+                {!isCollapsed && <span>Upgrade</span>}
+              </button>
+            )}
           </div>
         </div>
       </div>

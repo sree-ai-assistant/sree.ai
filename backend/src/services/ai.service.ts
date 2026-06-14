@@ -117,6 +117,13 @@ class AiService {
     });
   }
 
+  private getGroqClient(apiKey: string) {
+    return new OpenAI({
+      apiKey,
+      baseURL: 'https://api.groq.com/openai/v1',
+    });
+  }
+
   /**
    * Returns the appropriate OpenAI-compatible client based on model provider.
    */
@@ -124,6 +131,8 @@ class AiService {
     switch (provider) {
       case 'google':
         return this.getGoogleClient(apiKey);
+      case 'groq':
+        return this.getGroqClient(apiKey);
       case 'nvidia':
       default:
         return this.getNvidiaClient(apiKey);

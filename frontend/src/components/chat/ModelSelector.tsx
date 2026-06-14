@@ -9,11 +9,12 @@ import { getProviderLogo } from '../icons/ProviderLogos';
 import styles from './ModelSelector.module.css';
 import toast from 'react-hot-toast';
 
-type ProviderTab = 'all' | 'nvidia' | 'google';
+type ProviderTab = 'all' | 'nvidia' | 'google' | 'groq';
 
 const PROVIDER_TABS: { id: ProviderTab; label: string; provider: string }[] = [
   { id: 'nvidia', label: 'Nvidia', provider: 'nvidia' },
   { id: 'google', label: 'Google', provider: 'google' },
+  { id: 'groq', label: 'Groq', provider: 'groq' },
 ];
 
 export const ModelSelector: React.FC = () => {

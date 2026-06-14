@@ -458,7 +458,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, setIsCollapsed })
             )}
           </div>
 
-          <div className={styles.profileCard}>
+          <div className={`${styles.profileCard} ${(!isCollapsed && user?.plan_type === 'pro') ? styles.proCard : ''}`}>
             <div className={styles.profileInfo}>
               <div className={styles.avatar}>
                 <div className={styles.status} />
@@ -490,10 +490,12 @@ export const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, setIsCollapsed })
                 </button>
               )}
               {user ? (
-                <button className={styles.upgradeBtn} onClick={() => setShowLimitModal(true)} title="Upgrade Plan">
-                  <Star size={16} />
-                  {!isCollapsed && <span>Upgrade</span>}
-                </button>
+                user.plan_type !== 'pro' && (
+                  <button className={styles.upgradeBtn} onClick={() => setShowLimitModal(true)} title="Upgrade Plan">
+                    <Star size={16} />
+                    {!isCollapsed && <span>Upgrade</span>}
+                  </button>
+                )
               ) : (
                 <button className={styles.upgradeBtn} onClick={() => handleNavigate('/signup')} title="Create Account">
                   <Plus size={16} />
