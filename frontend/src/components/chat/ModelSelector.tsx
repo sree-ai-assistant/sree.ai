@@ -133,7 +133,7 @@ export const ModelSelector: React.FC = () => {
           <DropdownMenu.Content
             className={styles.dropdown}
             sideOffset={8}
-            align="start"
+            align="center"
             onCloseAutoFocus={(e) => e.preventDefault()}
           >
             {/* Provider Tabs */}

@@ -21,6 +21,15 @@
   box-shadow: var(--glass-shadow);
 }
 
+.selectorButton span {
+  display: inline-block;
+  max-width: 180px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  vertical-align: middle;
+}
+
 .selectorButton:hover {
   border-color: var(--primary-glow);
   background: rgba(255, 255, 255, 0.05);
@@ -43,10 +52,8 @@
 }
 
 .dropdown {
-  position: absolute;
-  top: calc(100% + 8px);
-  left: -45px;
   width: 420px;
+  max-width: calc(100vw - 24px);
   background: var(--bg-secondary, #121212);
   backdrop-filter: blur(20px);
   border: 1px solid var(--glass-border);
@@ -235,16 +242,23 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 12px;
   margin-bottom: 4px;
+}
+
+.modelHeader > :last-child {
+  flex-shrink: 0;
 }
 
 .modelName {
   display: flex;
   align-items: center;
-  gap: 8px;
+  flex-wrap: wrap;
+  gap: 6px 8px;
   font-weight: 600;
   color: var(--text-primary, #fff);
   font-size: 0.95rem;
+  min-width: 0;
 }
 
 .fastIcon {
@@ -325,42 +339,77 @@
 }
 
 /* ===== Responsive: Small screens ===== */
+@media (max-width: 768px) {
+  .dropdown {
+    width: calc(100vw - 32px);
+    max-width: 400px;
+  }
+}
+
+@media (max-width: 600px) {
+  .selectorButton {
+    padding: 0.45rem 0.9rem;
+    font-size: 0.8rem;
+    gap: 0.5rem;
+  }
+  
+  .selectorButton span {
+    max-width: 100px;
+  }
+}
+
 @media (max-width: 480px) {
   .dropdown {
-    width: calc(100vw - 24px);
-    left: -12px;
-    right: -12px;
+    width: calc(100vw - 20px);
+    max-width: 360px;
   }
 
-  /* Hide text labels, show only logos */
   .providerTabLabel {
-    display: none;
+    font-size: 0.75rem;
   }
 
   .providerTab {
-    padding: 8px 12px;
-    gap: 0;
+    padding: 6px 8px;
+    gap: 6px;
   }
 
   .providerTabLogo {
-    width: 24px;
-    height: 24px;
+    width: 18px;
+    height: 18px;
   }
 
   .providerTabLogo>* {
-    width: 22px;
-    height: 22px;
+    width: 16px;
+    height: 16px;
   }
 
   .providerTabs {
     justify-content: center;
-    gap: 6px;
+    gap: 4px;
+    padding: 8px 8px 4px;
   }
-}
 
-@media (max-width: 768px) {
-  .dropdown {
-    width: min(400px, calc(100vw - 32px));
-    left: -20px;
+  .modelName {
+    font-size: 0.88rem;
+    gap: 4px 6px;
+  }
+
+  .modelDesc {
+    font-size: 0.75rem;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .modelItem {
+    padding: 10px;
+    margin: 4px 6px;
+  }
+  
+  .visionBadge, .newBadge {
+    font-size: 0.6rem;
+    padding: 0.05rem 0.3rem;
   }
 }
