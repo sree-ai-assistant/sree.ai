@@ -1,6 +1,6 @@
 .container {
   position: relative;
-  margin-bottom: 1rem;
+  /* margin-bottom: 1rem; */
   z-index: 50;
 }
 
@@ -118,7 +118,7 @@
   height: 20px;
 }
 
-.providerTabLogo > * {
+.providerTabLogo>* {
   width: 18px;
   height: 18px;
 }
@@ -347,7 +347,7 @@
     height: 24px;
   }
 
-  .providerTabLogo > * {
+  .providerTabLogo>* {
     width: 22px;
     height: 22px;
   }

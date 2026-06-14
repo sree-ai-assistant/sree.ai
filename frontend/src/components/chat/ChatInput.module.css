@@ -1,5 +1,5 @@
 .inputWrapper {
-  padding: 24px 10px;
+  padding: 0px 10px;
   position: sticky;
   bottom: 0;
   background: linear-gradient(to top, var(--bg-dark, #0a0a0a) 60%, transparent);
