@@ -8,6 +8,7 @@ import { withPriorityQueue } from '../services/queue.service';
 import { PLAN_CONFIGS as PLANS, type PlanTier } from '../config/plans';
 import { aiService } from '../services/ai.service';
 import { ApiKeyService } from '../services/apiKey.service';
+import { executeWithKeyRotation } from '../services/apiKeyPool.service';
 import { r2Service } from '../services/r2.service';
 import { fileService } from '../services/file.service';
 import multer from 'multer';
@@ -621,9 +622,14 @@ router.post('/chat', flexAuthMiddleware, abuseDetectionMiddleware(), queuePriori
     // Optimize token usage by compressing history
     const optimizedMessages = TokenManager.compressMessages(apiMessages);
 
-    const stream = await aiService.streamChat(apiKey, optimizedMessages, model, (status) => {
-      writeSSE({ status });
-    }, userId, provider);
+    const stream = await executeWithKeyRotation(
+      provider,
+      isByok,
+      apiKey,
+      (rotatedKey) => aiService.streamChat(rotatedKey, optimizedMessages, model, (status) => {
+        writeSSE({ status });
+      }, userId, provider)
+    );
 
     for await (const chunk of stream) {
       const content = chunk.choices[0]?.delta?.content || '';
@@ -683,6 +689,7 @@ router.post('/image', flexAuthMiddleware, abuseDetectionMiddleware(), queuePrior
     }
 
     const nvidiaApiKey = req.apiKey;
+    const isByok = (req as any).isByok || false;
 
     if (!nvidiaApiKey) {
       return res.status(400).json({
@@ -691,16 +698,21 @@ router.post('/image', flexAuthMiddleware, abuseDetectionMiddleware(), queuePrior
       });
     }
 
-    const result = await aiService.generateImage(nvidiaApiKey, prompt, model, {
-      negative_prompt,
-      seed,
-      steps,
-      width,
-      height,
-      cfg_scale,
-      image,
-      mode,
-    });
+    const result = await executeWithKeyRotation(
+      'nvidia',
+      isByok,
+      nvidiaApiKey,
+      (rotatedKey) => aiService.generateImage(rotatedKey, prompt, model, {
+        negative_prompt,
+        seed,
+        steps,
+        width,
+        height,
+        cfg_scale,
+        image,
+        mode,
+      })
+    );
 
     // Upload base64 images to R2 for persistent storage
     const images = [];
@@ -820,6 +832,7 @@ router.post('/voice', flexAuthMiddleware, abuseDetectionMiddleware(), queuePrior
     }
 
     const deepgramApiKey = req.apiKey;
+    const isByok = (req as any).isByok || false;
 
     if (!deepgramApiKey) {
       return res.status(400).json({
@@ -830,7 +843,12 @@ router.post('/voice', flexAuthMiddleware, abuseDetectionMiddleware(), queuePrior
 
     console.log(`Processing voice transcription: ${file.originalname} (${file.size} bytes, ${file.mimetype})`);
 
-    const result = await aiService.transcribeAudio(deepgramApiKey, file.path);
+    const result = await executeWithKeyRotation(
+      'deepgram',
+      isByok,
+      deepgramApiKey,
+      (rotatedKey) => aiService.transcribeAudio(rotatedKey, file.path)
+    );
 
     if (fs.existsSync(file.path)) fs.unlinkSync(file.path);
     res.json({ success: true, data: result });
@@ -947,7 +965,14 @@ router.post('/tts', flexAuthMiddleware, abuseDetectionMiddleware(), queuePriorit
       });
     }
 
-    const stream: any = await aiService.generateSpeech(deepgramApiKey, text, model);
+    const isByok = (req as any).isByok || false;
+
+    const stream: any = await executeWithKeyRotation(
+      'deepgram',
+      isByok,
+      deepgramApiKey,
+      (rotatedKey) => aiService.generateSpeech(rotatedKey, text, model)
+    );
 
     // Set response headers for audio stream
     res.setHeader('Content-Type', 'audio/mpeg');
