@@ -30,7 +30,7 @@ import { checkForAbuse, hashIp, type IdentitySignals, type EnforcementAction } f
  */
 export const abuseDetectionMiddleware = () => {
   return async (req: Request, res: Response, next: NextFunction) => {
-    return next(); //------>to bypass or off the abuse protection!
+    // return next(); //------>to bypass or off the abuse protection!
     try {
       // Build identity signals from previous middleware
       const user = (req as any).user;

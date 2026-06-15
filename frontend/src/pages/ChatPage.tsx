@@ -589,7 +589,8 @@ const ChatPage: React.FC = () => {
         }
 
         if (response.status === 429) {
-          const resetsIn = errorData.resetsIn || 60;
+          const isMonthlyLimit = errorData.reason === 'monthly';
+          const resetsIn = isMonthlyLimit ? 24 * 60 * 60 : (errorData.resetsIn || 60);
           const lockoutTime = Date.now() + (resetsIn * 1000);
           localStorage.setItem('chat_lockout', lockoutTime.toString());
           
@@ -599,7 +600,8 @@ const ChatPage: React.FC = () => {
             limitInfo: {
               limit: errorData.limit,
               current: errorData.current,
-              resetsIn: errorData.resetsIn,
+              resetsIn: resetsIn,
+              message: errorData.message,
               tier: user ? (user as any).user_metadata?.tier || 'Free' : 'Anonymous'
             }
           });

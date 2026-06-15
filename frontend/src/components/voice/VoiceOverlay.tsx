@@ -21,7 +21,16 @@ export const VoiceOverlay: React.FC<VoiceOverlayProps> = ({ onClose, initialConv
   const navigate = useNavigate();
 
   // Session State
-  const [isSessionActive, setIsSessionActive] = useState(true);
+  const [isSessionActive, setIsSessionActive] = useState(() => {
+    const lockedUntil = localStorage.getItem('chat_lockout');
+    if (lockedUntil) {
+      const remaining = Math.max(0, Math.ceil((parseInt(lockedUntil) - Date.now()) / 1000));
+      if (remaining > 0) {
+        return false;
+      }
+    }
+    return true;
+  });
   const [conversationId, setConversationId] = useState<string | null>(initialConversationId || null);
   const conversationIdRef = useRef<string | null>(initialConversationId || null);
 
@@ -35,8 +44,30 @@ export const VoiceOverlay: React.FC<VoiceOverlayProps> = ({ onClose, initialConv
     message: string;
     resetsIn: number;
     upgradeUrl: string;
-  } | null>(null);
-  const [countdown, setCountdown] = useState<number>(0);
+  } | null>(() => {
+    const lockedUntil = localStorage.getItem('chat_lockout');
+    if (lockedUntil) {
+      const remaining = Math.max(0, Math.ceil((parseInt(lockedUntil) - Date.now()) / 1000));
+      if (remaining > 0) {
+        return {
+          message: 'Account temporarily locked due to limit exceeded.',
+          resetsIn: remaining,
+          upgradeUrl: '/pricing'
+        };
+      }
+    }
+    return null;
+  });
+  const [countdown, setCountdown] = useState<number>(() => {
+    const lockedUntil = localStorage.getItem('chat_lockout');
+    if (lockedUntil) {
+      const remaining = Math.max(0, Math.ceil((parseInt(lockedUntil) - Date.now()) / 1000));
+      if (remaining > 0) {
+        return remaining;
+      }
+    }
+    return 0;
+  });
 
   // Sync state with props (important for "New Chat" navigation)
   useEffect(() => {
@@ -81,6 +112,25 @@ export const VoiceOverlay: React.FC<VoiceOverlayProps> = ({ onClose, initialConv
     // Remove system instructions
     processed = processed.replace(/\[SYSTEM INSTRUCTION: [\s\S]*?\]/gi, '');
     return processed.trim();
+  };
+
+  const formatCountdown = (totalSeconds: number) => {
+    if (totalSeconds >= 86400) {
+      const days = Math.floor(totalSeconds / 86400);
+      const hours = Math.floor((totalSeconds % 86400) / 3600);
+      return { val: `${days}d ${hours}h`, unit: 'Remaining' };
+    }
+    if (totalSeconds >= 3600) {
+      const hours = Math.floor(totalSeconds / 3600);
+      const minutes = Math.floor((totalSeconds % 3600) / 60);
+      return { val: `${hours}h ${minutes}m`, unit: 'Remaining' };
+    }
+    if (totalSeconds >= 60) {
+      const minutes = Math.floor(totalSeconds / 60);
+      const seconds = totalSeconds % 60;
+      return { val: `${minutes}m ${seconds}s`, unit: 'Remaining' };
+    }
+    return { val: `${totalSeconds}`, unit: 'Secs' };
   };
 
   const typewriter = (text: string, callback: (t: string) => void, speed = 5) => {
@@ -235,6 +285,7 @@ export const VoiceOverlay: React.FC<VoiceOverlayProps> = ({ onClose, initialConv
       setCountdown((prev) => {
         if (prev <= 1) {
           clearInterval(interval);
+          localStorage.removeItem('chat_lockout');
           setRateLimitInfo(null);
           setIsSessionActive(true);
           // Resume voice loop seamlessly once time is up
@@ -345,9 +396,13 @@ export const VoiceOverlay: React.FC<VoiceOverlayProps> = ({ onClose, initialConv
               errorData = { message: errorText };
             }
             if (chatResponse.status === 429 || errorData?.code === 'RATE_LIMIT_EXCEEDED') {
-              const resetsIn = errorData?.resetsIn || 30;
+              const isMonthlyLimit = errorData?.reason === 'monthly';
+              const resetsIn = isMonthlyLimit ? 24 * 60 * 60 : (errorData?.resetsIn || 30);
               const message = errorData?.message || 'Usage rate limit reached. Please try again later.';
               const upgradeUrl = errorData?.upgradeUrl || '/pricing';
+              
+              const lockoutTime = Date.now() + (resetsIn * 1000);
+              localStorage.setItem('chat_lockout', lockoutTime.toString());
               
               setIsSessionActive(false);
               stopRecording();
@@ -636,9 +691,13 @@ export const VoiceOverlay: React.FC<VoiceOverlayProps> = ({ onClose, initialConv
       }
 
       if (err.response?.status === 429 || errorData?.code === 'RATE_LIMIT_EXCEEDED') {
-        const resetsIn = errorData?.resetsIn || 30;
+        const isMonthlyLimit = errorData?.reason === 'monthly';
+        const resetsIn = isMonthlyLimit ? 24 * 60 * 60 : (errorData?.resetsIn || 30);
         const message = errorData?.message || 'Usage rate limit reached. Please try again later.';
         const upgradeUrl = errorData?.upgradeUrl || '/pricing';
+        
+        const lockoutTime = Date.now() + (resetsIn * 1000);
+        localStorage.setItem('chat_lockout', lockoutTime.toString());
         
         setIsSessionActive(false);
         stopRecording(false);
@@ -747,8 +806,10 @@ export const VoiceOverlay: React.FC<VoiceOverlayProps> = ({ onClose, initialConv
               />
             </svg>
             <div className={styles.timerNumber}>
-              <span className={styles.timerVal}>{countdown}</span>
-              <span className={styles.timerUnit}>Secs</span>
+              <span className={styles.timerVal} style={{ fontSize: formatCountdown(countdown).val.length > 3 ? '1.5rem' : '2.5rem' }}>
+                {formatCountdown(countdown).val}
+              </span>
+              <span className={styles.timerUnit}>{formatCountdown(countdown).unit}</span>
             </div>
           </div>
 

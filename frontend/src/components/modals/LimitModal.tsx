@@ -93,8 +93,12 @@ export const LimitModal: React.FC<LimitModalProps> = ({
                   </div>
                   <h2 className={styles.title}>Elevate Your Experience</h2>
                   <p className={styles.description}>
-                    You've reached your daily limit for the <strong>{limitInfo?.tier || 'free'}</strong> plan. 
-                    Upgrade now for more power and features.
+                    {limitInfo?.message || (
+                      <>
+                        You've reached your daily limit for the <strong>{limitInfo?.tier || 'free'}</strong> plan. 
+                        Upgrade now for more power and features.
+                      </>
+                    )}
                   </p>
                 </div>
 

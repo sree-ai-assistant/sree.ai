@@ -71,7 +71,7 @@ export const rateLimitMiddleware = (toolType: ToolType, provider?: string) => {
       const anonId = (req as any).anonId;
       const tier = (req as any).userTier || 'anonymous';
       const isAbuseStrictMode = !!(req as any).abuseStrictMode;
-      
+
       let isByok = false;
       let apiKey = null;
       let detectedProvider = provider;
@@ -89,7 +89,7 @@ export const rateLimitMiddleware = (toolType: ToolType, provider?: string) => {
         const result = await ApiKeyService.getUserApiKey(user?.id, detectedProvider);
         apiKey = result.key;
         isByok = result.source === 'user';
-        
+
         // Attach to request for route handler use
         (req as any).apiKey = apiKey;
         (req as any).isByok = isByok;
@@ -130,7 +130,7 @@ export const rateLimitMiddleware = (toolType: ToolType, provider?: string) => {
           result = await checkRateLimit(identity, actualToolType);
           if (!result.allowed) {
             const limitName = result.reason === 'minute' ? 'per minute' : result.reason === 'daily' ? 'daily' : 'monthly';
-            result.message = `Chat ${limitName} limit reached (${result.used}/${result.limit}). Please upgrade or try again later.`;
+            result.message = `Chat ${limitName} limit reached (${result.used}/${result.limit}). Please upgrade or add credits or try again later.`;
           }
         } else if (actualToolType === 'voice') {
           // Voice credits are charged ONCE at the end of the full voice flow
@@ -138,7 +138,7 @@ export const rateLimitMiddleware = (toolType: ToolType, provider?: string) => {
           result = await checkRateLimit(identity, actualToolType);
           if (!result.allowed) {
             const limitName = result.reason === 'minute' ? 'per minute' : result.reason === 'daily' ? 'daily' : 'monthly';
-            result.message = `Voice ${limitName} limit reached (${result.used}/${result.limit}). Please upgrade or try again later.`;
+            result.message = `Voice ${limitName} limit reached (${result.used}/${result.limit}). Please upgrade or add credits or try again later.`;
           }
         } else {
           // We increment at the start of the request to prevent race conditions for other tools.
@@ -209,14 +209,14 @@ export const featureGateMiddleware = (feature: keyof PlanConfig['features']) => 
 
     if (!hasAccess) {
       const isAuth = !!(req as any).user;
-      
+
       // If feature is locked and user isn't logged in, suggest logging in first
       if (!isAuth && tier === 'anonymous') {
-         return res.status(401).json({
-           success: false,
-           code: 'AUTH_REQUIRED',
-           message: 'This feature requires a free account. Please sign in or sign up.'
-         });
+        return res.status(401).json({
+          success: false,
+          code: 'AUTH_REQUIRED',
+          message: 'This feature requires a free account. Please sign in or sign up.'
+        });
       }
 
       return res.status(403).json({
