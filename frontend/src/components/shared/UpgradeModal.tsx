@@ -117,3 +117,5 @@ export const UpgradeModal: React.FC = () => {
         </motion.div>
       </div>
     </AnimatePresence>
+  );
+};

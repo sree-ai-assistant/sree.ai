@@ -573,15 +573,13 @@
   height: 200% !important;
   background: conic-gradient(
     from 0deg,
-    transparent 0%,
-    transparent 20%,
-    rgba(59, 130, 246, 0.8) 35%,
-    rgba(96, 165, 250, 1) 50%,
-    rgba(59, 130, 246, 0.8) 65%,
-    transparent 80%,
-    transparent 100%
+    rgba(96, 165, 250, 1) 0deg,
+    rgba(59, 130, 246, 0.8) 20deg,
+    rgba(59, 130, 246, 0.2) 60deg,
+    transparent 90deg,
+    transparent 360deg
   ) !important;
-  animation: rotateGlow 3s linear infinite !important;
+  animation: rotateGlow 2.5s linear infinite !important;
   z-index: 0 !important;
 }
 
