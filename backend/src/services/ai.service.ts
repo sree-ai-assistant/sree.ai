@@ -439,14 +439,26 @@ class AiService {
         
         console.error(`[AiService] AI Provider Error: ${errorMsg} | Details: ${detailMsg.substring(0, 500)}`);
 
+        // ── Rate limit detection — throw immediately to key rotation layer ──
+        // Rate limit errors are NOT context/token issues — retrying with reduced
+        // context on the same key is wasteful. Let executeWithKeyRotation rotate
+        // to the next key instead.
+        const isRateLimit = error.status === 429 ||
+          error.code === 'rate_limit_exceeded' ||
+          (errorMsg.includes('rate limit') && !errorMsg.includes('context'));
+
+        if (isRateLimit) {
+          console.warn(`[AiService] Rate limit detected (status=${error.status || 'N/A'}, code=${error.code || 'N/A'}). Propagating to key rotation layer...`);
+          throw error;
+        }
+
         const isTimeout = error.status === 504 || error.status === 502 || error.status === 408 || errorMsg.includes('timeout') || errorMsg.includes('gateway');
         const isTokenLimit = errorMsg.includes('token') ||
-          errorMsg.includes('limit') ||
+          errorMsg.includes('context limit') ||
           errorMsg.includes('prompt') ||
           errorMsg.includes('supported') ||
           error.status === 400 ||
-          detailMsg.toLowerCase().includes('token') ||
-          detailMsg.toLowerCase().includes('limit');
+          (detailMsg.toLowerCase().includes('token') && !detailMsg.toLowerCase().includes('rate limit'));
 
         if ((isTimeout || isTokenLimit) && retryCount < maxRetries) {
           retryCount++;

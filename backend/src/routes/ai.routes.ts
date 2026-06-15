@@ -622,21 +622,39 @@ router.post('/chat', flexAuthMiddleware, abuseDetectionMiddleware(), queuePriori
     // Optimize token usage by compressing history
     const optimizedMessages = TokenManager.compressMessages(apiMessages);
 
-    const stream = await executeWithKeyRotation(
+    await executeWithKeyRotation(
       provider,
       isByok,
       apiKey,
-      (rotatedKey) => aiService.streamChat(rotatedKey, optimizedMessages, model, (status) => {
-        writeSSE({ status });
-      }, userId, provider)
-    );
+      async (rotatedKey) => {
+        const stream = await aiService.streamChat(rotatedKey, optimizedMessages, model, (status) => {
+          writeSSE({ status });
+        }, userId, provider);
 
-    for await (const chunk of stream) {
-      const content = chunk.choices[0]?.delta?.content || '';
-      if (content) {
-        writeSSE({ content });
+        let contentSent = false;
+        try {
+          for await (const chunk of stream) {
+            const content = chunk.choices[0]?.delta?.content || '';
+            if (content) {
+              contentSent = true;
+              writeSSE({ content });
+            }
+          }
+        } catch (streamError: any) {
+          if (contentSent) {
+            // Content already partially sent to client — can't retry with a different key.
+            // Mark as non-rotatable so executeWithKeyRotation doesn't try another key.
+            console.warn(`[AI Route] Stream error after partial content delivery. Cannot rotate key.`);
+            const err = new Error(`Stream interrupted: ${streamError.message}`);
+            (err as any).skipRotation = true;
+            throw err;
+          }
+          // No content sent yet — safe to retry with next key via rotation
+          console.warn(`[AI Route] Stream error before any content. Eligible for key rotation.`);
+          throw streamError;
+        }
       }
-    }
+    );
 
     // Increment usage ONLY upon successful AI stream completion
     // Skip charging for voice-mode requests — voice credits are charged via /voice-complete

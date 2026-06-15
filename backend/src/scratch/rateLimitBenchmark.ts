@@ -181,7 +181,7 @@ Auth Mode:         ${AUTH_TOKEN ? 'Bearer Token supplied' : FORCE_ANON ? 'Multip
 
   const results: RequestResult[] = [];
   const activePromises = new Set<Promise<any>>();
-  
+
   // Setup persistent headers if we are using a single anonymous session or single auth token
   const defaultFingerprint = crypto.createHash('sha256').update(Math.random().toString()).digest('hex');
   const defaultAnonId = crypto.randomUUID();
@@ -199,11 +199,11 @@ Auth Mode:         ${AUTH_TOKEN ? 'Bearer Token supplied' : FORCE_ANON ? 'Multip
         headers['Authorization'] = AUTH_TOKEN.startsWith('Bearer ') ? AUTH_TOKEN : `Bearer ${AUTH_TOKEN}`;
       } else {
         // Handle anonymous fingerprints
-        const fp = FORCE_ANON 
+        const fp = FORCE_ANON
           ? crypto.createHash('sha256').update(Math.random().toString()).digest('hex')
           : defaultFingerprint;
         const anonId = FORCE_ANON ? crypto.randomUUID() : defaultAnonId;
-        
+
         headers['x-fingerprint'] = fp;
         headers['x-anon-id'] = anonId;
       }
@@ -211,7 +211,7 @@ Auth Mode:         ${AUTH_TOKEN ? 'Bearer Token supplied' : FORCE_ANON ? 'Multip
       const promise = sendChatRequest(id, headers).then(res => {
         results.push(res);
         activePromises.delete(promise);
-        
+
         // Print request completion status log
         const logSymbol = res.success ? '✅' : res.status === 429 ? '⚠️' : '❌';
         const latencyStr = `${res.latencyMs}ms`;

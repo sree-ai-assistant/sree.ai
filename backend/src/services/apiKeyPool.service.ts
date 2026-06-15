@@ -277,6 +277,13 @@ export async function executeWithKeyRotation<T>(
       return await executor(acquired.key);
     } catch (error: any) {
       lastError = error;
+
+      // If the executor explicitly marked this error as non-rotatable
+      // (e.g. content already partially streamed to client), throw immediately
+      if ((error as any).skipRotation) {
+        throw error;
+      }
+
       const errorType = classifyApiError(error);
 
       // Report the error to the pool (updates health state)
