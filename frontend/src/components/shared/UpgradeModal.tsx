@@ -80,6 +80,7 @@ export const UpgradeModal: React.FC = () => {
                   <li className={styles.feature}><Check className={styles.checkIcon} size={16} /> 60 daily voice synthesis</li>
                   <li className={styles.feature}><Check className={styles.checkIcon} size={16} /> 30 daily image gens</li>
                   <li className={styles.feature}><Check className={styles.checkIcon} size={16} /> Chat, image & video storage (3mo auto-delete)</li>
+                  <li className={styles.feature}><Check className={styles.checkIcon} size={16} /> Access to all tools (incl. 2D to 3D)</li>
                 </ul>
                 <button 
                   className={`${styles.button} ${styles.buttonStarter} ${user?.plan_type === 'starter' ? styles.buttonCurrent : ''}`}
@@ -101,6 +102,7 @@ export const UpgradeModal: React.FC = () => {
                   <li className={styles.feature}><Zap className={styles.checkIcon} size={16} style={{ color: 'var(--accent)' }} /> 100 daily voice synthesis</li>
                   <li className={styles.feature}><Zap className={styles.checkIcon} size={16} style={{ color: 'var(--accent)' }} /> 70 daily image gens</li>
                   <li className={styles.feature}><Zap className={styles.checkIcon} size={16} style={{ color: 'var(--accent)' }} /> Chat, image & video storage (no expiration)</li>
+                  <li className={styles.feature}><Zap className={styles.checkIcon} size={16} style={{ color: 'var(--accent)' }} /> Access to all tools (incl. 2D to 3D)</li>
                   <li className={styles.feature}><Zap className={styles.checkIcon} size={16} style={{ color: 'var(--accent)' }} /> Priority GPU queues</li>
                 </ul>
                 <button 

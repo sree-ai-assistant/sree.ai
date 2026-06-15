@@ -101,6 +101,7 @@ export const PricingPage: React.FC = () => {
       features: [
         'Chat, image & video storage (7 days auto-delete)',
         'Limited chat history search',
+        'Access to limited tools (Humanizer, Enhancer)',
       ],
       themeClass: styles.freeTier,
       btnClass: styles.buttonFree,
@@ -123,6 +124,7 @@ export const PricingPage: React.FC = () => {
         'Chat, image & video storage (3 months auto-delete)',
         'Unlimited chat history search',
         'Standard processing queues',
+        'Access to all tools (incl. 2D to 3D Convertor)',
       ],
       themeClass: styles.starterTier,
       btnClass: styles.buttonStarter,
@@ -146,6 +148,7 @@ export const PricingPage: React.FC = () => {
         'Unlimited chat history search',
         'Highest priority GPU queues',
         'Dedicated VIP developer support',
+        'Access to all tools (incl. 2D to 3D Convertor)',
       ],
       themeClass: styles.proTier,
       btnClass: styles.buttonPro,
@@ -404,6 +407,29 @@ export const PricingPage: React.FC = () => {
                   <td className={`${styles.td} ${styles.tdCol}`}>18+ models</td>
                   <td className={`${styles.td} ${styles.tdCol}`}>70+ models</td>
                   <td className={`${styles.td} ${styles.tdCol}`}>75+ models</td>
+                </tr>
+                <tr className={styles.tr}>
+                  <td className={`${styles.td} ${styles.tdLabel}`}>
+                    <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                      <span>Tools Access</span>
+                      <span 
+                        className={styles.infoIconWrapper}
+                        title="Access to specialized productivity tools like AI Humanizer, Prompt Enhancer, Doc Analyzer, Image to PDF, BG Remover, and 2D to 3D Convertor."
+                      >
+                        <HelpCircle size={14} className={styles.infoIcon} />
+                        <div className={styles.tooltipContent} style={{ width: '240px', left: 'auto', right: '-10px' }}>
+                          <div className={styles.tooltipTitle}>Tools Access Details</div>
+                          <div className={styles.tooltipDetail} style={{ display: 'block', fontSize: '0.75rem', lineHeight: '1.4', color: 'var(--text-secondary)', textAlign: 'left' }}>
+                            <strong>Free:</strong> AI Humanizer, Prompt Enhancer.<br />
+                            <strong>Starter & Pro:</strong> All tools including Doc Analyzer, Image to PDF, BG Remover, and 2D to 3D Convertor.
+                          </div>
+                        </div>
+                      </span>
+                    </div>
+                  </td>
+                  <td className={`${styles.td} ${styles.tdCol}`}>Limited (Humanizer, Enhancer)</td>
+                  <td className={`${styles.td} ${styles.tdCol}`}>All Tools (incl. 2D to 3D)</td>
+                  <td className={`${styles.td} ${styles.tdCol}`}>All Tools (incl. 2D to 3D)</td>
                 </tr>
                 <tr className={styles.tr}>
                   <td className={`${styles.td} ${styles.tdLabel}`}>Daily Chat Requests</td>

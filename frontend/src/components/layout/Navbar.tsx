@@ -18,11 +18,14 @@ import {
   Eraser,
   Sparkles,
   LogIn,
-  UserPlus
+  UserPlus,
+  Box,
+  Lock
 } from 'lucide-react';
 import { useAuthStore } from '../../store/auth.store';
 import { useUsageStore } from '../../store/usage.store';
 import { useUIStore } from '../../store/ui.store';
+import toast from 'react-hot-toast';
 import styles from './Navbar.module.css';
 
 export const Navbar: React.FC = () => {
@@ -52,11 +55,12 @@ export const Navbar: React.FC = () => {
   ];
 
   const tools = [
-    { label: 'AI Humanizer', icon: <User size={16} />, to: '/tools/humanizer' },
-    { label: 'Prompt Enhancer', icon: <Zap size={16} />, to: '/tools/enhancer' },
-    { label: 'Doc Analyzer', icon: <FileText size={16} />, to: '/tools/analyzer' },
-    { label: 'Image to PDF', icon: <ImagePlus size={16} />, to: '/tools/image-to-pdf' },
-    { label: 'BG Remover', icon: <Eraser size={16} />, to: '/tools/bg-remover' },
+    { label: 'AI Humanizer', icon: <User size={16} />, to: '/tools/humanizer', premium: false },
+    { label: 'Prompt Enhancer', icon: <Zap size={16} />, to: '/tools/enhancer', premium: false },
+    { label: 'Doc Analyzer', icon: <FileText size={16} />, to: '/tools/analyzer', premium: true },
+    { label: 'Image to PDF', icon: <ImagePlus size={16} />, to: '/tools/image-to-pdf', premium: true },
+    { label: 'BG Remover', icon: <Eraser size={16} />, to: '/tools/bg-remover', premium: true },
+    { label: '2D to 3D Convertor', icon: <Box size={16} />, to: '/tools/3d-converter', premium: true },
   ];
 
   useEffect(() => {
@@ -276,15 +280,50 @@ export const Navbar: React.FC = () => {
                 exit={{ opacity: 0, y: 10 }}
                 className={styles.dropdownMenu}
               >
-                {tools.map((tool) => (
-                  <Link key={tool.label} to={tool.to} className={styles.dropdownItem}>
-                    <div className={styles.itemContent}>
-                      <div className={styles.itemIcon}>{tool.icon}</div>
-                      <span>{tool.label}</span>
-                    </div>
-                    <ChevronRight size={14} className={styles.itemArrow} />
-                  </Link>
-                ))}
+                {tools.map((tool) => {
+                  const isLocked = tool.premium && (!user || (user.plan_type !== 'starter' && user.plan_type !== 'pro'));
+                  return (
+                    <Link
+                      key={tool.label}
+                      to={isLocked ? '/pricing' : tool.to}
+                      className={`${styles.dropdownItem} ${isLocked ? styles.lockedItem : ''}`}
+                      onClick={(e) => {
+                        if (isLocked) {
+                          e.preventDefault();
+                          toast.error(`${tool.label} requires a Starter or Pro plan. Redirecting to upgrade...`, { id: 'tool-lock-toast' });
+                          navigate('/pricing');
+                        }
+                      }}
+                    >
+                      <div className={styles.itemContent}>
+                        <div className={styles.itemIcon}>{tool.icon}</div>
+                        <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          {tool.label}
+                          {isLocked && (
+                            <span 
+                              style={{ 
+                                fontSize: '0.65rem', 
+                                background: 'rgba(239, 68, 68, 0.15)', 
+                                color: '#f87171', 
+                                padding: '2px 6px', 
+                                borderRadius: '4px',
+                                border: '1px solid rgba(239, 68, 68, 0.2)',
+                                fontWeight: 600
+                              }}
+                            >
+                              PRO
+                            </span>
+                          )}
+                        </span>
+                      </div>
+                      {isLocked ? (
+                        <Lock size={12} className={styles.lockIcon} />
+                      ) : (
+                        <ChevronRight size={14} className={styles.itemArrow} />
+                      )}
+                    </Link>
+                  );
+                })}
               </motion.div>
             )}
           </AnimatePresence>

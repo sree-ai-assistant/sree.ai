@@ -800,3 +800,22 @@
     left: 50%;
   }
 }
+
+.lockedItem {
+  opacity: 0.75;
+}
+
+.lockedItem:hover {
+  background: rgba(239, 68, 68, 0.05) !important;
+}
+
+.lockIcon {
+  color: var(--text-muted);
+  opacity: 0.5;
+  transition: all 0.2s ease;
+}
+
+.lockedItem:hover .lockIcon {
+  color: #ef4444;
+  opacity: 1;
+}
