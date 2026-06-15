@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Save, 
@@ -70,6 +70,7 @@ const PLAN_CONFIG: Record<string, { label: string; price: string; period: string
 };
 
 const SettingsPage: React.FC = () => {
+  const navigate = useNavigate();
   const { user, updateProfile, signOut } = useAuthStore();
   const { status: usageStatus, fetchStatus: fetchUsageStatus } = useUsageStore();
   const [searchParams] = useSearchParams();
@@ -937,7 +938,7 @@ const SettingsPage: React.FC = () => {
               <p className={styles.planPrice}>{plan.price}<span>{plan.period}</span></p>
             </div>
             <div className={styles.planActions}>
-              <button className={styles.upgradeBtn}>
+              <button className={styles.upgradeBtn} onClick={() => navigate('/pricing')}>
                 {user?.plan_type === 'pro' ? 'Manage Subscription' : 'Upgrade Plan'}
               </button>
             </div>

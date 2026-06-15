@@ -47,17 +47,17 @@ export const LimitModal: React.FC<LimitModalProps> = ({
   const pricingTiers = [
     {
       name: 'Starter',
-      price: '$9',
+      price: '$8',
       limit: '50 requests/day',
-      features: ['Faster response times', 'Basic storage', 'Discord support'],
+      features: ['50 daily chats (GPT-4 / Claude 3.5)', '60 daily voice synthesis', '30 daily image generations', '5 GB cloud file storage'],
       current: limitInfo?.tier === 'starter',
       color: '#60a5fa'
     },
     {
       name: 'Pro',
       price: '$29',
-      limit: 'Unlimited requests',
-      features: ['Priority generation', 'Advanced storage', 'Early access', 'Priority support'],
+      limit: '200 requests/day',
+      features: ['200 daily chats (All models)', '100 daily voice synthesis', '70 daily image generations', '10 GB cloud storage', 'Priority GPU rendering'],
       current: limitInfo?.tier === 'pro',
       color: '#818cf8',
       popular: true
@@ -127,7 +127,7 @@ export const LimitModal: React.FC<LimitModalProps> = ({
                       <button 
                         className={`${styles.tierButton} ${tier.popular ? styles.popularButton : ''}`}
                         disabled={tier.current}
-                        onClick={() => navigate('/upgrade')}
+                        onClick={() => { navigate(`/pricing?plan=${tier.name.toLowerCase()}`); onClose(); }}
                       >
                         {tier.current ? 'Current Plan' : 'Upgrade Now'}
                       </button>

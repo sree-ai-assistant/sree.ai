@@ -187,3 +187,12 @@
   transform: scale(1.02);
   box-shadow: 0 0 20px var(--primary-glow);
 }
+
+.buttonCurrent {
+  background: rgba(34, 197, 94, 0.1) !important;
+  border: 1px solid rgba(34, 197, 94, 0.3) !important;
+  color: #22c55e !important;
+  cursor: default !important;
+  transform: none !important;
+  box-shadow: none !important;
+}

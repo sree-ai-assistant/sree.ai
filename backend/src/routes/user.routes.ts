@@ -4,6 +4,7 @@ import { supabaseAdmin } from '../lib/supabase';
 import { ApiKeyService } from '../services/apiKey.service';
 import { ProviderValidationService } from '../services/providerValidation.service';
 import { migrateDataToUser } from '../services/anonymous.service';
+import { PLAN_CONFIGS } from '../config/plans';
 import multer from 'multer';
 import fs from 'fs';
 import path from 'path';
@@ -549,6 +550,75 @@ router.delete('/account', authMiddleware, async (req: any, res) => {
   } catch (error: any) {
     console.error('Account deletion error:', error);
     res.status(500).json({ success: false, message: error.message || 'Failed to delete account' });
+  }
+});
+
+// Upgrade or modify plan (Phase 8 Subscription Simulation)
+router.post('/subscription/upgrade', authMiddleware, async (req: any, res) => {
+  try {
+    const { tier } = req.body;
+    const userId = req.user.id;
+
+    if (!tier || !['free', 'starter', 'pro'].includes(tier)) {
+      return res.status(400).json({ success: false, message: 'Invalid tier selection' });
+    }
+
+    // 1. Update profiles table
+    const { error: profileError } = await supabaseAdmin
+      .from('profiles')
+      .update({
+        plan_type: tier,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', userId);
+
+    if (profileError) throw profileError;
+
+    // 2. Upsert subscriptions record to ensure getUserTier resolves it correctly
+    const now = new Date();
+    const cycleEnd = new Date();
+    cycleEnd.setDate(now.getDate() + 30); // 30-day billing cycle simulation
+
+    const { error: subError } = await supabaseAdmin
+      .from('subscriptions')
+      .upsert({
+        user_id: userId,
+        tier,
+        status: 'active',
+        plan_id: `plan_${tier}`,
+        billing_cycle_start: now.toISOString(),
+        billing_cycle_end: cycleEnd.toISOString(),
+        created_at: now.toISOString(),
+      }, {
+        onConflict: 'user_id'
+      });
+
+    if (subError) throw subError;
+
+    // Sync limits to profiles table immediately so UI updates instantly
+    const plan = PLAN_CONFIGS[tier as keyof typeof PLAN_CONFIGS];
+    if (plan) {
+      await supabaseAdmin
+        .from('profiles')
+        .update({
+          chat_limit_daily: plan.limits.chat.daily,
+          chat_limit_monthly: plan.limits.chat.monthly,
+          voice_limit_daily: plan.limits.voice.daily,
+          voice_limit_monthly: plan.limits.voice.monthly,
+          image_limit_daily: plan.limits.image.daily,
+          image_limit_monthly: plan.limits.image.monthly,
+        })
+        .eq('id', userId);
+    }
+
+    res.json({
+      success: true,
+      message: `Successfully updated plan to ${tier.charAt(0).toUpperCase() + tier.slice(1)}`,
+      data: { tier }
+    });
+  } catch (error: any) {
+    console.error('Subscription upgrade error:', error);
+    res.status(500).json({ success: false, message: error.message || 'Failed to update subscription' });
   }
 });
 

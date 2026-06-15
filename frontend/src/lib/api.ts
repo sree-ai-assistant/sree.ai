@@ -143,6 +143,10 @@ export const userService = {
     const response = await api.delete('/user/account');
     return response.data;
   },
+  upgradeSubscription: async (tier: 'free' | 'starter' | 'pro') => {
+    const response = await api.post('/user/subscription/upgrade', { tier });
+    return response.data;
+  },
 };
 
 export const usageService = {

@@ -8,6 +8,7 @@ import ChatPage from './pages/ChatPage';
 import ImageGenPage from './pages/ImageGenPage';
 import SettingsPage from './pages/SettingsPage';
 import OnboardingPage from './pages/OnboardingPage';
+import PricingPage from './pages/PricingPage';
 import ProtectedRoute from './components/auth/ProtectedRoute';
 import { supabase } from './lib/supabase';
 
@@ -102,6 +103,8 @@ function App() {
             </ProtectedRoute>
           }
         />
+        <Route path="/pricing" element={<PricingPage />} />
+        <Route path="/upgrade" element={<Navigate to="/pricing" replace />} />
 
         {/* Redirects */}
         <Route path="*" element={<Navigate to="/" replace />} />
