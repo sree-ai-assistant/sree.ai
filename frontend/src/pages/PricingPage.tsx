@@ -265,7 +265,7 @@ export const PricingPage: React.FC = () => {
           {planCards.map((plan) => {
             const isCurrent = user ? user.plan_type === plan.tier : false;
             const price = getPrice(plan.price);
-            const isBestValue = plan.tier === 'pro' && !isCurrent;
+            const isBestValue = plan.tier === 'starter' && !isCurrent;
 
             return (
               <div
@@ -293,20 +293,22 @@ export const PricingPage: React.FC = () => {
                   disabled={isCurrent || loadingTier !== null}
                   onClick={() => handleSelectPlan(plan.tier)}
                 >
-                  {isCurrent ? (
-                    <>
-                      <CheckCircle2 size={18} />
-                      Current Plan
-                    </>
-                  ) : loadingTier === plan.tier ? (
-                    'Processing...'
-                  ) : (
-                    <>
-                      {plan.tier === 'pro' && <Zap size={18} />}
-                      {plan.tier === 'starter' && <Star size={18} />}
-                      {!user && plan.tier === 'free' ? 'Sign Up' : plan.btnText}
-                    </>
-                  )}
+                  <span className={styles.btnContent}>
+                    {isCurrent ? (
+                      <>
+                        <CheckCircle2 size={18} />
+                        Current Plan
+                      </>
+                    ) : loadingTier === plan.tier ? (
+                      'Processing...'
+                    ) : (
+                      <>
+                        {plan.tier === 'pro' && <Zap size={18} />}
+                        {plan.tier === 'starter' && <Star size={18} />}
+                        {!user && plan.tier === 'free' ? 'Sign Up' : plan.btnText}
+                      </>
+                    )}
+                  </span>
                 </button>
 
                 {/* Quota Limits Section */}

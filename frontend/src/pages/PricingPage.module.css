@@ -549,8 +549,8 @@
 }
 
 .bestValueBadge {
-  background: linear-gradient(90deg, #3b82f6, #8b5cf6) !important;
-  box-shadow: 0 4px 12px rgba(139, 92, 246, 0.3) !important;
+  background: linear-gradient(90deg, #1d4ed8, #3b82f6) !important;
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3) !important;
   border: 1px solid rgba(255, 255, 255, 0.1) !important;
 }
 
@@ -560,7 +560,7 @@
   z-index: 1 !important;
   background: transparent !important;
   border: none !important;
-  box-shadow: 0 0 24px rgba(139, 92, 246, 0.4) !important;
+  box-shadow: 0 0 24px rgba(59, 130, 246, 0.35) !important;
   color: #fff !important;
 }
 
@@ -576,32 +576,46 @@
     transparent 0%,
     transparent 20%,
     rgba(59, 130, 246, 0.8) 35%,
-    rgba(139, 92, 246, 0.9) 50%,
+    rgba(96, 165, 250, 1) 50%,
     rgba(59, 130, 246, 0.8) 65%,
     transparent 80%,
     transparent 100%
   ) !important;
   animation: rotateGlow 3s linear infinite !important;
-  z-index: -2 !important;
+  z-index: 0 !important;
 }
 
 .bestValueBtn::after {
   content: '' !important;
   position: absolute !important;
-  inset: 1.5px !important;
-  background: linear-gradient(135deg, rgba(30, 27, 46, 0.95), rgba(15, 15, 20, 0.98)) !important;
+  top: 1.5px !important;
+  left: 1.5px !important;
+  right: 1.5px !important;
+  bottom: 1.5px !important;
+  background: #111422 !important; /* Fully opaque solid background to block all inner gradient bleed */
   border-radius: 14.5px !important;
-  z-index: -1 !important;
+  z-index: 1 !important;
   transition: all var(--transition-fast) !important;
 }
 
 .bestValueBtn:hover {
   transform: translateY(-2px) !important;
-  box-shadow: 0 0 32px rgba(139, 92, 246, 0.6) !important;
+  box-shadow: 0 0 32px rgba(59, 130, 246, 0.55) !important;
 }
 
 .bestValueBtn:hover::after {
-  background: linear-gradient(135deg, rgba(139, 92, 246, 0.15), rgba(30, 27, 46, 0.9)) !important;
+  background: #192038 !important; /* Slightly lighter opaque background for active hover feedback */
+}
+
+.btnContent {
+  position: relative !important;
+  z-index: 2 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 8px !important;
+  width: 100% !important;
+  height: 100% !important;
 }
 
 @keyframes rotateGlow {
