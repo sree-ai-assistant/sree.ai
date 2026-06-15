@@ -635,3 +635,175 @@
   }
 }
 
+/* Credits Top-up Section */
+.creditsSection {
+  margin-top: 80px;
+  padding: 60px 24px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 32px;
+  backdrop-filter: var(--glass-blur);
+  text-align: center;
+  position: relative;
+  overflow: hidden;
+}
+
+.creditsTitle {
+  font-size: 2.2rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  margin-bottom: 12px;
+  background: linear-gradient(135deg, #fff 0%, var(--text-secondary) 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.creditsSubtitle {
+  color: var(--text-secondary);
+  font-size: 1rem;
+  max-width: 600px;
+  margin: 0 auto 40px;
+  line-height: 1.5;
+}
+
+.creditsGrid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 24px;
+  max-width: 1000px;
+  margin: 0 auto;
+}
+
+.creditsCard {
+  background: rgba(26, 26, 26, 0.5);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 24px;
+  padding: 32px 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  transition: all var(--transition-normal);
+  position: relative;
+}
+
+.creditsCard:hover {
+  transform: translateY(-4px);
+  background: rgba(26, 26, 26, 0.75);
+  border-color: rgba(255, 255, 255, 0.1);
+  box-shadow: 0 15px 30px rgba(0, 0, 0, 0.4);
+}
+
+.creditsCardFeatured {
+  border-color: rgba(59, 130, 246, 0.3);
+}
+
+.creditsCardFeatured:hover {
+  border-color: rgba(59, 130, 246, 0.6);
+}
+
+.creditsPackName {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 12px;
+}
+
+.creditsPackNameLight {
+  color: #94a3b8;
+}
+
+.creditsPackNameMedium {
+  color: var(--primary);
+}
+
+.creditsPackNameHeavy {
+  color: var(--accent);
+}
+
+.creditsPrice {
+  font-size: 2rem;
+  font-weight: 800;
+  color: #fff;
+  margin-bottom: 20px;
+}
+
+.creditsList {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 24px;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.creditsItem {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  padding: 8px 12px;
+  background: rgba(255, 255, 255, 0.02);
+  border-radius: 8px;
+}
+
+.creditsItemValue {
+  font-weight: 700;
+  color: #fff;
+}
+
+.creditsBtn {
+  width: 100%;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: #fff;
+  padding: 12px;
+  border-radius: 12px;
+  font-weight: 700;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.creditsBtn:hover {
+  background: #fff;
+  color: #0f172a;
+  border-color: #fff;
+  transform: translateY(-1px);
+}
+
+.creditsBtnFeatured {
+  background: var(--primary);
+  color: #0f172a;
+  border: none;
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.2);
+}
+
+.creditsBtnFeatured:hover {
+  background: #60a5fa;
+  color: #0f172a;
+  box-shadow: 0 6px 16px rgba(59, 130, 246, 0.35);
+}
+
+.creditsBadge {
+  position: absolute;
+  top: -12px;
+  background: var(--primary);
+  color: #0f172a;
+  font-size: 0.7rem;
+  font-weight: 800;
+  padding: 4px 12px;
+  border-radius: 99px;
+  text-transform: uppercase;
+  box-shadow: 0 4px 10px rgba(59, 130, 246, 0.2);
+}
+
+@media (max-width: 768px) {
+  .creditsGrid {
+    grid-template-columns: 1fr;
+  }
+}
+

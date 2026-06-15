@@ -622,4 +622,99 @@ router.post('/subscription/upgrade', authMiddleware, async (req: any, res) => {
   }
 });
 
+const CREDIT_PACKS = {
+  light: {
+    price: 3.00,
+    chat: 100,
+    voice: 50,
+    image: 15
+  },
+  medium: {
+    price: 7.00,
+    chat: 300,
+    voice: 150,
+    image: 45
+  },
+  heavy: {
+    price: 15.00,
+    chat: 800,
+    voice: 400,
+    image: 120
+  }
+};
+
+// Buy credit packs (one-time add-on)
+router.post('/subscription/buy-credits', authMiddleware, async (req: any, res) => {
+  try {
+    const { pack } = req.body;
+    const userId = req.user.id;
+
+    if (!pack || !['light', 'medium', 'heavy'].includes(pack)) {
+      return res.status(400).json({ success: false, message: 'Invalid credit pack selection' });
+    }
+
+    const packDetails = CREDIT_PACKS[pack as keyof typeof CREDIT_PACKS];
+
+    // Fetch user profile to get current limits
+    const { data: profile, error: profileErr } = await supabaseAdmin
+      .from('profiles')
+      .select('chat_limit_daily, chat_limit_monthly, voice_limit_daily, voice_limit_monthly, image_limit_daily, image_limit_monthly, plan_type')
+      .eq('id', userId)
+      .single();
+
+    if (profileErr || !profile) {
+      throw new Error(profileErr?.message || 'User profile not found');
+    }
+
+    // Determine base limits using plan configs if columns are null/0
+    const plan = PLAN_CONFIGS[(profile.plan_type || 'free').toLowerCase() as keyof typeof PLAN_CONFIGS] || PLAN_CONFIGS.free;
+
+    const currentChatLimit = profile.chat_limit_monthly ?? plan.limits.chat.monthly ?? 0;
+    const currentVoiceLimit = profile.voice_limit_monthly ?? plan.limits.voice.monthly ?? 0;
+    const currentImageLimit = profile.image_limit_monthly ?? plan.limits.image.monthly ?? 0;
+
+    // Increment limits
+    const newChatLimit = currentChatLimit + packDetails.chat;
+    const newVoiceLimit = currentVoiceLimit + packDetails.voice;
+    const newImageLimit = currentImageLimit + packDetails.image;
+
+    // Keep daily limits from profile or plan defaults
+    const chatDailyLimit = profile.chat_limit_daily ?? plan.limits.chat.daily ?? 0;
+    const voiceDailyLimit = profile.voice_limit_daily ?? plan.limits.voice.daily ?? 0;
+    const imageDailyLimit = profile.image_limit_daily ?? plan.limits.image.daily ?? 0;
+
+    // Update profile
+    const { error: updateErr } = await supabaseAdmin
+      .from('profiles')
+      .update({
+        chat_limit_monthly: newChatLimit,
+        voice_limit_monthly: newVoiceLimit,
+        image_limit_monthly: newImageLimit,
+        chat_limit_daily: chatDailyLimit,
+        voice_limit_daily: voiceDailyLimit,
+        image_limit_daily: imageDailyLimit,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', userId);
+
+    if (updateErr) throw updateErr;
+
+    res.json({
+      success: true,
+      message: `Successfully purchased ${pack.toUpperCase()} top-up! +${packDetails.chat} chats, +${packDetails.voice} voice, +${packDetails.image} images.`,
+      data: {
+        pack,
+        newLimits: {
+          chat: newChatLimit,
+          voice: newVoiceLimit,
+          image: newImageLimit
+        }
+      }
+    });
+  } catch (error: any) {
+    console.error('Credit purchase error:', error);
+    res.status(500).json({ success: false, message: error.message || 'Failed to purchase credits' });
+  }
+});
+
 export default router;
