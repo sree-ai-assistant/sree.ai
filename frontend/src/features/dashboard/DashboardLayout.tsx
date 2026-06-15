@@ -9,8 +9,9 @@ export const DashboardLayout: React.FC<{
   defaultCollapsed?: boolean;
   isCollapsed?: boolean;
   setIsCollapsed?: (v: boolean) => void;
-  sidebar?: React.ReactNode | ((props: { isCollapsed: boolean; setIsCollapsed: (v: boolean) => void }) => React.ReactNode)
-}> = ({ children, sidebar, defaultCollapsed, isCollapsed, setIsCollapsed }) => {
+  sidebar?: React.ReactNode | ((props: { isCollapsed: boolean; setIsCollapsed: (v: boolean) => void }) => React.ReactNode);
+  noSidebar?: boolean;
+}> = ({ children, sidebar, defaultCollapsed, isCollapsed, setIsCollapsed, noSidebar }) => {
   const { sidebarCollapsed, setSidebarCollapsed } = useUIStore();
   
   // Use prop if provided, otherwise use global store state
@@ -51,16 +52,16 @@ export const DashboardLayout: React.FC<{
       <Navbar />
       
       <div className={styles.layoutBody}>
-        {renderSidebar()}
+        {!noSidebar && renderSidebar()}
         
-        {!collapsed && (
+        {!noSidebar && !collapsed && (
           <div 
             className={styles.mobileBackdrop} 
             onClick={() => onToggle(true)}
           />
         )}
         
-        <main className={`${styles.mainContent} ${collapsed ? styles.collapsed : ''}`}>
+        <main className={`${styles.mainContent} ${noSidebar ? styles.noSidebar : collapsed ? styles.collapsed : ''}`}>
           {children}
         </main>
       </div>

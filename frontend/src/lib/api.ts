@@ -28,7 +28,7 @@ api.interceptors.request.use(async (config) => {
   } catch (e) {
     console.warn('API interceptor session fetch timeout');
   }
-  
+
   if (session?.access_token) {
     config.headers.Authorization = `Bearer ${session.access_token}`;
   } else {
@@ -145,10 +145,6 @@ export const userService = {
   },
   upgradeSubscription: async (tier: 'free' | 'starter' | 'pro') => {
     const response = await api.post('/user/subscription/upgrade', { tier });
-    return response.data;
-  },
-  buyCredits: async (pack: 'light' | 'medium' | 'heavy') => {
-    const response = await api.post('/user/subscription/buy-credits', { pack });
     return response.data;
   },
 };

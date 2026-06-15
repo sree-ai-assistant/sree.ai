@@ -133,7 +133,7 @@ router.post('/avatar', authMiddleware, avatarUpload.single('avatar'), async (req
   } catch (error: any) {
     // Clean up temp file on error
     if (req.file?.path) {
-      try { fs.unlinkSync(req.file.path); } catch (e) {}
+      try { fs.unlinkSync(req.file.path); } catch (e) { }
     }
     res.status(500).json({ success: false, message: error.message });
   }
@@ -198,7 +198,7 @@ router.post('/settings/keys', authMiddleware, async (req: any, res) => {
     }
 
     const success = await ApiKeyService.saveUserApiKey(userId, finalProvider, finalKey, name);
-    
+
     if (!success) {
       throw new Error('Failed to encrypt or save API key');
     }
@@ -225,7 +225,7 @@ router.patch('/settings/keys/:id/toggle', authMiddleware, async (req: any, res) 
     const { id } = req.params;
     const { in_use } = req.body;
     const success = await ApiKeyService.toggleApiKey(req.user.id, id, in_use);
-    
+
     if (success) {
       res.json({ success: true, message: `API key ${in_use ? 'enabled' : 'disabled'} successfully` });
     } else {
@@ -241,7 +241,7 @@ router.delete('/settings/keys/:id', authMiddleware, async (req: any, res) => {
   try {
     const { id } = req.params;
     const success = await ApiKeyService.deleteApiKeyById(req.user.id, id);
-    
+
     if (success) {
       res.json({ success: true, message: 'API key deleted successfully' });
     } else {
@@ -349,7 +349,7 @@ router.get('/devices', authMiddleware, async (req: any, res) => {
 router.delete('/sessions/revoke-others', authMiddleware, async (req: any, res) => {
   try {
     const userId = req.user.id;
-    
+
     // Find the current session ID for this user (if any)
     const { data: currentSession } = await supabaseAdmin
       .from('user_sessions')
@@ -453,7 +453,7 @@ router.post('/onboarding/complete', authMiddleware, async (req: any, res) => {
     const age = today.getFullYear() - dob.getFullYear();
     const monthDiff = today.getMonth() - dob.getMonth();
     const actualAge = monthDiff < 0 || (monthDiff === 0 && today.getDate() < dob.getDate()) ? age - 1 : age;
-    
+
     if (actualAge < 13) {
       return res.status(400).json({ success: false, message: 'You must be at least 13 years old' });
     }
@@ -499,9 +499,9 @@ router.post('/migrate', authMiddleware, async (req: any, res) => {
 
     await migrateDataToUser(anon_id, userId);
 
-    res.json({ 
-      success: true, 
-      message: 'Anonymous data successfully migrated to your account' 
+    res.json({
+      success: true,
+      message: 'Anonymous data successfully migrated to your account'
     });
   } catch (error: any) {
     res.status(500).json({ success: false, message: error.message });
@@ -533,7 +533,7 @@ router.delete('/account', authMiddleware, async (req: any, res) => {
     await supabaseAdmin.from('conversations').delete().eq('user_id', userId);
     await supabaseAdmin.from('subscriptions').delete().eq('user_id', userId);
     await supabaseAdmin.from('usage_tracking').delete().eq('user_id', userId);
-    
+
     // Dissolve link to migrated anonymous users
     await supabaseAdmin
       .from('anonymous_users')
@@ -619,101 +619,6 @@ router.post('/subscription/upgrade', authMiddleware, async (req: any, res) => {
   } catch (error: any) {
     console.error('Subscription upgrade error:', error);
     res.status(500).json({ success: false, message: error.message || 'Failed to update subscription' });
-  }
-});
-
-const CREDIT_PACKS = {
-  light: {
-    price: 3.00,
-    chat: 100,
-    voice: 50,
-    image: 15
-  },
-  medium: {
-    price: 7.00,
-    chat: 300,
-    voice: 150,
-    image: 45
-  },
-  heavy: {
-    price: 15.00,
-    chat: 800,
-    voice: 400,
-    image: 120
-  }
-};
-
-// Buy credit packs (one-time add-on)
-router.post('/subscription/buy-credits', authMiddleware, async (req: any, res) => {
-  try {
-    const { pack } = req.body;
-    const userId = req.user.id;
-
-    if (!pack || !['light', 'medium', 'heavy'].includes(pack)) {
-      return res.status(400).json({ success: false, message: 'Invalid credit pack selection' });
-    }
-
-    const packDetails = CREDIT_PACKS[pack as keyof typeof CREDIT_PACKS];
-
-    // Fetch user profile to get current limits
-    const { data: profile, error: profileErr } = await supabaseAdmin
-      .from('profiles')
-      .select('chat_limit_daily, chat_limit_monthly, voice_limit_daily, voice_limit_monthly, image_limit_daily, image_limit_monthly, plan_type')
-      .eq('id', userId)
-      .single();
-
-    if (profileErr || !profile) {
-      throw new Error(profileErr?.message || 'User profile not found');
-    }
-
-    // Determine base limits using plan configs if columns are null/0
-    const plan = PLAN_CONFIGS[(profile.plan_type || 'free').toLowerCase() as keyof typeof PLAN_CONFIGS] || PLAN_CONFIGS.free;
-
-    const currentChatLimit = profile.chat_limit_monthly ?? plan.limits.chat.monthly ?? 0;
-    const currentVoiceLimit = profile.voice_limit_monthly ?? plan.limits.voice.monthly ?? 0;
-    const currentImageLimit = profile.image_limit_monthly ?? plan.limits.image.monthly ?? 0;
-
-    // Increment limits
-    const newChatLimit = currentChatLimit + packDetails.chat;
-    const newVoiceLimit = currentVoiceLimit + packDetails.voice;
-    const newImageLimit = currentImageLimit + packDetails.image;
-
-    // Keep daily limits from profile or plan defaults
-    const chatDailyLimit = profile.chat_limit_daily ?? plan.limits.chat.daily ?? 0;
-    const voiceDailyLimit = profile.voice_limit_daily ?? plan.limits.voice.daily ?? 0;
-    const imageDailyLimit = profile.image_limit_daily ?? plan.limits.image.daily ?? 0;
-
-    // Update profile
-    const { error: updateErr } = await supabaseAdmin
-      .from('profiles')
-      .update({
-        chat_limit_monthly: newChatLimit,
-        voice_limit_monthly: newVoiceLimit,
-        image_limit_monthly: newImageLimit,
-        chat_limit_daily: chatDailyLimit,
-        voice_limit_daily: voiceDailyLimit,
-        image_limit_daily: imageDailyLimit,
-        updated_at: new Date().toISOString()
-      })
-      .eq('id', userId);
-
-    if (updateErr) throw updateErr;
-
-    res.json({
-      success: true,
-      message: `Successfully purchased ${pack.toUpperCase()} top-up! +${packDetails.chat} chats, +${packDetails.voice} voice, +${packDetails.image} images.`,
-      data: {
-        pack,
-        newLimits: {
-          chat: newChatLimit,
-          voice: newVoiceLimit,
-          image: newImageLimit
-        }
-      }
-    });
-  } catch (error: any) {
-    console.error('Credit purchase error:', error);
-    res.status(500).json({ success: false, message: error.message || 'Failed to purchase credits' });
   }
 });
 

@@ -28,6 +28,10 @@
   margin-left: var(--sidebar-collapsed-width);
 }
 
+.mainContent.noSidebar {
+  margin-left: 0 !important;
+}
+
 /* Custom Scrollbar for Main Content */
 .mainContent::-webkit-scrollbar {
   width: 8px;

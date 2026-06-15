@@ -6,7 +6,6 @@ import { useAuthStore } from '../store/auth.store';
 import { useUsageStore } from '../store/usage.store';
 import { userService } from '../lib/api';
 import { DashboardLayout } from '../features/dashboard/DashboardLayout';
-import { Navbar } from '../components/layout/Navbar';
 import toast from 'react-hot-toast';
 import styles from './PricingPage.module.css';
 
@@ -178,7 +177,7 @@ export const PricingPage: React.FC = () => {
           </div>
           <h2 style={{ fontSize: '2.2rem', fontWeight: 800, marginBottom: 16 }}>Subscription Confirmed!</h2>
           <p style={{ color: 'var(--text-secondary)', marginBottom: 32, lineHeight: 1.6 }}>
-            Your account has been successfully upgraded to the <strong>{successTier.toUpperCase()}</strong> plan. 
+            Your account has been successfully upgraded to the <strong>{successTier.toUpperCase()}</strong> plan.
             Your new limits and features are active immediately.
           </p>
           <div style={{ display: 'flex', gap: 16, justifyContent: 'center' }}>
@@ -236,28 +235,31 @@ export const PricingPage: React.FC = () => {
             Choose the perfect tier to unlock intelligent AI chats, high-fidelity voice, and professional graphics generation.
           </p>
 
-          {user && (
-            <div className={styles.currentPlanBanner}>
-              <CheckCircle2 size={16} />
-              <span>Your current plan: <strong>{user.plan_type ? user.plan_type.charAt(0).toUpperCase() + user.plan_type.slice(1) : 'Free'}</strong></span>
-            </div>
-          )}
+          {/* Plan Info & Billing Toggle Row (Horizontal Side-by-Side) */}
+          <div className={styles.controlsRow}>
+            {user && (
+              <div className={styles.currentPlanBanner}>
+                <CheckCircle2 size={16} />
+                <span>Your current plan: <strong>{user.plan_type ? user.plan_type.charAt(0).toUpperCase() + user.plan_type.slice(1) : 'Free'}</strong></span>
+              </div>
+            )}
 
-          {/* Toggle */}
-          <div className={styles.toggleContainer}>
-            <button
-              className={`${styles.toggleBtn} ${billingPeriod === 'monthly' ? styles.toggleBtnActive : ''}`}
-              onClick={() => setBillingPeriod('monthly')}
-            >
-              Monthly
-            </button>
-            <button
-              className={`${styles.toggleBtn} ${billingPeriod === 'annually' ? styles.toggleBtnActive : ''}`}
-              onClick={() => setBillingPeriod('annually')}
-            >
-              Annually
-              <span className={styles.discountBadge}>Save 20%</span>
-            </button>
+            {/* Toggle */}
+            <div className={styles.toggleContainer}>
+              <button
+                className={`${styles.toggleBtn} ${billingPeriod === 'monthly' ? styles.toggleBtnActive : ''}`}
+                onClick={() => setBillingPeriod('monthly')}
+              >
+                Monthly
+              </button>
+              <button
+                className={`${styles.toggleBtn} ${billingPeriod === 'annually' ? styles.toggleBtnActive : ''}`}
+                onClick={() => setBillingPeriod('annually')}
+              >
+                Annually
+                <span className={styles.discountBadge}>Save 20%</span>
+              </button>
+            </div>
           </div>
         </div>
 
@@ -339,7 +341,7 @@ export const PricingPage: React.FC = () => {
                         <span className={styles.limitLabel}>{limit.label}</span>
                         <div className={styles.valueWithInfo}>
                           <span className={styles.limitValue}>{limit.daily}</span>
-                          <span 
+                          <span
                             className={styles.infoIconWrapper}
                             title={`${limit.label}: ${limit.daily} / ${limit.monthly}`}
                           >
@@ -409,29 +411,6 @@ export const PricingPage: React.FC = () => {
                   <td className={`${styles.td} ${styles.tdCol}`}>75+ models</td>
                 </tr>
                 <tr className={styles.tr}>
-                  <td className={`${styles.td} ${styles.tdLabel}`}>
-                    <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-                      <span>Tools Access</span>
-                      <span 
-                        className={styles.infoIconWrapper}
-                        title="Access to specialized productivity tools like AI Humanizer, Prompt Enhancer, Doc Analyzer, Image to PDF, BG Remover, and 2D to 3D Convertor."
-                      >
-                        <HelpCircle size={14} className={styles.infoIcon} />
-                        <div className={styles.tooltipContent} style={{ width: '240px', left: 'auto', right: '-10px' }}>
-                          <div className={styles.tooltipTitle}>Tools Access Details</div>
-                          <div className={styles.tooltipDetail} style={{ display: 'block', fontSize: '0.75rem', lineHeight: '1.4', color: 'var(--text-secondary)', textAlign: 'left' }}>
-                            <strong>Free:</strong> AI Humanizer, Prompt Enhancer.<br />
-                            <strong>Starter & Pro:</strong> All tools including Doc Analyzer, Image to PDF, BG Remover, and 2D to 3D Convertor.
-                          </div>
-                        </div>
-                      </span>
-                    </div>
-                  </td>
-                  <td className={`${styles.td} ${styles.tdCol}`}>Limited (Humanizer, Enhancer)</td>
-                  <td className={`${styles.td} ${styles.tdCol}`}>All Tools (incl. 2D to 3D)</td>
-                  <td className={`${styles.td} ${styles.tdCol}`}>All Tools (incl. 2D to 3D)</td>
-                </tr>
-                <tr className={styles.tr}>
                   <td className={`${styles.td} ${styles.tdLabel}`}>Daily Chat Requests</td>
                   <td className={`${styles.td} ${styles.tdCol}`}>10 / day</td>
                   <td className={`${styles.td} ${styles.tdCol}`}>50 / day</td>
@@ -478,26 +457,29 @@ export const PricingPage: React.FC = () => {
                     <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
                       <span>Database Auto-Delete Period</span>
                       <span 
-                        className={styles.infoIconWrapper}
-                        title="Chat, image, and video data storage retention policy. Inactive data is automatically deleted from the database after this period."
+                        title="To optimize database storage, inactive chats, images, and videos are automatically deleted after this duration." 
+                        style={{ display: 'inline-flex', cursor: 'help' }}
                       >
-                        <HelpCircle size={14} className={styles.infoIcon} />
-                        <div className={styles.tooltipContent} style={{ width: '220px', left: 'auto', right: '-10px' }}>
-                          <div className={styles.tooltipTitle}>Data Retention</div>
-                          <div className={styles.tooltipDetail} style={{ display: 'block', fontSize: '0.75rem', lineHeight: '1.4', color: 'var(--text-secondary)' }}>
-                            To optimize database storage, inactive chats, images, and videos are automatically deleted after this duration.
-                          </div>
-                        </div>
+                        <HelpCircle 
+                          size={14} 
+                          style={{ color: 'var(--text-muted)' }} 
+                        />
                       </span>
                     </div>
                   </td>
                   <td className={`${styles.td} ${styles.tdCol}`}>7 days</td>
                   <td className={`${styles.td} ${styles.tdCol}`}>3 months</td>
                   <td className={`${styles.td} ${styles.tdCol}`}>
-                    <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+                    <div style={{ display: 'inline-flex', justifyContent: 'center', alignItems: 'center' }}>
                       <Infinity size={20} style={{ color: 'var(--accent)' }} />
                     </div>
                   </td>
+                </tr>
+                <tr className={styles.tr}>
+                  <td className={`${styles.td} ${styles.tdLabel}`}>Tools Access</td>
+                  <td className={`${styles.td} ${styles.tdCol}`}>Limited (Humanizer, Enhancer)</td>
+                  <td className={`${styles.td} ${styles.tdCol}`}>All Tools (incl. 2D to 3D)</td>
+                  <td className={`${styles.td} ${styles.tdCol}`}>All Tools (incl. 2D to 3D)</td>
                 </tr>
                 <tr className={styles.tr}>
                   <td className={`${styles.td} ${styles.tdLabel}`}>Access to Flagship Models</td>
@@ -531,52 +513,53 @@ export const PricingPage: React.FC = () => {
     );
   };
 
+  // If user is authenticated, we show it inside DashboardLayout. Otherwise, standalone.
+  if (user) {
+    return <DashboardLayout noSidebar>{renderContent()}</DashboardLayout>;
+  }
+
   return (
-    <div className={`${styles.container} ${user ? styles.containerLoggedIn : ''}`}>
+    <div className={styles.container}>
       <div className="aurora-bg" />
-      {user ? (
-        <Navbar />
-      ) : (
-        /* Standalone navbar */
-        <div
-          style={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            maxWidth: '1200px',
-            margin: '0 auto 40px',
-            paddingBottom: '20px',
-            borderBottom: '1px solid rgba(255, 255, 255, 0.05)',
-          }}
-        >
-          <Link to="/" style={{ display: 'flex', alignItems: 'center', gap: 10, textDecoration: 'none', color: '#fff', fontWeight: 800 }}>
-            <div style={{ background: 'var(--primary)', padding: '6px', borderRadius: '8px', display: 'flex', alignItems: 'center' }}>
-              <Zap size={18} fill="currentColor" style={{ color: '#0f172a' }} />
-            </div>
-            <span style={{ fontSize: '1.2rem', letterSpacing: '-0.02em' }}>Sree AI</span>
-          </Link>
-          <div style={{ display: 'flex', gap: 16 }}>
-            <Link to="/login" style={{ color: 'var(--text-secondary)', textDecoration: 'none', fontSize: '0.9rem', fontWeight: 600, padding: '8px 16px' }}>
-              Log In
-            </Link>
-            <Link
-              to="/signup"
-              style={{
-                background: 'rgba(255, 255, 255, 0.08)',
-                border: '1px solid rgba(255, 255, 255, 0.1)',
-                color: '#fff',
-                textDecoration: 'none',
-                fontSize: '0.9rem',
-                fontWeight: 600,
-                padding: '8px 16px',
-                borderRadius: '12px',
-              }}
-            >
-              Sign Up
-            </Link>
+      {/* Standalone public navbar */}
+      <div
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          maxWidth: '1200px',
+          margin: '0 auto 40px',
+          paddingBottom: '20px',
+          borderBottom: '1px solid rgba(255, 255, 255, 0.05)',
+        }}
+      >
+        <Link to="/" style={{ display: 'flex', alignItems: 'center', gap: 10, textDecoration: 'none', color: '#fff', fontWeight: 800 }}>
+          <div style={{ background: 'var(--primary)', padding: '6px', borderRadius: '8px', display: 'flex', alignItems: 'center' }}>
+            <Zap size={18} fill="currentColor" style={{ color: '#0f172a' }} />
           </div>
+          <span style={{ fontSize: '1.2rem', letterSpacing: '-0.02em' }}>Sree AI</span>
+        </Link>
+        <div style={{ display: 'flex', gap: 16 }}>
+          <Link to="/login" style={{ color: 'var(--text-secondary)', textDecoration: 'none', fontSize: '0.9rem', fontWeight: 600, padding: '8px 16px' }}>
+            Log In
+          </Link>
+          <Link
+            to="/signup"
+            style={{
+              background: 'rgba(255, 255, 255, 0.08)',
+              border: '1px solid rgba(255, 255, 255, 0.1)',
+              color: '#fff',
+              textDecoration: 'none',
+              fontSize: '0.9rem',
+              fontWeight: 600,
+              padding: '8px 16px',
+              borderRadius: '12px',
+            }}
+          >
+            Sign Up
+          </Link>
         </div>
-      )}
+      </div>
       {renderContent()}
     </div>
   );

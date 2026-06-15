@@ -43,45 +43,16 @@ export async function checkAndIncrementMultiUsage(
   requests: { tool: ToolType; amount: number; isByok?: boolean }[]
 ): Promise<RateLimitStatus> {
   const plan = PLANS[identity.tier] || PLANS.free;
-  
-  let userLimits: any = null;
-  if (identity.type === 'authenticated' && identity.userId) {
-    const { data: profile } = await supabaseAdmin
-      .from('profiles')
-      .select('chat_limit_daily, chat_limit_monthly, voice_limit_daily, voice_limit_monthly, image_limit_daily, image_limit_monthly')
-      .eq('id', identity.userId)
-      .single();
-    if (profile) {
-      userLimits = profile;
-    }
-  }
 
   const rpcRequests = requests.map(req => {
     const limits = plan.limits[req.tool];
     const adjustedAmount = req.isByok ? req.amount * BYOK_QUOTA_MULTIPLIER : req.amount;
-    
-    let dailyLimit = limits?.daily || 0;
-    let monthlyLimit = limits?.monthly || 0;
-    
-    if (userLimits) {
-      if (req.tool === 'chat') {
-        dailyLimit = userLimits.chat_limit_daily ?? dailyLimit;
-        monthlyLimit = userLimits.chat_limit_monthly ?? monthlyLimit;
-      } else if (req.tool === 'voice') {
-        dailyLimit = userLimits.voice_limit_daily ?? dailyLimit;
-        monthlyLimit = userLimits.voice_limit_monthly ?? monthlyLimit;
-      } else if (req.tool === 'image') {
-        dailyLimit = userLimits.image_limit_daily ?? dailyLimit;
-        monthlyLimit = userLimits.image_limit_monthly ?? monthlyLimit;
-      }
-    }
-
     return {
       tool_type: req.tool,
       amount: adjustedAmount,
       minute_limit: limits?.perMinute || 0,
-      daily_limit: dailyLimit,
-      monthly_limit: monthlyLimit,
+      daily_limit: limits?.daily || 0,
+      monthly_limit: limits?.monthly || 0,
       is_byok: !!req.isByok
     };
   });
@@ -97,10 +68,10 @@ export async function checkAndIncrementMultiUsage(
     return { allowed: true }; // Fail open for reliability
   }
 
-  const results = data as { 
-    allowed: boolean; 
-    reason?: 'minute' | 'daily' | 'monthly'; 
-    limit?: number; 
+  const results = data as {
+    allowed: boolean;
+    reason?: 'minute' | 'daily' | 'monthly';
+    limit?: number;
     used?: number;
     last_reset?: string;
     is_byok?: boolean;
@@ -111,12 +82,12 @@ export async function checkAndIncrementMultiUsage(
 
   // If any result is not allowed, the whole operation is considered failed for reporting
   const failure = results.find(r => !r.allowed);
-  
+
   if (failure) {
-    const reasonMsg = failure.reason 
+    const reasonMsg = failure.reason
       ? `(${failure.reason} limit reached: ${failure.limit})`
       : '';
-    
+
     // Calculate resetsIn based on last_reset
     let resetsIn: number | undefined;
     if (failure.last_reset && failure.reason) {
@@ -130,7 +101,7 @@ export async function checkAndIncrementMultiUsage(
       const interval = intervals[failure.reason as 'minute' | 'daily' | 'monthly'];
       resetsIn = Math.max(0, Math.ceil((lastReset + interval - now) / 1000));
     }
-    
+
     return {
       allowed: false,
       reason: failure.reason || 'daily',
@@ -156,25 +127,6 @@ export async function checkAndIncrementMultiUsage(
  * The RPC already syncs the counts; this ensures the limit columns stay current.
  */
 async function syncProfileLimits(userId: string, plan: import('../config/plans').PlanConfig) {
-  // To avoid overwriting custom/purchased limits, fetch current profile first
-  const { data: profile } = await supabaseAdmin
-    .from('profiles')
-    .select('chat_limit_daily, chat_limit_monthly, voice_limit_daily, voice_limit_monthly, image_limit_daily, image_limit_monthly')
-    .eq('id', userId)
-    .single();
-
-  if (!profile) return;
-
-  const updates: any = {};
-  
-  // Only upgrade limits if profile value is lower than plan default (e.g. on subscription upgrade)
-  if ((profile.chat_limit_daily ?? 0) < (plan.limits.chat.daily ?? 0)) updates.chat_limit_daily = plan.limits.chat.daily;
-  if ((profile.chat_limit_monthly ?? 0) < (plan.limits.chat.monthly ?? 0)) updates.chat_limit_monthly = plan.limits.chat.monthly;
-  if ((profile.voice_limit_daily ?? 0) < (plan.limits.voice.daily ?? 0)) updates.voice_limit_daily = plan.limits.voice.daily;
-  if ((profile.voice_limit_monthly ?? 0) < (plan.limits.voice.monthly ?? 0)) updates.voice_limit_monthly = plan.limits.voice.monthly;
-  if ((profile.image_limit_daily ?? 0) < (plan.limits.image.daily ?? 0)) updates.image_limit_daily = plan.limits.image.daily;
-  if ((profile.image_limit_monthly ?? 0) < (plan.limits.image.monthly ?? 0)) updates.image_limit_monthly = plan.limits.image.monthly;
-
   // Fetch current usage records to sync counts
   const { data: usageRecords } = await supabaseAdmin
     .from('usage_tracking')
@@ -198,16 +150,22 @@ async function syncProfileLimits(userId: string, plan: import('../config/plans')
     }
   }
 
-  updates.chat_count_daily = usage.chat.daily;
-  updates.chat_count_monthly = usage.chat.monthly;
-  updates.voice_count_daily = usage.voice.daily;
-  updates.voice_count_monthly = usage.voice.monthly;
-  updates.image_count_daily = usage.image.daily;
-  updates.image_count_monthly = usage.image.monthly;
-
   await supabaseAdmin
     .from('profiles')
-    .update(updates)
+    .update({
+      chat_limit_daily: plan.limits.chat.daily,
+      chat_limit_monthly: plan.limits.chat.monthly,
+      voice_limit_daily: plan.limits.voice.daily,
+      voice_limit_monthly: plan.limits.voice.monthly,
+      image_limit_daily: plan.limits.image.daily,
+      image_limit_monthly: plan.limits.image.monthly,
+      chat_count_daily: usage.chat.daily,
+      chat_count_monthly: usage.chat.monthly,
+      voice_count_daily: usage.voice.daily,
+      voice_count_monthly: usage.voice.monthly,
+      image_count_daily: usage.image.daily,
+      image_count_monthly: usage.image.monthly,
+    })
     .eq('id', userId);
 }
 
@@ -224,29 +182,6 @@ export async function checkRateLimit(
   const limits = plan.limits[toolType];
 
   if (!limits) return { allowed: true };
-
-  let dailyLimit = limits.daily || 0;
-  let monthlyLimit = limits.monthly || 0;
-
-  if (identity.type === 'authenticated' && identity.userId) {
-    const { data: profile } = await supabaseAdmin
-      .from('profiles')
-      .select('chat_limit_daily, chat_limit_monthly, voice_limit_daily, voice_limit_monthly, image_limit_daily, image_limit_monthly')
-      .eq('id', identity.userId)
-      .single();
-    if (profile) {
-      if (toolType === 'chat') {
-        dailyLimit = profile.chat_limit_daily ?? dailyLimit;
-        monthlyLimit = profile.chat_limit_monthly ?? monthlyLimit;
-      } else if (toolType === 'voice') {
-        dailyLimit = profile.voice_limit_daily ?? dailyLimit;
-        monthlyLimit = profile.voice_limit_monthly ?? monthlyLimit;
-      } else if (toolType === 'image') {
-        dailyLimit = profile.image_limit_daily ?? dailyLimit;
-        monthlyLimit = profile.image_limit_monthly ?? monthlyLimit;
-      }
-    }
-  }
 
   const { data: usage, error } = await supabaseAdmin
     .from('usage_tracking')
@@ -276,13 +211,13 @@ export async function checkRateLimit(
     const resetsIn = Math.max(0, Math.ceil((lastMinuteReset.getTime() + 60 * 1000 - now.getTime()) / 1000));
     return { allowed: false, reason: 'minute', limit: limits.perMinute, used: minute_count, resetsIn };
   }
-  if (dailyLimit && daily_count >= dailyLimit) {
+  if (limits.daily && daily_count >= limits.daily) {
     const resetsIn = Math.max(0, Math.ceil((lastDailyReset.getTime() + 24 * 60 * 60 * 1000 - now.getTime()) / 1000));
-    return { allowed: false, reason: 'daily', limit: dailyLimit, used: daily_count, resetsIn };
+    return { allowed: false, reason: 'daily', limit: limits.daily, used: daily_count, resetsIn };
   }
-  if (monthlyLimit && monthly_count >= monthlyLimit) {
+  if (limits.monthly && monthly_count >= limits.monthly) {
     const resetsIn = Math.max(0, Math.ceil((lastMonthlyReset.getTime() + 30 * 24 * 60 * 60 * 1000 - now.getTime()) / 1000));
-    return { allowed: false, reason: 'monthly', limit: monthlyLimit, used: monthly_count, resetsIn };
+    return { allowed: false, reason: 'monthly', limit: limits.monthly, used: monthly_count, resetsIn };
   }
 
   return { allowed: true };
@@ -305,7 +240,7 @@ export async function incrementUsage(
  */
 export async function getUsageStatus(identity: RateLimitIdentity) {
   const plan = PLANS[identity.tier] || PLANS.free;
-  
+
   const { data: usageRecords } = await supabaseAdmin
     .from('usage_tracking')
     .select('*')
@@ -315,20 +250,10 @@ export async function getUsageStatus(identity: RateLimitIdentity) {
         : `anon_id.eq.${identity.anonId}`
     );
 
-  let userLimits: any = null;
-  if (identity.type === 'authenticated' && identity.userId) {
-    const { data: profile } = await supabaseAdmin
-      .from('profiles')
-      .select('chat_limit_daily, chat_limit_monthly, voice_limit_daily, voice_limit_monthly, image_limit_daily, image_limit_monthly')
-      .eq('id', identity.userId)
-      .single();
-    if (profile) {
-      userLimits = profile;
-    }
-  }
-
   let profileUsage: any = null;
   if (identity.type === 'authenticated') {
+    // We don't fetch from profiles since aggregate columns were dropped.
+    // Instead we use usageRecords which come from usage_tracking table
     const chatUsage = usageRecords?.find(r => r.tool_type === 'chat');
     const voiceUsage = usageRecords?.find(r => r.tool_type === 'voice');
     const imageUsage = usageRecords?.find(r => r.tool_type === 'image');
@@ -346,35 +271,28 @@ export async function getUsageStatus(identity: RateLimitIdentity) {
     const voiceR = checkReset(voiceUsage);
     const imageR = checkReset(imageUsage);
 
-    const chatDailyLimit = userLimits?.chat_limit_daily ?? plan.limits.chat.daily;
-    const chatMonthlyLimit = userLimits?.chat_limit_monthly ?? plan.limits.chat.monthly;
-    const voiceDailyLimit = userLimits?.voice_limit_daily ?? plan.limits.voice.daily;
-    const voiceMonthlyLimit = userLimits?.voice_limit_monthly ?? plan.limits.voice.monthly;
-    const imageDailyLimit = userLimits?.image_limit_daily ?? plan.limits.image.daily;
-    const imageMonthlyLimit = userLimits?.image_limit_monthly ?? plan.limits.image.monthly;
-
     profileUsage = {
       chat: {
-        daily: { used: chatR.isDailyReset ? 0 : chatUsage?.daily_count || 0, limit: chatDailyLimit },
-        monthly: { used: chatR.isMonthlyReset ? 0 : chatUsage?.monthly_count || 0, limit: chatMonthlyLimit }
+        daily: { used: chatR.isDailyReset ? 0 : chatUsage?.daily_count || 0, limit: plan.limits.chat.daily },
+        monthly: { used: chatR.isMonthlyReset ? 0 : chatUsage?.monthly_count || 0, limit: plan.limits.chat.monthly }
       },
       voice: {
-        daily: { used: voiceR.isDailyReset ? 0 : voiceUsage?.daily_count || 0, limit: voiceDailyLimit },
-        monthly: { used: voiceR.isMonthlyReset ? 0 : voiceUsage?.monthly_count || 0, limit: voiceMonthlyLimit }
+        daily: { used: voiceR.isDailyReset ? 0 : voiceUsage?.daily_count || 0, limit: plan.limits.voice.daily },
+        monthly: { used: voiceR.isMonthlyReset ? 0 : voiceUsage?.monthly_count || 0, limit: plan.limits.voice.monthly }
       },
       image: {
-        daily: { used: imageR.isDailyReset ? 0 : imageUsage?.daily_count || 0, limit: imageDailyLimit },
-        monthly: { used: imageR.isMonthlyReset ? 0 : imageUsage?.monthly_count || 0, limit: imageMonthlyLimit }
+        daily: { used: imageR.isDailyReset ? 0 : imageUsage?.daily_count || 0, limit: plan.limits.image.daily },
+        monthly: { used: imageR.isMonthlyReset ? 0 : imageUsage?.monthly_count || 0, limit: plan.limits.image.monthly }
       }
     };
   }
 
   const summaries: any = {};
   const now = new Date();
-  
+
   for (const [tool, limits] of Object.entries(plan.limits)) {
     const record = usageRecords?.find(r => r.tool_type === tool);
-    
+
     let minuteUsed = record?.minute_count || 0;
     let dailyUsed = record?.daily_count || 0;
     let monthlyUsed = record?.monthly_count || 0;
@@ -389,25 +307,10 @@ export async function getUsageStatus(identity: RateLimitIdentity) {
       if (now.getTime() - lastMon.getTime() >= 2592000000) monthlyUsed = 0;
     }
 
-    let dailyLimit = (limits as any).daily;
-    let monthlyLimit = (limits as any).monthly;
-    if (userLimits) {
-      if (tool === 'chat') {
-        dailyLimit = userLimits.chat_limit_daily ?? dailyLimit;
-        monthlyLimit = userLimits.chat_limit_monthly ?? monthlyLimit;
-      } else if (tool === 'voice') {
-        dailyLimit = userLimits.voice_limit_daily ?? dailyLimit;
-        monthlyLimit = userLimits.voice_limit_monthly ?? monthlyLimit;
-      } else if (tool === 'image') {
-        dailyLimit = userLimits.image_limit_daily ?? dailyLimit;
-        monthlyLimit = userLimits.image_limit_monthly ?? monthlyLimit;
-      }
-    }
-
     summaries[tool] = {
       minute: { used: Number(minuteUsed), limit: (limits as any).perMinute },
-      daily: { used: Number(dailyUsed), limit: dailyLimit },
-      monthly: { used: Number(monthlyUsed), limit: monthlyLimit },
+      daily: { used: Number(dailyUsed), limit: (limits as any).daily },
+      monthly: { used: Number(monthlyUsed), limit: (limits as any).monthly },
       total: { used: record?.total_count || 0, limit: null },
       isByok: !!record?.is_byok
     };
@@ -430,13 +333,13 @@ export function estimateTokens(input: string | any[]): number {
   if (Array.isArray(input)) {
     // Estimate for messages array
     return input.reduce((acc, msg) => {
-      const content = typeof msg.content === 'string' 
-        ? msg.content 
+      const content = typeof msg.content === 'string'
+        ? msg.content
         : JSON.stringify(msg.content);
       return acc + Math.ceil(content.length / 4) + 4; // Add 4 tokens overhead per message
     }, 0);
   }
-  
+
   return Math.ceil((input || '').length / 4);
 }
 
