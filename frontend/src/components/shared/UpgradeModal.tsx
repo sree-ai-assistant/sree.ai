@@ -79,8 +79,7 @@ export const UpgradeModal: React.FC = () => {
                   <li className={styles.feature}><Check className={styles.checkIcon} size={16} /> 50 daily chat requests</li>
                   <li className={styles.feature}><Check className={styles.checkIcon} size={16} /> 60 daily voice synthesis</li>
                   <li className={styles.feature}><Check className={styles.checkIcon} size={16} /> 30 daily image gens</li>
-                  <li className={styles.feature}><Check className={styles.checkIcon} size={16} /> 5 GB cloud storage</li>
-                  <li className={styles.feature}><Check className={styles.checkIcon} size={16} /> Max upload 100 MB</li>
+                  <li className={styles.feature}><Check className={styles.checkIcon} size={16} /> Chat, image & video storage (3mo auto-delete)</li>
                 </ul>
                 <button 
                   className={`${styles.button} ${styles.buttonStarter} ${user?.plan_type === 'starter' ? styles.buttonCurrent : ''}`}
@@ -101,7 +100,7 @@ export const UpgradeModal: React.FC = () => {
                   <li className={styles.feature}><Zap className={styles.checkIcon} size={16} style={{ color: 'var(--accent)' }} /> 200 daily chat requests</li>
                   <li className={styles.feature}><Zap className={styles.checkIcon} size={16} style={{ color: 'var(--accent)' }} /> 100 daily voice synthesis</li>
                   <li className={styles.feature}><Zap className={styles.checkIcon} size={16} style={{ color: 'var(--accent)' }} /> 70 daily image gens</li>
-                  <li className={styles.feature}><Zap className={styles.checkIcon} size={16} style={{ color: 'var(--accent)' }} /> 10 GB cloud storage</li>
+                  <li className={styles.feature}><Zap className={styles.checkIcon} size={16} style={{ color: 'var(--accent)' }} /> Chat, image & video storage (no expiration)</li>
                   <li className={styles.feature}><Zap className={styles.checkIcon} size={16} style={{ color: 'var(--accent)' }} /> Priority GPU queues</li>
                 </ul>
                 <button 

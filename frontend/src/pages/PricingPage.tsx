@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Check, Zap, Star, ArrowLeft, Sparkles, CheckCircle2, Lock, HelpCircle } from 'lucide-react';
+import { Check, Zap, Star, ArrowLeft, Sparkles, CheckCircle2, Lock, HelpCircle, Infinity } from 'lucide-react';
 import { useAuthStore } from '../store/auth.store';
 import { useUsageStore } from '../store/usage.store';
 import { userService } from '../lib/api';
 import { DashboardLayout } from '../features/dashboard/DashboardLayout';
+import { Navbar } from '../components/layout/Navbar';
 import toast from 'react-hot-toast';
 import styles from './PricingPage.module.css';
 
@@ -98,8 +99,7 @@ export const PricingPage: React.FC = () => {
         { label: 'BYOK Support', supported: true },
       ],
       features: [
-        '100 MB secure cloud file storage',
-        'Upload files up to 10 MB',
+        'Chat, image & video storage (7 days auto-delete)',
         'Limited chat history search',
       ],
       themeClass: styles.freeTier,
@@ -120,8 +120,7 @@ export const PricingPage: React.FC = () => {
         { label: 'BYOK Support', supported: true },
       ],
       features: [
-        '5 GB secure cloud file storage',
-        'Upload files up to 100 MB',
+        'Chat, image & video storage (3 months auto-delete)',
         'Unlimited chat history search',
         'Standard processing queues',
       ],
@@ -143,8 +142,7 @@ export const PricingPage: React.FC = () => {
         { label: 'BYOK Support', supported: true },
       ],
       features: [
-        '10 GB secure cloud file storage',
-        'Upload files up to 500 MB',
+        'Chat, image & video storage (no expiration)',
         'Unlimited chat history search',
         'Highest priority GPU queues',
         'Dedicated VIP developer support',
@@ -272,8 +270,9 @@ export const PricingPage: React.FC = () => {
                 key={plan.tier}
                 className={`${styles.card} ${plan.badge ? styles.cardFeatured : ''} ${isCurrent ? styles.cardActivePlan : ''}`}
               >
-                {isCurrent && <span className={styles.currentPlanBadge}>Active Plan</span>}
-                {isBestValue ? (
+                {isCurrent ? (
+                  <span className={styles.currentPlanBadge}>Active Plan</span>
+                ) : isBestValue ? (
                   <span className={`${styles.featuredBadge} ${styles.bestValueBadge}`}>Best Value</span>
                 ) : (
                   plan.badge && <span className={styles.featuredBadge}>{plan.badge}</span>
@@ -449,16 +448,30 @@ export const PricingPage: React.FC = () => {
                   <td className={`${styles.td} ${styles.tdCol}`}>1000 / month</td>
                 </tr>
                 <tr className={styles.tr}>
-                  <td className={`${styles.td} ${styles.tdLabel}`}>Secure Cloud Storage</td>
-                  <td className={`${styles.td} ${styles.tdCol}`}>100 MB</td>
-                  <td className={`${styles.td} ${styles.tdCol}`}>5 GB</td>
-                  <td className={`${styles.td} ${styles.tdCol}`}>10 GB</td>
-                </tr>
-                <tr className={styles.tr}>
-                  <td className={`${styles.td} ${styles.tdLabel}`}>Max Upload Size</td>
-                  <td className={`${styles.td} ${styles.tdCol}`}>10 MB</td>
-                  <td className={`${styles.td} ${styles.tdCol}`}>100 MB</td>
-                  <td className={`${styles.td} ${styles.tdCol}`}>500 MB</td>
+                  <td className={`${styles.td} ${styles.tdLabel}`}>
+                    <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                      <span>Database Auto-Delete Period</span>
+                      <span 
+                        className={styles.infoIconWrapper}
+                        title="Chat, image, and video data storage retention policy. Inactive data is automatically deleted from the database after this period."
+                      >
+                        <HelpCircle size={14} className={styles.infoIcon} />
+                        <div className={styles.tooltipContent} style={{ width: '220px', left: 'auto', right: '-10px' }}>
+                          <div className={styles.tooltipTitle}>Data Retention</div>
+                          <div className={styles.tooltipDetail} style={{ display: 'block', fontSize: '0.75rem', lineHeight: '1.4', color: 'var(--text-secondary)' }}>
+                            To optimize database storage, inactive chats, images, and videos are automatically deleted after this duration.
+                          </div>
+                        </div>
+                      </span>
+                    </div>
+                  </td>
+                  <td className={`${styles.td} ${styles.tdCol}`}>7 days</td>
+                  <td className={`${styles.td} ${styles.tdCol}`}>3 months</td>
+                  <td className={`${styles.td} ${styles.tdCol}`}>
+                    <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+                      <Infinity size={20} style={{ color: 'var(--accent)' }} />
+                    </div>
+                  </td>
                 </tr>
                 <tr className={styles.tr}>
                   <td className={`${styles.td} ${styles.tdLabel}`}>Access to Flagship Models</td>
@@ -492,53 +505,52 @@ export const PricingPage: React.FC = () => {
     );
   };
 
-  // If user is authenticated, we show it inside DashboardLayout. Otherwise, standalone.
-  if (user) {
-    return <DashboardLayout>{renderContent()}</DashboardLayout>;
-  }
-
   return (
-    <div className={styles.container}>
+    <div className={`${styles.container} ${user ? styles.containerLoggedIn : ''}`}>
       <div className="aurora-bg" />
-      {/* Standalone public navbar */}
-      <div
-        style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          maxWidth: '1200px',
-          margin: '0 auto 40px',
-          paddingBottom: '20px',
-          borderBottom: '1px solid rgba(255, 255, 255, 0.05)',
-        }}
-      >
-        <Link to="/" style={{ display: 'flex', alignItems: 'center', gap: 10, textDecoration: 'none', color: '#fff', fontWeight: 800 }}>
-          <div style={{ background: 'var(--primary)', padding: '6px', borderRadius: '8px', display: 'flex', alignItems: 'center' }}>
-            <Zap size={18} fill="currentColor" style={{ color: '#0f172a' }} />
+      {user ? (
+        <Navbar />
+      ) : (
+        /* Standalone navbar */
+        <div
+          style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            maxWidth: '1200px',
+            margin: '0 auto 40px',
+            paddingBottom: '20px',
+            borderBottom: '1px solid rgba(255, 255, 255, 0.05)',
+          }}
+        >
+          <Link to="/" style={{ display: 'flex', alignItems: 'center', gap: 10, textDecoration: 'none', color: '#fff', fontWeight: 800 }}>
+            <div style={{ background: 'var(--primary)', padding: '6px', borderRadius: '8px', display: 'flex', alignItems: 'center' }}>
+              <Zap size={18} fill="currentColor" style={{ color: '#0f172a' }} />
+            </div>
+            <span style={{ fontSize: '1.2rem', letterSpacing: '-0.02em' }}>Sree AI</span>
+          </Link>
+          <div style={{ display: 'flex', gap: 16 }}>
+            <Link to="/login" style={{ color: 'var(--text-secondary)', textDecoration: 'none', fontSize: '0.9rem', fontWeight: 600, padding: '8px 16px' }}>
+              Log In
+            </Link>
+            <Link
+              to="/signup"
+              style={{
+                background: 'rgba(255, 255, 255, 0.08)',
+                border: '1px solid rgba(255, 255, 255, 0.1)',
+                color: '#fff',
+                textDecoration: 'none',
+                fontSize: '0.9rem',
+                fontWeight: 600,
+                padding: '8px 16px',
+                borderRadius: '12px',
+              }}
+            >
+              Sign Up
+            </Link>
           </div>
-          <span style={{ fontSize: '1.2rem', letterSpacing: '-0.02em' }}>Sree AI</span>
-        </Link>
-        <div style={{ display: 'flex', gap: 16 }}>
-          <Link to="/login" style={{ color: 'var(--text-secondary)', textDecoration: 'none', fontSize: '0.9rem', fontWeight: 600, padding: '8px 16px' }}>
-            Log In
-          </Link>
-          <Link
-            to="/signup"
-            style={{
-              background: 'rgba(255, 255, 255, 0.08)',
-              border: '1px solid rgba(255, 255, 255, 0.1)',
-              color: '#fff',
-              textDecoration: 'none',
-              fontSize: '0.9rem',
-              fontWeight: 600,
-              padding: '8px 16px',
-              borderRadius: '12px',
-            }}
-          >
-            Sign Up
-          </Link>
         </div>
-      </div>
+      )}
       {renderContent()}
     </div>
   );
