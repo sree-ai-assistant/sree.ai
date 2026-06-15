@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Check, Zap, Star, ArrowLeft, Sparkles, CheckCircle2, Lock, HelpCircle, Infinity, Coins } from 'lucide-react';
+import { Check, Zap, Star, ArrowLeft, Sparkles, CheckCircle2, Lock, HelpCircle, Infinity } from 'lucide-react';
 import { useAuthStore } from '../store/auth.store';
 import { useUsageStore } from '../store/usage.store';
 import { userService } from '../lib/api';
@@ -9,51 +9,6 @@ import { DashboardLayout } from '../features/dashboard/DashboardLayout';
 import { Navbar } from '../components/layout/Navbar';
 import toast from 'react-hot-toast';
 import styles from './PricingPage.module.css';
-
-const creditPacks = [
-  {
-    id: 'light' as const,
-    name: 'Light Top-up',
-    price: '$3.00',
-    badge: null,
-    description: 'Perfect for completing a quick task or short project.',
-    features: [
-      { label: 'Chat Requests', value: '+100' },
-      { label: 'Voice Requests', value: '+50' },
-      { label: 'Image Requests', value: '+15' },
-    ],
-    themeClass: styles.creditsPackNameLight,
-    btnClass: '',
-  },
-  {
-    id: 'medium' as const,
-    name: 'Medium Top-up',
-    price: '$7.00',
-    badge: 'Most Popular',
-    description: 'Ideal balance of chats, voice synthesis, and images.',
-    features: [
-      { label: 'Chat Requests', value: '+300' },
-      { label: 'Voice Requests', value: '+150' },
-      { label: 'Image Requests', value: '+45' },
-    ],
-    themeClass: styles.creditsPackNameMedium,
-    btnClass: styles.creditsBtnFeatured,
-  },
-  {
-    id: 'heavy' as const,
-    name: 'Heavy Top-up',
-    price: '$15.00',
-    badge: 'Best Value',
-    description: 'For power users needing high volume limit extension.',
-    features: [
-      { label: 'Chat Requests', value: '+800' },
-      { label: 'Voice Requests', value: '+400' },
-      { label: 'Image Requests', value: '+120' },
-    ],
-    themeClass: styles.creditsPackNameHeavy,
-    btnClass: '',
-  },
-];
 
 export const PricingPage: React.FC = () => {
   const navigate = useNavigate();
@@ -64,31 +19,6 @@ export const PricingPage: React.FC = () => {
   const [billingPeriod, setBillingPeriod] = useState<'monthly' | 'annually'>('monthly');
   const [loadingTier, setLoadingTier] = useState<'starter' | 'pro' | 'free' | null>(null);
   const [successTier, setSuccessTier] = useState<'starter' | 'pro' | 'free' | null>(null);
-  const [buyingPack, setBuyingPack] = useState<'light' | 'medium' | 'heavy' | null>(null);
-
-  const handleBuyCredits = async (pack: 'light' | 'medium' | 'heavy') => {
-    if (!user) {
-      navigate(`/signup?redirect=pricing&pack=${pack}`);
-      return;
-    }
-
-    setBuyingPack(pack);
-    try {
-      const response = await userService.buyCredits(pack);
-      if (response.success) {
-        // Sync limits and counts to usage store
-        await fetchStatus(false);
-        toast.success(response.message || `Successfully purchased ${pack.toUpperCase()} top-up!`);
-      } else {
-        toast.error(response.message || 'Purchase failed. Please try again.');
-      }
-    } catch (error: any) {
-      console.error('Credit purchase failed:', error);
-      toast.error(error.message || 'An error occurred during purchase.');
-    } finally {
-      setBuyingPack(null);
-    }
-  };
 
   // Pre-select tier if passed in query params (e.g. /pricing?plan=pro)
   useEffect(() => {
@@ -595,45 +525,6 @@ export const PricingPage: React.FC = () => {
                 </tr>
               </tbody>
             </table>
-          </div>
-        </div>
-
-        {/* Buy Credits Section */}
-        <div className={styles.creditsSection}>
-          <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
-            <Coins size={28} style={{ color: 'var(--primary)' }} />
-            <h2 className={styles.creditsTitle}>Need More Credits? Get a Quick Top-up</h2>
-          </div>
-          <p className={styles.creditsSubtitle}>
-            Running low on your monthly limits? Purchase one-time add-on credits. They never expire and are consumed only when your plan limits run out.
-          </p>
-
-          <div className={styles.creditsGrid}>
-            {creditPacks.map((pack) => (
-              <div
-                key={pack.id}
-                className={`${styles.creditsCard} ${pack.badge ? styles.creditsCardFeatured : ''}`}
-              >
-                {pack.badge && <span className={styles.creditsBadge}>{pack.badge}</span>}
-                <div className={`${styles.creditsPackName} ${pack.themeClass}`}>{pack.name}</div>
-                <div className={styles.creditsPrice}>{pack.price}</div>
-                <ul className={styles.creditsList}>
-                  {pack.features.map((feature, idx) => (
-                    <li key={idx} className={styles.creditsItem}>
-                      <span>{feature.label}</span>
-                      <span className={styles.creditsItemValue}>{feature.value}</span>
-                    </li>
-                  ))}
-                </ul>
-                <button
-                  className={`${styles.creditsBtn} ${pack.btnClass}`}
-                  disabled={buyingPack !== null}
-                  onClick={() => handleBuyCredits(pack.id)}
-                >
-                  {buyingPack === pack.id ? 'Processing...' : !user ? 'Sign Up to Buy' : 'Purchase'}
-                </button>
-              </div>
-            ))}
           </div>
         </div>
       </div>
