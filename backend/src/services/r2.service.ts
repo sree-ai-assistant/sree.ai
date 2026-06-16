@@ -1,4 +1,4 @@
-import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
+import { S3Client, PutObjectCommand, DeleteObjectsCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import fs from 'fs/promises';
 import { existsSync } from 'fs';
@@ -103,6 +103,33 @@ class R2Service {
       Key: key,
     });
     return getSignedUrl(this.s3Client, (command as any), { expiresIn });
+  }
+
+  /**
+   * Batch-delete objects from R2. Max 1000 keys per call (S3 API limit).
+   * Used for cleanup of expired user data.
+   */
+  async deleteObjects(keys: string[], bucket?: string): Promise<number> {
+    if (!keys.length) return 0;
+    const targetBucket = bucket || this.bucketName;
+    let totalDeleted = 0;
+
+    for (let i = 0; i < keys.length; i += 1000) {
+      const batch = keys.slice(i, i + 1000);
+      try {
+        await this.s3Client.send(new DeleteObjectsCommand({
+          Bucket: targetBucket,
+          Delete: {
+            Objects: batch.map(key => ({ Key: key })),
+            Quiet: true,
+          },
+        }));
+        totalDeleted += batch.length;
+      } catch (error) {
+        console.error(`R2 Batch Delete Error (bucket: ${targetBucket}):`, error);
+      }
+    }
+    return totalDeleted;
   }
 }
 

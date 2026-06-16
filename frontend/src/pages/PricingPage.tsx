@@ -98,7 +98,7 @@ export const PricingPage: React.FC = () => {
         { label: 'BYOK Support', supported: true },
       ],
       features: [
-        'Chat, image & video storage (7 days auto-delete)',
+        'Chat, image & video storage (30 days auto-delete)',
         'Limited chat history search',
         'Access to limited tools (Humanizer, Enhancer)',
       ],
@@ -311,6 +311,59 @@ export const PricingPage: React.FC = () => {
                   disabled={isCurrent || loadingTier !== null}
                   onClick={() => handleSelectPlan(plan.tier)}
                 >
+                  {isBestValue && (
+                    <svg className={styles.borderBeam}>
+                      {Array.from({ length: 24 }).map((_, i) => {
+                        const f = i / 23; // 0 to 1
+                        const L = 6.0 + (1 - f) * 22.0; 
+                        const G = L;
+                        
+                        // Pure blue color interpolation (deep blue to soft sky blue) from the old style
+                        const r = Math.round(30 + f * (96 - 30));
+                        const g = Math.round(58 + f * (165 - 58));
+                        const b = Math.round(138 + f * (250 - 138));
+                        const color = `rgb(${r}, ${g}, ${b})`;
+
+                        // Scale opacity by 0.5 to keep exact brightness balance over 24 layers
+                        const opacity = (0.05 + Math.pow(f, 1.5) * 0.75) * 0.5;
+                        const strokeWidth = 1.2 + f * 1.2;
+
+                        // Continuous blur and drop-shadow from the old style for seamless volumetric glow
+                        const blurVal = (2.0 - f * 1.5).toFixed(2);
+                        const shadowVal = (2.0 + f * 6.0).toFixed(2);
+                        const filter = `blur(${blurVal}px) drop-shadow(0 0 ${shadowVal}px ${color})`;
+
+                        return (
+                          <rect
+                            key={i}
+                            x="1"
+                            y="1"
+                            width="calc(100% - 2px)"
+                            height="calc(100% - 2px)"
+                            rx="15"
+                            ry="15"
+                            pathLength="100"
+                            className={styles.beamRect}
+                            style={{
+                              stroke: color,
+                              strokeWidth: `${strokeWidth}px`,
+                              strokeDasharray: `${L} ${100 - L}`,
+                              opacity,
+                              filter,
+                              zIndex: i + 1,
+                            } as React.CSSProperties}
+                          >
+                            <animate
+                              attributeName="stroke-dashoffset"
+                              values={`${G};${G - 100}`}
+                              dur="4s"
+                              repeatCount="indefinite"
+                            />
+                          </rect>
+                        );
+                      })}
+                    </svg>
+                  )}
                   <span className={styles.btnContent}>
                     {isCurrent ? (
                       <>
@@ -470,18 +523,18 @@ export const PricingPage: React.FC = () => {
                   <td className={`${styles.td} ${styles.tdLabel}`}>
                     <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
                       <span>Database Auto-Delete Period</span>
-                      <span 
-                        title="To optimize database storage, inactive chats, images, and videos are automatically deleted after this duration." 
+                      <span
+                        title="To optimize database storage, inactive chats, images, and videos are automatically deleted after this duration."
                         style={{ display: 'inline-flex', cursor: 'help' }}
                       >
-                        <HelpCircle 
-                          size={14} 
-                          style={{ color: 'var(--text-muted)' }} 
+                        <HelpCircle
+                          size={14}
+                          style={{ color: 'var(--text-muted)' }}
                         />
                       </span>
                     </div>
                   </td>
-                  <td className={`${styles.td} ${styles.tdCol}`}>7 days</td>
+                  <td className={`${styles.td} ${styles.tdCol}`}>30 days</td>
                   <td className={`${styles.td} ${styles.tdCol}`}>3 months</td>
                   <td className={`${styles.td} ${styles.tdCol}`}>
                     <div style={{ display: 'inline-flex', justifyContent: 'center', alignItems: 'center' }}>

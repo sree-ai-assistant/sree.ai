@@ -600,55 +600,34 @@
 
 .bestValueBtn {
   position: relative !important;
-  overflow: hidden !important;
+  overflow: visible !important;
   z-index: 1 !important;
-  background: transparent !important;
-  border: none !important;
-  box-shadow: 0 0 24px rgba(59, 130, 246, 0.35) !important;
-  color: #fff !important;
-}
-
-.bestValueBtn::before {
-  content: '' !important;
-  position: absolute !important;
-  top: -50% !important;
-  left: -50% !important;
-  width: 200% !important;
-  height: 200% !important;
-  background: conic-gradient(from 0deg,
-      transparent 0%,
-      transparent 20%,
-      rgba(59, 130, 246, 0.8) 35%,
-      rgba(96, 165, 250, 1) 50%,
-      rgba(59, 130, 246, 0.8) 65%,
-      transparent 80%,
-      transparent 100%) !important;
-  animation: rotateGlow 3s linear infinite !important;
-  z-index: 0 !important;
-}
-
-.bestValueBtn::after {
-  content: '' !important;
-  position: absolute !important;
-  top: 1.5px !important;
-  left: 1.5px !important;
-  right: 1.5px !important;
-  bottom: 1.5px !important;
   background: #111422 !important;
-  /* Fully opaque solid background to block all inner gradient bleed */
-  border-radius: 14.5px !important;
-  z-index: 1 !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  box-shadow: 0 4px 20px rgba(59, 130, 246, 0.15) !important;
+  color: #fff !important;
   transition: all var(--transition-fast) !important;
 }
 
 .bestValueBtn:hover {
   transform: translateY(-2px) !important;
-  box-shadow: 0 0 32px rgba(59, 130, 246, 0.55) !important;
+  background: #171b30 !important;
+  box-shadow: 0 6px 28px rgba(59, 130, 246, 0.3) !important;
 }
 
-.bestValueBtn:hover::after {
-  background: #192038 !important;
-  /* Slightly lighter opaque background for active hover feedback */
+.borderBeam {
+  position: absolute !important;
+  top: 0 !important;
+  left: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  pointer-events: none !important;
+  overflow: visible !important;
+}
+
+.beamRect {
+  fill: none !important;
+  stroke-linecap: round !important;
 }
 
 .btnContent {
@@ -660,14 +639,4 @@
   gap: 8px !important;
   width: 100% !important;
   height: 100% !important;
-}
-
-@keyframes rotateGlow {
-  0% {
-    transform: rotate(0deg);
-  }
-
-  100% {
-    transform: rotate(360deg);
-  }
 }
