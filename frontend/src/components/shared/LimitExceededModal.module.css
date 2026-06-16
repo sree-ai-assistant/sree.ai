@@ -4,8 +4,9 @@
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.4);
-  backdrop-filter: blur(8px);
+  background: rgba(4, 2, 8, 0.75);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -14,76 +15,260 @@
 }
 
 .modal {
-  background: rgba(23, 23, 23, 0.85);
-  backdrop-filter: blur(20px);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 24px;
+  background: rgba(14, 10, 24, 0.82);
+  backdrop-filter: blur(28px);
+  -webkit-backdrop-filter: blur(28px);
+  border: 1px solid rgba(168, 85, 247, 0.25);
+  border-radius: 28px;
   width: 100%;
-  max-width: 480px;
+  max-width: 440px;
   position: relative;
   overflow: hidden;
-  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+  box-shadow: 
+    0 30px 60px rgba(0, 0, 0, 0.6), 
+    0 0 40px rgba(168, 85, 247, 0.1), 
+    inset 0 0 24px rgba(168, 85, 247, 0.05);
+  animation: modalGlowPulse 6s infinite ease-in-out;
+}
+
+@keyframes modalGlowPulse {
+  0%, 100% {
+    border-color: rgba(168, 85, 247, 0.25);
+    box-shadow: 
+      0 30px 60px rgba(0, 0, 0, 0.6), 
+      0 0 40px rgba(168, 85, 247, 0.1), 
+      inset 0 0 24px rgba(168, 85, 247, 0.05);
+  }
+  50% {
+    border-color: rgba(168, 85, 247, 0.45);
+    box-shadow: 
+      0 30px 60px rgba(0, 0, 0, 0.6), 
+      0 0 60px rgba(168, 85, 247, 0.2), 
+      inset 0 0 32px rgba(168, 85, 247, 0.1);
+  }
+}
+
+.glowBg {
+  position: absolute;
+  top: -80px;
+  right: -80px;
+  width: 260px;
+  height: 260px;
+  background: radial-gradient(circle, rgba(168, 85, 247, 0.25) 0%, transparent 70%);
+  filter: blur(20px);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.glowBgSecondary {
+  position: absolute;
+  bottom: -60px;
+  left: -60px;
+  width: 220px;
+  height: 220px;
+  background: radial-gradient(circle, rgba(59, 130, 246, 0.18) 0%, transparent 70%);
+  filter: blur(20px);
+  pointer-events: none;
+  z-index: 0;
 }
 
 .close {
   position: absolute;
-  top: 16px;
-  right: 16px;
-  background: transparent;
-  border: none;
+  top: 20px;
+  right: 20px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.05);
   color: rgba(255, 255, 255, 0.5);
   cursor: pointer;
   padding: 8px;
   border-radius: 50%;
-  transition: all 0.2s ease;
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
   z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .close:hover {
-  background: rgba(255, 255, 255, 0.05);
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.15);
   color: white;
+  transform: rotate(90deg);
 }
 
 .content {
-  padding: 40px;
+  padding: 40px 32px 32px;
   display: flex;
   flex-direction: column;
   align-items: center;
   text-align: center;
+  position: relative;
+  z-index: 1;
+}
+
+.iconContainer {
+  position: relative;
+  width: 120px;
+  height: 120px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 16px;
 }
 
 .iconWrapper {
   width: 80px;
   height: 80px;
-  background: rgba(255, 255, 255, 0.05);
+  background: linear-gradient(135deg, rgba(168, 85, 247, 0.15) 0%, rgba(168, 85, 247, 0.05) 100%);
+  border: 1px solid rgba(168, 85, 247, 0.4);
   border-radius: 24px;
   display: flex;
   align-items: center;
   justify-content: center;
-  margin-bottom: 24px;
+  box-shadow: 
+    0 8px 32px rgba(168, 85, 247, 0.25),
+    inset 0 0 16px rgba(168, 85, 247, 0.1);
+  z-index: 2;
+  position: relative;
 }
 
 .lockIcon {
-  color: #a855f7; /* Purple-500 */
-  filter: drop-shadow(0 0 10px rgba(168, 85, 247, 0.3));
+  color: #c084fc; /* Purple-400 */
+  filter: drop-shadow(0 0 8px rgba(168, 85, 247, 0.5));
+}
+
+.pulseRing1, .pulseRing2 {
+  position: absolute;
+  border-radius: 50%;
+  border: 1px solid rgba(168, 85, 247, 0.35);
+  pointer-events: none;
+  z-index: 1;
+}
+
+.pulseRing1 {
+  width: 90px;
+  height: 90px;
+  animation: ripple 3s infinite cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.pulseRing2 {
+  width: 90px;
+  height: 90px;
+  animation: ripple 3s infinite cubic-bezier(0.16, 1, 0.3, 1);
+  animation-delay: 1.5s;
+}
+
+@keyframes ripple {
+  0% {
+    transform: scale(0.9);
+    opacity: 0.8;
+  }
+  100% {
+    transform: scale(1.6);
+    opacity: 0;
+  }
 }
 
 .header {
-  margin-bottom: 32px;
+  margin-bottom: 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(168, 85, 247, 0.1);
+  border: 1px solid rgba(168, 85, 247, 0.25);
+  padding: 4px 10px;
+  border-radius: 99px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #c084fc;
+  letter-spacing: 0.05em;
+  margin-bottom: 12px;
+  box-shadow: 0 0 12px rgba(168, 85, 247, 0.1);
+}
+
+.badgeIcon {
+  color: #c084fc;
+  animation: shimmer 2s infinite ease-in-out;
+}
+
+@keyframes shimmer {
+  0%, 100% { opacity: 0.5; transform: scale(0.95); }
+  50% { opacity: 1; transform: scale(1.1); }
 }
 
 .title {
   font-size: 24px;
-  font-weight: 700;
+  font-weight: 800;
   color: white;
-  margin-bottom: 12px;
+  margin-bottom: 10px;
   letter-spacing: -0.02em;
+  background: linear-gradient(to bottom, #ffffff, #e2e8f0);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
 }
 
 .subtitle {
-  font-size: 15px;
-  color: rgba(255, 255, 255, 0.6);
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.65);
   line-height: 1.6;
+  max-width: 340px;
+}
+
+/* visual quota bar style */
+.quotaBarContainer {
+  width: 100%;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 16px;
+  padding: 14px;
+  margin-bottom: 28px;
+  box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+.quotaBarHeader {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  font-weight: 500;
+  margin-bottom: 8px;
+}
+
+.quotaLabel {
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.quotaValue {
+  color: #f87171; /* red-400 */
+  font-weight: 600;
+}
+
+.quotaBar {
+  width: 100%;
+  height: 6px;
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: 99px;
+  overflow: hidden;
+  position: relative;
+}
+
+.quotaProgress {
+  width: 4%;
+  height: 100%;
+  background: linear-gradient(90deg, #f87171, #ef4444);
+  border-radius: 99px;
+  box-shadow: 0 0 10px rgba(239, 68, 68, 0.5);
+  animation: pulseBar 2s infinite ease-in-out;
+}
+
+@keyframes pulseBar {
+  0%, 100% { opacity: 0.7; }
+  50% { opacity: 1; }
 }
 
 .actions {
@@ -97,47 +282,69 @@
 .button {
   height: 48px;
   border-radius: 14px;
-  font-size: 15px;
+  font-size: 14px;
   font-weight: 600;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 10px;
+  gap: 8px;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
   border: none;
+  position: relative;
+  overflow: hidden;
 }
 
 .buttonPrimary {
   background: white;
   color: black;
+  box-shadow: 0 4px 20px rgba(255, 255, 255, 0.15);
 }
 
 .buttonPrimary:hover {
   background: rgba(255, 255, 255, 0.9);
-  transform: translateY(-1px);
+  transform: translateY(-2px);
+  box-shadow: 
+    0 8px 24px rgba(255, 255, 255, 0.25),
+    0 0 12px rgba(168, 85, 247, 0.2);
+}
+
+.buttonPrimary:active {
+  transform: translateY(0);
 }
 
 .buttonSecondary {
-  background: rgba(255, 255, 255, 0.05);
+  background: rgba(255, 255, 255, 0.03);
   color: white;
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 .buttonSecondary:hover {
-  background: rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.2);
+  transform: translateY(-2px);
+}
+
+.buttonSecondary:active {
+  transform: translateY(0);
 }
 
 .footerText {
   font-size: 13px;
   color: rgba(255, 255, 255, 0.4);
+  font-weight: 500;
 }
 
 .link {
-  color: #a855f7;
+  color: #c084fc;
   cursor: pointer;
+  transition: all 0.2s ease;
+  font-weight: 600;
+  border-bottom: 1px dashed rgba(192, 132, 252, 0.3);
+  padding-bottom: 1px;
 }
 
 .link:hover {
-  text-decoration: underline;
+  color: #d8b4fe;
+  border-bottom-color: #d8b4fe;
 }

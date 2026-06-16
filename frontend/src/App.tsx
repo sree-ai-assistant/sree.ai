@@ -13,6 +13,14 @@ import ProtectedRoute from './components/auth/ProtectedRoute';
 import { supabase } from './lib/supabase';
 
 import { Toaster } from 'react-hot-toast';
+import { UpgradeModal } from './components/shared/UpgradeModal';
+import { LimitExceededModal } from './components/shared/LimitExceededModal';
+
+import { useUIStore } from './store/ui.store';
+
+if (typeof window !== 'undefined') {
+  (window as any).useUIStore = useUIStore;
+}
 
 function App() {
   const { initialize } = useAuthStore();
@@ -43,6 +51,8 @@ function App() {
   return (
     <Router>
       <Toaster position="top-right" />
+      <UpgradeModal />
+      <LimitExceededModal />
       <Routes>
         {/* Auth Routes */}
         <Route path="/login" element={<LoginPage />} />

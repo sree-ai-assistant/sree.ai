@@ -46,77 +46,86 @@ export const UpgradeModal: React.FC = () => {
     }
   };
 
-  if (!upgradeModalOpen) return null;
-
   return (
     <AnimatePresence>
-      <div className={styles.overlay} onClick={closeUpgradeModal}>
+      {upgradeModalOpen && (
         <motion.div 
-          initial={{ opacity: 0, scale: 0.9, y: 20 }}
-          animate={{ opacity: 1, scale: 1, y: 0 }}
-          exit={{ opacity: 0, scale: 0.9, y: 20 }}
-          className={styles.modal}
-          onClick={(e) => e.stopPropagation()}
+          className={styles.overlay} 
+          onClick={closeUpgradeModal}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.25 }}
         >
-          <button className={styles.close} onClick={closeUpgradeModal}>
-            <X size={20} />
-          </button>
+          <motion.div 
+            initial={{ opacity: 0, scale: 0.95, y: 15 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.95, y: 15 }}
+            transition={{ type: "spring", damping: 25, stiffness: 350 }}
+            className={styles.modal}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button className={styles.close} onClick={closeUpgradeModal}>
+              <X size={20} />
+            </button>
 
-          <div className={styles.content}>
-            <div className={styles.header}>
-              <div className={styles.title}>Unlock Full Intelligence</div>
-              <p className={styles.subtitle}>Elevate your Sree AI limits with our premium packages.</p>
-            </div>
-
-            <div className={styles.grid}>
-              {/* Starter Plan */}
-              <div className={`${styles.plan} ${targetTier === 'starter' ? styles.planFeatured : ''}`}>
-                <div className={styles.planHeader}>
-                  <div className={styles.planTitle} style={{ color: 'var(--primary)' }}>Starter</div>
-                  <div className={styles.price}>$8<span>/mo</span></div>
-                </div>
-                <ul className={styles.features}>
-                  <li className={styles.feature}><Check className={styles.checkIcon} size={16} /> 50 daily chat requests</li>
-                  <li className={styles.feature}><Check className={styles.checkIcon} size={16} /> 60 daily voice synthesis</li>
-                  <li className={styles.feature}><Check className={styles.checkIcon} size={16} /> 30 daily image gens</li>
-                  <li className={styles.feature}><Check className={styles.checkIcon} size={16} /> Chat, image & video storage (3mo auto-delete)</li>
-                  <li className={styles.feature}><Check className={styles.checkIcon} size={16} /> Access to all tools (incl. 2D to 3D)</li>
-                </ul>
-                <button 
-                  className={`${styles.button} ${styles.buttonStarter} ${user?.plan_type === 'starter' ? styles.buttonCurrent : ''}`}
-                  disabled={user?.plan_type === 'starter' || loading !== null}
-                  onClick={() => handleUpgrade('starter')}
-                >
-                  {user?.plan_type === 'starter' ? 'Current Plan' : loading === 'starter' ? 'Processing...' : 'Select Starter'}
-                </button>
+            <div className={styles.content}>
+              <div className={styles.header}>
+                <div className={styles.title}>Unlock Full Intelligence</div>
+                <p className={styles.subtitle}>Elevate your Sree AI limits with our premium packages.</p>
               </div>
 
-              {/* Pro Plan */}
-              <div className={`${styles.plan} ${targetTier === 'pro' || !targetTier ? styles.planFeatured : ''}`}>
-                <div className={styles.planHeader}>
-                  <div className={styles.planTitle} style={{ color: 'var(--accent)' }}>Pro</div>
-                  <div className={styles.price}>$29<span>/mo</span></div>
+              <div className={styles.grid}>
+                {/* Starter Plan */}
+                <div className={`${styles.plan} ${targetTier === 'starter' ? styles.planFeatured : ''}`}>
+                  <div className={styles.planHeader}>
+                    <div className={styles.planTitle} style={{ color: 'var(--primary)' }}>Starter</div>
+                    <div className={styles.price}>$8<span>/mo</span></div>
+                  </div>
+                  <ul className={styles.features}>
+                    <li className={styles.feature}><Check className={styles.checkIcon} size={16} /> 50 daily chat requests</li>
+                    <li className={styles.feature}><Check className={styles.checkIcon} size={16} /> 60 daily voice synthesis</li>
+                    <li className={styles.feature}><Check className={styles.checkIcon} size={16} /> 30 daily image gens</li>
+                    <li className={styles.feature}><Check className={styles.checkIcon} size={16} /> Chat, image & video storage (3mo auto-delete)</li>
+                    <li className={styles.feature}><Check className={styles.checkIcon} size={16} /> Access to all tools (incl. 2D to 3D)</li>
+                  </ul>
+                  <button 
+                    className={`${styles.button} ${styles.buttonStarter} ${user?.plan_type === 'starter' ? styles.buttonCurrent : ''}`}
+                    disabled={user?.plan_type === 'starter' || loading !== null}
+                    onClick={() => handleUpgrade('starter')}
+                  >
+                    {user?.plan_type === 'starter' ? 'Current Plan' : loading === 'starter' ? 'Processing...' : 'Select Starter'}
+                  </button>
                 </div>
-                <ul className={styles.features}>
-                  <li className={styles.feature}><Zap className={styles.checkIcon} size={16} style={{ color: 'var(--accent)' }} /> 200 daily chat requests</li>
-                  <li className={styles.feature}><Zap className={styles.checkIcon} size={16} style={{ color: 'var(--accent)' }} /> 100 daily voice synthesis</li>
-                  <li className={styles.feature}><Zap className={styles.checkIcon} size={16} style={{ color: 'var(--accent)' }} /> 70 daily image gens</li>
-                  <li className={styles.feature}><Zap className={styles.checkIcon} size={16} style={{ color: 'var(--accent)' }} /> Chat, image & video storage (no expiration)</li>
-                  <li className={styles.feature}><Zap className={styles.checkIcon} size={16} style={{ color: 'var(--accent)' }} /> Access to all tools (incl. 2D to 3D)</li>
-                  <li className={styles.feature}><Zap className={styles.checkIcon} size={16} style={{ color: 'var(--accent)' }} /> Priority GPU queues</li>
-                </ul>
-                <button 
-                  className={`${styles.button} ${styles.buttonPro} ${user?.plan_type === 'pro' ? styles.buttonCurrent : ''}`}
-                  disabled={user?.plan_type === 'pro' || loading !== null}
-                  onClick={() => handleUpgrade('pro')}
-                >
-                  {user?.plan_type === 'pro' ? 'Current Plan' : loading === 'pro' ? 'Processing...' : 'Upgrade to Pro'}
-                </button>
+
+                {/* Pro Plan */}
+                <div className={`${styles.plan} ${targetTier === 'pro' || !targetTier ? styles.planFeatured : ''}`}>
+                  <div className={styles.planHeader}>
+                    <div className={styles.planTitle} style={{ color: 'var(--accent)' }}>Pro</div>
+                    <div className={styles.price}>$29<span>/mo</span></div>
+                  </div>
+                  <ul className={styles.features}>
+                    <li className={styles.feature}><Zap className={styles.checkIcon} size={16} style={{ color: 'var(--accent)' }} /> 200 daily chat requests</li>
+                    <li className={styles.feature}><Zap className={styles.checkIcon} size={16} style={{ color: 'var(--accent)' }} /> 100 daily voice synthesis</li>
+                    <li className={styles.feature}><Zap className={styles.checkIcon} size={16} style={{ color: 'var(--accent)' }} /> 70 daily image gens</li>
+                    <li className={styles.feature}><Zap className={styles.checkIcon} size={16} style={{ color: 'var(--accent)' }} /> Chat, image & video storage (no expiration)</li>
+                    <li className={styles.feature}><Zap className={styles.checkIcon} size={16} style={{ color: 'var(--accent)' }} /> Access to all tools (incl. 2D to 3D)</li>
+                    <li className={styles.feature}><Zap className={styles.checkIcon} size={16} style={{ color: 'var(--accent)' }} /> Priority GPU queues</li>
+                  </ul>
+                  <button 
+                    className={`${styles.button} ${styles.buttonPro} ${user?.plan_type === 'pro' ? styles.buttonCurrent : ''}`}
+                    disabled={user?.plan_type === 'pro' || loading !== null}
+                    onClick={() => handleUpgrade('pro')}
+                  >
+                    {user?.plan_type === 'pro' ? 'Current Plan' : loading === 'pro' ? 'Processing...' : 'Upgrade to Pro'}
+                  </button>
+                </div>
               </div>
             </div>
-          </div>
+          </motion.div>
         </motion.div>
-      </div>
+      )}
     </AnimatePresence>
   );
 };
+
