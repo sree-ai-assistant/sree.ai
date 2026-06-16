@@ -71,12 +71,12 @@
 .toggleContainer {
   display: inline-flex;
   align-items: center;
-  gap: 16px;
   background: rgba(255, 255, 255, 0.03);
   border: 1px solid rgba(255, 255, 255, 0.05);
-  padding: 6px;
+  padding: 4px;
   border-radius: 99px;
   margin: 0;
+  position: relative;
 }
 
 .controlsRow {
@@ -92,18 +92,38 @@
   background: transparent;
   border: none;
   color: var(--text-secondary);
-  padding: 8px 20px;
+  padding: 8px 24px;
   border-radius: 99px;
   font-size: 0.9rem;
   font-weight: 600;
   cursor: pointer;
-  transition: all var(--transition-fast);
   position: relative;
+  overflow: visible;
+  outline: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
-.toggleBtnActive {
-  background: var(--primary);
+.toggleBtnText {
+  position: relative;
+  z-index: 2;
+  transition: color var(--transition-fast);
+}
+
+.toggleBtnActive .toggleBtnText {
   color: #0f172a;
+}
+
+.activePill {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: var(--primary);
+  border-radius: 99px;
+  z-index: 1;
   box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
 }
 
@@ -118,6 +138,7 @@
   padding: 2px 8px;
   border-radius: 99px;
   box-shadow: 0 4px 10px rgba(139, 92, 246, 0.4);
+  z-index: 3;
 }
 
 /* Pricing Grid */

@@ -250,13 +250,27 @@ export const PricingPage: React.FC = () => {
                 className={`${styles.toggleBtn} ${billingPeriod === 'monthly' ? styles.toggleBtnActive : ''}`}
                 onClick={() => setBillingPeriod('monthly')}
               >
-                Monthly
+                {billingPeriod === 'monthly' && (
+                  <motion.div
+                    layoutId="billingActiveBg"
+                    className={styles.activePill}
+                    transition={{ type: 'spring', stiffness: 380, damping: 30 }}
+                  />
+                )}
+                <span className={styles.toggleBtnText}>Monthly</span>
               </button>
               <button
                 className={`${styles.toggleBtn} ${billingPeriod === 'annually' ? styles.toggleBtnActive : ''}`}
                 onClick={() => setBillingPeriod('annually')}
               >
-                Annually
+                {billingPeriod === 'annually' && (
+                  <motion.div
+                    layoutId="billingActiveBg"
+                    className={styles.activePill}
+                    transition={{ type: 'spring', stiffness: 380, damping: 30 }}
+                  />
+                )}
+                <span className={styles.toggleBtnText}>Annually</span>
                 <span className={styles.discountBadge}>Save 20%</span>
               </button>
             </div>

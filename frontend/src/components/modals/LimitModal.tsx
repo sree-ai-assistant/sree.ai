@@ -18,11 +18,11 @@ interface LimitModalProps {
   };
 }
 
-export const LimitModal: React.FC<LimitModalProps> = ({ 
-  isOpen, 
-  onClose, 
+export const LimitModal: React.FC<LimitModalProps> = ({
+  isOpen,
+  onClose,
   type,
-  limitInfo 
+  limitInfo
 }) => {
   const navigate = useNavigate();
 
@@ -50,7 +50,7 @@ export const LimitModal: React.FC<LimitModalProps> = ({
       price: '$8',
       limit: '50 requests/day',
       features: [
-        '50 daily chats (GPT-4 / Claude 3.5)',
+        '50 daily chats (70+ Primium Models)',
         '60 daily voice synthesis',
         '30 daily image generations',
         'Chat, image & video storage (3 months)',
@@ -64,7 +64,7 @@ export const LimitModal: React.FC<LimitModalProps> = ({
       price: '$29',
       limit: '200 requests/day',
       features: [
-        '200 daily chats (All models)',
+        '200 daily chats (All 80+ models)',
         '100 daily voice synthesis',
         '70 daily image generations',
         'Chat, image & video storage (no limit)',
@@ -127,7 +127,7 @@ export const LimitModal: React.FC<LimitModalProps> = ({
   };
 
   const iconConfig = getIconConfig();
-  
+
   // Calculate usage percentage for progress bar
   const currentCount = limitInfo?.current ?? 0;
   const limitCount = limitInfo?.limit ?? 1;
@@ -137,14 +137,14 @@ export const LimitModal: React.FC<LimitModalProps> = ({
   return (
     <AnimatePresence>
       {isOpen && (
-        <motion.div 
+        <motion.div
           className={styles.overlay}
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           onClick={onClose}
         >
-          <motion.div 
+          <motion.div
             className={`${styles.modal} ${type === 'tiered' ? styles.wideModal : ''}`}
             initial={{ scale: 0.95, opacity: 0, y: 20 }}
             animate={{ scale: 1, opacity: 1, y: 0 }}
@@ -170,7 +170,7 @@ export const LimitModal: React.FC<LimitModalProps> = ({
                       <Sparkles size={32} className={styles.sparkleIcon} />
                     </div>
                   </div>
-                  
+
                   <div className={styles.badge}>
                     <Sparkles size={11} className={styles.badgeIcon} />
                     <span>PREMIUM UPGRADE</span>
@@ -180,7 +180,7 @@ export const LimitModal: React.FC<LimitModalProps> = ({
                   <p className={styles.description}>
                     {limitInfo?.message || (
                       <>
-                        You've reached your daily limit for the <strong>{limitInfo?.tier || 'free'}</strong> plan. 
+                        You've reached your daily limit for the <strong>{limitInfo?.tier || 'free'}</strong> plan.
                         Upgrade now for more power and features.
                       </>
                     )}
@@ -189,8 +189,8 @@ export const LimitModal: React.FC<LimitModalProps> = ({
 
                 <div className={styles.pricingGrid}>
                   {pricingTiers.map((tier) => (
-                    <div 
-                      key={tier.name} 
+                    <div
+                      key={tier.name}
                       className={`${styles.priceCard} ${tier.popular ? styles.popular : ''} ${tier.current ? styles.currentPlan : ''}`}
                     >
                       {tier.popular && <div className={styles.popularBadge}>Most Popular</div>}
@@ -209,7 +209,7 @@ export const LimitModal: React.FC<LimitModalProps> = ({
                           </li>
                         ))}
                       </ul>
-                      <button 
+                      <button
                         className={`${styles.tierButton} ${tier.popular ? styles.popularButton : ''}`}
                         disabled={tier.current}
                         onClick={() => { navigate(`/pricing?plan=${tier.name.toLowerCase()}`); onClose(); }}
@@ -219,7 +219,7 @@ export const LimitModal: React.FC<LimitModalProps> = ({
                     </div>
                   ))}
                 </div>
-                
+
                 {limitInfo?.resetsIn !== undefined && (
                   <div className={styles.pricingFooter}>
                     <Clock size={14} className={styles.footerClockIcon} />
@@ -245,17 +245,17 @@ export const LimitModal: React.FC<LimitModalProps> = ({
                   </div>
                   <h2 className={styles.title}>{iconConfig.title}</h2>
                   <p className={styles.subtitle}>
-                    {type === 'rate-limited' 
+                    {type === 'rate-limited'
                       ? "You're moving a bit too fast. Please wait a moment before sending more requests."
                       : type === 'abuse-cooldown'
-                      ? (limitInfo?.message || "Your account has been placed on a temporary cooldown due to unusual activity.")
-                      : type === 'abuse-captcha'
-                      ? (limitInfo?.message || "Please verify you're human to continue using our services.")
-                      : type === 'abuse-auth'
-                      ? (limitInfo?.message || "To prevent abuse, anonymous access is restricted. Please sign in to continue.")
-                      : type === 'abuse-restricted'
-                      ? (limitInfo?.message || "Access from this network has been temporarily restricted.")
-                      : "You've used all your free requests for today. Create an account to get more requests and save your history."}
+                        ? (limitInfo?.message || "Your account has been placed on a temporary cooldown due to unusual activity.")
+                        : type === 'abuse-captcha'
+                          ? (limitInfo?.message || "Please verify you're human to continue using our services.")
+                          : type === 'abuse-auth'
+                            ? (limitInfo?.message || "To prevent abuse, anonymous access is restricted. Please sign in to continue.")
+                            : type === 'abuse-restricted'
+                              ? (limitInfo?.message || "Access from this network has been temporarily restricted.")
+                              : "You've used all your free requests for today. Create an account to get more requests and save your history."}
                   </p>
                 </div>
 
@@ -267,7 +267,7 @@ export const LimitModal: React.FC<LimitModalProps> = ({
                       <span className={styles.quotaValue}>{percentRemaining}% remaining</span>
                     </div>
                     <div className={styles.quotaBar}>
-                      <motion.div 
+                      <motion.div
                         className={styles.quotaProgress}
                         initial={{ width: "100%" }}
                         animate={{ width: `${percentRemaining}%` }}
@@ -297,7 +297,7 @@ export const LimitModal: React.FC<LimitModalProps> = ({
                 <div className={styles.actions}>
                   {type === 'anonymous' || type === 'abuse-auth' ? (
                     <>
-                      <button 
+                      <button
                         className={`${styles.button} ${styles.buttonPrimary}`}
                         onClick={() => { navigate('/signup'); onClose(); }}
                       >
@@ -305,8 +305,8 @@ export const LimitModal: React.FC<LimitModalProps> = ({
                         Create Free Account
                         <ArrowRight size={16} style={{ marginLeft: 'auto' }} />
                       </button>
-                      
-                      <button 
+
+                      <button
                         className={`${styles.button} ${styles.buttonSecondary}`}
                         onClick={() => { navigate('/login'); onClose(); }}
                       >
@@ -315,15 +315,15 @@ export const LimitModal: React.FC<LimitModalProps> = ({
                       </button>
                     </>
                   ) : type === 'abuse-captcha' ? (
-                    <button 
-                      className={`${styles.button} ${styles.buttonPrimary}`} 
+                    <button
+                      className={`${styles.button} ${styles.buttonPrimary}`}
                       onClick={() => window.location.reload()}
                     >
                       Verify Now
                     </button>
                   ) : (
-                    <button 
-                      className={`${styles.button} ${styles.buttonPrimary}`} 
+                    <button
+                      className={`${styles.button} ${styles.buttonPrimary}`}
                       onClick={onClose}
                     >
                       I Understand
@@ -342,8 +342,8 @@ export const LimitModal: React.FC<LimitModalProps> = ({
                           View Pricing
                         </span>
                         {' '}or{' '}
-                        <span 
-                          className={styles.link} 
+                        <span
+                          className={styles.link}
                           onClick={() => {
                             onClose();
                             navigate('/settings?tab=byok');
