@@ -49,7 +49,13 @@ export const LimitModal: React.FC<LimitModalProps> = ({
       name: 'Starter',
       price: '$8',
       limit: '50 requests/day',
-      features: ['50 daily chats (GPT-4 / Claude 3.5)', '60 daily voice synthesis', '30 daily image generations', '5 GB cloud file storage'],
+      features: [
+        '50 daily chats (GPT-4 / Claude 3.5)',
+        '60 daily voice synthesis',
+        '30 daily image generations',
+        'Chat, image & video storage (3 months)',
+        'Access to all tools (incl. 2D to 3D Convertor)'
+      ],
       current: limitInfo?.tier?.toLowerCase() === 'starter',
       color: '#60a5fa'
     },
@@ -57,7 +63,14 @@ export const LimitModal: React.FC<LimitModalProps> = ({
       name: 'Pro',
       price: '$29',
       limit: '200 requests/day',
-      features: ['200 daily chats (All models)', '100 daily voice synthesis', '70 daily image generations', '10 GB cloud storage', 'Priority GPU rendering'],
+      features: [
+        '200 daily chats (All models)',
+        '100 daily voice synthesis',
+        '70 daily image generations',
+        'Chat, image & video storage (no limit)',
+        'Priority GPU rendering',
+        'Access to all tools (incl. 2D to 3D Convertor)'
+      ],
       current: limitInfo?.tier?.toLowerCase() === 'pro',
       color: '#818cf8',
       popular: true
