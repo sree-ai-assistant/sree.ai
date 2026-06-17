@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, useMemo, useDeferredValue } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { MessageSquare, ArrowLeft, MoreVertical, Lock, Clock, Sparkles } from 'lucide-react';
+import { MessageSquare, ArrowLeft, MoreVertical, Lock, Clock, Sparkles, Zap } from 'lucide-react';
 import { DashboardLayout } from '../features/dashboard/DashboardLayout';
 import { supabase } from '../lib/supabase';
 import { useChatStore } from '../store/chat.store';
@@ -344,6 +344,28 @@ const ChatPage: React.FC = () => {
       setAutoScrollEnabled(true);
     }
   }, [isGenerating]);
+
+  const greetingText = useMemo(() => {
+    const hour = new Date().getHours();
+    let greeting = 'Hello';
+    if (hour >= 5 && hour < 12) {
+      greeting = 'Good morning';
+    } else if (hour >= 12 && hour < 17) {
+      greeting = 'Good afternoon';
+    } else if (hour >= 17 && hour < 22) {
+      greeting = 'Good evening';
+    } else {
+      greeting = "It's late night";
+    }
+
+    if (user) {
+      const name = user.nickname || user.display_name?.split(' ')[0] || user.email?.split('@')[0];
+      if (name) {
+        return `${greeting}, ${name}`;
+      }
+    }
+    return greeting;
+  }, [user]);
 
   const suggestions = [
     { title: 'Write a technical blog', desc: 'About React 19 features' },
@@ -816,18 +838,31 @@ const ChatPage: React.FC = () => {
               </div>
             ) : !id && messages.length === 0 ? (
               <div className={styles.emptyState}>
-                <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className={styles.emptyIconBox}>
-                  <Sparkles size={40} />
+                <motion.div
+                  initial={{ opacity: 0, y: 15 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
+                  className={styles.emptyGreetingContainer}
+                >
+                  <div className={styles.logoIconBox}>
+                    <Zap size={28} fill="currentColor" />
+                  </div>
+                  <h1 className={styles.title}>{greetingText}</h1>
+                  <p className={styles.subtitle}>How can Sree AI help you today?</p>
                 </motion.div>
-                <h1 className={styles.title}>How can Sree AI help?</h1>
-                <div className={styles.suggestionGrid}>
+                <motion.div
+                  initial={{ opacity: 0, y: 15 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.6, delay: 0.15, ease: [0.16, 1, 0.3, 1] }}
+                  className={styles.suggestionGrid}
+                >
                   {suggestions.map((s) => (
                     <button key={s.title} className={styles.suggestionCard} onClick={() => handleSend(s.title)}>
                       <span className={styles.suggestionTitle}>{s.title}</span>
                       <span className={styles.suggestionDesc}>{s.desc}</span>
                     </button>
                   ))}
-                </div>
+                </motion.div>
               </div>
             ) : (
               <AnimatePresence initial={false}>

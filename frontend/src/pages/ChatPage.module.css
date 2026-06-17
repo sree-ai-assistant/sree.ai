@@ -56,35 +56,48 @@
   text-align: center;
 }
 
-.emptyIconBox {
-  width: 80px;
-  height: 80px;
-  border-radius: 24px;
-  background: var(--bg-surface);
-  border: 1px solid var(--border-color);
+.emptyGreetingContainer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-bottom: 32px;
+  gap: 8px;
+}
+
+.logoIconBox {
   display: flex;
   align-items: center;
   justify-content: center;
+  width: 64px;
+  height: 64px;
+  border-radius: 18px;
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.1) 0%, rgba(139, 92, 246, 0.1) 100%);
+  border: 1px solid var(--border-color);
   color: var(--primary);
-  margin-bottom: 32px;
-  box-shadow: var(--glass-shadow);
+  margin-bottom: 16px;
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.2);
+  backdrop-filter: var(--glass-blur);
+  animation: float 6s ease-in-out infinite;
 }
 
 .title {
-  font-size: 2.5rem;
-  font-weight: 800;
-  margin-bottom: 16px;
+  font-size: 2.75rem;
+  font-weight: 700;
+  margin-bottom: 8px;
   letter-spacing: -0.03em;
-  background: linear-gradient(to right, white, var(--text-muted));
+  background: linear-gradient(135deg, #ffffff 30%, var(--text-secondary) 100%);
   -webkit-background-clip: text;
+  background-clip: text;
   -webkit-text-fill-color: transparent;
 }
 
 .subtitle {
   color: var(--text-secondary);
-  font-size: 1.1rem;
-  max-width: 400px;
-  line-height: 1.6;
+  font-size: 1.15rem;
+  font-weight: 400;
+  max-width: 500px;
+  line-height: 1.5;
+  opacity: 0.8;
 }
 
 .suggestionGrid {
