@@ -17,6 +17,14 @@ export const DashboardLayout: React.FC<{
   // Use prop if provided, otherwise use global store state
   const collapsed = isCollapsed !== undefined ? isCollapsed : sidebarCollapsed;
   
+  const onToggle = React.useCallback((val: boolean) => {
+    if (setIsCollapsed) {
+      setIsCollapsed(val);
+    } else {
+      setSidebarCollapsed(val);
+    }
+  }, [setIsCollapsed, setSidebarCollapsed]);
+
   React.useEffect(() => {
     if (defaultCollapsed !== undefined) {
       setSidebarCollapsed(defaultCollapsed);
@@ -81,14 +89,6 @@ export const DashboardLayout: React.FC<{
       document.removeEventListener('touchend', handleTouchEnd);
     };
   }, [collapsed, onToggle, noSidebar]);
-
-  const onToggle = (val: boolean) => {
-    if (setIsCollapsed) {
-      setIsCollapsed(val);
-    } else {
-      setSidebarCollapsed(val);
-    }
-  };
 
   const renderSidebar = () => {
     if (typeof sidebar === 'function') {
