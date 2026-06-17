@@ -34,12 +34,31 @@
   position: relative;
   z-index: 2;
   color: #60a5fa;
-  background: linear-gradient(90deg, #ffffff, #60a5fa, #3b82f6);
+  background: linear-gradient(
+    90deg,
+    #3b82f6 0%,
+    #60a5fa 25%,
+    #ffffff 50%,
+    #60a5fa 75%,
+    #3b82f6 100%
+  );
+  background-size: 200% auto;
   -webkit-background-clip: text;
   background-clip: text;
   -webkit-text-fill-color: transparent;
-  text-shadow: 0 0 10px rgba(96, 165, 250, 0.3);
+  filter: drop-shadow(0 0 6px rgba(96, 165, 250, 0.4));
   font-weight: 600;
+  animation: textWave 2.5s linear infinite;
+  display: inline-block;
+}
+
+@keyframes textWave {
+  0% {
+    background-position: 200% center;
+  }
+  100% {
+    background-position: 0% center;
+  }
 }
 
 .waveOverlay {
