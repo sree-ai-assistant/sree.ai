@@ -51,10 +51,12 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
-  height: 100%;
+  min-height: 100%;
+  width: 100%;
   text-align: center;
   position: relative;
+  box-sizing: border-box;
+  padding: 32px 16px;
 }
 
 .emptyState::before {
@@ -79,6 +81,7 @@
   display: flex;
   flex-direction: column;
   align-items: center;
+  margin-top: auto;
   margin-bottom: 32px;
   gap: 8px;
   position: relative;
@@ -156,6 +159,7 @@
   grid-template-columns: repeat(2, 1fr);
   gap: 16px;
   margin-top: 48px;
+  margin-bottom: auto;
   width: 100%;
   max-width: 760px;
   position: relative;
@@ -258,6 +262,88 @@
   opacity: 1;
   color: var(--primary);
   transform: translate(0, 0);
+}
+
+@media (max-width: 768px) {
+  .title {
+    font-size: 2.25rem;
+    margin-bottom: 8px;
+  }
+  .subtitle {
+    font-size: 1rem;
+    padding: 0 16px;
+  }
+  .logoIconBox {
+    width: 64px;
+    height: 64px;
+    border-radius: 18px;
+    margin-bottom: 16px;
+  }
+  .logoIconBox::before {
+    inset: -3px;
+    border-radius: 21px;
+  }
+  .suggestionGrid {
+    margin-top: 36px;
+  }
+}
+
+@media (max-width: 480px) {
+  .title {
+    font-size: 1.5rem;
+    margin-bottom: 4px;
+  }
+  .subtitle {
+    font-size: 0.85rem;
+    line-height: 1.4;
+  }
+  .emptyGreetingContainer {
+    margin-bottom: 12px;
+  }
+  .logoIconBox {
+    width: 48px;
+    height: 48px;
+    border-radius: 14px;
+    margin-bottom: 8px;
+  }
+  .logoIconBox::before {
+    inset: -2px;
+    border-radius: 16px;
+  }
+  .logoIconBox svg {
+    width: 20px;
+    height: 20px;
+  }
+  .suggestionGrid {
+    grid-template-columns: 1fr;
+    gap: 8px;
+    margin-top: 16px;
+    padding: 0 4px;
+  }
+  .suggestionCard {
+    padding: 10px 12px;
+    gap: 12px;
+    border-radius: 12px;
+  }
+  .suggestionIcon {
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+  }
+  .suggestionIcon svg {
+    width: 14px;
+    height: 14px;
+  }
+  .suggestionTitle {
+    font-size: 0.825rem;
+  }
+  .suggestionDesc {
+    font-size: 0.725rem;
+  }
+  .suggestionArrow {
+    top: 10px;
+    right: 10px;
+  }
 }
 
 .messageRow {
