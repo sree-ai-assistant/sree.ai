@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, useMemo, useDeferredValue } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { MessageSquare, ArrowLeft, MoreVertical, Lock, Clock, Sparkles, Zap } from 'lucide-react';
+import { MessageSquare, ArrowLeft, MoreVertical, Lock, Clock, Sparkles, Zap, FileText, Mail, Code } from 'lucide-react';
 import { DashboardLayout } from '../features/dashboard/DashboardLayout';
 import { supabase } from '../lib/supabase';
 import { useChatStore } from '../store/chat.store';
@@ -368,10 +368,10 @@ const ChatPage: React.FC = () => {
   }, [user]);
 
   const suggestions = [
-    { title: 'Write a technical blog', desc: 'About React 19 features' },
-    { title: 'Explain Quantum computing', desc: 'To a 10 year old kid' },
-    { title: 'Write an email', desc: 'To request a budget increase' },
-    { title: 'Debug my code', desc: 'Help find the memory leak' },
+    { title: 'Write a technical blog', desc: 'About React 19 features', icon: <FileText size={18} /> },
+    { title: 'Explain Quantum computing', desc: 'To a 10 year old kid', icon: <Sparkles size={18} /> },
+    { title: 'Write an email', desc: 'To request a budget increase', icon: <Mail size={18} /> },
+    { title: 'Debug my code', desc: 'Help find the memory leak', icon: <Code size={18} /> },
   ];
 
   const handleSend = async (text?: string, isRetry: boolean = false, retryAttachments: any[] = [], autoRetryCount: number = 0) => {
@@ -858,7 +858,10 @@ const ChatPage: React.FC = () => {
                 >
                   {suggestions.map((s) => (
                     <button key={s.title} className={styles.suggestionCard} onClick={() => handleSend(s.title)}>
-                      <span className={styles.suggestionTitle}>{s.title}</span>
+                      <div className={styles.suggestionHeader}>
+                        <div className={styles.suggestionIcon}>{s.icon}</div>
+                        <span className={styles.suggestionTitle}>{s.title}</span>
+                      </div>
                       <span className={styles.suggestionDesc}>{s.desc}</span>
                     </button>
                   ))}
