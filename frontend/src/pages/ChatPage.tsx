@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, useMemo, useDeferredValue } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { MessageSquare, ArrowLeft, MoreVertical, Lock, Clock, Sparkles, Zap, FileText, Mail, Code } from 'lucide-react';
+import { MessageSquare, ArrowLeft, MoreVertical, Lock, Clock, Sparkles, Zap, FileText, Mail, Code, ArrowUpRight } from 'lucide-react';
 import { DashboardLayout } from '../features/dashboard/DashboardLayout';
 import { supabase } from '../lib/supabase';
 import { useChatStore } from '../store/chat.store';
@@ -858,11 +858,14 @@ const ChatPage: React.FC = () => {
                 >
                   {suggestions.map((s) => (
                     <button key={s.title} className={styles.suggestionCard} onClick={() => handleSend(s.title)}>
-                      <div className={styles.suggestionHeader}>
-                        <div className={styles.suggestionIcon}>{s.icon}</div>
-                        <span className={styles.suggestionTitle}>{s.title}</span>
+                      <div className={styles.suggestionArrow}>
+                        <ArrowUpRight size={16} />
                       </div>
-                      <span className={styles.suggestionDesc}>{s.desc}</span>
+                      <div className={styles.suggestionIcon}>{s.icon}</div>
+                      <div className={styles.suggestionContent}>
+                        <span className={styles.suggestionTitle}>{s.title}</span>
+                        <span className={styles.suggestionDesc}>{s.desc}</span>
+                      </div>
                     </button>
                   ))}
                 </motion.div>
