@@ -364,7 +364,7 @@ export const VoiceOverlay: React.FC<VoiceOverlayProps> = ({ onClose, initialConv
             },
             body: JSON.stringify({
               messages: [...messagesRef.current.map(m => ({ role: m.role, content: m.content })), { role: 'user', content: userText }],
-              model: 'mistralai/mistral-small-4-119b-2603',
+              model: 'mistralai/mistral-small-4-119b-2603',   //---->voice model change here
               mode: 'voice',
             }),
           });
