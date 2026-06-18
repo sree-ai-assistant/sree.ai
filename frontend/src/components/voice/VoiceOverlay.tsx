@@ -364,7 +364,7 @@ export const VoiceOverlay: React.FC<VoiceOverlayProps> = ({ onClose, initialConv
             },
             body: JSON.stringify({
               messages: [...messagesRef.current.map(m => ({ role: m.role, content: m.content })), { role: 'user', content: userText }],
-              model: 'meta/llama-3.1-70b-instruct',
+              model: 'mistralai/mistral-small-4-119b-2603',
               mode: 'voice',
             }),
           });
@@ -400,10 +400,10 @@ export const VoiceOverlay: React.FC<VoiceOverlayProps> = ({ onClose, initialConv
               const resetsIn = isMonthlyLimit ? 24 * 60 * 60 : (errorData?.resetsIn || 30);
               const message = errorData?.message || 'Usage rate limit reached. Please try again later.';
               const upgradeUrl = errorData?.upgradeUrl || '/pricing';
-              
+
               const lockoutTime = Date.now() + (resetsIn * 1000);
               localStorage.setItem('chat_lockout', lockoutTime.toString());
-              
+
               setIsSessionActive(false);
               stopRecording();
               if (audioRef.current) {
@@ -411,7 +411,7 @@ export const VoiceOverlay: React.FC<VoiceOverlayProps> = ({ onClose, initialConv
                 audioRef.current.src = '';
               }
               stopLoadingMessages();
-              
+
               setRateLimitInfo({
                 message,
                 resetsIn,
@@ -421,7 +421,7 @@ export const VoiceOverlay: React.FC<VoiceOverlayProps> = ({ onClose, initialConv
               setStatus('idle');
               return;
             }
-          } catch (e) {}
+          } catch (e) { }
           throw new Error(`Chat request failed with status ${chatResponse.status}`);
         }
 
@@ -592,11 +592,11 @@ export const VoiceOverlay: React.FC<VoiceOverlayProps> = ({ onClose, initialConv
               if (!done) {
                 buffer = lines.pop() || '';
               }
-              
+
               for (const line of lines) {
                 const trimmedLine = line.trim();
                 if (!trimmedLine) continue;
-                
+
                 if (trimmedLine.startsWith('data:')) {
                   const dataStr = trimmedLine.replace(/^data:\s*/, '').trim();
                   if (dataStr === '[DONE]') break;
@@ -681,13 +681,13 @@ export const VoiceOverlay: React.FC<VoiceOverlayProps> = ({ onClose, initialConv
       }
     } catch (err: any) {
       console.error('Voice Processing Error:', err);
-      
+
       let errorData = err.response?.data;
       if (err.response?.data instanceof Blob) {
         try {
           const text = await err.response.data.text();
           errorData = JSON.parse(text);
-        } catch (e) {}
+        } catch (e) { }
       }
 
       if (err.response?.status === 429 || errorData?.code === 'RATE_LIMIT_EXCEEDED') {
@@ -695,17 +695,17 @@ export const VoiceOverlay: React.FC<VoiceOverlayProps> = ({ onClose, initialConv
         const resetsIn = isMonthlyLimit ? 24 * 60 * 60 : (errorData?.resetsIn || 30);
         const message = errorData?.message || 'Usage rate limit reached. Please try again later.';
         const upgradeUrl = errorData?.upgradeUrl || '/pricing';
-        
+
         const lockoutTime = Date.now() + (resetsIn * 1000);
         localStorage.setItem('chat_lockout', lockoutTime.toString());
-        
+
         setIsSessionActive(false);
         stopRecording(false);
         if (audioRef.current) {
           audioRef.current.pause();
           audioRef.current.src = '';
         }
-        
+
         setRateLimitInfo({
           message,
           resetsIn,
@@ -715,7 +715,7 @@ export const VoiceOverlay: React.FC<VoiceOverlayProps> = ({ onClose, initialConv
         setStatus('idle');
         return;
       }
-      
+
       setStatus('idle');
       setTimeout(startRecording, 2000);
     }
@@ -743,7 +743,7 @@ export const VoiceOverlay: React.FC<VoiceOverlayProps> = ({ onClose, initialConv
       isUnmountedRef.current = true;
       shouldProcessRef.current = false;
       if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
-      
+
       // Forcefully release the mic when component unmounts or changes pages
       if (streamRef.current) {
         streamRef.current.getTracks().forEach(track => {
@@ -756,7 +756,7 @@ export const VoiceOverlay: React.FC<VoiceOverlayProps> = ({ onClose, initialConv
       if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
         try {
           mediaRecorderRef.current.stop();
-        } catch (e) {}
+        } catch (e) { }
       }
     };
   }, []);
@@ -781,7 +781,7 @@ export const VoiceOverlay: React.FC<VoiceOverlayProps> = ({ onClose, initialConv
           </div>
           <h2 className={styles.rateLimitTitle}>Rate Limit Reached</h2>
           <p className={styles.rateLimitMessage}>{rateLimitInfo.message}</p>
-          
+
           <div className={styles.timerCircle}>
             <svg className={styles.timerProgressSvg} viewBox="0 0 100 100">
               <circle

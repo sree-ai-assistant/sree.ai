@@ -52,7 +52,7 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  min-height: 100%;
+  /* min-height: 100%; */
   width: 100%;
   text-align: center;
   position: relative;
@@ -76,8 +76,15 @@
 }
 
 @keyframes pulseGlow {
-  0% { transform: translateX(-50%) scale(1); opacity: 0.7; }
-  100% { transform: translateX(-50%) scale(1.15); opacity: 1; }
+  0% {
+    transform: translateX(-50%) scale(1);
+    opacity: 0.7;
+  }
+
+  100% {
+    transform: translateX(-50%) scale(1.15);
+    opacity: 1;
+  }
 }
 
 .emptyGreetingContainer {
@@ -102,7 +109,7 @@
   border: 1px solid rgba(255, 255, 255, 0.08);
   color: #ffffff;
   margin-bottom: 24px;
-  box-shadow: 
+  box-shadow:
     0 12px 40px rgba(0, 0, 0, 0.3),
     inset 0 1px 1px rgba(255, 255, 255, 0.1),
     0 0 0 1px rgba(59, 130, 246, 0.1);
@@ -126,7 +133,7 @@
 .logoIconBox:hover {
   transform: scale(1.05) translateY(-2px);
   border-color: rgba(255, 255, 255, 0.2);
-  box-shadow: 
+  box-shadow:
     0 20px 50px rgba(0, 0, 0, 0.4),
     inset 0 1px 1px rgba(255, 255, 255, 0.2),
     0 0 15px rgba(59, 130, 246, 0.3);
@@ -145,7 +152,7 @@
   -webkit-background-clip: text;
   background-clip: text;
   -webkit-text-fill-color: transparent;
-  text-shadow: 0 2px 10px rgba(0,0,0,0.2);
+  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
   word-break: break-word;
   overflow-wrap: break-word;
   max-width: 100%;
@@ -202,7 +209,7 @@
   background: rgba(255, 255, 255, 0.04);
   border-color: rgba(59, 130, 246, 0.3);
   transform: translateY(-2px);
-  box-shadow: 
+  box-shadow:
     0 12px 30px rgba(0, 0, 0, 0.3),
     0 0 1px 1px rgba(59, 130, 246, 0.15);
 }
@@ -277,20 +284,24 @@
     font-size: 2.25rem;
     margin-bottom: 8px;
   }
+
   .subtitle {
     font-size: 1rem;
     padding: 0 16px;
   }
+
   .logoIconBox {
     width: 64px;
     height: 64px;
     border-radius: 18px;
     margin-bottom: 16px;
   }
+
   .logoIconBox::before {
     inset: -3px;
     border-radius: 21px;
   }
+
   .suggestionGrid {
     margin-top: 36px;
   }
@@ -301,53 +312,65 @@
     font-size: 1.5rem;
     margin-bottom: 4px;
   }
+
   .subtitle {
     font-size: 0.85rem;
     line-height: 1.4;
   }
+
   .emptyGreetingContainer {
     margin-bottom: 12px;
   }
+
   .logoIconBox {
     width: 48px;
     height: 48px;
     border-radius: 14px;
     margin-bottom: 8px;
   }
+
   .logoIconBox::before {
     inset: -2px;
     border-radius: 16px;
   }
+
   .logoIconBox svg {
     width: 20px;
     height: 20px;
   }
+
   .suggestionGrid {
     grid-template-columns: 1fr;
     gap: 8px;
     margin-top: 16px;
     padding: 0 4px;
   }
+
   .suggestionCard {
     padding: 10px 12px;
     gap: 12px;
     border-radius: 12px;
   }
+
   .suggestionIcon {
     width: 32px;
     height: 32px;
     border-radius: 8px;
   }
+
   .suggestionIcon svg {
     width: 14px;
     height: 14px;
   }
+
   .suggestionTitle {
     font-size: 0.825rem;
   }
+
   .suggestionDesc {
     font-size: 0.725rem;
   }
+
   .suggestionArrow {
     top: 10px;
     right: 10px;
