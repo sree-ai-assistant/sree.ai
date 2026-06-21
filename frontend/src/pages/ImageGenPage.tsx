@@ -973,6 +973,7 @@ const ImageGenPage: React.FC = () => {
           onClose={() => setLightboxIndex(null)}
           images={history}
           initialIndex={lightboxIndex || 0}
+          onDownload={handleDownload}
         />
 
         <LimitModal
