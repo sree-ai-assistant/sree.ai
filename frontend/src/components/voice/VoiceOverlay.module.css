@@ -117,15 +117,22 @@
 
 .transcriptArea {
   margin-bottom: 2rem;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+  z-index: 20;
 }
 
 .userText {
   font-size: 1.8rem;
-  font-weight: 500;
-  color: white;
+  font-weight: 600;
+  color: #F59E0B;
   margin: 0;
   line-height: 1.4;
-  opacity: 0.9;
+  text-shadow: 0 0 24px rgba(245, 158, 11, 0.25);
+  opacity: 0.95;
+  text-align: center;
 }
 
 .animatedTranscript {
@@ -230,8 +237,15 @@
 }
 
 @keyframes scaleUp {
-  from { transform: scale(0.9); opacity: 0; }
-  to { transform: scale(1); opacity: 1; }
+  from {
+    transform: scale(0.9);
+    opacity: 0;
+  }
+
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
 }
 
 .rateLimitIcon {
@@ -250,12 +264,15 @@
 }
 
 @keyframes pulseGlow {
-  0%, 100% { 
-    transform: scale(1); 
+
+  0%,
+  100% {
+    transform: scale(1);
     box-shadow: 0 0 16px rgba(245, 158, 11, 0.2);
   }
-  50% { 
-    transform: scale(1.06); 
+
+  50% {
+    transform: scale(1.06);
     box-shadow: 0 0 32px rgba(245, 158, 11, 0.5);
   }
 }

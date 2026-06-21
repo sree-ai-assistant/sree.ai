@@ -976,6 +976,17 @@ router.post('/tts', flexAuthMiddleware, abuseDetectionMiddleware(), queuePriorit
       return res.status(400).json({ success: false, message: 'Text is required' });
     }
 
+    // Filter out emojis from text before TTS processing
+    const cleanText = text
+      .replace(/[\p{Emoji_Presentation}\p{Extended_Pictographic}]/gu, '')
+      .replace(/\s+/g, ' ')
+      .trim();
+
+    if (!cleanText) {
+      res.setHeader('Content-Type', 'audio/mpeg');
+      return res.end();
+    }
+
     if (!deepgramApiKey) {
       return res.status(400).json({
         success: false,
@@ -989,7 +1000,7 @@ router.post('/tts', flexAuthMiddleware, abuseDetectionMiddleware(), queuePriorit
       'deepgram',
       isByok,
       deepgramApiKey,
-      (rotatedKey) => aiService.generateSpeech(rotatedKey, text, model)
+      (rotatedKey) => aiService.generateSpeech(rotatedKey, cleanText, model)
     );
 
     // Set response headers for audio stream

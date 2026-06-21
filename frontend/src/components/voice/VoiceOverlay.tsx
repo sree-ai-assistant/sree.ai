@@ -375,14 +375,19 @@ export const VoiceOverlay: React.FC<VoiceOverlayProps> = ({ onClose, initialConv
         setStatus('thinking');
         startLoadingMessages();
 
-        await typewriter(userText, setTranscript, 20);
+        await typewriter(userText, setTranscript, 30);
+
+        // Keep the fully typed text visible for 2 seconds so the user can read it
+        await new Promise((resolve) => setTimeout(resolve, 1500));
 
         // Trigger "sent to AI" animation
         setShowFlyingTranscript(true);
-        setTimeout(() => {
-          setShowFlyingTranscript(false);
-          setTranscript('');
-        }, 2000);
+
+        // Wait for the flying animation to complete before clearing transcript and displaying AI response
+        await new Promise((resolve) => setTimeout(resolve, 1200));
+
+        setShowFlyingTranscript(false);
+        setTranscript('');
 
         const chatResponse = await chatRequestPromise;
 
@@ -526,7 +531,8 @@ export const VoiceOverlay: React.FC<VoiceOverlayProps> = ({ onClose, initialConv
 
         const cleanTextForTTS = (text: string) => {
           const filtered = filterThinkingTags(text);
-          return filtered.replace(/[*\/()]/g, '').trim();
+          const noEmojis = filtered.replace(/[\p{Emoji_Presentation}\p{Extended_Pictographic}]/gu, '');
+          return noEmojis.replace(/[*\/()]/g, '').replace(/\s+/g, ' ').trim();
         };
 
         // Limit concurrent TTS fetches
@@ -863,26 +869,28 @@ export const VoiceOverlay: React.FC<VoiceOverlayProps> = ({ onClose, initialConv
 
           <div className={styles.contentOverlay}>
             <AnimatePresence>
-              {transcript && !showFlyingTranscript && (
+              {transcript && (
                 <motion.div
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0 }}
+                  initial={{ opacity: 0, y: 180, scale: 0.95, filter: 'blur(4px)' }}
+                  animate={showFlyingTranscript ? {
+                    opacity: 0,
+                    y: 0,
+                    scale: 0.05,
+                    filter: 'blur(10px)',
+                  } : {
+                    opacity: 1,
+                    y: 140,
+                    scale: 1,
+                    filter: 'blur(0px)',
+                  }}
+                  exit={{ opacity: 0, y: 0, scale: 0.05, filter: 'blur(10px)' }}
+                  transition={{
+                    duration: showFlyingTranscript ? 1.2 : 0.4,
+                    ease: showFlyingTranscript ? [0.4, 0, 0.2, 1] : "easeOut"
+                  }}
                   className={styles.transcriptArea}
                 >
                   <p className={styles.userText}>{transcript}</p>
-                </motion.div>
-              )}
-
-              {showFlyingTranscript && (
-                <motion.div
-                  initial={{ opacity: 1, x: '-50%', y: '100px', scale: 1 }}
-                  animate={{ opacity: 0, x: '-50%', y: '-200px', scale: 0.5 }}
-                  transition={{ duration: 1.5, ease: 'easeInOut' }}
-                  className={styles.animatedTranscript}
-                  style={{ left: '50%' }}
-                >
-                  {transcript}
                 </motion.div>
               )}
             </AnimatePresence>
