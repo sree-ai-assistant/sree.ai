@@ -1371,3 +1371,42 @@
   transform: translateY(-1px);
   box-shadow: 0 4px 12px rgba(239, 68, 68, 0.2);
 }
+
+.billingCycleInfo {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 14px;
+  padding: 8px 14px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 10px;
+  max-width: fit-content;
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 0.82rem;
+  backdrop-filter: blur(8px);
+}
+
+.calendarIcon {
+  color: var(--primary);
+  flex-shrink: 0;
+}
+
+.cycleLabel {
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.45);
+}
+
+.cycleDates {
+  font-weight: 500;
+  color: white;
+}
+
+.cycleDaysRemaining {
+  font-weight: 600;
+  color: #34d399;
+  font-size: 0.78rem;
+  margin-left: 2px;
+}
+

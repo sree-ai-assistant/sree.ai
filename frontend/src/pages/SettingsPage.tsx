@@ -22,7 +22,8 @@ import {
   Eye,
   EyeOff,
   X,
-  AlertCircle
+  AlertCircle,
+  Calendar
 } from 'lucide-react';
 import { DashboardLayout } from '../features/dashboard/DashboardLayout';
 import { SettingsSidebar } from '../components/layout/SettingsSidebar';
@@ -846,6 +847,61 @@ const SettingsPage: React.FC = () => {
     const plan = PLAN_CONFIG[user?.plan_type || 'free'];
     const isAnon = usageStatus?.tier?.toLowerCase() === 'anonymous';
 
+    const getBillingCycleText = () => {
+      if (usageStatus?.subscription?.billing_cycle_start) {
+        const initialStart = new Date(usageStatus.subscription.billing_cycle_start);
+        let start = initialStart;
+        let end = new Date(initialStart.getTime() + 30 * 24 * 60 * 60 * 1000);
+        
+        if (usageStatus.subscription.is_free_rolling) {
+          const now = new Date();
+          if (now.getTime() > initialStart.getTime()) {
+            const diffMs = now.getTime() - initialStart.getTime();
+            const cycleMs = 30 * 24 * 60 * 60 * 1000;
+            const completedCycles = Math.floor(diffMs / cycleMs);
+            start = new Date(initialStart.getTime() + completedCycles * cycleMs);
+            end = new Date(start.getTime() + cycleMs);
+          }
+        } else if (usageStatus.subscription.billing_cycle_end) {
+          end = new Date(usageStatus.subscription.billing_cycle_end);
+        }
+        
+        const fmt = (d: Date) => d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+        return `${fmt(start)} – ${fmt(end)}`;
+      }
+      return null;
+    };
+
+    const getDaysRemainingText = () => {
+      if (usageStatus?.subscription?.billing_cycle_start) {
+        const initialStart = new Date(usageStatus.subscription.billing_cycle_start);
+        let end = new Date(initialStart.getTime() + 30 * 24 * 60 * 60 * 1000);
+        
+        if (usageStatus.subscription.is_free_rolling) {
+          const now = new Date();
+          if (now.getTime() > initialStart.getTime()) {
+            const diffMs = now.getTime() - initialStart.getTime();
+            const cycleMs = 30 * 24 * 60 * 60 * 1000;
+            const completedCycles = Math.floor(diffMs / cycleMs);
+            const start = new Date(initialStart.getTime() + completedCycles * cycleMs);
+            end = new Date(start.getTime() + cycleMs);
+          }
+        } else if (usageStatus.subscription.billing_cycle_end) {
+          end = new Date(usageStatus.subscription.billing_cycle_end);
+        }
+        
+        const now = new Date();
+        const diffMs = end.getTime() - now.getTime();
+        const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+        if (diffDays > 0) {
+          return `Resets in ${diffDays} day${diffDays > 1 ? 's' : ''}`;
+        } else if (diffDays === 0) {
+          return `Resets today`;
+        }
+      }
+      return null;
+    };
+
     const buildServiceCard = (
       label: string,
       data: any,
@@ -936,6 +992,23 @@ const SettingsPage: React.FC = () => {
               <span className={styles.currentPlanLabel}>Current Plan</span>
               <h2 className={styles.planName}>{plan.label} Monthly</h2>
               <p className={styles.planPrice}>{plan.price}<span>{plan.period}</span></p>
+              {(() => {
+                const cycleText = getBillingCycleText();
+                const daysLeftText = getDaysRemainingText();
+                if (!cycleText) return null;
+                return (
+                  <div className={styles.billingCycleInfo}>
+                    <Calendar size={14} className={styles.calendarIcon} />
+                    <span className={styles.cycleLabel}>Billing Cycle:</span>
+                    <span className={styles.cycleDates}>{cycleText}</span>
+                    {daysLeftText && (
+                      <span className={styles.cycleDaysRemaining}>
+                        ({daysLeftText})
+                      </span>
+                    )}
+                  </div>
+                );
+              })()}
             </div>
             <div className={styles.planActions}>
               <button className={styles.upgradeBtn} onClick={() => navigate('/pricing')}>

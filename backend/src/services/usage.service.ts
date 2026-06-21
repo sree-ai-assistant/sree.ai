@@ -316,12 +316,53 @@ export async function getUsageStatus(identity: RateLimitIdentity) {
     };
   }
 
+  let subscription: any = null;
+  if (identity.type === 'authenticated' && identity.userId) {
+    try {
+      const { data: sub } = await supabaseAdmin
+        .from('subscriptions')
+        .select('billing_cycle_start, billing_cycle_end')
+        .eq('user_id', identity.userId)
+        .maybeSingle();
+      subscription = sub;
+
+      // If no database subscription, use profile created_at and usage tracking resets for rolling cycle
+      if (!subscription) {
+        const { data: profile } = await supabaseAdmin
+          .from('profiles')
+          .select('created_at')
+          .eq('id', identity.userId)
+          .maybeSingle();
+
+        let lastMonthlyReset: string | null = null;
+        if (usageRecords && usageRecords.length > 0) {
+          const dates = usageRecords
+            .map(r => r.last_monthly_reset)
+            .filter(Boolean)
+            .map(d => new Date(d).getTime());
+          if (dates.length > 0) {
+            lastMonthlyReset = new Date(Math.min(...dates)).toISOString();
+          }
+        }
+
+        subscription = {
+          billing_cycle_start: lastMonthlyReset || profile?.created_at || new Date().toISOString(),
+          billing_cycle_end: null,
+          is_free_rolling: true
+        };
+      }
+    } catch (e) {
+      console.error('[Usage Service] Error fetching subscription for usage status:', e);
+    }
+  }
+
   return {
     tier: identity.tier,
     planName: plan.displayName,
     features: plan.features,
     usage: summaries,
-    profileUsage
+    profileUsage,
+    subscription
   };
 }
 

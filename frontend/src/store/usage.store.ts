@@ -28,6 +28,11 @@ export interface UsageStatus {
     voice: { daily: ToolUsage; monthly: ToolUsage };
     image: { daily: ToolUsage; monthly: ToolUsage };
   };
+  subscription?: {
+    billing_cycle_start: string | null;
+    billing_cycle_end: string | null;
+    is_free_rolling?: boolean;
+  } | null;
 }
 
 const RateLimitToast = ({ resetsAt, toastId, visible }: { resetsAt: number; toastId: string; visible: boolean }) => {
