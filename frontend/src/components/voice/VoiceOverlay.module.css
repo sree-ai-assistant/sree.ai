@@ -148,16 +148,202 @@
 .aiResponseArea {
   background: rgba(255, 255, 255, 0.05);
   border: 1px solid rgba(255, 255, 255, 0.1);
-  padding: 2.5rem;
-  border-radius: 2rem;
+  border-radius: 1.25rem;
   backdrop-filter: blur(10px);
+  overflow: hidden;
+  max-height: 65vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.aiResponseScroll {
+  overflow-y: auto;
+  padding: 1.5rem 2rem;
+  max-height: 65vh;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.15) transparent;
+}
+
+.aiResponseScroll::-webkit-scrollbar {
+  width: 5px;
+}
+
+.aiResponseScroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.aiResponseScroll::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 10px;
+}
+
+.aiResponseScroll::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.25);
 }
 
 .aiText {
-  font-size: 1.4rem;
-  line-height: 1.6;
-  color: rgba(255, 255, 255, 0.9);
+  font-size: 1.05rem;
+  line-height: 1.7;
+  color: rgba(255, 255, 255, 0.88);
   text-align: left;
+  word-break: break-word;
+}
+
+/* ── Voice Markdown Styles ── */
+.voiceMdH1 {
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: #fff;
+  margin: 1.2rem 0 0.6rem;
+  letter-spacing: -0.01em;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  padding-bottom: 0.4rem;
+}
+
+.voiceMdH2 {
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: #fff;
+  margin: 1rem 0 0.5rem;
+}
+
+.voiceMdH3 {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.95);
+  margin: 0.8rem 0 0.4rem;
+}
+
+.voiceMdH4 {
+  font-size: 1.02rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.9);
+  margin: 0.6rem 0 0.3rem;
+}
+
+.voiceMdH5,
+.voiceMdH6 {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.85);
+  display: block;
+  margin: 0.5rem 0 0.25rem;
+}
+
+.voiceMdP {
+  margin: 0.4rem 0;
+  line-height: 1.7;
+}
+
+.voiceMdStrong {
+  color: #fff;
+  font-weight: 700;
+}
+
+.voiceMdEm {
+  color: rgba(255, 255, 255, 0.8);
+  font-style: italic;
+}
+
+.voiceMdUl,
+.voiceMdOl {
+  padding-left: 1.4rem;
+  margin: 0.4rem 0;
+}
+
+.voiceMdLi {
+  margin: 0.2rem 0;
+  line-height: 1.6;
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.voiceMdLi::marker {
+  color: #a855f7;
+}
+
+.voiceMdBlockquote {
+  border-left: 3px solid rgba(168, 85, 247, 0.5);
+  background: rgba(168, 85, 247, 0.06);
+  padding: 0.5rem 1rem;
+  margin: 0.6rem 0;
+  border-radius: 0 0.5rem 0.5rem 0;
+  color: rgba(255, 255, 255, 0.75);
+}
+
+.voiceMdHr {
+  border: none;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  margin: 0.8rem 0;
+}
+
+.voiceMdTableWrap {
+  overflow-x: auto;
+  margin: 0.6rem 0;
+  border-radius: 0.5rem;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.voiceMdTable {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+
+.voiceMdTh {
+  background: rgba(255, 255, 255, 0.06);
+  padding: 0.5rem 0.75rem;
+  text-align: left;
+  font-weight: 700;
+  color: #fff;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  white-space: nowrap;
+}
+
+.voiceMdTd {
+  padding: 0.4rem 0.75rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.voiceMdTable tr:last-child .voiceMdTd {
+  border-bottom: none;
+}
+
+.voiceMdTable tr:hover .voiceMdTd {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.voiceMdInlineCode {
+  background: rgba(255, 255, 255, 0.08);
+  padding: 0.15rem 0.4rem;
+  border-radius: 4px;
+  font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+  font-size: 0.88em;
+  color: #c4b5fd;
+}
+
+.voiceMdCodeBlock {
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 0.5rem;
+  padding: 0.75rem 1rem;
+  margin: 0.5rem 0;
+  overflow-x: auto;
+  font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+  font-size: 0.85rem;
+  line-height: 1.5;
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.voiceMdLink {
+  color: #818cf8;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  transition: color 0.2s;
+}
+
+.voiceMdLink:hover {
+  color: #a5b4fc;
 }
 
 .streamingCursor {
@@ -384,4 +570,10 @@
   border-color: rgba(255, 255, 255, 0.15);
   color: white;
   transform: translateY(-1px);
+}
+
+@media (max-width: 400px) {
+  .aiResponseScroll {
+    padding: 4px 14px;
+  }
 }

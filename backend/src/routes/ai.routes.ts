@@ -1072,7 +1072,7 @@ router.post('/voice-complete', flexAuthMiddleware, async (req: any, res: any) =>
     // Charge the voice credits
     const { checkAndIncrementMultiUsage } = await import('../services/usage.service');
     const result = await checkAndIncrementMultiUsage(identity, [
-      { tool: 'voice', amount: creditsToCharge, isByok }
+      { tool: 'voice', amount: creditsToCharge, isByok, bypassLimits: true }
     ]);
 
     if (!result.allowed) {

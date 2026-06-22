@@ -40,7 +40,7 @@ export async function checkAndIncrementUsage(
  */
 export async function checkAndIncrementMultiUsage(
   identity: RateLimitIdentity,
-  requests: { tool: ToolType; amount: number; isByok?: boolean }[]
+  requests: { tool: ToolType; amount: number; isByok?: boolean; skipMinuteLimit?: boolean; bypassLimits?: boolean }[]
 ): Promise<RateLimitStatus> {
   const plan = PLANS[identity.tier] || PLANS.free;
 
@@ -50,9 +50,10 @@ export async function checkAndIncrementMultiUsage(
     return {
       tool_type: req.tool,
       amount: adjustedAmount,
-      minute_limit: limits?.perMinute || 0,
-      daily_limit: limits?.daily || 0,
-      monthly_limit: limits?.monthly || 0,
+      // When bypassLimits is true, pass 0 for all limits so the database tracks usage but never blocks the call.
+      minute_limit: (req.bypassLimits || req.skipMinuteLimit) ? 0 : (limits?.perMinute || 0),
+      daily_limit: req.bypassLimits ? 0 : (limits?.daily || 0),
+      monthly_limit: req.bypassLimits ? 0 : (limits?.monthly || 0),
       is_byok: !!req.isByok
     };
   });

@@ -1,6 +1,8 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, AlertTriangle, Clock, ArrowRight, Sparkles } from 'lucide-react';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import { useChatStore } from '../../store/chat.store';
 import { useAuthStore } from '../../store/auth.store';
 import { useUsageStore } from '../../store/usage.store';
@@ -20,9 +22,48 @@ export const VoiceOverlay: React.FC<VoiceOverlayProps> = ({ onClose, initialConv
   const { messages, createConversation, addMessage } = useChatStore();
   const navigate = useNavigate();
 
+  // Memoized markdown components for the voice response display
+  const voiceMarkdownComponents = useMemo(() => ({
+    h1: ({ children }: any) => <h3 className={styles.voiceMdH1}>{children}</h3>,
+    h2: ({ children }: any) => <h4 className={styles.voiceMdH2}>{children}</h4>,
+    h3: ({ children }: any) => <h5 className={styles.voiceMdH3}>{children}</h5>,
+    h4: ({ children }: any) => <h6 className={styles.voiceMdH4}>{children}</h6>,
+    h5: ({ children }: any) => <span className={styles.voiceMdH5}>{children}</span>,
+    h6: ({ children }: any) => <span className={styles.voiceMdH6}>{children}</span>,
+    p: ({ children }: any) => <p className={styles.voiceMdP}>{children}</p>,
+    strong: ({ children }: any) => <strong className={styles.voiceMdStrong}>{children}</strong>,
+    em: ({ children }: any) => <em className={styles.voiceMdEm}>{children}</em>,
+    ul: ({ children }: any) => <ul className={styles.voiceMdUl}>{children}</ul>,
+    ol: ({ children }: any) => <ol className={styles.voiceMdOl}>{children}</ol>,
+    li: ({ children }: any) => <li className={styles.voiceMdLi}>{children}</li>,
+    blockquote: ({ children }: any) => <blockquote className={styles.voiceMdBlockquote}>{children}</blockquote>,
+    hr: () => <hr className={styles.voiceMdHr} />,
+    table: ({ children }: any) => (
+      <div className={styles.voiceMdTableWrap}>
+        <table className={styles.voiceMdTable}>{children}</table>
+      </div>
+    ),
+    th: ({ children }: any) => <th className={styles.voiceMdTh}>{children}</th>,
+    td: ({ children }: any) => <td className={styles.voiceMdTd}>{children}</td>,
+    code({ className, children, ...props }: any) {
+      const match = /language-(\w+)/.exec(className || '');
+      const isInline = !match;
+      return isInline ? (
+        <code className={styles.voiceMdInlineCode} {...props}>{children}</code>
+      ) : (
+        <pre className={styles.voiceMdCodeBlock}>
+          <code>{children}</code>
+        </pre>
+      );
+    },
+    a: ({ href, children }: any) => (
+      <a href={href} className={styles.voiceMdLink} target="_blank" rel="noopener noreferrer">{children}</a>
+    ),
+  }), []);
+
   // Session State
   const [isSessionActive, setIsSessionActive] = useState(() => {
-    const lockedUntil = localStorage.getItem('chat_lockout');
+    const lockedUntil = localStorage.getItem('voice_lockout');
     if (lockedUntil) {
       const remaining = Math.max(0, Math.ceil((parseInt(lockedUntil) - Date.now()) / 1000));
       if (remaining > 0) {
@@ -45,7 +86,7 @@ export const VoiceOverlay: React.FC<VoiceOverlayProps> = ({ onClose, initialConv
     resetsIn: number;
     upgradeUrl: string;
   } | null>(() => {
-    const lockedUntil = localStorage.getItem('chat_lockout');
+    const lockedUntil = localStorage.getItem('voice_lockout');
     if (lockedUntil) {
       const remaining = Math.max(0, Math.ceil((parseInt(lockedUntil) - Date.now()) / 1000));
       if (remaining > 0) {
@@ -59,7 +100,7 @@ export const VoiceOverlay: React.FC<VoiceOverlayProps> = ({ onClose, initialConv
     return null;
   });
   const [countdown, setCountdown] = useState<number>(() => {
-    const lockedUntil = localStorage.getItem('chat_lockout');
+    const lockedUntil = localStorage.getItem('voice_lockout');
     if (lockedUntil) {
       const remaining = Math.max(0, Math.ceil((parseInt(lockedUntil) - Date.now()) / 1000));
       if (remaining > 0) {
@@ -95,6 +136,19 @@ export const VoiceOverlay: React.FC<VoiceOverlayProps> = ({ onClose, initialConv
   const analyserRef = useRef<AnalyserNode | null>(null);
   const animationFrameRef = useRef<number | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
+  const aiResponseScrollRef = useRef<HTMLDivElement | null>(null);
+
+  // Auto-scroll voice response area as new content arrives
+  useEffect(() => {
+    if (displayedAiResponse && aiResponseScrollRef.current) {
+      const el = aiResponseScrollRef.current;
+      // Only auto-scroll if user is near the bottom (within 80px)
+      const isNearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
+      if (isNearBottom) {
+        el.scrollTop = el.scrollHeight;
+      }
+    }
+  }, [displayedAiResponse]);
 
   const SILENCE_THRESHOLD = 20; // Increased from 5 to ignore more background noise
   const SILENCE_DURATION = 3000; // 3 seconds as requested
@@ -285,7 +339,7 @@ export const VoiceOverlay: React.FC<VoiceOverlayProps> = ({ onClose, initialConv
       setCountdown((prev) => {
         if (prev <= 1) {
           clearInterval(interval);
-          localStorage.removeItem('chat_lockout');
+          localStorage.removeItem('voice_lockout');
           setRateLimitInfo(null);
           setIsSessionActive(true);
           // Resume voice loop seamlessly once time is up
@@ -407,7 +461,7 @@ export const VoiceOverlay: React.FC<VoiceOverlayProps> = ({ onClose, initialConv
               const upgradeUrl = errorData?.upgradeUrl || '/pricing';
 
               const lockoutTime = Date.now() + (resetsIn * 1000);
-              localStorage.setItem('chat_lockout', lockoutTime.toString());
+              localStorage.setItem('voice_lockout', lockoutTime.toString());
 
               setIsSessionActive(false);
               stopRecording();
@@ -437,8 +491,12 @@ export const VoiceOverlay: React.FC<VoiceOverlayProps> = ({ onClose, initialConv
 
         const audioQueue: { text: string; url: string | null; blob: Blob | null }[] = [];
         let isProcessingQueue = false;
+        let playbackResolve: (() => void) | null = null;
+        const playbackDone = new Promise<void>((resolve) => { playbackResolve = resolve; });
 
         const processPlaybackQueue = async () => {
+          // Strict single-entry lock: if already running, just return.
+          // The running instance will pick up new items on its own.
           if (isProcessingQueue) return;
           isProcessingQueue = true;
           stopLoadingMessages();
@@ -462,8 +520,8 @@ export const VoiceOverlay: React.FC<VoiceOverlayProps> = ({ onClose, initialConv
               if (item.url === null) {
                 const waitStart = Date.now();
                 while (audioQueue[playedIndex].url === null) {
-                  if (Date.now() - waitStart > 10000) {
-                    // 10s timeout — TTS fetch is stuck, skip this chunk
+                  if (Date.now() - waitStart > 15000) {
+                    // 15s timeout — TTS fetch is stuck, skip this chunk
                     console.warn(`[Voice] TTS fetch timeout for chunk ${playedIndex}, skipping`);
                     audioQueue[playedIndex] = { ...audioQueue[playedIndex], url: '' };
                     break;
@@ -473,21 +531,49 @@ export const VoiceOverlay: React.FC<VoiceOverlayProps> = ({ onClose, initialConv
                 continue; // Re-check the item (might be '' now or a valid url)
               }
 
-              // Play audio and typewrite text
+              // Play audio and show text simultaneously
               if (audioRef.current) {
                 const audio = audioRef.current;
+                
+                // Set the source and load it explicitly to reset the media pipeline
                 audio.src = item.url;
+                audio.load();
+
+                // Wait for the browser to register the source and be ready to play
+                await new Promise<void>((resolveReady) => {
+                  let resolved = false;
+                  const onCanPlay = () => {
+                    if (!resolved) {
+                      resolved = true;
+                      audio.removeEventListener('canplay', onCanPlay);
+                      audio.removeEventListener('error', onError);
+                      resolveReady();
+                    }
+                  };
+                  const onError = () => {
+                    if (!resolved) {
+                      resolved = true;
+                      audio.removeEventListener('canplay', onCanPlay);
+                      audio.removeEventListener('error', onError);
+                      resolveReady(); // Proceed even on error so it attempts play or fails cleanly
+                    }
+                  };
+                  audio.addEventListener('canplay', onCanPlay);
+                  audio.addEventListener('error', onError);
+                  // 1.5s fallback timeout
+                  setTimeout(onCanPlay, 1500);
+                });
 
                 const audioPromise = new Promise<void>((resolve) => {
                   let resolved = false;
                   const done = () => { if (!resolved) { resolved = true; resolve(); } };
                   audio.onended = done;
                   audio.onerror = () => {
-                    console.warn('[Voice] Audio playback error, skipping segment');
+                    console.warn(`[Voice] Audio playback error on chunk ${playedIndex}, skipping`);
                     done();
                   };
-                  // Safety timeout: 20s max per audio segment
-                  setTimeout(done, 20000);
+                  // Safety timeout: 15s max per audio segment (reduced from 30s for faster recovery)
+                  setTimeout(done, 15000);
                 });
 
                 try {
@@ -505,11 +591,17 @@ export const VoiceOverlay: React.FC<VoiceOverlayProps> = ({ onClose, initialConv
                 await typewriter(filterThinkingTags(item.text), (val) => setDisplayedAiResponse(filterThinkingTags(cumulativeText) + val), 20);
                 cumulativeText += item.text;
 
+                // Wait for audio to finish before moving to the next chunk (sequential)
                 await audioPromise;
 
                 // Clean up audio handlers
                 audio.onended = null;
                 audio.onerror = null;
+
+                // Revoke the object URL to free memory
+                if (item.url && item.url.startsWith('blob:')) {
+                  URL.revokeObjectURL(item.url);
+                }
               } else {
                 cumulativeText += item.text;
                 setDisplayedAiResponse(filterThinkingTags(cumulativeText));
@@ -525,42 +617,62 @@ export const VoiceOverlay: React.FC<VoiceOverlayProps> = ({ onClose, initialConv
           // Ensure full response is displayed
           setDisplayedAiResponse(filterThinkingTags(fullAiText));
           isProcessingQueue = false;
-          setStatus('listening');
-          setTimeout(startRecording, 500);
+          if (playbackResolve) playbackResolve();
         };
 
         const cleanTextForTTS = (text: string) => {
           const filtered = filterThinkingTags(text);
           const noEmojis = filtered.replace(/[\p{Emoji_Presentation}\p{Extended_Pictographic}]/gu, '');
-          return noEmojis.replace(/[*\/()]/g, '').replace(/\s+/g, ' ').trim();
+          // Strip markdown formatting characters but keep readable text
+          return noEmojis
+            .replace(/```[\s\S]*?```/g, '')       // Remove code blocks entirely (not speakable)
+            .replace(/`([^`]+)`/g, '$1')            // Inline code → just the text
+            .replace(/#{1,6}\s*/g, '')              // Remove heading markers
+            .replace(/\|[^\n]*\|/g, '')             // Remove table rows
+            .replace(/[-*_]{3,}/g, '')              // Remove horizontal rules
+            .replace(/!?\[([^\]]*)]\([^)]*\)/g, '$1') // Links/images → just alt text
+            .replace(/[*_~]/g, '')                  // Remove bold/italic/strikethrough markers
+            .replace(/>/g, '')                      // Remove blockquote markers
+            .replace(/[()\[\]{}]/g, '')             // Remove brackets
+            .replace(/\s+/g, ' ')
+            .trim();
         };
 
-        // Limit concurrent TTS fetches
-        let activeTTSFetches = 0;
-        const MAX_CONCURRENT_TTS = 3;
+        // Strict sequential queue to prevent out-of-order execution or starvation
+        const ttsTasks: (() => Promise<void>)[] = [];
+        let isProcessingTasks = false;
 
-        const fetchChunkAudio = async (text: string, index: number) => {
-          // Wait if too many concurrent fetches
-          while (activeTTSFetches >= MAX_CONCURRENT_TTS) {
-            await new Promise(r => setTimeout(r, 50));
-          }
-          activeTTSFetches++;
-          try {
-            const cleaned = cleanTextForTTS(text);
-            if (!cleaned) {
-              audioQueue[index] = { text, url: '', blob: null };
-              return;
+        const runNextTtsTask = async () => {
+          if (isProcessingTasks) return;
+          isProcessingTasks = true;
+          while (ttsTasks.length > 0) {
+            const task = ttsTasks.shift();
+            if (task) {
+              await task();
             }
-            ttsCallsCount++;
-            const blob = await aiService.generateSpeech(cleaned, undefined, voiceSessionId);
-            const url = URL.createObjectURL(blob);
-            audioQueue[index] = { text, url, blob };
-          } catch (err) {
-            console.error('[Voice] TTS fetch error:', err);
-            audioQueue[index] = { text, url: '', blob: null };
-          } finally {
-            activeTTSFetches--;
           }
+          isProcessingTasks = false;
+        };
+
+        const fetchChunkAudio = (text: string, index: number) => {
+          ttsTasks.push(async () => {
+            try {
+              const cleaned = cleanTextForTTS(text);
+              if (!cleaned) {
+                audioQueue[index] = { text, url: '', blob: null };
+                return;
+              }
+              ttsCallsCount++;
+              const blob = await aiService.generateSpeech(cleaned, undefined, voiceSessionId);
+              const url = URL.createObjectURL(blob);
+              audioQueue[index] = { text, url, blob };
+            } catch (err) {
+              console.error(`[Voice] TTS fetch error for chunk ${index}:`, err);
+              // Mark as failed — playback loop will skip audio but still show text
+              audioQueue[index] = { text, url: '', blob: null };
+            }
+          });
+          runNextTtsTask();
         };
 
         // Batching: accumulate text into chunks of ~200 chars or 3+ sentence boundaries
@@ -575,6 +687,7 @@ export const VoiceOverlay: React.FC<VoiceOverlayProps> = ({ onClose, initialConv
           const chunkIdx = audioQueue.length;
           audioQueue.push({ text: s, url: null, blob: null });
           fetchChunkAudio(s, chunkIdx);
+          // Start the playback queue only once — subsequent flushes are picked up by the loop
           if (!isProcessingQueue) processPlaybackQueue();
           currentChunk = '';
           sentenceCount = 0;
@@ -640,31 +753,10 @@ export const VoiceOverlay: React.FC<VoiceOverlayProps> = ({ onClose, initialConv
           }
         };
 
-        // Start everything in parallel
+        // === STEP 1: Stream the full chat response ===
         await processStream();
 
-        // Wait for final playback to finish
-        while (isProcessingQueue) {
-          await new Promise(r => setTimeout(r, 100));
-        }
-
-        // Calculate total voice flow duration in seconds
-        const voiceFlowDurationSeconds = (Date.now() - voiceFlowStartTime) / 1000;
-
-        // Charge voice credits based on total API calls [voice + chat + TTS] count
-        // This runs regardless of conversation creation success
-        const apiCallsCount = 2 + ttsCallsCount;
-        try {
-          const result = await aiService.voiceComplete(voiceFlowDurationSeconds, voiceSessionId, apiCallsCount);
-          const creditsCharged = result.creditsCharged || 1;
-          console.log(`[Voice] Charged ${creditsCharged} voice credit(s) based on ${apiCallsCount} API calls`);
-          useUsageStore.getState().incrementLocalUsage('voice', creditsCharged);
-        } catch (chargeErr) {
-          console.error('[Voice] Failed to charge voice credits:', chargeErr);
-          // Fallback: increment by 1 locally
-          useUsageStore.getState().incrementLocalUsage('voice', 1);
-        }
-
+        // === STEP 2: Save to chat store FIRST (before TTS finishes) ===
         if (user?.id) {
           let currentConvId = conversationIdRef.current;
           if (!currentConvId) {
@@ -684,6 +776,26 @@ export const VoiceOverlay: React.FC<VoiceOverlayProps> = ({ onClose, initialConv
             }
           }
         }
+
+        // === STEP 3: Wait for TTS playback to complete ===
+        await playbackDone;
+
+        // === STEP 4: Charge voice credits ===
+        const voiceFlowDurationSeconds = (Date.now() - voiceFlowStartTime) / 1000;
+        const apiCallsCount = 2 + ttsCallsCount;
+        try {
+          const result = await aiService.voiceComplete(voiceFlowDurationSeconds, voiceSessionId, apiCallsCount);
+          const creditsCharged = result.creditsCharged || 1;
+          console.log(`[Voice] Charged ${creditsCharged} voice credit(s) based on ${apiCallsCount} API calls`);
+          useUsageStore.getState().incrementLocalUsage('voice', creditsCharged);
+        } catch (chargeErr) {
+          console.error('[Voice] Failed to charge voice credits:', chargeErr);
+          useUsageStore.getState().incrementLocalUsage('voice', 1);
+        }
+
+        // Resume listening
+        setStatus('listening');
+        setTimeout(startRecording, 500);
       }
     } catch (err: any) {
       console.error('Voice Processing Error:', err);
@@ -703,7 +815,7 @@ export const VoiceOverlay: React.FC<VoiceOverlayProps> = ({ onClose, initialConv
         const upgradeUrl = errorData?.upgradeUrl || '/pricing';
 
         const lockoutTime = Date.now() + (resetsIn * 1000);
-        localStorage.setItem('chat_lockout', lockoutTime.toString());
+        localStorage.setItem('voice_lockout', lockoutTime.toString());
 
         setIsSessionActive(false);
         stopRecording(false);
@@ -822,6 +934,7 @@ export const VoiceOverlay: React.FC<VoiceOverlayProps> = ({ onClose, initialConv
           <div className={styles.rateLimitActions}>
             <button
               onClick={() => {
+                localStorage.removeItem('voice_lockout');
                 setIsSessionActive(true);
                 setRateLimitInfo(null);
                 startRecording();
@@ -927,13 +1040,16 @@ export const VoiceOverlay: React.FC<VoiceOverlayProps> = ({ onClose, initialConv
                   exit={{ opacity: 0, scale: 0.9 }}
                   className={styles.aiResponseArea}
                 >
-                  <div className={styles.aiText}>
-                    {displayedAiResponse.split(/(\*\*.*?\*\*)/g).map((part, i) =>
-                      part.startsWith('**') && part.endsWith('**') ?
-                        <strong key={i} style={{ color: 'white', fontWeight: 700 }}>{part.slice(2, -2)}</strong> :
-                        part
-                    )}
-                    {status === 'thinking' && !loadingMessage && <span className={styles.streamingCursor}>|</span>}
+                  <div ref={aiResponseScrollRef} className={styles.aiResponseScroll}>
+                    <div className={styles.aiText}>
+                      <ReactMarkdown
+                        remarkPlugins={[remarkGfm]}
+                        components={voiceMarkdownComponents}
+                      >
+                        {displayedAiResponse}
+                      </ReactMarkdown>
+                      {status === 'thinking' && !loadingMessage && <span className={styles.streamingCursor}>|</span>}
+                    </div>
                   </div>
                 </motion.div>
               )}

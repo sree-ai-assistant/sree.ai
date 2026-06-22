@@ -614,7 +614,11 @@ const ChatPage: React.FC = () => {
           const isMonthlyLimit = errorData.reason === 'monthly';
           const resetsIn = isMonthlyLimit ? 24 * 60 * 60 : (errorData.resetsIn || 60);
           const lockoutTime = Date.now() + (resetsIn * 1000);
-          localStorage.setItem('chat_lockout', lockoutTime.toString());
+          if (errorData.tool === 'voice') {
+            localStorage.setItem('voice_lockout', lockoutTime.toString());
+          } else {
+            localStorage.setItem('chat_lockout', lockoutTime.toString());
+          }
           
           setLimitModal({
             isOpen: true,
