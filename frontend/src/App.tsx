@@ -10,6 +10,7 @@ import SettingsPage from './pages/SettingsPage';
 import OnboardingPage from './pages/OnboardingPage';
 import PricingPage from './pages/PricingPage';
 import ProtectedRoute from './components/auth/ProtectedRoute';
+import LoadingScreen from './components/shared/LoadingScreen';
 import { supabase } from './lib/supabase';
 
 import { Toaster } from 'react-hot-toast';
@@ -136,18 +137,7 @@ function HybridOnboardingGuard({ children }: { children: React.ReactNode }) {
   }, [initialize]);
 
   if (loading) {
-    return (
-      <div style={{
-        height: '100vh',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        background: 'var(--bg-dark)',
-        color: 'white'
-      }}>
-        <div className="loader">Loading...</div>
-      </div>
-    );
+    return <LoadingScreen />;
   }
 
   // Logged in but onboarding not completed -> redirect to onboarding wizard
@@ -171,18 +161,7 @@ function OnboardingGuard({ children }: { children: React.ReactNode }) {
   }, [initialize]);
 
   if (loading) {
-    return (
-      <div style={{
-        height: '100vh',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        background: 'var(--bg-dark)',
-        color: 'white'
-      }}>
-        <div className="loader">Loading...</div>
-      </div>
-    );
+    return <LoadingScreen />;
   }
 
   // Not logged in — redirect to login

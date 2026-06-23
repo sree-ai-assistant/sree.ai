@@ -1,0 +1,73 @@
+.container {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: #000000; /* Pure black for seamless blending */
+  z-index: 9999;
+  overflow: hidden;
+  animation: fadeIn 0.4s ease-out;
+}
+
+.videoWrapper {
+  position: relative;
+  width: 100%;
+  max-width: 480px; /* Optimal size for desktop/tablet */
+  padding: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+@media (max-width: 640px) {
+  .videoWrapper {
+    max-width: 320px; /* Responsive size for mobile screens */
+  }
+}
+
+.video {
+  width: 100%;
+  height: auto;
+  object-fit: contain;
+  mix-blend-mode: screen; /* Blends black video background perfectly with pure black page background */
+  filter: contrast(1.1) brightness(1.05); /* Enhance colors and clarity */
+}
+
+/* Subtle premium radial glow behind the video logo */
+.videoWrapper::before {
+  content: '';
+  position: absolute;
+  width: 280px;
+  height: 280px;
+  background: radial-gradient(
+    circle, 
+    rgba(59, 130, 246, 0.15) 0%, 
+    rgba(139, 92, 246, 0.1) 50%, 
+    transparent 70%
+  );
+  filter: blur(40px);
+  z-index: -1;
+  pointer-events: none;
+  animation: auraPulse 4s ease-in-out infinite alternate;
+}
+
+@keyframes auraPulse {
+  0% {
+    transform: scale(0.9);
+    opacity: 0.5;
+  }
+  100% {
+    transform: scale(1.15);
+    opacity: 0.9;
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}

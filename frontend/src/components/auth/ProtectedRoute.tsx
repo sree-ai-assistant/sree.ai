@@ -2,6 +2,8 @@ import React, { useEffect } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '../../store/auth.store.ts';
 
+import LoadingScreen from '../shared/LoadingScreen.tsx';
+
 interface ProtectedRouteProps {
   children: React.ReactNode;
 }
@@ -15,18 +17,7 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
   }, [initialize]);
 
   if (loading) {
-    return (
-      <div className="loading-container" style={{
-        height: '100vh',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        background: 'var(--bg-dark)',
-        color: 'white'
-      }}>
-        <div className="loader">Loading Sree AI...</div>
-      </div>
-    );
+    return <LoadingScreen />;
   }
 
   if (!user) {
