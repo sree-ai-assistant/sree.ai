@@ -18,15 +18,16 @@ export interface UsageStatus {
     monthly: ToolUsage;
     total: ToolUsage;
     isByok: boolean;
+    dailyResetsIn?: number | null;
   }>;
   remaining_today?: number;
   daily_limit?: number;
   daily_count?: number;
   resets_in_seconds?: number;
   profileUsage?: {
-    chat: { daily: ToolUsage; monthly: ToolUsage };
-    voice: { daily: ToolUsage; monthly: ToolUsage };
-    image: { daily: ToolUsage; monthly: ToolUsage };
+    chat: { daily: ToolUsage; monthly: ToolUsage; dailyResetsIn?: number | null };
+    voice: { daily: ToolUsage; monthly: ToolUsage; dailyResetsIn?: number | null };
+    image: { daily: ToolUsage; monthly: ToolUsage; dailyResetsIn?: number | null };
   };
   subscription?: {
     billing_cycle_start: string | null;

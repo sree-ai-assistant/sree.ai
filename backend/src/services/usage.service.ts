@@ -241,6 +241,7 @@ export async function incrementUsage(
  */
 export async function getUsageStatus(identity: RateLimitIdentity) {
   const plan = PLANS[identity.tier] || PLANS.free;
+  const now = new Date();
 
   const { data: usageRecords } = await supabaseAdmin
     .from('usage_tracking')
@@ -261,7 +262,6 @@ export async function getUsageStatus(identity: RateLimitIdentity) {
 
     const checkReset = (record: any) => {
       if (!record) return { isDailyReset: true, isMonthlyReset: true };
-      const now = new Date();
       return {
         isDailyReset: now.getTime() - new Date(record.last_daily_reset).getTime() >= 86400000,
         isMonthlyReset: now.getTime() - new Date(record.last_monthly_reset).getTime() >= 2592000000
@@ -275,21 +275,23 @@ export async function getUsageStatus(identity: RateLimitIdentity) {
     profileUsage = {
       chat: {
         daily: { used: chatR.isDailyReset ? 0 : chatUsage?.daily_count || 0, limit: plan.limits.chat.daily },
-        monthly: { used: chatR.isMonthlyReset ? 0 : chatUsage?.monthly_count || 0, limit: plan.limits.chat.monthly }
+        monthly: { used: chatR.isMonthlyReset ? 0 : chatUsage?.monthly_count || 0, limit: plan.limits.chat.monthly },
+        dailyResetsIn: chatUsage?.last_daily_reset ? Math.max(0, Math.ceil((new Date(chatUsage.last_daily_reset).getTime() + 86400000 - now.getTime()) / 1000)) : null
       },
       voice: {
         daily: { used: voiceR.isDailyReset ? 0 : voiceUsage?.daily_count || 0, limit: plan.limits.voice.daily },
-        monthly: { used: voiceR.isMonthlyReset ? 0 : voiceUsage?.monthly_count || 0, limit: plan.limits.voice.monthly }
+        monthly: { used: voiceR.isMonthlyReset ? 0 : voiceUsage?.monthly_count || 0, limit: plan.limits.voice.monthly },
+        dailyResetsIn: voiceUsage?.last_daily_reset ? Math.max(0, Math.ceil((new Date(voiceUsage.last_daily_reset).getTime() + 86400000 - now.getTime()) / 1000)) : null
       },
       image: {
         daily: { used: imageR.isDailyReset ? 0 : imageUsage?.daily_count || 0, limit: plan.limits.image.daily },
-        monthly: { used: imageR.isMonthlyReset ? 0 : imageUsage?.monthly_count || 0, limit: plan.limits.image.monthly }
+        monthly: { used: imageR.isMonthlyReset ? 0 : imageUsage?.monthly_count || 0, limit: plan.limits.image.monthly },
+        dailyResetsIn: imageUsage?.last_daily_reset ? Math.max(0, Math.ceil((new Date(imageUsage.last_daily_reset).getTime() + 86400000 - now.getTime()) / 1000)) : null
       }
     };
   }
 
   const summaries: any = {};
-  const now = new Date();
 
   for (const [tool, limits] of Object.entries(plan.limits)) {
     const record = usageRecords?.find(r => r.tool_type === tool);
@@ -308,12 +310,16 @@ export async function getUsageStatus(identity: RateLimitIdentity) {
       if (now.getTime() - lastMon.getTime() >= 2592000000) monthlyUsed = 0;
     }
 
+    const lastDaily = record ? new Date(record.last_daily_reset).getTime() : now.getTime();
+    const dailyResetsIn = Math.max(0, Math.ceil((lastDaily + 86400000 - now.getTime()) / 1000));
+
     summaries[tool] = {
       minute: { used: Number(minuteUsed), limit: (limits as any).perMinute },
       daily: { used: Number(dailyUsed), limit: (limits as any).daily },
       monthly: { used: Number(monthlyUsed), limit: (limits as any).monthly },
       total: { used: record?.total_count || 0, limit: null },
-      isByok: !!record?.is_byok
+      isByok: !!record?.is_byok,
+      dailyResetsIn: record ? dailyResetsIn : null
     };
   }
 
@@ -357,13 +363,28 @@ export async function getUsageStatus(identity: RateLimitIdentity) {
     }
   }
 
+  let resets_in_seconds: number | undefined = undefined;
+  if (usageRecords && usageRecords.length > 0) {
+    const dailyResets = usageRecords
+      .map(r => r.last_daily_reset)
+      .filter(Boolean)
+      .map(d => {
+        const lastDaily = new Date(d).getTime();
+        return Math.max(0, Math.ceil((lastDaily + 86400000 - now.getTime()) / 1000));
+      });
+    if (dailyResets.length > 0) {
+      resets_in_seconds = Math.max(...dailyResets);
+    }
+  }
+
   return {
     tier: identity.tier,
     planName: plan.displayName,
     features: plan.features,
     usage: summaries,
     profileUsage,
-    subscription
+    subscription,
+    resets_in_seconds
   };
 }
 

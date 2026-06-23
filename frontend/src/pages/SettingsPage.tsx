@@ -924,6 +924,17 @@ const SettingsPage: React.FC = () => {
       const monthlyRemaining = monthlyLimit ? Math.max(0, monthlyLimit - monthlyUsed) : 0;
       const isMonthlyWarning = monthlyPct > 80;
 
+      const formatResetsIn = (seconds: number | undefined | null) => {
+        if (seconds === undefined || seconds === null || seconds <= 0) return null;
+        if (seconds < 60) return `${seconds}s`;
+        const m = Math.ceil(seconds / 60);
+        if (m < 60) return `${m}m`;
+        const h = Math.floor(m / 60);
+        const mins = m % 60;
+        if (h < 24) return mins > 0 ? `${h}h ${mins}m` : `${h}h`;
+        return `${Math.ceil(h / 24)}d`;
+      };
+
       return (
         <div className={styles.usageCard} key={label}>
           <div className={styles.usageHeader} style={{ marginBottom: 16 }}>
@@ -936,7 +947,14 @@ const SettingsPage: React.FC = () => {
             {/* Daily limit block */}
             <div>
               <div className={styles.usageHeader} style={{ marginBottom: 6 }}>
-                <span style={{ color: 'rgba(255,255,255,0.4)', fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 700 }}>Daily Limit</span>
+                <span style={{ color: 'rgba(255,255,255,0.4)', fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 700, display: 'flex', alignItems: 'center', gap: 6 }}>
+                  Daily Limit
+                  {data.dailyResetsIn !== undefined && data.dailyResetsIn !== null && (
+                    <span style={{ textTransform: 'none', fontSize: '0.68rem', color: '#10b981', fontWeight: 500 }}>
+                      (resets in {formatResetsIn(data.dailyResetsIn)})
+                    </span>
+                  )}
+                </span>
                 <span style={{ color: isDailyWarning ? '#f59e0b' : undefined, fontSize: '0.8rem', fontWeight: 700 }}>{dailyPct}%</span>
               </div>
               <div className={styles.progressBar}>
