@@ -23,7 +23,7 @@ const generateUUID = () => {
   if (typeof crypto !== 'undefined' && crypto.randomUUID) {
     return crypto.randomUUID();
   }
-  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
     const r = Math.random() * 16 | 0;
     const v = c === 'x' ? r : (r & 0x3 | 0x8);
     return v.toString(16);
@@ -56,7 +56,7 @@ const ChatPage: React.FC = () => {
 
   const isVoiceRoute = location.pathname.startsWith('/voice');
   const [showVoiceOverlay, setShowVoiceOverlay] = useState(isVoiceRoute);
-  
+
   // Initialize from localStorage, but default to true for voice routes
   const { sidebarCollapsed, setSidebarCollapsed } = useUIStore();
 
@@ -191,8 +191,8 @@ const ChatPage: React.FC = () => {
   };
 
   // Performance: Throttle the heavy thinking-tag filtering
-  const filteredStreamingMessage = useMemo(() => 
-    filterThinkingTags(displayedStreamingMessage), 
+  const filteredStreamingMessage = useMemo(() =>
+    filterThinkingTags(displayedStreamingMessage),
     [displayedStreamingMessage]
   );
 
@@ -208,10 +208,10 @@ const ChatPage: React.FC = () => {
   useEffect(() => {
     const normalizedId = id || null;
     const normalizedStreamingId = streamingIdRef.current || null;
-    
-    const shouldClear = (normalizedId && normalizedId !== normalizedStreamingId) || 
-                        (!normalizedId && !activeConversation?.id && !isGenerating);
-    
+
+    const shouldClear = (normalizedId && normalizedId !== normalizedStreamingId) ||
+      (!normalizedId && !activeConversation?.id && !isGenerating);
+
     if (shouldClear) {
       setIsGenerating(false);
       setStreamingMessage('');
@@ -302,12 +302,12 @@ const ChatPage: React.FC = () => {
     }
 
     const typewriterInterval = 16; // ~60fps for maximum smoothness
-    
+
     typewriterIntervalRef.current = window.setInterval(() => {
       setDisplayedStreamingMessage(prev => {
         if (fullContentRef.current.length > prev.length) {
           const bufferSize = fullContentRef.current.length - prev.length;
-          
+
           let nextMessage = prev;
           // Adaptive scaling:
           // If stream is finished, dump everything much faster
@@ -321,10 +321,10 @@ const ChatPage: React.FC = () => {
             // Dynamic increments for "live" feel while handling bursts
             // Increased values for a "snappier" feel
             const increment = bufferSize > 2000 ? 800 :
-                              bufferSize > 1000 ? 400 : 
-                              bufferSize > 400 ? 150 : 
-                              bufferSize > 100 ? 60 : 25;
-            
+              bufferSize > 1000 ? 400 :
+                bufferSize > 400 ? 150 :
+                  bufferSize > 100 ? 60 : 25;
+
             nextMessage = fullContentRef.current.slice(0, prev.length + increment);
           }
           displayedMessageLengthRef.current = nextMessage.length;
@@ -383,13 +383,13 @@ const ChatPage: React.FC = () => {
 
     const messageContent = text || '';
     if (!messageContent.trim() && currentAttachments.length === 0) return;
-    
+
     let anonId = getStoredAnonId();
     if (!user?.id && !anonId) {
       const identity = await getOrCreateAnonymousIdentity();
       anonId = identity.anonId;
     }
-    
+
     if (isGenerating || (!user?.id && !anonId)) return;
 
     let currentConvId = activeConversation?.id;
@@ -425,7 +425,7 @@ const ChatPage: React.FC = () => {
         user_id: user?.id,
         anon_id: anonId || undefined
       };
-      
+
       const userOptimisticId = `temp_user_${Date.now()}`;
       const tempUserMsg: any = {
         id: userOptimisticId,
@@ -463,7 +463,7 @@ const ChatPage: React.FC = () => {
     if (!isRetry) {
       // Find the optimistic ID if we already added it in the isNewConversation block,
       // otherwise generate a new one.
-      const existingTempMsg = isNewConversation 
+      const existingTempMsg = isNewConversation
         ? useChatStore.getState().messages.find(m => m.id.startsWith('temp_user_'))
         : null;
       const userOptimisticId = existingTempMsg?.id || `temp_user_${Date.now()}`;
@@ -498,7 +498,7 @@ const ChatPage: React.FC = () => {
       try {
         const { data } = await Promise.race([
           supabase.auth.getSession(),
-          new Promise<{data: {session: any}}>((_, reject) => setTimeout(() => reject(new Error('timeout')), 3000))
+          new Promise<{ data: { session: any } }>((_, reject) => setTimeout(() => reject(new Error('timeout')), 3000))
         ]);
         if (data?.session) currentSession = data.session;
       } catch (e) {
@@ -562,7 +562,7 @@ const ChatPage: React.FC = () => {
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
-        
+
         // Abuse Detection Handling
         if (errorData.code === 'ABUSE_COOLDOWN') {
           const resetsIn = errorData.retryAfter || 30;
@@ -619,7 +619,7 @@ const ChatPage: React.FC = () => {
           } else {
             localStorage.setItem('chat_lockout', lockoutTime.toString());
           }
-          
+
           setLimitModal({
             isOpen: true,
             type: user ? 'tiered' : 'anonymous',
@@ -708,7 +708,7 @@ const ChatPage: React.FC = () => {
       if (currentConvId && !isSaved) {
         isSaved = true;
         const finalContent = assistantMessage.trim() || "😓🫠";
-        
+
         // Wait for typewriter to fully catch up before saving to prevent content jump/flash
         // Only wait if we are still looking at the same conversation
         let waitCount = 0;
@@ -716,10 +716,10 @@ const ChatPage: React.FC = () => {
           await new Promise(r => setTimeout(r, 30));
           waitCount++;
         }
-        
+
         // Final catch up
         setDisplayedStreamingMessage(finalContent);
-        
+
         // Clear generating/streaming state BEFORE adding the message to the store
         // to prevent rendering the streaming message as a duplicate during the DB write.
         if (streamingIdRef.current === currentConvId) {
@@ -731,21 +731,21 @@ const ChatPage: React.FC = () => {
           setStreamingStatus(null);
           streamingIdRef.current = null;
         }
-        
+
         // Add to store with the same optimistic ID used for streaming
-        await addMessage(currentConvId, 'assistant', finalContent, { 
+        await addMessage(currentConvId, 'assistant', finalContent, {
           optimisticId: assistantOptimisticId,
-          mode: 'text' 
+          mode: 'text'
         });
-        
+
         // Update usage indicator — only for chat mode
         // Voice credits are charged by VoiceOverlay via /voice-complete endpoint
         if (!isVoiceRoute) {
           useUsageStore.getState().incrementLocalUsage('chat');
         }
-        
+
         streamingOptimisticIdRef.current = null;
-        
+
         // Wait a tiny bit more for store sync before clearing streaming state
         await new Promise(r => setTimeout(r, 100));
       }
@@ -849,7 +849,16 @@ const ChatPage: React.FC = () => {
                   className={styles.emptyGreetingContainer}
                 >
                   <div className={styles.logoIconBox}>
-                    <Zap size={28} fill="currentColor" />
+                    <img
+                      src="/Sree-Ai-icon-only-Sree-AI-brandmark.png"
+                      alt="Sree AI brandmark"
+                      style={{
+                        width: '100%',
+                        height: '100%',
+                        objectFit: 'contain',
+                        // padding: '14px' 
+                      }}
+                    />
                   </div>
                   <h1 className={styles.title}>{greetingText}</h1>
                   <p className={styles.subtitle}>How can Sree AI help you today?</p>
@@ -886,7 +895,7 @@ const ChatPage: React.FC = () => {
                     onRetry={async (index, _content, _attachments, id) => {
                       if (activeConversation?.id) {
                         const allMessages = useChatStore.getState().messages;
-                        
+
                         // 1. Find the start of the "error chain" (consecutive assistant errors/interruptions)
                         let firstErrorIndex = index;
                         while (firstErrorIndex > 0) {
@@ -912,15 +921,15 @@ const ChatPage: React.FC = () => {
                           const userContent = userMsg.content;
                           // Ensure we use the full attachments metadata from the message
                           const userAttachments = userMsg.metadata?.attachments || [];
-                          
+
                           // Map back to the format handleSend expects if necessary
                           // handleSend expects an array of attachments with { url, type, name, extractedText }
                           // which matches what's stored in userMsg.metadata.attachments
-                          
+
                           // 3. Truncate from the user message ID onwards
                           // This permanently deletes the user message, the error(s), and everything after
                           await useChatStore.getState().truncateHistory(activeConversation.id, userMsg.id);
-                          
+
                           // 4. Re-send as a fresh turn (isRetry=false to ensure it gets re-added to DB)
                           handleSend(userContent, false, userAttachments, 0);
                         } else {
@@ -939,19 +948,19 @@ const ChatPage: React.FC = () => {
                     key={streamingOptimisticIdRef.current || 'streaming-assistant'}
                     isStreaming
                     index={messages.length}
-                    message={{ 
-                      role: 'assistant', 
+                    message={{
+                      role: 'assistant',
                       content: filteredStreamingMessage,
-                      metadata: { 
+                      metadata: {
                         mode: 'text',
-                        optimisticId: streamingOptimisticIdRef.current 
+                        optimisticId: streamingOptimisticIdRef.current
                       }
                     }}
                     streamingStatus={streamingStatus}
                     isProcessingVideo={isProcessingVideo}
                     markdownComponents={markdownComponents}
                     filterThinkingTags={filterThinkingTags}
-                    onRetry={() => {}}
+                    onRetry={() => { }}
                   />
                 )}
               </AnimatePresence>
@@ -961,7 +970,7 @@ const ChatPage: React.FC = () => {
 
           <AnimatePresence>
             {lockTimeRemaining > 0 && (
-              <motion.div 
+              <motion.div
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: 10 }}
@@ -998,7 +1007,7 @@ const ChatPage: React.FC = () => {
           )}
         </AnimatePresence>
 
-        <LimitModal 
+        <LimitModal
           isOpen={limitModal.isOpen}
           onClose={() => setLimitModal(prev => ({ ...prev, isOpen: false }))}
           type={limitModal.type}

@@ -82,7 +82,7 @@ function validateDOB(dateStr: string): string | null {
 
   const dob = new Date(dateStr);
   const today = new Date();
-  
+
   if (isNaN(dob.getTime())) return 'Invalid date';
   if (dob > today) return 'Date cannot be in the future';
 
@@ -323,7 +323,7 @@ const OnboardingPage: React.FC = () => {
   const handleSkip = async () => {
     // Skip API keys entirely, just complete
     if (!user) return;
-    
+
     const success = await completeOnboarding(user.id);
     if (success) {
       setShowCompletion(true);
@@ -426,7 +426,15 @@ const OnboardingPage: React.FC = () => {
           {/* Brand */}
           <div className={styles.brandSection}>
             <div className={styles.logoMark}>
-              <Sparkles size={22} />
+              <img
+                src="/Sree-Ai-icon-only-Sree-AI-brandmark.png"
+                alt="Sree AI logo"
+                style={{
+                  width: '100%',
+                  height: '100%',
+                  objectFit: 'contain',
+                }}
+              />
             </div>
             <span className={styles.brandTitle}>Sree AI</span>
           </div>
@@ -617,13 +625,12 @@ const OnboardingPage: React.FC = () => {
                         <div className={styles.keyInputWrapper}>
                           <input
                             type="password"
-                            className={`${styles.keyInput} ${
-                              status === 'valid'
+                            className={`${styles.keyInput} ${status === 'valid'
                                 ? styles.keyInputValid
                                 : status === 'invalid'
                                   ? styles.keyInputInvalid
                                   : ''
-                            }`}
+                              }`}
                             value={key}
                             onChange={(e) =>
                               handleKeyChange(provider.id, e.target.value)

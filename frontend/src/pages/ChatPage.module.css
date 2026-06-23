@@ -116,6 +116,7 @@
   position: relative;
   animation: float 6s ease-in-out infinite;
   transition: all 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+  overflow: hidden;
 }
 
 .logoIconBox::before {

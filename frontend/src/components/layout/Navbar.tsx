@@ -232,10 +232,16 @@ export const Navbar: React.FC = () => {
           toggleSidebar();
         }
       }}>
-        <div className={styles.logoBox}>
-          <Zap size={20} fill="currentColor" />
-        </div>
-        <span className={styles.logoText}>Sree AI</span>
+        <img
+          src="/Sree-ai-Primary-logo.png"
+          alt="Sree AI"
+          className={styles.primaryLogo}
+        />
+        <img
+          src="/Sree-Ai-icon-only-Sree-AI-brandmark.png"
+          alt="Sree AI logo"
+          className={styles.mobileLogo}
+        />
       </Link>
 
       {/* Center: Nav Links */}
@@ -300,12 +306,12 @@ export const Navbar: React.FC = () => {
                         <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                           {tool.label}
                           {isLocked && (
-                            <span 
-                              style={{ 
-                                fontSize: '0.65rem', 
-                                background: 'rgba(239, 68, 68, 0.15)', 
-                                color: '#f87171', 
-                                padding: '2px 6px', 
+                            <span
+                              style={{
+                                fontSize: '0.65rem',
+                                background: 'rgba(239, 68, 68, 0.15)',
+                                color: '#f87171',
+                                padding: '2px 6px',
                                 borderRadius: '4px',
                                 border: '1px solid rgba(239, 68, 68, 0.2)',
                                 fontWeight: 600
