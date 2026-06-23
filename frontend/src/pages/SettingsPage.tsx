@@ -935,6 +935,8 @@ const SettingsPage: React.FC = () => {
         return `${Math.ceil(h / 24)}d`;
       };
 
+      const resetsStr = formatResetsIn(data.dailyResetsIn);
+
       return (
         <div className={styles.usageCard} key={label}>
           <div className={styles.usageHeader} style={{ marginBottom: 16 }}>
@@ -949,9 +951,9 @@ const SettingsPage: React.FC = () => {
               <div className={styles.usageHeader} style={{ marginBottom: 6 }}>
                 <span style={{ color: 'rgba(255,255,255,0.4)', fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 700, display: 'flex', alignItems: 'center', gap: 6 }}>
                   Daily Limit
-                  {data.dailyResetsIn !== undefined && data.dailyResetsIn !== null && (
+                  {resetsStr && (
                     <span style={{ textTransform: 'none', fontSize: '0.68rem', color: '#10b981', fontWeight: 500 }}>
-                      (resets in {formatResetsIn(data.dailyResetsIn)})
+                      (resets in {resetsStr})
                     </span>
                   )}
                 </span>
