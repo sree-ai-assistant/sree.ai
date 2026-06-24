@@ -59,6 +59,8 @@ const PROVIDER_MAP: Record<string, string> = {
   'mistralai/mistral-large-3-675b-instruct-2512': 'nvidia',
   'mistralai/mistral-medium-3.5-128b': 'nvidia',
   'mistralai/mistral-nemotron': 'nvidia',
+  'google/diffusiongemma-26b-a4b-it': 'nvidia',
+  'minimaxai/minimax-m3': 'nvidia',
   'moonshotai/kimi-k2.6': 'nvidia',
   'nvidia/nemotron-nano-12b-v2-vl': 'nvidia',
   'nvidia/nemotron-3-nano-30b-a3b': 'nvidia',
