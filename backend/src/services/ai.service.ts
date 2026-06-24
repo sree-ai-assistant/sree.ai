@@ -270,7 +270,7 @@ class AiService {
 
         // Step B: Define a safe reservation for generation
         // If it's a retry, we use a fixed 1024 for stability, otherwise use the model's max
-        let reservedTokens = retryCount > 0 ? 1024 : currentMaxOutputTokens;
+        let reservedTokens = retryCount > 0 ? Math.min(1024, currentMaxOutputTokens) : currentMaxOutputTokens;
 
         // DYNAMIC EXPANSION: If the model is marked as 'fast' and there's plenty of space 
         // in the context window, we expand the output reservation to deliver the best possible output.
@@ -433,11 +433,11 @@ class AiService {
         return await openai.chat.completions.create(requestParams);
 
       } catch (error: any) {
-        const errorResponse = error.response?.data || error.data || error;
+        const errorResponse = error.response?.data || error.error || error.body || error.data || error;
         const errorMsg = (error.message || '').toLowerCase();
         const detailMsg = typeof errorResponse === 'object' ? JSON.stringify(errorResponse) : String(errorResponse);
         
-        console.error(`[AiService] AI Provider Error: ${errorMsg} | Details: ${detailMsg.substring(0, 500)}`);
+        console.error(`[AiService] AI Provider Error: ${errorMsg} | Status: ${error.status || 'N/A'} | Details: ${detailMsg.substring(0, 500)}`);
 
         // ── Rate limit detection — throw immediately to key rotation layer ──
         // Rate limit errors are NOT context/token issues — retrying with reduced

@@ -23,7 +23,7 @@ INSERT INTO public.ai_models (
   'starter',
   TRUE,
   'Highly capable compact multimodal model from Microsoft supporting text, audio, and visual reasoning up to 3 images.',
-  4096,
+  512,
   131072,
   FALSE,
   FALSE,

@@ -403,6 +403,10 @@ export const ChatInput: React.FC<ChatInputProps> = ({
         </div>
       </div>
 
+      <div className={styles.disclaimer}>
+        Sree Ai can make mistakes. Check important info.
+      </div>
+
       <AnimatePresence>
         {previewImage && (
           <motion.div 
