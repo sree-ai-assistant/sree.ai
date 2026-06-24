@@ -1,11 +1,11 @@
 .container {
   display: flex;
   flex-direction: column;
-  height: calc(100vh - 128px);
-  /* Navbar + main padding */
+  height: calc(100vh - 64px);
   max-width: 900px;
   margin: 0 auto;
   position: relative;
+  padding-bottom: 16px;
 }
 
 .header {

@@ -144,6 +144,8 @@
 }
 
 .input {
+  display: block;
+  margin: 0;
   flex: 1;
   width: 100%;
   background: transparent;
