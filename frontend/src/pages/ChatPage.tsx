@@ -1,7 +1,8 @@
 import React, { useState, useRef, useEffect, useMemo, useDeferredValue } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { MessageSquare, ArrowLeft, MoreVertical, Lock, Clock, Sparkles, Zap, FileText, Mail, Code, ArrowUpRight } from 'lucide-react';
+import { MessageSquare, ArrowLeft, MoreVertical, Lock, Clock, Sparkles, Zap, FileText, Mail, Code, ArrowUpRight, RotateCcw } from 'lucide-react';
 import { DashboardLayout } from '../features/dashboard/DashboardLayout';
+import toast from 'react-hot-toast';
 import { supabase } from '../lib/supabase';
 import { useChatStore } from '../store/chat.store';
 import { useAuthStore } from '../store/auth.store';
@@ -74,7 +75,7 @@ const ChatPage: React.FC = () => {
 
   const [limitModal, setLimitModal] = useState<{
     isOpen: boolean;
-    type: 'anonymous' | 'rate-limited' | 'tiered' | 'abuse-cooldown' | 'abuse-captcha' | 'abuse-auth' | 'abuse-restricted';
+    type: 'anonymous' | 'rate-limited' | 'tiered' | 'abuse-cooldown' | 'abuse-captcha' | 'abuse-auth' | 'abuse-restricted' | 'anonymous-upload';
     limitInfo?: any;
   }>({ isOpen: false, type: 'anonymous' });
 
@@ -148,6 +149,13 @@ const ChatPage: React.FC = () => {
     const interval = setInterval(checkLock, 1000);
     return () => clearInterval(interval);
   }, []);
+
+  const handleClearLock = () => {
+    localStorage.removeItem('chat_lockout');
+    localStorage.removeItem('voice_lockout');
+    setLockTimeRemaining(0);
+    toast.success('Lock cleared successfully');
+  };
 
   const [isGenerating, setIsGenerating] = useState(false);
   const [streamingMessage, setStreamingMessage] = useState('');
@@ -655,8 +663,10 @@ const ChatPage: React.FC = () => {
               limit: errorData.limit,
               current: errorData.current,
               resetsIn: resetsIn,
+              reason: errorData.reason,
+              tool: errorData.tool || 'chat',
               message: errorData.message,
-              tier: user ? (user as any).user_metadata?.tier || 'Free' : 'Anonymous'
+              tier: user ? user.plan_type || (user as any).user_metadata?.tier || 'free' : 'Anonymous'
             }
           });
 
@@ -667,7 +677,7 @@ const ChatPage: React.FC = () => {
 
         if (response.status === 401 && !user) {
           // Anonymous user tried something requiring auth (e.g. upload)
-          setLimitModal({ isOpen: true, type: 'anonymous' });
+          setLimitModal({ isOpen: true, type: 'anonymous-upload' });
           throw new Error('Authentication required');
         }
 
@@ -1004,6 +1014,14 @@ const ChatPage: React.FC = () => {
                 <Lock size={14} />
                 <span>Account Locked for {formatTime(lockTimeRemaining * 1000)}</span>
                 <Clock size={14} style={{ marginLeft: '4px', opacity: 0.7 }} />
+                <button
+                  type="button"
+                  className={styles.unlockRetryBtn}
+                  onClick={handleClearLock}
+                  title="Clear lockout limit"
+                >
+                  <RotateCcw size={12} />
+                </button>
               </motion.div>
             )}
           </AnimatePresence>
@@ -1018,7 +1036,7 @@ const ChatPage: React.FC = () => {
             onAttachmentsChange={setAttachments}
             disabled={lockTimeRemaining > 0}
             placeholderText={lockTimeRemaining > 0 ? `Try After ${formatTime(lockTimeRemaining * 1000)}...` : undefined}
-            onAuthRequired={() => setLimitModal({ isOpen: true, type: 'anonymous' })}
+            onAuthRequired={() => setLimitModal({ isOpen: true, type: 'anonymous-upload' })}
           />
 
         </div>

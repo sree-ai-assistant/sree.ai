@@ -4,14 +4,14 @@
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(4, 4, 6, 0.75);
+  background: rgba(4, 4, 6, 0.82);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
   z-index: 1000;
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: center;
-  padding: 24px 16px;
+  padding: 40px 16px;
   overflow-y: auto;
 }
 
@@ -22,7 +22,7 @@
   padding: 32px;
   max-width: 460px;
   width: 100%;
-  box-shadow: 
+  box-shadow:
     0 0 0 1px rgba(255, 255, 255, 0.05) inset,
     0 24px 48px -12px rgba(0, 0, 0, 0.7),
     0 0 80px -10px rgba(129, 140, 248, 0.15);
@@ -31,7 +31,10 @@
   transition: all 0.3s ease;
   display: flex;
   flex-direction: column;
+  margin: 40px auto;
 }
+
+
 
 .wideModal {
   max-width: 860px;
@@ -120,6 +123,15 @@
   z-index: 3;
 }
 
+.modalLogo {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 50%;
+}
+
+
+
 /* Colors for icon wrapper */
 .colorPrimary {
   color: #818cf8;
@@ -152,7 +164,8 @@
 }
 
 /* Pulsing Concentric Rings */
-.pulseRing1, .pulseRing2 {
+.pulseRing1,
+.pulseRing2 {
   position: absolute;
   border-radius: 50%;
   border: 1px solid rgba(129, 140, 248, 0.15);
@@ -177,9 +190,11 @@
     transform: scale(0.65);
     opacity: 0;
   }
+
   10% {
     opacity: 0.8;
   }
+
   100% {
     transform: scale(1.15);
     opacity: 0;
@@ -218,7 +233,8 @@
   letter-spacing: -0.02em;
 }
 
-.subtitle, .description {
+.subtitle,
+.description {
   font-size: 14px;
   color: #94a3b8;
   line-height: 1.6;
@@ -322,14 +338,14 @@
   background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
   color: white;
   border: none;
-  box-shadow: 
+  box-shadow:
     0 4px 12px rgba(79, 70, 229, 0.25),
     0 0 0 1px rgba(255, 255, 255, 0.1) inset;
 }
 
 .buttonPrimary:hover {
   transform: translateY(-2px);
-  box-shadow: 
+  box-shadow:
     0 8px 20px rgba(79, 70, 229, 0.4),
     0 0 0 1px rgba(255, 255, 255, 0.25) inset;
 }
@@ -556,10 +572,12 @@
   color: #a78bfa;
 }
 
-@media (max-width: 768px), (max-height: 850px) {
+@media (max-width: 768px),
+(max-height: 850px) {
   .overlay {
     align-items: flex-start;
   }
+
   .modal {
     margin: 20px auto;
   }
@@ -569,11 +587,11 @@
   .wideModal {
     max-width: 480px;
   }
-  
+
   .pricingGrid {
     grid-template-columns: 1fr;
   }
-  
+
   .modal {
     padding: 24px 20px;
   }
@@ -581,9 +599,54 @@
   .title {
     font-size: 22px;
   }
-  
-  .subtitle, .description {
+
+  .subtitle,
+  .description {
     font-size: 13px;
     margin-bottom: 20px;
   }
+}
+
+/* Usage Summary Card styling */
+.usageSummaryCard {
+  display: flex;
+  flex-direction: column;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 16px;
+  padding: 16px 20px;
+  margin-bottom: 24px;
+  width: 100%;
+  box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.05);
+  gap: 12px;
+}
+
+.summaryItem {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+}
+
+.summaryLabel {
+  font-size: 11px;
+  font-weight: 600;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.summaryValue {
+  font-size: 13px;
+  font-weight: 600;
+  color: #e2e8f0;
+  text-align: right;
+  word-break: break-word;
+}
+
+.summaryDivider {
+  width: 100%;
+  height: 1px;
+  background: rgba(255, 255, 255, 0.06);
+  margin: 0;
 }

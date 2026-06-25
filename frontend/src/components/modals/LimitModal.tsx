@@ -7,11 +7,13 @@ import { useNavigate } from 'react-router-dom';
 interface LimitModalProps {
   isOpen: boolean;
   onClose: () => void;
-  type: 'anonymous' | 'rate-limited' | 'tiered' | 'abuse-cooldown' | 'abuse-captcha' | 'abuse-auth' | 'abuse-restricted';
+  type: 'anonymous' | 'rate-limited' | 'tiered' | 'abuse-cooldown' | 'abuse-captcha' | 'abuse-auth' | 'abuse-restricted' | 'anonymous-upload';
   limitInfo?: {
     limit?: number;
     current?: number;
     resetsIn?: number;
+    reason?: string;
+    tool?: string;
     tier?: string;
     message?: string;
     severity?: number;
@@ -44,13 +46,42 @@ export const LimitModal: React.FC<LimitModalProps> = ({
     return parts.join(' ');
   };
 
+  const getToolLabel = (tool?: string) => {
+    switch (tool?.toLowerCase()) {
+      case 'chat':
+        return 'Chat Messages';
+      case 'voice':
+        return 'Voice Synthesis';
+      case 'image':
+      case 'image_gen':
+        return 'Image Generation';
+      case 'file_upload':
+        return 'File Uploads';
+      default:
+        return tool ? tool.replace(/_/g, ' ') : 'Request Limit';
+    }
+  };
+
+  const getLimitTypeLabel = (reason?: string) => {
+    switch (reason?.toLowerCase()) {
+      case 'minute':
+        return 'Per-Minute Limit';
+      case 'monthly':
+        return 'Monthly Quota';
+      case 'daily':
+        return 'Daily Quota';
+      default:
+        return 'Usage Quota';
+    }
+  };
+
   const pricingTiers = [
     {
       name: 'Starter',
       price: '$8',
       limit: '50 requests/day',
       features: [
-        '50 daily chats (70+ Primium Models)',
+        '50 daily chats (70+ Premium Models)',
         '60 daily voice synthesis',
         '30 daily image generations',
         'Chat, image & video storage (3 months)',
@@ -115,10 +146,29 @@ export const LimitModal: React.FC<LimitModalProps> = ({
           title: 'Network Restricted',
           colorClass: styles.colorDanger
         };
+      case 'anonymous-upload':
+        return {
+          icon: (
+            <img
+              src="/Sree-Ai-Fav-icon-round.png"
+              alt="Sree AI Logo"
+              className={styles.modalLogo}
+            />
+          ),
+          badge: 'SIGN UP REQUIRED',
+          title: 'Sign Up to Upload Files',
+          colorClass: styles.colorAccent
+        };
       case 'anonymous':
       default:
         return {
-          icon: <Lock size={32} className={styles.iconLock} />,
+          icon: (
+            <img
+              src="/Sree-Ai-Fav-icon-round.png"
+              alt="Sree AI Logo"
+              className={styles.modalLogo}
+            />
+          ),
           badge: 'ANONYMOUS QUOTA',
           title: 'Daily Limit Reached',
           colorClass: styles.colorAccent
@@ -167,7 +217,11 @@ export const LimitModal: React.FC<LimitModalProps> = ({
                     <div className={styles.pulseRing1} />
                     <div className={styles.pulseRing2} />
                     <div className={styles.iconWrapper}>
-                      <Sparkles size={32} className={styles.sparkleIcon} />
+                      <img
+                        src="/Sree-Ai-Fav-icon-round.png"
+                        alt="Sree AI Logo"
+                        className={styles.modalLogo}
+                      />
                     </div>
                   </div>
 
@@ -186,6 +240,31 @@ export const LimitModal: React.FC<LimitModalProps> = ({
                     )}
                   </p>
                 </div>
+
+                {limitInfo && limitInfo.limit !== undefined && (
+                  <div className={styles.usageSummaryCard}>
+                    <div className={styles.summaryItem}>
+                      <span className={styles.summaryLabel}>Current Plan</span>
+                      <span className={styles.summaryValue} style={{ color: '#a78bfa', fontWeight: 800 }}>
+                        {limitInfo.tier ? limitInfo.tier.toUpperCase() : 'FREE'}
+                      </span>
+                    </div>
+                    <div className={styles.summaryDivider} />
+                    <div className={styles.summaryItem}>
+                      <span className={styles.summaryLabel}>Limit Hit</span>
+                      <span className={styles.summaryValue}>
+                        {getLimitTypeLabel(limitInfo.reason)} ({getToolLabel(limitInfo.tool)})
+                      </span>
+                    </div>
+                    <div className={styles.summaryDivider} />
+                    <div className={styles.summaryItem}>
+                      <span className={styles.summaryLabel}>Usage Details</span>
+                      <span className={styles.summaryValue} style={{ color: '#f87171', fontWeight: 700 }}>
+                        {limitInfo.current} / {limitInfo.limit} requests
+                      </span>
+                    </div>
+                  </div>
+                )}
 
                 <div className={styles.pricingGrid}>
                   {pricingTiers.map((tier) => (
@@ -255,35 +334,62 @@ export const LimitModal: React.FC<LimitModalProps> = ({
                             ? (limitInfo?.message || "To prevent abuse, anonymous access is restricted. Please sign in to continue.")
                             : type === 'abuse-restricted'
                               ? (limitInfo?.message || "Access from this network has been temporarily restricted.")
-                              : "You've used all your free requests for today. Create an account to get more requests and save your history."}
+                              : type === 'anonymous-upload'
+                                ? "File uploads are only available to registered users. Please sign up or sign in to upload files and access advanced analysis tools."
+                                : "You've used all your free requests for today. Create an account to get more requests and save your history."}
                   </p>
                 </div>
 
                 {/* Progress / Quota bar for Rate limits & Anonymous limits */}
                 {limitInfo && (type === 'rate-limited' || type === 'anonymous') && limitInfo.limit !== undefined && (
-                  <div className={styles.quotaBarContainer}>
-                    <div className={styles.quotaBarHeader}>
-                      <span className={styles.quotaLabel}>Usage Summary</span>
-                      <span className={styles.quotaValue}>{percentRemaining}% remaining</span>
+                  <>
+                    <div className={styles.usageSummaryCard}>
+                      <div className={styles.summaryItem}>
+                        <span className={styles.summaryLabel}>Plan / Tier</span>
+                        <span className={styles.summaryValue} style={{ color: '#a78bfa', fontWeight: 800 }}>
+                          {limitInfo.tier ? limitInfo.tier.toUpperCase() : 'ANONYMOUS'}
+                        </span>
+                      </div>
+                      <div className={styles.summaryDivider} />
+                      <div className={styles.summaryItem}>
+                        <span className={styles.summaryLabel}>Limit Hit</span>
+                        <span className={styles.summaryValue}>
+                          {getLimitTypeLabel(limitInfo.reason)} ({getToolLabel(limitInfo.tool)})
+                        </span>
+                      </div>
+                      <div className={styles.summaryDivider} />
+                      <div className={styles.summaryItem}>
+                        <span className={styles.summaryLabel}>Usage</span>
+                        <span className={styles.summaryValue} style={{ color: '#f87171', fontWeight: 700 }}>
+                          {limitInfo.current} / {limitInfo.limit}
+                        </span>
+                      </div>
                     </div>
-                    <div className={styles.quotaBar}>
-                      <motion.div
-                        className={styles.quotaProgress}
-                        initial={{ width: "100%" }}
-                        animate={{ width: `${percentRemaining}%` }}
-                        transition={{ duration: 1.2, ease: "easeOut" }}
-                        style={{
-                          background: percentRemaining <= 10 ? 'linear-gradient(90deg, #ef4444, #f43f5e)' : 'linear-gradient(90deg, #818cf8, #a78bfa)'
-                        }}
-                      />
+
+                    <div className={styles.quotaBarContainer}>
+                      <div className={styles.quotaBarHeader}>
+                        <span className={styles.quotaLabel}>Usage Summary</span>
+                        <span className={styles.quotaValue}>{percentRemaining}% remaining</span>
+                      </div>
+                      <div className={styles.quotaBar}>
+                        <motion.div
+                          className={styles.quotaProgress}
+                          initial={{ width: "100%" }}
+                          animate={{ width: `${percentRemaining}%` }}
+                          transition={{ duration: 1.2, ease: "easeOut" }}
+                          style={{
+                            background: percentRemaining <= 10 ? 'linear-gradient(90deg, #ef4444, #f43f5e)' : 'linear-gradient(90deg, #818cf8, #a78bfa)'
+                          }}
+                        />
+                      </div>
+                      <div className={styles.quotaDetails}>
+                        <span>{currentCount} / {limitCount} Used</span>
+                        {limitInfo.resetsIn !== undefined && (
+                          <span className={styles.resetsText}>Resets in {formatTime(limitInfo.resetsIn)}</span>
+                        )}
+                      </div>
                     </div>
-                    <div className={styles.quotaDetails}>
-                      <span>{currentCount} / {limitCount} Used</span>
-                      {limitInfo.resetsIn !== undefined && (
-                        <span className={styles.resetsText}>Resets in {formatTime(limitInfo.resetsIn)}</span>
-                      )}
-                    </div>
-                  </div>
+                  </>
                 )}
 
                 {/* Cooldown duration details */}
@@ -295,7 +401,7 @@ export const LimitModal: React.FC<LimitModalProps> = ({
                 )}
 
                 <div className={styles.actions}>
-                  {type === 'anonymous' || type === 'abuse-auth' ? (
+                  {type === 'anonymous' || type === 'abuse-auth' || type === 'anonymous-upload' ? (
                     <>
                       <button
                         className={`${styles.button} ${styles.buttonPrimary}`}

@@ -589,40 +589,24 @@ export const PricingPage: React.FC = () => {
     <div className={styles.container}>
       <div className="aurora-bg" />
       {/* Standalone public navbar */}
-      <div
-        style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          maxWidth: '1200px',
-          margin: '0 auto 40px',
-          paddingBottom: '20px',
-          borderBottom: '1px solid rgba(255, 255, 255, 0.05)',
-        }}
-      >
-        <Link to="/" style={{ display: 'flex', alignItems: 'center', gap: 10, textDecoration: 'none', color: '#fff', fontWeight: 800 }}>
-          <div style={{ background: 'var(--primary)', padding: '6px', borderRadius: '8px', display: 'flex', alignItems: 'center' }}>
-            <Zap size={18} fill="currentColor" style={{ color: '#0f172a' }} />
-          </div>
-          <span style={{ fontSize: '1.2rem', letterSpacing: '-0.02em' }}>Sree AI</span>
+      <div className={styles.publicNavbar}>
+        <Link to="/" className={styles.logoGroup}>
+          <img
+            src="/Sree-ai-Primary-logo.png"
+            alt="Sree AI"
+            className={styles.primaryLogo}
+          />
+          <img
+            src="/Sree-Ai-Fav-icon-round.png"
+            alt="Sree AI logo"
+            className={styles.mobileLogo}
+          />
         </Link>
-        <div style={{ display: 'flex', gap: 16 }}>
-          <Link to="/login" style={{ color: 'var(--text-secondary)', textDecoration: 'none', fontSize: '0.9rem', fontWeight: 600, padding: '8px 16px' }}>
+        <div className={styles.navButtons}>
+          <Link to="/login" className={styles.loginBtn}>
             Log In
           </Link>
-          <Link
-            to="/signup"
-            style={{
-              background: 'rgba(255, 255, 255, 0.08)',
-              border: '1px solid rgba(255, 255, 255, 0.1)',
-              color: '#fff',
-              textDecoration: 'none',
-              fontSize: '0.9rem',
-              fontWeight: 600,
-              padding: '8px 16px',
-              borderRadius: '12px',
-            }}
-          >
+          <Link to="/signup" className={styles.signupBtn}>
             Sign Up
           </Link>
         </div>

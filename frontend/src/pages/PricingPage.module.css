@@ -11,7 +11,7 @@
   margin: 0 auto;
   position: relative;
   z-index: 1;
-  padding: 32px 0 80px;
+  padding: 0px 0 12px;
 }
 
 /* Header section */
@@ -639,4 +639,115 @@
   gap: 8px !important;
   width: 100% !important;
   height: 100% !important;
+}
+
+/* Standalone Public Navbar */
+.publicNavbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  max-width: 1200px;
+  margin: 0 auto 40px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  width: 100%;
+}
+
+.logoGroup {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  text-decoration: none;
+}
+
+.primaryLogo {
+  height: 38px;
+  width: auto;
+  object-fit: contain;
+  display: block;
+  transition: transform 0.2s ease, filter 0.2s ease;
+}
+
+.mobileLogo {
+  height: 36px;
+  width: auto;
+  object-fit: contain;
+  display: none;
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.12), rgba(139, 92, 246, 0.12));
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  padding: 5px;
+  transition: transform 0.2s ease, filter 0.2s ease;
+}
+
+.logoGroup:hover .primaryLogo,
+.logoGroup:hover .mobileLogo {
+  transform: translateY(-1px);
+  filter: brightness(1.1);
+}
+
+.navButtons {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.loginBtn {
+  color: var(--text-secondary);
+  text-decoration: none;
+  font-size: 0.9rem;
+  font-weight: 600;
+  padding: 8px 16px;
+  transition: all var(--transition-fast);
+  border-radius: 12px;
+  border: 1px solid transparent;
+}
+
+.loginBtn:hover {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.03);
+  border-color: rgba(255, 255, 255, 0.05);
+}
+
+.signupBtn {
+  background: linear-gradient(135deg, var(--primary), var(--accent));
+  color: #fff;
+  text-decoration: none;
+  font-size: 0.9rem;
+  font-weight: 700;
+  padding: 8px 20px;
+  border-radius: 12px;
+  transition: all var(--transition-fast);
+  box-shadow: 0 4px 12px var(--primary-glow);
+}
+
+.signupBtn:hover {
+  opacity: 0.95;
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px var(--primary-glow);
+}
+
+@media (max-width: 350px) {
+  .publicNavbar {
+    margin-bottom: 24px;
+    padding-bottom: 16px;
+  }
+
+  .primaryLogo {
+    display: none;
+  }
+
+  .mobileLogo {
+    display: block;
+  }
+
+  .loginBtn {
+    padding: 6px 12px;
+    font-size: 0.85rem;
+  }
+
+  .signupBtn {
+    padding: 6px 14px;
+    font-size: 0.85rem;
+  }
 }

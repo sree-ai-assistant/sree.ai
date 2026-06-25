@@ -670,11 +670,13 @@
     display: none !important;
   }
 
-  /* Force show user section & buttons on images page and settings page even under max-width 650px screen sizes */
+  /* Force show user section & buttons on images, settings, and pricing pages even under max-width 650px screen sizes */
   .userSection.showOnImagePage,
   .userSection.showOnSettingsPage,
+  .userSection.showOnPricingPage,
   .userSkeletonButton.showOnImagePage,
   .userSkeletonButton.showOnSettingsPage,
+  .userSkeletonButton.showOnPricingPage,
   .authButtons.showOnImagePage {
     display: flex !important;
   }

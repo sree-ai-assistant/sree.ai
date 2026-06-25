@@ -865,3 +865,30 @@
     max-width: 100% !important;
   }
 }
+
+.unlockRetryBtn {
+  /* background: rgba(255, 255, 255, 0.08); */
+  background: transparent;
+  border: 0px solid rgba(255, 255, 255, 0.15);
+  color: inherit;
+  width: 24px;
+  height: 24px;
+  /* border-radius: 6px; */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  padding: 0;
+  margin-left: 8px;
+  transition: all var(--transition-fast, 0.15s ease);
+}
+
+.unlockRetryBtn:hover {
+  /* background: rgba(255, 255, 255, 0.2);
+  border-color: rgba(255, 255, 255, 0.3); */
+  transform: rotate(-30deg) scale(1.05);
+}
+
+.unlockRetryBtn:active {
+  transform: scale(0.95);
+}

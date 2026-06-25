@@ -115,7 +115,7 @@ const ImageGenPage: React.FC = () => {
   const { openUpgradeModal } = useUIStore();
   const [limitModal, setLimitModal] = useState<{
     isOpen: boolean;
-    type: 'anonymous' | 'rate-limited' | 'tiered' | 'abuse-cooldown' | 'abuse-captcha' | 'abuse-auth' | 'abuse-restricted';
+    type: 'anonymous' | 'rate-limited' | 'tiered' | 'abuse-cooldown' | 'abuse-captcha' | 'abuse-auth' | 'abuse-restricted' | 'anonymous-upload';
     limitInfo?: any;
   }>({ isOpen: false, type: 'anonymous' });
 
@@ -243,10 +243,22 @@ const ImageGenPage: React.FC = () => {
               message: errorData.message
             }
           });
-        } else if (code === 'LIMIT_REACHED' && errorData.limit_type === 'anonymous') {
-          setLimitModal({ isOpen: true, type: 'anonymous' });
-        } else if (code === 'LIMIT_REACHED') {
-          setLimitModal({ isOpen: true, type: 'tiered' });
+        } else {
+          // Handle standard quota and rate limits
+          const resetsIn = errorData.resetsIn || 60;
+          setLimitModal({
+            isOpen: true,
+            type: user ? 'tiered' : 'anonymous',
+            limitInfo: {
+              limit: errorData.limit,
+              current: errorData.current,
+              resetsIn: resetsIn,
+              reason: errorData.reason || 'daily',
+              tool: errorData.tool || 'image',
+              message: errorData.message,
+              tier: user ? user.plan_type || 'free' : 'Anonymous'
+            }
+          });
         }
       }
     }
