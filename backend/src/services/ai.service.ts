@@ -388,16 +388,33 @@ class AiService {
                         image_url: { url: base64 }
                       };
                     } catch (err: any) {
-                      console.error(`[AiService] Failed to convert image to base64: ${err.message}`);
-                      return part; // Fallback to original URL
+                      console.warn(`[AiService] Dropping unreachable image (base64 conversion failed): ${url.substring(0, 60)}...`);
+                      return null; // Mark for removal
                     }
                   } else {
+                    // Validate URL is alive before sending to provider
+                    const alive = await this.isImageUrlAlive(url);
+                    if (!alive) {
+                      console.warn(`[AiService] Dropping dead image URL (404/unreachable): ${url.substring(0, 60)}...`);
+                      return null; // Mark for removal
+                    }
                     console.log(`[AiService] Multi-image model detected (${model}). Sending URL directly: ${url.substring(0, 60)}...`);
                     return part;
                   }
                 }
                 return part;
               }));
+              // Filter out null entries (dead images)
+              content = content.filter((part: any) => part !== null);
+              // If all images were removed, flatten back to a plain string
+              const remainingImages = content.filter((p: any) => p.type === 'image_url');
+              if (remainingImages.length === 0) {
+                console.log(`[AiService] All images in message were dead/unreachable. Flattening to text-only.`);
+                content = content
+                  .filter((p: any) => p.type === 'text')
+                  .map((p: any) => p.text)
+                  .join('\n\n');
+              }
             }
           }
 
@@ -717,6 +734,20 @@ class AiService {
 
   // uploadNvidiaAsset removed — NVCF Asset API requires enterprise access.
   // NVIDIA NIM image endpoints accept inline base64 data URIs directly.
+
+  /**
+   * Fast validation of an image URL using HEAD request.
+   * Returns true if the URL is reachable (2xx), false otherwise.
+   * Timeout is kept very low (3s) to avoid blocking the pipeline.
+   */
+  private async isImageUrlAlive(url: string): Promise<boolean> {
+    try {
+      const response = await axios.head(url, { timeout: 3000 });
+      return response.status >= 200 && response.status < 400;
+    } catch {
+      return false;
+    }
+  }
 
   /**
    * Helper to convert a remote image URL to a base64 string

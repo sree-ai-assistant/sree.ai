@@ -33,21 +33,21 @@ const generateUUID = () => {
 
 const sanitizeErrorMessage = (errorMsg: string): string => {
   if (!errorMsg) return 'Encountered an unexpected service interruption.';
-  
+
   const lowerMsg = errorMsg.toLowerCase();
-  
-  if (lowerMsg.includes('degraded') || lowerMsg.includes('maintenance')) {
+
+  if (lowerMsg.includes('degraded') || lowerMsg.includes('maintenance') || lowerMsg.includes('410')) {
     return 'This model is currently undergoing maintenance or experiencing degraded performance. Please try again in a few minutes or switch to another model.';
   }
-  
+
   if (lowerMsg.includes('400 status code') || lowerMsg.includes('bad request') || lowerMsg.includes('invalid') || lowerMsg.includes('enginecore') || lowerMsg.includes('400')) {
     return 'The request could not be processed by the model engine. Try switching to a different model or rephrasing your message.';
   }
-  
+
   if (lowerMsg.includes('api key') || lowerMsg.includes('key rotation') || lowerMsg.includes('unauthorized') || lowerMsg.includes('401')) {
     return 'An authentication or configuration error occurred with the provider keys. The administrator has been notified.';
   }
-  
+
   if (lowerMsg.includes('rate limit') || lowerMsg.includes('429') || lowerMsg.includes('too many requests')) {
     return 'Rate limit exceeded. Please wait a moment before trying again or upgrading your subscription.';
   }
@@ -55,7 +55,7 @@ const sanitizeErrorMessage = (errorMsg: string): string => {
   if (lowerMsg.includes('504') || lowerMsg.includes('gateway') || lowerMsg.includes('timeout') || lowerMsg.includes('502') || lowerMsg.includes('503')) {
     return 'The server is currently overloaded or taking too long to respond. This can happen with very complex queries or high traffic.';
   }
-  
+
   return errorMsg;
 };
 
