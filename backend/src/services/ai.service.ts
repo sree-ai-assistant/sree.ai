@@ -452,12 +452,18 @@ class AiService {
           throw error;
         }
 
+        const isDegraded = detailMsg.toLowerCase().includes('degraded') || errorMsg.includes('degraded');
+        if (isDegraded) {
+          console.error(`[AiService] Model ${model} is DEGRADED on provider side. Not retrying.`);
+          throw new Error(`Model is currently unavailable (DEGRADED). Please try a different model.`);
+        }
+
         const isTimeout = error.status === 504 || error.status === 502 || error.status === 408 || errorMsg.includes('timeout') || errorMsg.includes('gateway');
         const isTokenLimit = errorMsg.includes('token') ||
           errorMsg.includes('context limit') ||
           errorMsg.includes('prompt') ||
           errorMsg.includes('supported') ||
-          error.status === 400 ||
+          (error.status === 400 && (errorMsg.includes('token') || errorMsg.includes('context') || errorMsg.includes('length'))) ||
           (detailMsg.toLowerCase().includes('token') && !detailMsg.toLowerCase().includes('rate limit'));
 
         if ((isTimeout || isTokenLimit) && retryCount < maxRetries) {
