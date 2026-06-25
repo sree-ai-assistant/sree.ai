@@ -30,6 +30,34 @@ const generateUUID = () => {
   });
 };
 
+const sanitizeErrorMessage = (errorMsg: string): string => {
+  if (!errorMsg) return 'Encountered an unexpected service interruption.';
+  
+  const lowerMsg = errorMsg.toLowerCase();
+  
+  if (lowerMsg.includes('degraded') || lowerMsg.includes('maintenance')) {
+    return 'This model is currently undergoing maintenance or experiencing degraded performance. Please try again in a few minutes or switch to another model.';
+  }
+  
+  if (lowerMsg.includes('400 status code') || lowerMsg.includes('bad request') || lowerMsg.includes('invalid') || lowerMsg.includes('enginecore') || lowerMsg.includes('400')) {
+    return 'The request could not be processed by the model engine. Try switching to a different model or rephrasing your message.';
+  }
+  
+  if (lowerMsg.includes('api key') || lowerMsg.includes('key rotation') || lowerMsg.includes('unauthorized') || lowerMsg.includes('401')) {
+    return 'An authentication or configuration error occurred with the provider keys. The administrator has been notified.';
+  }
+  
+  if (lowerMsg.includes('rate limit') || lowerMsg.includes('429') || lowerMsg.includes('too many requests')) {
+    return 'Rate limit exceeded. Please wait a moment before trying again or upgrading your subscription.';
+  }
+
+  if (lowerMsg.includes('504') || lowerMsg.includes('gateway') || lowerMsg.includes('timeout') || lowerMsg.includes('502') || lowerMsg.includes('503')) {
+    return 'The server is currently overloaded or taking too long to respond. This can happen with very complex queries or high traffic.';
+  }
+  
+  return errorMsg;
+};
+
 const ChatPage: React.FC = () => {
   const { user, initialized } = useAuthStore();
   const [session, setSession] = useState<any>(null);
@@ -673,6 +701,7 @@ const ChatPage: React.FC = () => {
           }
 
           if (trimmedLine.startsWith('data: ')) {
+            let apiError: Error | null = null;
             try {
               const dataString = trimmedLine.substring(6);
               if (dataString === '[DONE]') {
@@ -696,9 +725,14 @@ const ChatPage: React.FC = () => {
                   setStreamingStatus(data.status);
                 }
               } else if (data.error) {
-                throw new Error(data.error);
+                apiError = new Error(data.error);
               }
-            } catch (e) { }
+            } catch (e) {
+              // Ignore standard parsing errors
+            }
+            if (apiError) {
+              throw apiError;
+            }
           }
         }
 
@@ -781,25 +815,15 @@ const ChatPage: React.FC = () => {
       }
 
       let displayError = error.message || 'encountered a service interruption.';
-      if (displayError.includes('504') || displayError.toLowerCase().includes('gateway') || displayError.toLowerCase().includes('timeout')) {
-        displayError = 'The server is currently overloaded or taking too long to respond. This can happen with very complex queries or high traffic.';
-      }
+      displayError = sanitizeErrorMessage(displayError);
 
-      const errorId = `error-${Date.now()}`;
-      const errorMessage = {
-        id: errorId,
-        conversation_id: currentConvId!,
-        role: 'assistant' as const,
-        content: displayError,
-        metadata: {
+      if (currentConvId) {
+        await addMessage(currentConvId, 'assistant', displayError, {
           error: true,
           originalError: error.message,
           timestamp: Date.now()
-        },
-        created_at: new Date().toISOString()
-      };
-
-      setMessages([...useChatStore.getState().messages, errorMessage]);
+        });
+      }
     } finally {
       // Only clear local UI state if this was the active request for this conversation
       if (streamingIdRef.current === currentConvId) {
@@ -811,6 +835,7 @@ const ChatPage: React.FC = () => {
         setStreamingStatus(null);
         streamingIdRef.current = null;
       }
+      streamingOptimisticIdRef.current = null;
     }
   };
 
