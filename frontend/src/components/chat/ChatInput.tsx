@@ -227,6 +227,10 @@ export const ChatInput: React.FC<ChatInputProps> = ({
   const stopMediaStream = () => {
     if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
     if (progressiveIntervalRef.current) clearInterval(progressiveIntervalRef.current);
+    if (sttAbortControllerRef.current) {
+      sttAbortControllerRef.current.abort();
+      sttAbortControllerRef.current = null;
+    }
     if (mediaStreamRef.current) {
       mediaStreamRef.current.getTracks().forEach((track) => track.stop());
       mediaStreamRef.current = null;
@@ -236,9 +240,6 @@ export const ChatInput: React.FC<ChatInputProps> = ({
   React.useEffect(() => {
     return () => {
       stopMediaStream();
-      if (sttAbortControllerRef.current) {
-        sttAbortControllerRef.current.abort();
-      }
     };
   }, []);
 
@@ -266,14 +267,14 @@ export const ChatInput: React.FC<ChatInputProps> = ({
     setDictateState('processing');
     if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
 
-    // Text appearing sequence & speed control (2000ms delay per step)
+    // Text appearing sequence & speed control (3000ms delay per step)
     const steps = ['Processing...', 'Transcribing...', 'Just There...'];
     let stepIdx = 0;
     setProgressiveText(steps[0]);
     progressiveIntervalRef.current = setInterval(() => {
       stepIdx = (stepIdx + 1) % steps.length;
       setProgressiveText(steps[stepIdx]);
-    }, 2000);
+    }, 3000);
 
     const recorder = mediaRecorderRef.current;
 
@@ -287,7 +288,9 @@ export const ChatInput: React.FC<ChatInputProps> = ({
         const formData = new FormData();
         formData.append('file', file);
 
-        const response = await aiService.stt(formData, { signal: sttAbortControllerRef.current?.signal });
+        const response = await aiService.stt(formData, {
+          signal: sttAbortControllerRef.current?.signal,
+        });
 
         if (isCancelledRef.current) return;
 
@@ -309,7 +312,6 @@ export const ChatInput: React.FC<ChatInputProps> = ({
         const msg = error.response?.data?.message || error.message || 'Failed to transcribe audio.';
         toast.error(msg);
       } finally {
-        sttAbortControllerRef.current = null;
         if (isCancelledRef.current) return;
         stopMediaStream();
         setIsDictating(false);

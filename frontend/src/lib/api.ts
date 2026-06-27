@@ -86,12 +86,12 @@ export const aiService = {
     });
     return response.data;
   },
-  stt: async (formData: FormData, options?: { signal?: AbortSignal }) => {
+  stt: async (formData: FormData, config?: any) => {
     const response = await api.post('/stt', formData, {
       headers: {
         'Content-Type': 'multipart/form-data',
       },
-      signal: options?.signal,
+      ...config,
     });
     return response.data;
   },
