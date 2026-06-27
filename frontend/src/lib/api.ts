@@ -86,6 +86,14 @@ export const aiService = {
     });
     return response.data;
   },
+  stt: async (formData: FormData) => {
+    const response = await api.post('/stt', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+    return response.data;
+  },
   voiceComplete: async (durationSeconds: number, voiceSessionId?: string, apiCallsCount?: number) => {
     const response = await api.post('/ai/voice-complete', { durationSeconds, voiceSessionId, apiCallsCount });
     return response.data;

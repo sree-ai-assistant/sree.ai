@@ -10,5 +10,9 @@ router.use('/health', healthRoutes);
 router.use('/user', userRoutes);
 router.use('/ai', aiRoutes);
 router.use('/models', modelsRoutes);
+router.use('/stt', (req, res, next) => {
+  req.url = '/stt' + req.url;
+  aiRoutes(req, res, next);
+});
 
 export default router;

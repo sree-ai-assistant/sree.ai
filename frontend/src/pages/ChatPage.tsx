@@ -985,7 +985,7 @@ const ChatPage: React.FC = () => {
                     index={messages.length}
                     message={{
                       role: 'assistant',
-                      content: filteredStreamingMessage,
+                      content: `${filteredStreamingMessage} `,
                       metadata: {
                         mode: 'text',
                         optimisticId: streamingOptimisticIdRef.current

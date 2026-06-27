@@ -881,6 +881,74 @@ router.post('/voice', flexAuthMiddleware, abuseDetectionMiddleware(), queuePrior
   }
 }));
 
+// Speech to Text (Dictate Mode)
+router.post('/stt', flexAuthMiddleware, abuseDetectionMiddleware(), queuePriorityMiddleware, featureGateMiddleware('voiceToText'), rateLimitMiddleware('voice', 'deepgram'), upload.single('file'), uploadSizeValidator, withPriorityQueue(async (req: any, res) => {
+  try {
+    const file = req.file;
+    const userId = req.user?.id;
+    const anonId = req.anonId;
+    const tier = (req as any).userTier || 'anonymous';
+
+    if (!file) {
+      return res.status(400).json({ success: false, message: 'Audio file is required' });
+    }
+
+    const deepgramApiKey = req.apiKey;
+    const isByok = (req as any).isByok || false;
+
+    if (!deepgramApiKey) {
+      return res.status(400).json({
+        success: false,
+        message: 'Deepgram API Key not found. Please add it in settings.'
+      });
+    }
+
+    console.log(`[STT Route] Processing speech transcription: ${file.originalname} (${file.size} bytes, ${file.mimetype})`);
+
+    const result = await executeWithKeyRotation(
+      'deepgram',
+      isByok,
+      deepgramApiKey,
+      (rotatedKey) => aiService.transcribeAudio(rotatedKey, file.path)
+    );
+
+    if (fs.existsSync(file.path)) fs.unlinkSync(file.path);
+
+    const transcriptText = (typeof result === 'string' ? result : (result?.text || '')).trim();
+
+    let creditsCharged = 0;
+    if (transcriptText) {
+      // Deduct 0.2 credits for transcription only on valid result
+      const identity: RateLimitIdentity = userId
+        ? { type: 'authenticated', userId, tier }
+        : { type: 'anonymous', anonId: anonId || 'unknown', tier: 'anonymous' as any };
+
+      try {
+        const { checkAndIncrementMultiUsage } = await import('../services/usage.service');
+        await checkAndIncrementMultiUsage(identity, [
+          { tool: 'voice', amount: 0.2, isByok, bypassLimits: true }
+        ]);
+        creditsCharged = 0.2;
+        console.log(`[STT Route] Charged 0.2 voice credits for transcription (user: ${userId || anonId})`);
+      } catch (chargeErr) {
+        console.error('[STT Route] Failed to charge credit:', chargeErr);
+      }
+    } else {
+      console.log(`[STT Route] Empty transcript returned. No credits charged.`);
+    }
+
+    res.json({ success: true, text: transcriptText, data: transcriptText, creditsCharged });
+  } catch (error: any) {
+    console.error('STT Route Error:', error.response?.data || error.message);
+    if (req.file && fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path);
+
+    const status = error.response?.status || 500;
+    const message = error.response?.data?.message || error.message || 'Internal Server Error';
+
+    res.status(status).json({ success: false, message });
+  }
+}));
+
 // File Upload to R2
 router.post('/upload', flexAuthMiddleware, abuseDetectionMiddleware(), queuePriorityMiddleware, featureGateMiddleware('fileUpload'), rateLimitMiddleware('file_upload'), upload.single('file'), uploadSizeValidator, withPriorityQueue(async (req: any, res) => {
   try {
