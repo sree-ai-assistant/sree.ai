@@ -216,6 +216,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
   const timerIntervalRef = useRef<any>(null);
   const progressiveIntervalRef = useRef<any>(null);
   const isCancelledRef = useRef<boolean>(false);
+  const sttAbortControllerRef = useRef<AbortController | null>(null);
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -235,11 +236,18 @@ export const ChatInput: React.FC<ChatInputProps> = ({
   React.useEffect(() => {
     return () => {
       stopMediaStream();
+      if (sttAbortControllerRef.current) {
+        sttAbortControllerRef.current.abort();
+      }
     };
   }, []);
 
   const handleCancelDictate = () => {
     isCancelledRef.current = true;
+    if (sttAbortControllerRef.current) {
+      sttAbortControllerRef.current.abort();
+      sttAbortControllerRef.current = null;
+    }
     if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
       mediaRecorderRef.current.stop();
     }
@@ -254,6 +262,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
     if (!mediaRecorderRef.current) return;
 
     isCancelledRef.current = false;
+    sttAbortControllerRef.current = new AbortController();
     setDictateState('processing');
     if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
 
@@ -264,7 +273,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
     progressiveIntervalRef.current = setInterval(() => {
       stepIdx = (stepIdx + 1) % steps.length;
       setProgressiveText(steps[stepIdx]);
-    }, 3000);
+    }, 2000);
 
     const recorder = mediaRecorderRef.current;
 
@@ -278,7 +287,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
         const formData = new FormData();
         formData.append('file', file);
 
-        const response = await aiService.stt(formData);
+        const response = await aiService.stt(formData, { signal: sttAbortControllerRef.current?.signal });
 
         if (isCancelledRef.current) return;
 
@@ -295,11 +304,12 @@ export const ChatInput: React.FC<ChatInputProps> = ({
           toast.error('No speech detected or transcription failed.');
         }
       } catch (error: any) {
-        if (isCancelledRef.current) return;
+        if (isCancelledRef.current || error.name === 'CanceledError' || error.name === 'AbortError') return;
         console.error('Dictate STT Error:', error);
         const msg = error.response?.data?.message || error.message || 'Failed to transcribe audio.';
         toast.error(msg);
       } finally {
+        sttAbortControllerRef.current = null;
         if (isCancelledRef.current) return;
         stopMediaStream();
         setIsDictating(false);

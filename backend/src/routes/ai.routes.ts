@@ -914,10 +914,19 @@ router.post('/stt', flexAuthMiddleware, abuseDetectionMiddleware(), queuePriorit
 
     if (fs.existsSync(file.path)) fs.unlinkSync(file.path);
 
+    if (req.aborted || req.destroyed) {
+      console.log(`[STT Route] Client cancelled request during transcription. Skipping credit deduction.`);
+      return;
+    }
+
     const transcriptText = (typeof result === 'string' ? result : (result?.text || '')).trim();
 
     let creditsCharged = 0;
     if (transcriptText) {
+      if (req.aborted || req.destroyed) {
+        console.log(`[STT Route] Request aborted right before billing. Skipping credit deduction.`);
+        return;
+      }
       // Deduct 0.2 credits for transcription only on valid result
       const identity: RateLimitIdentity = userId
         ? { type: 'authenticated', userId, tier }
@@ -937,7 +946,9 @@ router.post('/stt', flexAuthMiddleware, abuseDetectionMiddleware(), queuePriorit
       console.log(`[STT Route] Empty transcript returned. No credits charged.`);
     }
 
-    res.json({ success: true, text: transcriptText, data: transcriptText, creditsCharged });
+    if (!res.writableEnded) {
+      res.json({ success: true, text: transcriptText, data: transcriptText, creditsCharged });
+    }
   } catch (error: any) {
     console.error('STT Route Error:', error.response?.data || error.message);
     if (req.file && fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path);
