@@ -1,6 +1,6 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Bot, User, AlertCircle, RefreshCw } from 'lucide-react';
+import { Bot, User, AlertCircle, RefreshCw, Copy, Check, Volume2, VolumeX, Play, Pause, Loader2 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import styles from '../../pages/ChatPage.module.css';
@@ -16,6 +16,10 @@ interface ChatMessageProps {
   isStreaming?: boolean;
   streamingStatus?: string | null;
   isProcessingVideo?: boolean;
+  activeTtsMessageId?: string | null;
+  ttsStatus?: 'idle' | 'preparing' | 'playing' | 'paused';
+  onPlayTts?: (messageId: string, text: string) => void;
+  onStopTts?: () => void;
 }
 
 const ChatMessageComponent: React.FC<ChatMessageProps> = ({
@@ -26,8 +30,26 @@ const ChatMessageComponent: React.FC<ChatMessageProps> = ({
   onRetry,
   isStreaming,
   streamingStatus,
-  isProcessingVideo
+  isProcessingVideo,
+  activeTtsMessageId,
+  ttsStatus,
+  onPlayTts,
+  onStopTts
 }) => {
+  const [copied, setCopied] = useState(false);
+  const messageId = m.id || `msg_${i}`;
+  const isPlayingThisTts = activeTtsMessageId === messageId;
+
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(m.content);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch (err) {
+      console.error('Failed to copy text:', err);
+    }
+  };
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 10 }}
@@ -43,7 +65,7 @@ const ChatMessageComponent: React.FC<ChatMessageProps> = ({
           className={styles.markdown}
           style={m.metadata?.mode === 'voice' ? { fontStyle: 'italic' } : {}}
         >
-          {isStreaming && !m.content ? (
+          {isStreaming && (!m.content || !m.content.trim()) ? (
             <ThinkingAnimation status={streamingStatus} isVideo={isProcessingVideo} />
           ) : (
             <>
@@ -82,12 +104,57 @@ const ChatMessageComponent: React.FC<ChatMessageProps> = ({
                       <span>Interrupted</span>
                     </div>
                   )}
+
+                  {m.role === 'assistant' && !isStreaming && onPlayTts && (
+                    <div className={styles.responseActions}>
+                      <button
+                        className={`${styles.actionBtn} ${isPlayingThisTts ? styles.playing : ''}`}
+                        onClick={() => onPlayTts?.(messageId, m.content)}
+                      >
+                        {isPlayingThisTts ? (
+                          <>
+                            {ttsStatus === 'preparing' && <Loader2 size={15} className={styles.spinner} />}
+                            {ttsStatus === 'playing' && <Pause size={15} />}
+                            {ttsStatus === 'paused' && <Play size={15} />}
+                            {(!ttsStatus || ttsStatus === 'idle') && <Volume2 size={15} />}
+                          </>
+                        ) : (
+                          <Volume2 size={15} />
+                        )}
+                        <span>
+                          {isPlayingThisTts ? (
+                            <>
+                              {ttsStatus === 'preparing' && 'Preparing'}
+                              {ttsStatus === 'playing' && 'Pause'}
+                              {ttsStatus === 'paused' && 'Play'}
+                              {(!ttsStatus || ttsStatus === 'idle') && 'Read'}
+                            </>
+                          ) : (
+                            'Read'
+                          )}
+                        </span>
+                      </button>
+                      <button className={styles.actionBtn} onClick={handleCopy}>
+                        {copied ? <Check size={15} /> : <Copy size={15} />}
+                        <span>{copied ? 'Copied' : 'Copy'}</span>
+                      </button>
+                    </div>
+                  )}
                 </>
               )}
             </>
           )}
         </div>
       </div>
+      {m.role === 'user' && !isStreaming && (
+        <button
+          className={styles.userCopyButton}
+          onClick={handleCopy}
+          title={copied ? "Copied!" : "Copy prompt"}
+        >
+          {copied ? <Check size={14} /> : <Copy size={14} />}
+        </button>
+      )}
     </motion.div>
   );
 };
@@ -100,6 +167,8 @@ export const ChatMessage = React.memo(ChatMessageComponent, (prevProps, nextProp
     prevProps.index === nextProps.index &&
     prevProps.isStreaming === nextProps.isStreaming &&
     prevProps.streamingStatus === nextProps.streamingStatus &&
-    prevProps.isProcessingVideo === nextProps.isProcessingVideo
+    prevProps.isProcessingVideo === nextProps.isProcessingVideo &&
+    prevProps.activeTtsMessageId === nextProps.activeTtsMessageId &&
+    prevProps.ttsStatus === nextProps.ttsStatus
   );
 });

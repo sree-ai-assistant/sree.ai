@@ -19,6 +19,50 @@ import { useUIStore } from '../store/ui.store';
 import { CodeBlock } from '../components/chat/CodeBlock';
 import { ChatMessage } from '../components/chat/ChatMessage';
 import { LimitModal } from '../components/modals/LimitModal';
+import { aiService } from '../lib/api';
+
+const cleanTextForTTS = (text: string) => {
+  let processed = text.replace(/<(think|thinking)>[\s\S]*?<\/\1>/gi, '');
+  processed = processed.replace(/<(think|thinking)>[\s\S]*/gi, '');
+  processed = processed.replace(/\[SYSTEM INSTRUCTION: [\s\S]*?\]/gi, '');
+  
+  const noEmojis = processed.replace(/[\p{Emoji_Presentation}\p{Extended_Pictographic}]/gu, '');
+  return noEmojis
+    .replace(/```[\s\S]*?```/g, '')
+    .replace(/`([^`]+)`/g, '$1')
+    .replace(/#{1,6}\s*/g, '')
+    .replace(/\|[^\n]*\|/g, '')
+    .replace(/[-*_]{3,}/g, '')
+    .replace(/!?\[([^\]]*)]\([^)]*\)/g, '$1')
+    .replace(/[*_~]/g, '')
+    .replace(/>/g, '')
+    .replace(/[()\[\]{}]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+};
+
+const splitTextIntoChunks = (text: string) => {
+  const sentences = text.match(/[^.!?\n]+[.!?\n]*/g) || [text];
+  const chunks: string[] = [];
+  let currentChunk = '';
+  let sentenceCount = 0;
+  const MIN_CHUNK_CHARS = 150;
+  const MAX_CHUNK_SENTENCES = 3;
+
+  for (const sentence of sentences) {
+    currentChunk += sentence;
+    sentenceCount++;
+    if (currentChunk.length >= MIN_CHUNK_CHARS || sentenceCount >= MAX_CHUNK_SENTENCES) {
+      chunks.push(currentChunk.trim());
+      currentChunk = '';
+      sentenceCount = 0;
+    }
+  }
+  if (currentChunk.trim()) {
+    chunks.push(currentChunk.trim());
+  }
+  return chunks;
+};
 
 const generateUUID = () => {
   if (typeof crypto !== 'undefined' && crypto.randomUUID) {
@@ -78,6 +122,340 @@ const ChatPage: React.FC = () => {
     type: 'anonymous' | 'rate-limited' | 'tiered' | 'abuse-cooldown' | 'abuse-captcha' | 'abuse-auth' | 'abuse-restricted' | 'anonymous-upload';
     limitInfo?: any;
   }>({ isOpen: false, type: 'anonymous' });
+
+  // TTS Read Aloud state and refs
+  const [activeTtsMessageId, setActiveTtsMessageId] = useState<string | null>(null);
+  const [ttsStatus, setTtsStatus] = useState<'idle' | 'preparing' | 'playing' | 'paused'>('idle');
+  const ttsStatusRef = useRef<'idle' | 'preparing' | 'playing' | 'paused'>('idle');
+  const activeTtsMessageIdRef = useRef<string | null>(null);
+  const activeAudioRef = useRef<HTMLAudioElement | null>(null);
+  const ttsStartTimeRef = useRef<number>(0);
+  const ttsSessionIdRef = useRef<string | null>(null);
+  const ttsCallsCountRef = useRef<number>(0);
+  const ttsAudioQueueRef = useRef<{ text: string; url: string | null }[]>([]);
+  const ttsChunksRef = useRef<string[]>([]);
+  const ttsCurrentChunkIndexRef = useRef<number>(0);
+  const isCancelledRef = useRef<boolean>(false);
+  const playResolveRef = useRef<(() => void) | null>(null);
+
+  // Message-specific cache for generated blob URLs to avoid fresh /tts generation calls on replay
+  const ttsMessageCacheRef = useRef<Map<string, { chunks: string[]; queue: { text: string; url: string | null }[] }>>(new Map());
+
+  const isTtsPaused = () => ttsStatusRef.current === 'paused';
+
+  const clearTtsCache = () => {
+    ttsMessageCacheRef.current.forEach((cached) => {
+      cached.queue.forEach((item) => {
+        if (item.url && item.url.startsWith('blob:')) {
+          try {
+            URL.revokeObjectURL(item.url);
+          } catch (e) {}
+        }
+      });
+    });
+    ttsMessageCacheRef.current.clear();
+  };
+
+  const fetchChunk = async (index: number, chunks: string[], queue: { text: string; url: string | null }[], sessionId: string) => {
+    if (index >= chunks.length || isCancelledRef.current) return;
+    if (queue[index].url !== null) return; // Already cached or processing
+
+    try {
+      ttsCallsCountRef.current++;
+      const blob = await aiService.generateSpeech(chunks[index], undefined, sessionId);
+      if (isCancelledRef.current) return;
+      const url = URL.createObjectURL(blob);
+      queue[index].url = url;
+    } catch (err: any) {
+      console.error(`[TTS Read] Error generating speech for chunk ${index}:`, err);
+      queue[index].url = '';
+      const errorMsg = err.message || '';
+      if (errorMsg.includes('rate limit') || errorMsg.includes('429') || errorMsg.includes('too many requests') || errorMsg.includes('limit')) {
+        toast.error("Rate limit exceeded for speech generation.");
+      } else {
+        toast.error("Failed to generate speech for this message.");
+      }
+    }
+  };
+
+  const playQueueFrom = async (startIndex: number, fullText: string) => {
+    const messageId = activeTtsMessageIdRef.current;
+    const queue = ttsAudioQueueRef.current;
+    const chunks = ttsChunksRef.current;
+    const sessionId = ttsSessionIdRef.current || '';
+
+    let playbackFailed = false;
+
+    for (let i = startIndex; i < chunks.length; i++) {
+      if (activeTtsMessageIdRef.current !== messageId || isCancelledRef.current) break;
+      if (isTtsPaused()) break;
+
+      ttsCurrentChunkIndexRef.current = i;
+
+      // Wait for chunk if not ready
+      const waitStart = Date.now();
+      while (queue[i].url === null) {
+        if (activeTtsMessageIdRef.current !== messageId || isCancelledRef.current || isTtsPaused()) break;
+        if (Date.now() - waitStart > 15000) {
+          console.warn(`[TTS Read] Fetch timeout for chunk ${i}, skipping`);
+          queue[i].url = '';
+          break;
+        }
+        await new Promise(r => setTimeout(r, 100));
+      }
+
+      if (activeTtsMessageIdRef.current !== messageId || isCancelledRef.current || isTtsPaused()) break;
+
+      const url = queue[i].url;
+      if (!url) {
+        if (i + 2 < chunks.length) {
+          fetchChunk(i + 2, chunks, queue, sessionId);
+        }
+        continue;
+      }
+
+      let audio = activeAudioRef.current;
+      if (!audio) {
+        audio = new Audio(url);
+        activeAudioRef.current = audio;
+      }
+
+      await new Promise<void>((resolvePlay) => {
+        playResolveRef.current = resolvePlay;
+        audio!.onended = () => {
+          playResolveRef.current = null;
+          resolvePlay();
+        };
+        audio!.onerror = () => {
+          playbackFailed = true;
+          playResolveRef.current = null;
+          resolvePlay();
+        };
+        if (isTtsPaused()) {
+          playResolveRef.current = null;
+          resolvePlay();
+          return;
+        }
+        audio!.play().catch(err => {
+          console.error("[TTS Read] Audio play failed:", err);
+          playbackFailed = true;
+          playResolveRef.current = null;
+          resolvePlay();
+        });
+      });
+
+      if (playbackFailed) {
+        console.warn(`[TTS Read] Cached audio failed to play for chunk ${i}, removing from cache and retrying freshly...`);
+        if (messageId) {
+          ttsMessageCacheRef.current.delete(messageId);
+        }
+        if (activeAudioRef.current) {
+          try {
+            activeAudioRef.current.pause();
+            activeAudioRef.current.src = '';
+          } catch (e) {}
+          activeAudioRef.current = null;
+        }
+        isCancelledRef.current = true;
+        if (playResolveRef.current) {
+          playResolveRef.current();
+          playResolveRef.current = null;
+        }
+        if (messageId) {
+          generateAndPlayTts(messageId, fullText);
+        }
+        return;
+      }
+
+      if (isTtsPaused()) {
+        break;
+      }
+
+      activeAudioRef.current = null;
+
+      if (i + 2 < chunks.length) {
+        fetchChunk(i + 2, chunks, queue, sessionId);
+      }
+    }
+
+    if (activeTtsMessageIdRef.current === messageId && !isCancelledRef.current && !isTtsPaused() && ttsCurrentChunkIndexRef.current === chunks.length - 1 && !activeAudioRef.current) {
+      await handleStopTts();
+    }
+  };
+
+  const handleStopTts = async () => {
+    if (!activeTtsMessageIdRef.current) return;
+
+    const durationSeconds = ttsStartTimeRef.current > 0 ? (Date.now() - ttsStartTimeRef.current) / 1000 : 0;
+    const sessionId = ttsSessionIdRef.current;
+    const callsCount = ttsCallsCountRef.current;
+
+    isCancelledRef.current = true;
+
+    if (playResolveRef.current) {
+      playResolveRef.current();
+      playResolveRef.current = null;
+    }
+
+    if (activeAudioRef.current) {
+      try {
+        activeAudioRef.current.pause();
+        activeAudioRef.current.src = '';
+      } catch (e) {}
+      activeAudioRef.current = null;
+    }
+
+    // Do NOT clear or revoke the queue items here, because we want to preserve the cache for replay.
+    // They will be cleaned up when the conversation changes or when the component unmounts.
+    activeTtsMessageIdRef.current = null;
+    setActiveTtsMessageId(null);
+    ttsSessionIdRef.current = null;
+    setTtsStatus('idle');
+    ttsStatusRef.current = 'idle';
+
+    try {
+      const result = await aiService.voiceComplete(durationSeconds, sessionId || undefined, 2 + callsCount);
+      const creditsCharged = result.creditsCharged || 1;
+      console.log(`[TTS Read] Charged ${creditsCharged} voice credit(s) based on ${callsCount} API calls`);
+      useUsageStore.getState().incrementLocalUsage('voice', creditsCharged);
+    } catch (chargeErr) {
+      console.error('[TTS Read] Failed to charge voice credits:', chargeErr);
+      useUsageStore.getState().incrementLocalUsage('voice', 1);
+    }
+  };
+
+  const generateAndPlayTts = async (messageId: string, fullText: string) => {
+    const cleanedText = cleanTextForTTS(fullText);
+    if (!cleanedText) {
+      toast.error("This message has no speakable text.");
+      return;
+    }
+
+    const chunks = splitTextIntoChunks(cleanedText);
+    if (chunks.length === 0) {
+      toast.error("This message has no speakable text.");
+      return;
+    }
+
+    const sessionId = generateUUID();
+    ttsSessionIdRef.current = sessionId;
+    ttsStartTimeRef.current = Date.now();
+    ttsCallsCountRef.current = 0;
+    activeTtsMessageIdRef.current = messageId;
+    setActiveTtsMessageId(messageId);
+    setTtsStatus('preparing');
+    ttsStatusRef.current = 'preparing';
+
+    ttsChunksRef.current = chunks;
+    ttsCurrentChunkIndexRef.current = 0;
+    isCancelledRef.current = false;
+
+    const queue = chunks.map(c => ({ text: c, url: null }));
+    ttsAudioQueueRef.current = queue;
+
+    // Cache the structure immediately
+    ttsMessageCacheRef.current.set(messageId, { chunks, queue });
+
+    await fetchChunk(0, chunks, queue, sessionId);
+    if (isCancelledRef.current || activeTtsMessageIdRef.current !== messageId) return;
+
+    if (chunks.length > 1) {
+      fetchChunk(1, chunks, queue, sessionId);
+    }
+
+    setTtsStatus('playing');
+    ttsStatusRef.current = 'playing';
+    playQueueFrom(0, fullText);
+  };
+
+  const handlePlayTts = async (messageId: string, fullText: string) => {
+    if (activeTtsMessageIdRef.current === messageId) {
+      if (isTtsPaused()) {
+        setTtsStatus('playing');
+        ttsStatusRef.current = 'playing';
+        if (activeAudioRef.current) {
+          try {
+            activeAudioRef.current.play();
+          } catch (e) {
+            console.error("Failed to play audio:", e);
+          }
+          playQueueFrom(ttsCurrentChunkIndexRef.current, fullText);
+        } else {
+          playQueueFrom(ttsCurrentChunkIndexRef.current, fullText);
+        }
+      } else if (ttsStatusRef.current === 'playing') {
+        if (activeAudioRef.current) {
+          activeAudioRef.current.pause();
+        }
+        setTtsStatus('paused');
+        ttsStatusRef.current = 'paused';
+        if (playResolveRef.current) {
+          playResolveRef.current();
+          playResolveRef.current = null;
+        }
+      } else if (ttsStatusRef.current === 'preparing') {
+        await handleStopTts();
+      }
+      return;
+    }
+
+    if (activeTtsMessageIdRef.current) {
+      await handleStopTts();
+    }
+
+    // Check Cache
+    const cached = ttsMessageCacheRef.current.get(messageId);
+    if (cached) {
+      console.log(`[TTS Cache] Reusing cached audio for message: ${messageId}`);
+      activeTtsMessageIdRef.current = messageId;
+      setActiveTtsMessageId(messageId);
+      ttsChunksRef.current = cached.chunks;
+      ttsAudioQueueRef.current = cached.queue;
+      ttsCurrentChunkIndexRef.current = 0;
+      isCancelledRef.current = false;
+
+      ttsSessionIdRef.current = generateUUID();
+      ttsStartTimeRef.current = Date.now();
+      ttsCallsCountRef.current = 0;
+
+      setTtsStatus('playing');
+      ttsStatusRef.current = 'playing';
+      playQueueFrom(0, fullText);
+      return;
+    }
+
+    await generateAndPlayTts(messageId, fullText);
+  };
+
+  // Clean up TTS and cache on unmount
+  useEffect(() => {
+    return () => {
+      if (playResolveRef.current) {
+        playResolveRef.current();
+        playResolveRef.current = null;
+      }
+      if (activeTtsMessageIdRef.current) {
+        if (activeAudioRef.current) {
+          try {
+            activeAudioRef.current.pause();
+            activeAudioRef.current.src = '';
+          } catch (e) {}
+          activeAudioRef.current = null;
+        }
+        const durationSeconds = ttsStartTimeRef.current > 0 ? (Date.now() - ttsStartTimeRef.current) / 1000 : 0;
+        const sessionId = ttsSessionIdRef.current;
+        const callsCount = ttsCallsCountRef.current;
+        aiService.voiceComplete(durationSeconds, sessionId || undefined, 2 + callsCount).catch(() => {});
+      }
+      clearTtsCache();
+    };
+  }, []);
+
+  // Stop TTS and clear cache when active conversation changes
+  useEffect(() => {
+    handleStopTts();
+    clearTtsCache();
+  }, [activeConversation?.id]);
 
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -927,6 +1305,10 @@ const ChatPage: React.FC = () => {
                     index={i}
                     markdownComponents={markdownComponents}
                     filterThinkingTags={filterThinkingTags}
+                    activeTtsMessageId={activeTtsMessageId}
+                    ttsStatus={ttsStatus}
+                    onPlayTts={handlePlayTts}
+                    onStopTts={handleStopTts}
                     onRetry={async (index, _content, _attachments, id) => {
                       if (activeConversation?.id) {
                         const allMessages = useChatStore.getState().messages;
