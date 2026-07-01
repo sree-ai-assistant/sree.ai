@@ -706,7 +706,7 @@ class AiService {
     }
   }
 
-  async transcribeAudio(apiKey: string, filePath: string, model: string = 'nova-2') {
+   async transcribeAudio(apiKey: string, filePath: string, model: string = 'nova-2') {
     const deepgram = new DeepgramClient({ apiKey });
 
     try {
@@ -730,6 +730,64 @@ class AiService {
       console.error('Deepgram Transcription Error:', error.message);
       throw error;
     }
+  }
+
+  /**
+   * Transcribe audio using Groq's Whisper API (OpenAI-compatible).
+   * Supports models: whisper-large-v3-turbo, whisper-large-v3
+   *
+   * @param originalFilename - Must include extension (e.g. "dictation.webm")
+   *   so Groq can detect the file type from the multipart filename field.
+   *   Multer temp files have no extension which causes 400 errors.
+   */
+  async transcribeAudioGroq(
+    apiKey: string,
+    filePath: string,
+    model: string = 'whisper-large-v3-turbo',
+    originalFilename: string = 'audio.webm'
+  ): Promise<{ text: string }> {
+    const FormData = (await import('form-data')).default;
+    const formData = new FormData();
+    formData.append('file', fs.createReadStream(filePath), {
+      filename: originalFilename,
+      contentType: this.getMimeFromFilename(originalFilename),
+    });
+    formData.append('model', model);
+    formData.append('response_format', 'json');
+
+    try {
+      const response = await axios.post(
+        'https://api.groq.com/openai/v1/audio/transcriptions',
+        formData,
+        {
+          headers: {
+            Authorization: `Bearer ${apiKey}`,
+            ...formData.getHeaders(),
+          },
+          timeout: 60_000,
+        }
+      );
+
+      const transcript = response.data?.text || '';
+      return { text: transcript };
+    } catch (error: any) {
+      const status = error.response?.status;
+      const detail = error.response?.data?.error?.message || error.message;
+      console.error(`Groq STT Error (${model}):`, status, detail);
+      throw error;
+    }
+  }
+
+  /** Resolve MIME type from filename for Groq audio upload */
+  private getMimeFromFilename(filename: string): string {
+    const ext = filename.split('.').pop()?.toLowerCase() || '';
+    const mimeMap: Record<string, string> = {
+      webm: 'audio/webm', mp3: 'audio/mpeg', mp4: 'audio/mp4',
+      m4a: 'audio/mp4', wav: 'audio/wav', ogg: 'audio/ogg',
+      flac: 'audio/flac', opus: 'audio/opus', mpeg: 'audio/mpeg',
+      mpga: 'audio/mpeg',
+    };
+    return mimeMap[ext] || 'audio/webm';
   }
 
   // uploadNvidiaAsset removed — NVCF Asset API requires enterprise access.

@@ -259,6 +259,7 @@ export async function getUsageStatus(identity: RateLimitIdentity) {
     const chatUsage = usageRecords?.find(r => r.tool_type === 'chat');
     const voiceUsage = usageRecords?.find(r => r.tool_type === 'voice');
     const imageUsage = usageRecords?.find(r => r.tool_type === 'image');
+    const sttUsage = usageRecords?.find(r => r.tool_type === 'stt');
 
     const checkReset = (record: any) => {
       if (!record) return { isDailyReset: true, isMonthlyReset: true };
@@ -271,6 +272,7 @@ export async function getUsageStatus(identity: RateLimitIdentity) {
     const chatR = checkReset(chatUsage);
     const voiceR = checkReset(voiceUsage);
     const imageR = checkReset(imageUsage);
+    const sttR = checkReset(sttUsage);
 
     profileUsage = {
       chat: {
@@ -287,6 +289,11 @@ export async function getUsageStatus(identity: RateLimitIdentity) {
         daily: { used: imageR.isDailyReset ? 0 : imageUsage?.daily_count || 0, limit: plan.limits.image.daily },
         monthly: { used: imageR.isMonthlyReset ? 0 : imageUsage?.monthly_count || 0, limit: plan.limits.image.monthly },
         dailyResetsIn: imageUsage?.last_daily_reset ? Math.max(0, Math.ceil((new Date(imageUsage.last_daily_reset).getTime() + 86400000 - now.getTime()) / 1000)) : null
+      },
+      stt: {
+        daily: { used: sttR.isDailyReset ? 0 : sttUsage?.daily_count || 0, limit: plan.limits.stt.daily },
+        monthly: { used: sttR.isMonthlyReset ? 0 : sttUsage?.monthly_count || 0, limit: plan.limits.stt.monthly },
+        dailyResetsIn: sttUsage?.last_daily_reset ? Math.max(0, Math.ceil((new Date(sttUsage.last_daily_reset).getTime() + 86400000 - now.getTime()) / 1000)) : null
       }
     };
   }

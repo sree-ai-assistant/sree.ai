@@ -993,10 +993,14 @@ const SettingsPage: React.FC = () => {
       );
     };
 
-    const displayUsage = usageStatus?.profileUsage || {
+    const displayUsage = usageStatus?.profileUsage ? {
+      ...usageStatus.profileUsage,
+      stt: (usageStatus.profileUsage as any).stt || usageStatus?.usage?.stt
+    } : {
       chat: usageStatus?.usage?.chat,
       voice: usageStatus?.usage?.voice,
       image: usageStatus?.usage?.image,
+      stt: usageStatus?.usage?.stt,
     };
 
     return (
@@ -1042,6 +1046,7 @@ const SettingsPage: React.FC = () => {
             {buildServiceCard('Chat', displayUsage?.chat, 'linear-gradient(90deg,#6366f1,#a855f7)', '💬')}
             {buildServiceCard('Voice', displayUsage?.voice, 'linear-gradient(90deg,#10b981,#3b82f6)', '🎙️')}
             {!isAnon && buildServiceCard('Image', displayUsage?.image, 'linear-gradient(90deg,#f43f5e,#fb923c)', '🖼️')}
+            {!isAnon && buildServiceCard('Dictation', displayUsage?.stt, 'linear-gradient(90deg,#8b5cf6,#ec4899)', '🎤')}
           </div>
 
           {/* Reset info */}
