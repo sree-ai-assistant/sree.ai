@@ -1046,7 +1046,7 @@ const SettingsPage: React.FC = () => {
             {buildServiceCard('Chat', displayUsage?.chat, 'linear-gradient(90deg,#6366f1,#a855f7)', '💬')}
             {buildServiceCard('Voice', displayUsage?.voice, 'linear-gradient(90deg,#10b981,#3b82f6)', '🎙️')}
             {!isAnon && buildServiceCard('Image', displayUsage?.image, 'linear-gradient(90deg,#f43f5e,#fb923c)', '🖼️')}
-            {!isAnon && buildServiceCard('Dictation', displayUsage?.stt, 'linear-gradient(90deg,#8b5cf6,#ec4899)', '🎤')}
+            {!isAnon && buildServiceCard('Speech to Text', displayUsage?.stt, 'linear-gradient(90deg,#8b5cf6,#ec4899)', '🎤')}
           </div>
 
           {/* Reset info */}
