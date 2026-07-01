@@ -351,13 +351,20 @@ export const ImageLightbox: React.FC<ImageLightboxProps> = ({
               </div>
             </div>
 
-            <div style={{ display: 'flex', gap: '12px', pointerEvents: 'auto' }}>
+            <div className={styles.footerActions}>
               <button
                 className={`${styles.secondaryBtn} ${isCopied ? styles.btnSuccess : ''}`}
                 onClick={(e) => { e.stopPropagation(); handleCopy(); }}
               >
                 {isCopied ? <Check size={18} /> : <Copy size={18} />}
                 {isCopied ? 'Copied!' : 'Copy Prompt'}
+              </button>
+              <button
+                className={styles.secondaryBtn}
+                onClick={(e) => { e.stopPropagation(); handleShare(); }}
+              >
+                <Share2 size={20} />
+                Share
               </button>
               <button
                 className={`${styles.downloadBtn} ${downloadStatus === 'success' ? styles.btnSuccess : ''} ${downloadStatus === 'error' ? styles.btnError : ''}`}
@@ -369,13 +376,6 @@ export const ImageLightbox: React.FC<ImageLightboxProps> = ({
                     downloadStatus === 'error' ? <AlertCircle size={20} /> :
                       <Download size={20} />}
                 Download Image
-              </button>
-              <button
-                className={styles.secondaryBtn}
-                onClick={(e) => { e.stopPropagation(); handleShare(); }}
-              >
-                <Share2 size={20} />
-                Share
               </button>
             </div>
           </div>

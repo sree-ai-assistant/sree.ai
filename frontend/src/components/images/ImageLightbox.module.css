@@ -158,6 +158,13 @@
   z-index: 100;
 }
 
+.footerActions {
+  display: flex;
+  gap: 12px;
+  pointer-events: auto;
+  justify-content: center;
+}
+
 .promptInfo {
   max-width: 600px;
   text-align: center;
@@ -316,4 +323,98 @@
   font-size: 0.9rem;
   margin-top: 4px;
 }
+
+/* Responsiveness adjustments */
+@media (max-width: 768px) {
+  .navButton {
+    display: none; /* Hide large desktop-only side navigation buttons on touch viewports */
+  }
+
+  .header {
+    padding: 16px 20px;
+  }
+
+  .headerActions {
+    gap: 8px;
+  }
+
+  .iconButton {
+    width: 40px;
+    height: 40px;
+    border-radius: 10px;
+  }
+
+  .iconButton svg {
+    width: 18px;
+    height: 18px;
+  }
+
+  .mainImage {
+    max-height: 55vh; /* Limit image height to guarantee space for text and buttons below */
+  }
+
+  .footer {
+    padding: 20px;
+    gap: 12px;
+  }
+
+  .promptText {
+    font-size: 0.95rem;
+    max-height: 80px;
+  }
+
+  .metadata {
+    gap: 12px;
+    font-size: 0.75rem;
+  }
+}
+
+@media (max-width: 600px) {
+  .header {
+    padding: 12px 16px;
+  }
+
+  .iconButton {
+    width: 36px;
+    height: 36px;
+    border-radius: 8px;
+  }
+
+  .iconButton svg {
+    width: 16px;
+    height: 16px;
+  }
+
+  .mainImage {
+    max-height: 48vh; /* Further restrict image height on very small mobile screens */
+    border-radius: 8px;
+  }
+
+  .footerActions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    width: 100%;
+    max-width: 400px;
+    padding: 0 8px;
+  }
+
+  .downloadBtn {
+    grid-column: span 2;
+    width: 100%;
+    padding: 12px 20px;
+    font-size: 0.85rem;
+    justify-content: center;
+    border-radius: 12px;
+  }
+
+  .secondaryBtn {
+    width: 100%;
+    padding: 12px 16px;
+    font-size: 0.85rem;
+    justify-content: center;
+    border-radius: 12px;
+  }
+}
+
 

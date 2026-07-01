@@ -1298,48 +1298,138 @@
     width: 100%;
     justify-content: flex-start;
   }
+  
+  /* Providers List */
   .providerItem {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 16px;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 12px 14px;
+  }
+  .providerLogo {
+    width: 36px;
+    height: 36px;
+  }
+  .providerName {
+    font-size: 0.9rem;
+  }
+  .providerStatus, .providerStatusMuted {
+    font-size: 0.75rem;
   }
   .providerButton {
-    width: 100%;
-    justify-content: center;
+    padding: 6px 12px;
+    font-size: 0.78rem;
+    border-radius: 8px;
+  }
+
+  /* Saved API Keys List */
+  .savedKeysList {
+    padding: 0 14px 14px;
+    gap: 8px;
   }
   .savedKeyItem {
-    flex-direction: column;
-    align-items: stretch;
-    gap: 16px;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 10px 12px;
+  }
+  .savedKeyProviderIcon {
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+  }
+  .savedKeyName {
+    font-size: 0.82rem;
+  }
+  .savedKeyMeta {
+    font-size: 0.7rem;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+  .savedKeyProviderBadge {
+    padding: 1px 6px;
+    font-size: 0.65rem;
+  }
+  .savedKeyDate {
+    font-size: 0.65rem;
   }
   .savedKeyActions {
-    justify-content: flex-end;
-    border-top: 1px solid rgba(255, 255, 255, 0.05);
-    padding-top: 12px;
-    width: 100%;
+    gap: 8px;
   }
+  .savedKeyToggle {
+    width: 36px;
+    height: 20px;
+  }
+  .savedKeyToggle label::after {
+    width: 16px;
+    height: 16px;
+    top: 2px;
+    left: 2px;
+  }
+  .savedKeyToggle input:checked + label::after {
+    transform: translateX(16px);
+  }
+  .savedKeyDeleteBtn {
+    width: 28px;
+    height: 28px;
+    border-radius: 6px;
+  }
+
+  /* Security Items */
   .securityItem {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 16px;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 12px 14px;
+  }
+  .securityInfo h4 {
+    font-size: 0.9rem;
+  }
+  .securityInfo p {
+    font-size: 0.75rem;
   }
   .securityItem button {
-    width: 100%;
-    justify-content: center;
+    width: auto;
+    padding: 6px 12px;
+    font-size: 0.78rem;
+    border-radius: 8px;
   }
+
+  /* Device Items */
   .deviceItem {
-    flex-direction: column;
-    align-items: flex-start;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
     gap: 12px;
+    padding: 12px 14px;
+  }
+  .deviceIcon {
+    width: 36px;
+    height: 36px;
+    border-radius: 8px;
+  }
+  .deviceName {
+    font-size: 0.9rem;
+  }
+  .deviceStatus {
+    font-size: 0.75rem;
   }
   .logoutDeviceBtn {
-    width: 100%;
-    margin-top: 4px;
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    margin-top: 0;
     justify-content: center;
   }
   .activeIndicator {
-    width: 100%;
-    justify-content: center;
+    width: auto;
+    padding: 4px 10px;
+  }
+  .activeTag {
+    font-size: 0.72rem;
   }
 }
 

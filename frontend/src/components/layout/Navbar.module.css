@@ -834,7 +834,7 @@
     background: linear-gradient(135deg, rgba(59, 130, 246, 0.12), rgba(139, 92, 246, 0.12));
     border: 1px solid rgba(255, 255, 255, 0.08);
     border-radius: 10px;
-    padding: 5px;
+    /* padding: 5px; */
   }
 }
 

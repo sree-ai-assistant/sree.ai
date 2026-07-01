@@ -25,7 +25,7 @@ export const useUIStore = create<UIState>((set) => ({
   targetTier: null,
   limitReached: false,
   remainingRequests: null,
-  sidebarCollapsed: localStorage.getItem('sidebar-collapsed') === 'true',
+  sidebarCollapsed: localStorage.getItem('sidebar-collapsed') === null ? true : localStorage.getItem('sidebar-collapsed') === 'true',
 
   openUpgradeModal: (tier) => set({ upgradeModalOpen: true, targetTier: tier || null }),
   closeUpgradeModal: () => set({ upgradeModalOpen: false, targetTier: null }),
