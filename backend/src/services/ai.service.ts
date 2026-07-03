@@ -570,8 +570,8 @@ class AiService {
     // Handle specialized FLUX models (editing/control) fallback if no image provided
     let isEditingModel = modelPath.includes('kontext') || modelPath.includes('canny') || modelPath.includes('depth');
     if (isFlux && isEditingModel && !image) {
-      console.warn(`[AiService] Model ${modelPath} requires an image context. Falling back to flux.1-dev for text-to-image.`);
-      modelPath = 'black-forest-labs/flux.1-dev';
+      console.warn(`[AiService] Model ${modelPath} requires an image context. Falling back to flux.2-klein-4b for text-to-image.`);
+      modelPath = 'black-forest-labs/flux.2-klein-4b';
       isEditingModel = false; // Reset editing status after fallback
     }
 
@@ -683,6 +683,147 @@ class AiService {
       console.error(`[AiService] Image generation failed for ${modelPath}: ${errMsg}`);
       if (errorData) {
         console.error(`[AiService] Error body:`, JSON.stringify(errorData));
+      }
+      throw new Error(`Image generation failed: ${errMsg}`);
+    }
+  }
+
+  /**
+   * Generate images using Google Gemini's native image generation models.
+   * Uses the generateContent API with responseModalities: ['IMAGE'].
+   * 
+   * Supported models: gemini-2.5-flash-image, gemini-3-pro-image, 
+   *                   gemini-3.1-flash-image, gemini-3.1-flash-lite-image
+   */
+  async generateImageGoogle(
+    apiKey: string,
+    prompt: string,
+    model: string = 'gemini-2.5-flash-image',
+    options: {
+      width?: number;
+      height?: number;
+      negative_prompt?: string;
+      seed?: number;
+      image_size?: string;
+    } = {}
+  ) {
+    const { width = 1024, height = 1024, negative_prompt, seed, image_size } = options;
+
+    // Build the enhanced prompt with negative prompt context if provided
+    let fullPrompt = prompt;
+    if (negative_prompt?.trim()) {
+      fullPrompt += `\n\nAvoid: ${negative_prompt.trim()}`;
+    }
+
+    // Build the request payload for Google's generateContent endpoint
+    const payload: any = {
+      contents: [
+        {
+          parts: [{ text: fullPrompt }]
+        }
+      ],
+      generationConfig: {
+        responseModalities: ['IMAGE'],
+        imageConfig: {
+          aspectRatio: '1:1',
+        }
+      }
+    };
+
+    // Add aspect ratio hint if non-square
+    if (width !== height) {
+      const ratio = width / height;
+      if (ratio > 1.6) {
+        payload.generationConfig.imageConfig.aspectRatio = '16:9';
+      } else if (ratio > 1.2) {
+        payload.generationConfig.imageConfig.aspectRatio = '4:3';
+      } else if (ratio > 0.9) {
+        payload.generationConfig.imageConfig.aspectRatio = '1:1';
+      } else if (ratio > 0.6) {
+        payload.generationConfig.imageConfig.aspectRatio = '3:4';
+      } else {
+        payload.generationConfig.imageConfig.aspectRatio = '9:16';
+      }
+    }
+
+    // Note: Google AI Studio endpoint (generativelanguage.googleapis.com) does not support
+    // personGeneration or imageOutputOptions under imageConfig. Only aspect_ratio (and optionally image_size) is accepted.
+    if (image_size) {
+      payload.generationConfig.imageConfig.imageSize = image_size;
+    }
+
+    // Add seed if provided (non-zero)
+    if (seed && seed > 0) {
+      payload.generationConfig.seed = seed;
+    }
+
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+
+    console.log(`[AiService] Google Image Generation | Model: ${model} | Prompt length: ${prompt.length}`);
+    console.log(`[AiService] Google Image Generation | Dimensions hint: ${width}x${height} | AspectRatio: ${payload.generationConfig.imageConfig.aspectRatio || '1:1'} | ImageSize: ${image_size || 'default'}`);
+
+    try {
+      const response = await axios.post(url, payload, {
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        timeout: 120000,
+      });
+
+      // Extract image data from the response
+      // Response structure: { candidates: [{ content: { parts: [{ inlineData: { mimeType, data } }] } }] }
+      const candidates = response.data?.candidates;
+      if (!candidates || candidates.length === 0) {
+        const blockReason = response.data?.promptFeedback?.blockReason;
+        if (blockReason) {
+          throw new Error(`Image generation blocked by safety filter: ${blockReason}. Please modify your prompt.`);
+        }
+        console.error(`[AiService] Google Image: Unexpected response structure:`, JSON.stringify(response.data).substring(0, 500));
+        throw new Error('No image data returned from Google API');
+      }
+
+      const artifacts: { base64: string; seed: number }[] = [];
+
+      for (const candidate of candidates) {
+        const parts = candidate.content?.parts || [];
+        for (const part of parts) {
+          if (part.inlineData?.data) {
+            artifacts.push({
+              base64: part.inlineData.data,
+              seed: seed || 0,
+            });
+          }
+        }
+      }
+
+      if (artifacts.length === 0) {
+        // Check if response had text instead of image (model might have refused)
+        const textParts = candidates[0]?.content?.parts?.filter((p: any) => p.text);
+        if (textParts?.length > 0) {
+          const refusalText = textParts.map((p: any) => p.text).join(' ');
+          throw new Error(`Image generation refused: ${refusalText.substring(0, 200)}`);
+        }
+        throw new Error('No image data found in Google API response');
+      }
+
+      console.log(`[AiService] Google Image: Successfully generated ${artifacts.length} image(s)`);
+
+      return { artifacts };
+    } catch (error: any) {
+      let errMsg = error.message;
+      const errorData = error.response?.data;
+
+      if (errorData) {
+        // Google API errors are nested under error.message or error.details
+        const detail = errorData.error?.message || errorData.message;
+        if (detail) {
+          errMsg = typeof detail === 'object' ? JSON.stringify(detail) : String(detail);
+        }
+      }
+
+      console.error(`[AiService] Google Image generation failed for ${model}: ${errMsg}`);
+      if (errorData) {
+        console.error(`[AiService] Google Error body:`, JSON.stringify(errorData).substring(0, 500));
       }
       throw new Error(`Image generation failed: ${errMsg}`);
     }

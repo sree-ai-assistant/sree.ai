@@ -31,8 +31,8 @@ export const SUPPORTED_PROVIDERS: ProviderConfig[] = [
     id: 'google',
     name: 'Google',
     description: 'Gemini models for chat & reasoning',
-    placeholder: 'AIza...',
-    keyPrefix: 'AIza',
+    placeholder: 'AIza... or AQ...',
+    keyPrefix: 'A',
     docsUrl: 'https://aistudio.google.com/apikey',
   },
   {

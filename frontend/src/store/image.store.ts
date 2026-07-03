@@ -25,6 +25,7 @@ export interface ImageSettings {
   steps: number;
   seed: number;
   cfgScale: number;
+  imageSize: string;
 }
 
 interface ImageState {
@@ -55,6 +56,7 @@ const DEFAULT_SETTINGS: ImageSettings = {
   steps: 30,
   seed: 0,
   cfgScale: 5,
+  imageSize: '1k',
 };
 
 export const useImageStore = create<ImageState>((set, get) => ({
@@ -96,6 +98,7 @@ export const useImageStore = create<ImageState>((set, get) => ({
           negativePrompt: image.negative_prompt || '',
           steps: image.steps || state.settings.steps,
           cfgScale: image.cfg_scale || state.settings.cfgScale,
+          imageSize: (image as any).image_size || state.settings.imageSize,
         }
       }));
     }

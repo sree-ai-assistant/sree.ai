@@ -210,6 +210,7 @@ const ImageGenPage: React.FC = () => {
   const selectedModel = imageModels.find(m => m.model_id === settings.modelId);
   const isFlux = settings.modelId.toLowerCase().includes('flux');
   const isFluxDev = isFlux && (settings.modelId.toLowerCase().includes('dev') || settings.modelId.toLowerCase().includes('kontext'));
+  const isGoogleImage = settings.modelId.startsWith('gemini-') && settings.modelId.includes('-image');
   const ratio = ASPECT_RATIOS[settings.ratioIndex];
 
   const handleGenerate = async () => {
@@ -220,12 +221,13 @@ const ImageGenPage: React.FC = () => {
       await generateImage({
         prompt: settings.prompt,
         model: settings.modelId,
-        negative_prompt: isFlux ? undefined : settings.negativePrompt || undefined,
+        negative_prompt: (isFlux || isGoogleImage) ? undefined : settings.negativePrompt || undefined,
         seed: settings.seed || 0,
-        steps: settings.steps,
+        steps: isGoogleImage ? undefined : settings.steps,
         width: ratio.w,
         height: ratio.h,
-        cfg_scale: (isFlux && !isFluxDev) ? undefined : settings.cfgScale,
+        cfg_scale: isGoogleImage ? undefined : ((isFlux && !isFluxDev) ? undefined : settings.cfgScale),
+        image_size: isGoogleImage ? settings.imageSize : undefined,
       });
     } catch (error: any) {
       if (error.response?.status === 429) {
@@ -364,7 +366,7 @@ const ImageGenPage: React.FC = () => {
                             {selectedModel && !canAccess(selectedModel.tier_required) && <Lock size={12} />}
                           </span>
                           <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                            {selectedModel?.is_fast ? 'Ultra Fast' : 'High Quality'}
+                            {selectedModel?.provider?.toLowerCase() === 'google' ? 'Google' : 'NVIDIA'} · {selectedModel?.is_fast ? 'Ultra Fast' : 'High Quality'}
                           </span>
                         </div>
                         <ChevronDown size={18} style={{ opacity: 0.5 }} />
@@ -440,7 +442,7 @@ const ImageGenPage: React.FC = () => {
                                   {m.is_fast && <Zap size={12} className="text-success" />}
                                 </div>
                                 <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', opacity: !accessible ? 0.55 : 1 }}>
-                                  {m.is_fast ? 'Ultra Fast' : 'High Quality'} {!accessible && `(Requires ${m.tier_required})`}
+                                  {m.provider?.toLowerCase() === 'google' ? 'Google' : 'NVIDIA'} · {m.is_fast ? 'Ultra Fast' : 'High Quality'} {!accessible && `(Requires ${m.tier_required})`}
                                 </span>
                               </DropdownMenu.Item>
                             );
@@ -477,19 +479,21 @@ const ImageGenPage: React.FC = () => {
                 <div className={styles.section}>
                   <span className={styles.sectionLabel}>Parameters</span>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                        <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Steps</span>
-                        <span style={{ fontSize: '0.8rem', fontWeight: 600 }}>{settings.steps}</span>
+                    {!isGoogleImage && (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                          <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Steps</span>
+                          <span style={{ fontSize: '0.8rem', fontWeight: 600 }}>{settings.steps}</span>
+                        </div>
+                        <input
+                          type="range" min={10} max={50} value={settings.steps}
+                          onChange={e => updateSettings({ steps: +e.target.value })}
+                          className={styles.rangeInput}
+                        />
                       </div>
-                      <input
-                        type="range" min={10} max={50} value={settings.steps}
-                        onChange={e => updateSettings({ steps: +e.target.value })}
-                        className={styles.rangeInput}
-                      />
-                    </div>
+                    )}
 
-                    {(!isFlux || isFluxDev) && (
+                    {!isGoogleImage && (!isFlux || isFluxDev) && (
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                           <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>CFG Scale</span>
@@ -500,6 +504,25 @@ const ImageGenPage: React.FC = () => {
                           onChange={e => updateSettings({ cfgScale: +e.target.value })}
                           className={styles.rangeInput}
                         />
+                      </div>
+                    )}
+
+                    {isGoogleImage && (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                        <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Image Size (Resolution)</span>
+                        <select
+                          value={settings.imageSize}
+                          onChange={e => updateSettings({ imageSize: e.target.value })}
+                          style={{
+                            background: 'rgba(255,255,255,0.05)', border: '1px solid var(--border-color)',
+                            borderRadius: '8px', padding: '8px 12px', color: 'white', fontSize: '0.85rem',
+                            outline: 'none', cursor: 'pointer'
+                          }}
+                        >
+                          <option value="1k" style={{ background: '#1c1c1e', color: 'white' }}>1K Resolution (Default)</option>
+                          <option value="2k" style={{ background: '#1c1c1e', color: 'white' }}>2K Resolution</option>
+                          <option value="4k" style={{ background: '#1c1c1e', color: 'white' }}>4K Resolution</option>
+                        </select>
                       </div>
                     )}
 
@@ -764,7 +787,7 @@ const ImageGenPage: React.FC = () => {
                             <Wand2 size={32} className="absolute inset-0 m-auto text-primary animate-pulse" />
                           </div>
                           <div style={{ textAlign: 'center' }}>
-                            <h3 style={{ fontSize: '1.2rem', marginBottom: '4px' }}>Diffusing...</h3>
+                            <h3 style={{ fontSize: '1.2rem', marginBottom: '4px' }}>{isGoogleImage ? 'Generating...' : 'Diffusing...'}</h3>
                             <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>Crafting your masterpiece with {selectedModel?.name}</p>
                           </div>
                         </motion.div>

@@ -89,6 +89,12 @@ const PROVIDER_MAP: Record<string, string> = {
   'gemini-3.1-flash-lite-preview': 'google',
   'gemini-3.1-flash-lite': 'google',
 
+  // Google Gemini Image Generation Models
+  'gemini-2.5-flash-image': 'google',
+  'gemini-3-pro-image': 'google',
+  'gemini-3.1-flash-image': 'google',
+  'gemini-3.1-flash-lite-image': 'google',
+
   // Groq API
   'groq/compound': 'groq',
   'groq/compound-mini': 'groq',

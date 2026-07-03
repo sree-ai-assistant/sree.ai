@@ -691,7 +691,7 @@ router.post('/chat', flexAuthMiddleware, abuseDetectionMiddleware(), queuePriori
 router.post('/image', flexAuthMiddleware, abuseDetectionMiddleware(), queuePriorityMiddleware, featureGateMiddleware('imageGeneration'), rateLimitMiddleware('image'), withPriorityQueue(async (req: any, res) => {
   try {
     const { v4: uuidv4 } = await import('uuid');
-    const { prompt, model, negative_prompt, seed, steps, width, height, cfg_scale, image, mode } = req.body;
+    const { prompt, model, negative_prompt, seed, steps, width, height, cfg_scale, image, mode, image_size } = req.body;
     const userId = req.user?.id;
     const anonId = (req as any).anonId;
     const isAuth = !!userId;
@@ -706,31 +706,54 @@ router.post('/image', flexAuthMiddleware, abuseDetectionMiddleware(), queuePrior
       return res.status(400).json({ success: false, message: 'Prompt is required' });
     }
 
-    const nvidiaApiKey = req.apiKey;
+    const apiKey = req.apiKey;
     const isByok = (req as any).isByok || false;
+    const provider = (req as any).provider || 'nvidia';
 
-    if (!nvidiaApiKey) {
+    if (!apiKey) {
+      const providerName = provider === 'google' ? 'Google' : 'NVIDIA';
       return res.status(400).json({
         success: false,
-        message: 'NVIDIA API Key not found. Please add it in settings.'
+        message: `${providerName} API Key not found. Please add it in settings.`
       });
     }
 
-    const result = await executeWithKeyRotation(
-      'nvidia',
-      isByok,
-      nvidiaApiKey,
-      (rotatedKey) => aiService.generateImage(rotatedKey, prompt, model, {
-        negative_prompt,
-        seed,
-        steps,
-        width,
-        height,
-        cfg_scale,
-        image,
-        mode,
-      })
+    // Route to provider-specific image generation
+    const isGoogleImageModel = model && (
+      model.startsWith('gemini-') && model.includes('-image')
     );
+
+    let result;
+    if (isGoogleImageModel) {
+      result = await executeWithKeyRotation(
+        'google',
+        isByok,
+        apiKey,
+        (rotatedKey) => aiService.generateImageGoogle(rotatedKey, prompt, model, {
+          width,
+          height,
+          negative_prompt,
+          seed,
+          image_size,
+        })
+      );
+    } else {
+      result = await executeWithKeyRotation(
+        'nvidia',
+        isByok,
+        apiKey,
+        (rotatedKey) => aiService.generateImage(rotatedKey, prompt, model, {
+          negative_prompt,
+          seed,
+          steps,
+          width,
+          height,
+          cfg_scale,
+          image,
+          mode,
+        })
+      );
+    }
 
     // Upload base64 images to R2 for persistent storage
     const images = [];
