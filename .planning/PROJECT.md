@@ -39,10 +39,10 @@ Users can interact with the best AI models through a single premium interface â€
 
 <!-- Current scope. Building toward these. -->
 
-- [ ] v2.0: Stripe/Razorpay Payment Gateway integration
-- [ ] v2.0: Admin dashboard for usage & abuse monitoring
-- [ ] v2.0: User usage analytics dashboard
-- [ ] v2.0: Team/Organization accounts (B2B features)
+- [ ] v2.1: Glassmorphic Video page UI designed with 21st.dev components & StitchMCP
+- [ ] v2.1: Google Veo 3.1, Veo 3, and Veo 2 models integrated in backend
+- [ ] v2.1: Model access gating (requires minimum Starter subscription tier)
+- [ ] v2.1: Video generation rate limiting, pricing tiers, and credit usage logs (BYOK support)
 
 ### Out of Scope
 
@@ -50,16 +50,19 @@ Users can interact with the best AI models through a single premium interface â€
 
 - Custom model fine-tuning interface â€” deferred
 
-## Next Milestone: v2.0 Payments & Administration
+## Next Milestone: v2.1 Video Generation & Google Veo Integration
 
-**Goal:** Commercialize the platform by integrating payment gateways and building administration tools for scale.
+**Goal:** Create a premium glassmorphic Video Generation interface and integrate Google's state-of-the-art Veo models, gated behind the Starter plan (premium tier).
 
 **Target features:**
-- Payment gateway integration (Stripe/Razorpay) for Starter and Pro plans
-- Automated subscription lifecycle (upgrade/downgrade/pro-rating)
-- Admin Dashboard: User management, abuse logs, manual limit overrides
-- User Analytics Dashboard: Personal usage history and token consumption breakdown
-- Team Accounts: Organization-level billing and quota sharing
+- Premium glassmorphic Video page (`VideoGenPage.tsx`) using 21st.dev components & StitchMCP design tokens.
+- Integration of Google Gemini/Veo APIs (`veo-3.1-generate-preview`, `veo-3.1-fast-generate-preview`, `veo-3.1-lite-generate-preview`, `veo-3.0-generate-001`, `veo-3.0-fast-generate-001`, `veo-2.0-generate-001`).
+- Feature gating ensuring the minimum subscription plan required is "Starter" (block Free plan access).
+- Backend credit usage tracking, pricing logs, and rate limit validation with support for user-supplied API keys (BYOK).
+
+## Future Milestone: v3.0 Payments & Administration
+
+**Goal:** Commercialize the platform by integrating payment gateways (Stripe/Razorpay) and building administration and analytics tools for scale.
 
 ## Completed Milestone: v1.0 Subscription & Rate Limiting System (âœ“)
 
