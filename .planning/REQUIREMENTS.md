@@ -82,6 +82,25 @@ Requirements for milestone v1.0 — Subscription & Rate Limiting System.
 - [x] **UX-04**: Blur chat input and disable send button when anonymous limit is reached
 - [x] **UX-05**: Block file upload UI entirely for anonymous users with login modal trigger
 
+## v2.1 Requirements: Video Generation & Google Veo Integration
+
+### User Interface & Layout (UI)
+
+- [ ] **VEO-01**: Create a premium glassmorphic Video Generation Page (`VideoGenPage.tsx`) using 21st.dev components and Stitch design tokens.
+- [ ] **VEO-02**: Provide layout options: prompt input, aspect ratio selectors (16:9, 9:16, 1:1), and quality/tier settings.
+- [ ] **VEO-03**: Implement a high-fidelity video player supporting playback, downloading, fullscreen, and smooth loading state animations.
+
+### Model Integration (MODEL)
+
+- [ ] **VEO-04**: Integrate Google Veo 3.1 APIs (`veo-3.1-generate-preview`, `veo-3.1-fast-generate-preview`, `veo-3.1-lite-generate-preview`).
+- [ ] **VEO-05**: Integrate legacy/stable Google Veo 3 APIs (`veo-3.0-generate-001`, `veo-3.0-fast-generate-001`) and Veo 2 (`veo-2.0-generate-001`).
+
+### Access Gating & Quota (GATE)
+
+- [ ] **VEO-06**: Enforce minimum subscription plan of **Starter** (Premium) for all video generation models, blocking Free and Anonymous users.
+- [ ] **VEO-07**: Update backend rate limiting and `usage_tracking` table to support video generation usage tracking by duration and tier.
+- [ ] **VEO-08**: Support user-supplied Gemini API Keys (BYOK) for video generation, calculating quota usage at a 0.2x discount rate.
+
 ## v2 Requirements
 
 Deferred to future release. Tracked but not in current roadmap.
@@ -100,11 +119,10 @@ Deferred to future release. Tracked but not in current roadmap.
 
 | Feature | Reason |
 |---------|--------|
-| Real payment processing | Separate milestone — business logic must be solid first |
-| Admin dashboard | Future milestone after core enforcement works |
-| Team/org accounts | Different user model, deferred |
-| Usage analytics dashboard | Nice-to-have, not core enforcement |
-| Custom model fine-tuning | Unrelated to subscription system |
+| Custom video post-processing / editing | Out of scope for milestone v2.1 |
+| Real payment processing | Deferred to v3.0 |
+| Admin dashboard | Deferred to v3.0 |
+| Team/org accounts | Deferred to v3.0 |
 | Mobile app | Web-first platform |
 
 ## Traceability
