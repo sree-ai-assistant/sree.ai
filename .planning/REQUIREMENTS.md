@@ -176,12 +176,21 @@ Which phases cover which requirements. Updated during roadmap creation.
 | UX-03 | Phase 13 | Completed |
 | UX-04 | Phase 13 | Completed |
 | UX-05 | Phase 13 | Completed |
+| VEO-01 | Phase 14 | Pending |
+| VEO-02 | Phase 14 | Pending |
+| VEO-03 | Phase 14 | Pending |
+| VEO-04 | Phase 15 | Pending |
+| VEO-05 | Phase 15 | Pending |
+| VEO-06 | Phase 16 | Pending |
+| VEO-07 | Phase 16 | Pending |
+| VEO-08 | Phase 16 | Pending |
 
 **Coverage:**
 - v1 requirements: 45 total
-- Mapped to phases: 45
+- v2.1 requirements: 8 total
+- Mapped to phases: 53
 - Unmapped: 0 ✓
 
 ---
 *Requirements defined: 2026-05-12*
-*Last updated: 2026-05-15 after milestone v1.0 completion*
+*Last updated: 2026-07-03*
