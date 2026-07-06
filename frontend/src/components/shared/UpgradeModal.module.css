@@ -19,6 +19,9 @@
   overflow: hidden;
   position: relative;
   box-shadow: 0 50px 100px rgba(0, 0, 0, 0.8);
+  display: flex;
+  flex-direction: column;
+  max-height: calc(100dvh - 2rem);
 }
 
 .modal::before {
@@ -51,14 +54,36 @@
   display: flex;
   flex-direction: column;
   align-items: center;
+  overflow-y: auto;
+  flex: 1;
+  width: 100%;
+}
+
+.content::-webkit-scrollbar {
+  width: 6px;
+}
+
+.content::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.content::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 3px;
+}
+
+.content::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.2);
 }
 
 .close {
   position: absolute;
   top: 1.5rem;
   right: 1.5rem;
-  background: rgba(255, 255, 255, 0.05);
-  border: none;
+  background: rgba(15, 15, 15, 0.6);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.15);
   color: var(--text-muted);
   width: 40px;
   height: 40px;
@@ -68,11 +93,13 @@
   justify-content: center;
   cursor: pointer;
   transition: all 0.2s ease;
+  z-index: 10;
 }
 
 .close:hover {
   background: rgba(255, 255, 255, 0.1);
   color: white;
+  border-color: rgba(255, 255, 255, 0.25);
 }
 
 .header {
@@ -87,6 +114,8 @@
   background: linear-gradient(to right, white, #A3A3A3);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
+  width: 100%;
+  word-wrap: break-word;
 }
 
 .subtitle {
@@ -195,4 +224,101 @@
   cursor: default !important;
   transform: none !important;
   box-shadow: none !important;
+}
+
+@media (max-width: 768px) {
+  .overlay {
+    padding: 0.5rem;
+  }
+
+  .modal {
+    border-radius: 1.5rem;
+    max-height: calc(100dvh - 1rem);
+  }
+
+  .content {
+    padding: 2.5rem 1.25rem 1.5rem;
+  }
+  
+  .close {
+    top: 1rem;
+    right: 1rem;
+    width: 36px;
+    height: 36px;
+  }
+
+  .header {
+    margin-bottom: 1.5rem;
+    padding: 0 1.5rem;
+  }
+
+  .title {
+    font-size: 1.5rem;
+    line-height: 1.2;
+  }
+
+  .subtitle {
+    font-size: 0.9rem;
+  }
+
+  .grid {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+    width: 100%;
+  }
+
+  .plan {
+    padding: 1.25rem;
+    border-radius: 1.25rem;
+  }
+
+  .planFeatured {
+    transform: none;
+    border-width: 2px;
+  }
+
+  .price {
+    font-size: 2rem;
+  }
+
+  .features {
+    margin-bottom: 1.5rem;
+  }
+
+  .feature {
+    font-size: 0.85rem;
+    margin-bottom: 0.5rem;
+  }
+
+  .button {
+    padding: 0.75rem;
+    font-size: 0.9rem;
+  }
+}
+
+@media (max-width: 380px) {
+  .title {
+    font-size: 1.25rem;
+  }
+  
+  .subtitle {
+    font-size: 0.85rem;
+  }
+
+  .content {
+    padding: 2.25rem 1rem 1rem;
+  }
+
+  .header {
+    padding: 0 1rem;
+    margin-bottom: 1.25rem;
+  }
+
+  .plan {
+    padding: 1rem;
+  }
+
+  .feature {
+    font-size: 0.8rem;
+  }
 }
