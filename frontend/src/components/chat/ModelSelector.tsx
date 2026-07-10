@@ -167,6 +167,11 @@ export const ModelSelector: React.FC = () => {
                 placeholder="Search models..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key !== 'Escape') {
+                    e.stopPropagation();
+                  }
+                }}
                 onClick={(e) => e.stopPropagation()}
               />
             </div>
@@ -247,6 +252,7 @@ export const ModelSelector: React.FC = () => {
                               }
                             );
                             openUpgradeModal(model.tier_required as 'starter' | 'pro');
+                            setIsOpen(false);
                             return;
                           }
 

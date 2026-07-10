@@ -28,7 +28,8 @@ class PriorityQueueService {
     image: 0,
     file_upload: 0,
     download: 0,
-    stt: 0
+    stt: 0,
+    video: 0
   };
 
   private readonly CONCURRENCY_LIMITS: Record<ToolType, number> = {
@@ -37,7 +38,8 @@ class PriorityQueueService {
     image: 2, // Image generation is heavy
     file_upload: 5,
     download: 10,
-    stt: 5
+    stt: 5,
+    video: 1 // Video generation is extremely heavy
   };
 
   /**

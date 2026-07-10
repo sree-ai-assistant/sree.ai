@@ -26,6 +26,7 @@ import { useAuthStore } from '../../store/auth.store';
 import { useUsageStore } from '../../store/usage.store';
 import { useUIStore } from '../../store/ui.store';
 import toast from 'react-hot-toast';
+import { OAuthBadge } from './OAuthBadge';
 import styles from './Navbar.module.css';
 
 export const Navbar: React.FC = () => {
@@ -36,11 +37,17 @@ export const Navbar: React.FC = () => {
   const navigate = useNavigate();
   const [isToolsOpen, setIsToolsOpen] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
+  const [avatarError, setAvatarError] = useState(false);
+
+  useEffect(() => {
+    setAvatarError(false);
+  }, [user?.avatar_url]);
   const toolsRef = useRef<HTMLDivElement>(null);
   const userMenuRef = useRef<HTMLDivElement>(null);
 
   const isChatPage = location.pathname.startsWith('/chat') || location.pathname === '/';
   const isImagesPage = location.pathname.startsWith('/images');
+  const isVideoPage = location.pathname.startsWith('/video');
   const isSettingsPage = location.pathname.startsWith('/settings');
   const isPricingPage = location.pathname.startsWith('/pricing');
 
@@ -96,7 +103,7 @@ export const Navbar: React.FC = () => {
     const isVoicePage = location.pathname.startsWith('/voice');
 
     if (usageLoading || !status) {
-      if (isChatPage || isVoicePage || isImagesPage) {
+      if (isChatPage || isVoicePage || isImagesPage || isVideoPage) {
         return (
           <div className={styles.usagePills} onClick={() => { navigate('/settings?tab=billing'); setIsUserMenuOpen(false); }}>
             <div className={styles.usageSkeletonPill}>
@@ -159,6 +166,15 @@ export const Navbar: React.FC = () => {
       );
     }
 
+    if (isVideoPage) {
+      const videoData = (status.profileUsage as any)?.video || (status.usage as any)?.video;
+      return (
+        <div className={`${styles.usagePills} ${styles.videoPagePills}`} onClick={() => { if (user) { navigate('/settings?tab=billing'); setIsUserMenuOpen(false); } }}>
+          {buildPill('Video', videoData, styles.videoFill)}
+        </div>
+      );
+    }
+
     // All other pages — no pills
     return null;
   };
@@ -166,10 +182,11 @@ export const Navbar: React.FC = () => {
   // Usage summary for dropdown
   const renderDropdownUsage = () => {
     if (!status?.usage) return null;
-    const displayUsage = status.profileUsage || {
-      chat: status.usage.chat,
-      voice: status.usage.voice,
-      image: status.usage.image,
+    const displayUsage: any = status.profileUsage || {
+      chat: status.usage?.chat,
+      voice: status.usage?.voice,
+      image: status.usage?.image,
+      video: (status.usage as any)?.video,
     };
 
     const renderRow = (tool: string, data: any, colorClass: string) => {
@@ -197,6 +214,7 @@ export const Navbar: React.FC = () => {
         {renderRow('Chat', displayUsage.chat, styles.chatFill)}
         {renderRow('Voice', displayUsage.voice, styles.voiceFill)}
         {status.tier?.toLowerCase() !== 'anonymous' && renderRow('Image', displayUsage.image, styles.imageFill)}
+        {status.tier?.toLowerCase() !== 'anonymous' && renderRow('Video', displayUsage.video || (status.usage as any)?.video, styles.videoFill)}
         {status.resets_in_seconds !== undefined && (
           <p className={styles.dropReset}>
             Resets in {(() => {
@@ -344,7 +362,7 @@ export const Navbar: React.FC = () => {
 
         {/* User menu or Login/Signup */}
         {authLoading ? (
-          <div className={`${styles.userSkeletonButton} ${isImagesPage ? styles.showOnImagePage : ''} ${isSettingsPage ? styles.showOnSettingsPage : ''} ${isPricingPage ? styles.showOnPricingPage : ''}`}>
+          <div className={`${styles.userSkeletonButton} ${isImagesPage ? styles.showOnImagePage : ''} ${isVideoPage ? styles.showOnImagePage : ''} ${isSettingsPage ? styles.showOnSettingsPage : ''} ${isPricingPage ? styles.showOnPricingPage : ''}`}>
             <div className={`${styles.userSkeletonInfo} ${isSettingsPage ? styles.showSkeletonInfo : ''}`}>
               <div className="skeleton" style={{ width: '60px', height: '10px', borderRadius: '3px' }} />
               <div className="skeleton" style={{ width: '45px', height: '8px', borderRadius: '3px', marginTop: '4px' }} />
@@ -352,7 +370,7 @@ export const Navbar: React.FC = () => {
             <div className="skeleton skeleton-circle" style={{ width: '32px', height: '32px' }} />
           </div>
         ) : user ? (
-          <div className={`${styles.userSection} ${isImagesPage ? styles.showOnImagePage : ''} ${isSettingsPage ? styles.showOnSettingsPage : ''} ${isPricingPage ? styles.showOnPricingPage : ''}`} ref={userMenuRef}>
+          <div className={`${styles.userSection} ${isImagesPage ? styles.showOnImagePage : ''} ${isVideoPage ? styles.showOnImagePage : ''} ${isSettingsPage ? styles.showOnSettingsPage : ''} ${isPricingPage ? styles.showOnPricingPage : ''}`} ref={userMenuRef}>
             <button
               onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
               className={styles.userButton}
@@ -361,15 +379,16 @@ export const Navbar: React.FC = () => {
                 <span className={styles.userName}>{displayName}</span>
                 <span className={styles.userPlan}>{planLabel} Plan</span>
               </div>
-              <div className={styles.userAvatar}>
-                {user.avatar_url ? (
-                  <img src={user.avatar_url} alt={displayName || 'User'} className={styles.avatarImg} />
+              <div className={`${styles.userAvatar} ${(!user.avatar_url || avatarError) ? styles.avatarPlaceholder : ''}`}>
+                {(user.avatar_url && !avatarError) ? (
+                  <img src={user.avatar_url} alt={displayName || 'User'} className={styles.avatarImg} onError={() => setAvatarError(true)} />
                 ) : (
-                  <span className={styles.avatarInitials}>{initials}</span>
+                  <User size={16} className={styles.avatarUserIcon} />
                 )}
+                <OAuthBadge provider={user.provider} size={10} />
               </div>
             </button>
-
+ 
             <AnimatePresence>
               {isUserMenuOpen && (
                 <motion.div
@@ -381,12 +400,13 @@ export const Navbar: React.FC = () => {
                   {/* User identity */}
                   <div className={styles.menuHeader}>
                     <div className={styles.menuAvatarRow}>
-                      <div className={styles.menuAvatar}>
-                        {user.avatar_url ? (
-                          <img src={user.avatar_url} alt={displayName || 'User'} className={styles.avatarImg} />
+                      <div className={`${styles.menuAvatar} ${(!user.avatar_url || avatarError) ? styles.avatarPlaceholder : ''}`}>
+                        {(user.avatar_url && !avatarError) ? (
+                           <img src={user.avatar_url} alt={displayName || 'User'} className={styles.avatarImg} onError={() => setAvatarError(true)} />
                         ) : (
-                          <span className={styles.avatarInitials}>{initials}</span>
+                          <User size={20} className={styles.avatarUserIcon} />
                         )}
+                        <OAuthBadge provider={user.provider} size={11} />
                       </div>
                       <div>
                         <p className={styles.userEmail}>{user.email}</p>
@@ -439,7 +459,7 @@ export const Navbar: React.FC = () => {
           </div>
         ) : (
           /* Not logged in: show Sign Up button only */
-          <div className={`${styles.authButtons} ${isImagesPage ? styles.showOnImagePage : ''}`}>
+          <div className={`${styles.authButtons} ${isImagesPage ? styles.showOnImagePage : ''} ${isVideoPage ? styles.showOnImagePage : ''}`}>
             <Link to="/signup" className={styles.signupBtn}>
               <UserPlus size={16} />
               <span>Sign Up</span>

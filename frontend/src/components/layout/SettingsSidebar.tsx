@@ -1,6 +1,6 @@
-import React from 'react';
-import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { motion, AnimatePresence } from 'framer-motion';
+import React, { useState, useEffect } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { motion } from 'framer-motion';
 import {
   User as LucideUser,
   Key,
@@ -10,17 +10,16 @@ import {
   LogOut,
   HelpCircle,
   Bell,
-  Settings as SettingsIcon,
   Zap,
   ArrowLeft,
   ChevronRight,
   Camera,
   RefreshCw,
   Crown,
-  Sparkles,
-  Smartphone
+  Sparkles
 } from 'lucide-react';
-import { useAuthStore, type User } from '../../store/auth.store';
+import { useAuthStore } from '../../store/auth.store';
+import { OAuthBadge } from './OAuthBadge';
 import styles from './SettingsSidebar.module.css';
 
 interface SettingsSidebarProps {
@@ -49,7 +48,11 @@ export const SettingsSidebar: React.FC<SettingsSidebarProps> = ({
   const { user, signOut } = useAuthStore();
   const fileInputRef = React.useRef<HTMLInputElement>(null);
   const navigate = useNavigate();
-  const location = useLocation();
+  const [avatarError, setAvatarError] = useState(false);
+
+  useEffect(() => {
+    setAvatarError(false);
+  }, [user?.avatar_url]);
 
   const planKey = user?.plan_type || 'free';
   const planInfo = PLAN_DISPLAY[planKey] || PLAN_DISPLAY.free;
@@ -198,11 +201,11 @@ export const SettingsSidebar: React.FC<SettingsSidebarProps> = ({
         <div className={styles.userSection}>
           <div className={styles.avatarWrapper}>
             <div className={styles.avatarContainer} onClick={() => !isUploadingAvatar && fileInputRef.current?.click()}>
-              {user?.avatar_url ? (
-                <img src={user.avatar_url} alt="Profile" className={styles.avatarImg} />
+              {(user?.avatar_url && !avatarError) ? (
+                <img src={user.avatar_url} alt="Profile" className={styles.avatarImg} onError={() => setAvatarError(true)} />
               ) : (
                 <div className={styles.avatarPlaceholder}>
-                  {(user?.display_name || user?.email || 'U')[0].toUpperCase()}
+                  <LucideUser size={18} style={{ color: 'var(--text-secondary)' }} />
                 </div>
               )}
               {isUploadingAvatar ? (
@@ -214,6 +217,7 @@ export const SettingsSidebar: React.FC<SettingsSidebarProps> = ({
                   <Camera size={12} />
                 </div>
               )}
+              <OAuthBadge provider={user?.provider} size={11} />
               <div className={styles.statusDot} />
             </div>
             <input

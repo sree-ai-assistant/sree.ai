@@ -120,6 +120,7 @@ const ImageGenPage: React.FC = () => {
   }>({ isOpen: false, type: 'anonymous' });
 
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [modelDropdownOpen, setModelDropdownOpen] = useState(false);
 
   const promptRef = useRef<HTMLTextAreaElement>(null);
 
@@ -357,7 +358,7 @@ const ImageGenPage: React.FC = () => {
 
                 <div className={styles.section}>
                   <span className={styles.sectionLabel}>Model Selection</span>
-                  <DropdownMenu.Root>
+                  <DropdownMenu.Root open={modelDropdownOpen} onOpenChange={setModelDropdownOpen}>
                     <DropdownMenu.Trigger asChild>
                       <button className={styles.dropdownTrigger}>
                         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '2px' }}>
@@ -429,9 +430,11 @@ const ImageGenPage: React.FC = () => {
                                       }
                                     );
                                     openUpgradeModal(m.tier_required as 'starter' | 'pro');
+                                    setModelDropdownOpen(false);
                                     return;
                                   }
                                   updateSettings({ modelId: m.model_id });
+                                  setModelDropdownOpen(false);
                                 }}
                               >
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', opacity: !accessible ? 0.55 : 1 }}>
@@ -641,9 +644,11 @@ const ImageGenPage: React.FC = () => {
                           </>
                         )}
 
-                        <button className={styles.upgradeButtonSmall} onClick={() => openUpgradeModal('pro')} style={{ marginTop: '8px' }}>
-                          <Zap size={14} /> Upgrade
-                        </button>
+                        {usage.tier?.toLowerCase() !== 'pro' && (
+                          <button className={styles.upgradeButtonSmall} onClick={() => openUpgradeModal('pro')} style={{ marginTop: '8px' }}>
+                            <Zap size={14} /> Upgrade
+                          </button>
+                        )}
                       </motion.div>
                     ) : (
                       <div className={styles.minimizedUsageContent}>
@@ -697,10 +702,12 @@ const ImageGenPage: React.FC = () => {
                       </>
                     )}
                   </div>
-                  <button className={styles.upgradeButton} onClick={() => openUpgradeModal('pro')}>
-                    <Maximize2 size={16} />
-                    Upgrade for More
-                  </button>
+                  {usage?.tier?.toLowerCase() !== 'pro' && (
+                    <button className={styles.upgradeButton} onClick={() => openUpgradeModal('pro')}>
+                      <Maximize2 size={16} />
+                      Upgrade for More
+                    </button>
+                  )}
                 </div>
               </div>
             </motion.aside>

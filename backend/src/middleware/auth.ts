@@ -42,3 +42,55 @@ export const authMiddleware = async (req: Request, res: Response, next: NextFunc
     next(error);
   }
 };
+
+export const starterPlanMiddleware = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const user = (req as any).user;
+    const tier = (req as any).userTier || 'anonymous';
+
+    if (!user || tier === 'anonymous') {
+      return res.status(401).json({
+        success: false,
+        code: 'AUTH_REQUIRED',
+        message: 'This feature requires a Starter or Pro account. Please sign in.'
+      });
+    }
+
+    if (tier === 'free') {
+      return res.status(403).json({
+        success: false,
+        code: 'FEATURE_LOCKED',
+        message: 'This feature requires a Starter or Pro plan. Please upgrade your plan.',
+        upgradeUrl: '/pricing'
+      });
+    }
+
+    next();
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const videoModelValidationMiddleware = (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { model } = req.body;
+    const allowedModels = [
+      'veo-3.1-generate-preview',
+      'veo-3.1-fast-generate-preview',
+      'veo-3.1-lite-generate-preview',
+      'gemini-omni-flash-preview'
+    ];
+
+    if (model && !allowedModels.includes(model)) {
+      return res.status(400).json({
+        success: false,
+        code: 'INVALID_MODEL',
+        message: 'Invalid video generation model. Supported models: veo-3.1-generate-preview, veo-3.1-fast-generate-preview, veo-3.1-lite-generate-preview, gemini-omni-flash-preview.'
+      });
+    }
+
+    next();
+  } catch (error) {
+    next(error);
+  }
+};

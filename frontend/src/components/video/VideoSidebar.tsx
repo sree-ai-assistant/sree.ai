@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import {
   Plus,
   Trash2,
-  Image as ImageIcon,
+  Video as VideoIcon,
   History,
   ChevronUp,
   ChevronDown,
@@ -12,38 +12,36 @@ import {
   LogOut,
   Zap,
   Star,
-  AlertCircle,
   PanelLeft,
   User,
   LogIn,
   Gift
 } from 'lucide-react';
-import { useImageStore } from '../../store/image.store';
+import { useVideoStore } from '../../store/video.store';
 import { useAuthStore } from '../../store/auth.store';
 import { useNavigate } from 'react-router-dom';
 import { OAuthBadge } from '../layout/OAuthBadge';
 import styles from '../layout/Sidebar.module.css';
 import { motion, AnimatePresence } from 'framer-motion';
 
-interface ImageSidebarProps {
+interface VideoSidebarProps {
   isCollapsed: boolean;
   setIsCollapsed: (value: boolean) => void;
-  onNewImage: () => void;
+  onNewVideo: () => void;
   onDeleteClick?: (id: string) => void;
   /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
-  onSelectImage?: (img: any) => void;
+  onSelectVideo?: (vid: any) => void;
 }
 
-export const ImageSidebar: React.FC<ImageSidebarProps> = ({
+export const VideoSidebar: React.FC<VideoSidebarProps> = ({
   isCollapsed,
   setIsCollapsed,
-  onNewImage,
+  onNewVideo,
   onDeleteClick,
-  onSelectImage
+  onSelectVideo
 }) => {
-  const { history, fetchHistory, activeImage, setActiveImage, deleteImage, isFetchingHistory, resetGenerationState } = useImageStore();
+  const { history, fetchHistory, activeVideo, setActiveVideo, deleteVideo } = useVideoStore();
   const { user, signOut } = useAuthStore();
-  const [imageLoadErrors, setImageLoadErrors] = useState<Record<string, boolean>>({});
   const navigate = useNavigate();
   const [isBottomExpanded, setIsBottomExpanded] = useState(false);
   const [avatarError, setAvatarError] = useState(false);
@@ -56,17 +54,16 @@ export const ImageSidebar: React.FC<ImageSidebarProps> = ({
     fetchHistory();
   }, [fetchHistory]);
 
-  const handleNewImage = () => {
-    resetGenerationState();
-    onNewImage();
+  const handleNewVideo = () => {
+    onNewVideo();
   };
 
   const handleDelete = (e: React.MouseEvent, id: string) => {
     e.stopPropagation();
     if (onDeleteClick) {
       onDeleteClick(id);
-    } else if (confirm('Delete this generation?')) {
-      deleteImage(id);
+    } else if (confirm('Delete this video generation?')) {
+      deleteVideo(id);
     }
   };
 
@@ -79,7 +76,7 @@ export const ImageSidebar: React.FC<ImageSidebarProps> = ({
     <aside className={`${styles.sidebar} ${isCollapsed ? styles.collapsed : ''}`}>
       <div className={styles.topSection}>
         <div className={styles.topHeader}>
-          {!isCollapsed && <span className={styles.brand}>SREE AI IMAGES</span>}
+          {!isCollapsed && <span className={styles.brand}>SREE AI VIDEOS</span>}
           <button
             className={styles.toggleBtn}
             onClick={() => setIsCollapsed(!isCollapsed)}
@@ -89,9 +86,9 @@ export const ImageSidebar: React.FC<ImageSidebarProps> = ({
           </button>
         </div>
 
-        <button className={styles.newChatBtn} onClick={handleNewImage} title="New Image">
+        <button className={styles.newChatBtn} onClick={handleNewVideo} title="New Video">
           <Plus size={22} strokeWidth={2.5} />
-          {!isCollapsed && <span style={{ marginLeft: '4px' }}>New Image</span>}
+          {!isCollapsed && <span style={{ marginLeft: '4px' }}>New Video</span>}
         </button>
       </div>
 
@@ -105,9 +102,9 @@ export const ImageSidebar: React.FC<ImageSidebarProps> = ({
 
         <div className={styles.historyList}>
           <AnimatePresence mode="popLayout">
-            {history.map((img) => (
+            {history.map((vid) => (
               <motion.div
-                key={img.id}
+                key={vid.id}
                 layout
                 initial={{ opacity: 0, x: -20 }}
                 animate={{ opacity: 1, x: 0 }}
@@ -115,49 +112,46 @@ export const ImageSidebar: React.FC<ImageSidebarProps> = ({
                 className={styles.historyItemWrapper}
               >
                 <div
-                  className={`${styles.historyItem} ${activeImage?.id === img.id ? styles.active : ''}`}
+                  className={`${styles.historyItem} ${activeVideo?.id === vid.id ? styles.active : ''}`}
                   onClick={() => {
-                    setActiveImage(img);
-                    onSelectImage?.(img);
+                    setActiveVideo(vid);
+                    onSelectVideo?.(vid);
                   }}
                   onKeyDown={(e) => {
                     if (e.key === 'Enter' || e.key === ' ') {
                       e.preventDefault();
-                      setActiveImage(img);
-                      onSelectImage?.(img);
+                      setActiveVideo(vid);
+                      onSelectVideo?.(vid);
                     }
                   }}
-                  title={img.prompt}
+                  title={vid.prompt}
                   role="button"
                   tabIndex={0}
                 >
                   <div className={styles.itemIcon}>
-                    {img.url && !imageLoadErrors[img.id] ? (
-                      <img
-                        src={img.url}
-                        alt="Thumbnail"
+                    {vid.url ? (
+                      <video
+                        src={vid.url}
+                        muted
+                        playsInline
                         style={{
                           width: '24px',
                           height: '24px',
                           borderRadius: '4px',
-                          objectFit: 'cover'
-                        }}
-                        onError={() => {
-                          setImageLoadErrors(prev => ({ ...prev, [img.id]: true }));
+                          objectFit: 'cover',
+                          background: 'rgba(0, 0, 0, 0.5)'
                         }}
                       />
-                    ) : imageLoadErrors[img.id] ? (
-                      <AlertCircle size={18} style={{ color: '#ef4444' }} />
                     ) : (
-                      <ImageIcon size={18} />
+                      <VideoIcon size={18} />
                     )}
                   </div>
                   {!isCollapsed && (
                     <>
-                      <span className={styles.itemTitle}>{img.prompt}</span>
+                      <span className={styles.itemTitle}>{vid.prompt}</span>
                       <button
                         className={styles.menuBtn}
-                        onClick={(e) => handleDelete(e, img.id)}
+                        onClick={(e) => handleDelete(e, vid.id)}
                         title="Delete"
                       >
                         <Trash2 size={14} />
@@ -169,14 +163,14 @@ export const ImageSidebar: React.FC<ImageSidebarProps> = ({
             ))}
           </AnimatePresence>
 
-          {!isFetchingHistory && history.length === 0 && !isCollapsed && (
+          {history.length === 0 && !isCollapsed && (
             <div style={{
               padding: '20px',
               textAlign: 'center',
               opacity: 0.3,
               fontSize: '0.8rem'
             }}>
-              No generations yet
+              No video generations yet
             </div>
           )}
         </div>

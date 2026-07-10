@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, useMemo, useDeferredValue } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { MessageSquare, ArrowLeft, MoreVertical, Lock, Clock, Sparkles, Zap, FileText, Mail, Code, ArrowUpRight, RotateCcw } from 'lucide-react';
+import { MessageSquare, ArrowLeft, MoreVertical, Lock, Clock, Sparkles, Zap, FileText, Mail, Code, ArrowUpRight, RotateCcw, ArrowDown } from 'lucide-react';
 import { DashboardLayout } from '../features/dashboard/DashboardLayout';
 import toast from 'react-hot-toast';
 import { supabase } from '../lib/supabase';
@@ -543,6 +543,7 @@ const ChatPage: React.FC = () => {
   const [isProcessingVideo, setIsProcessingVideo] = useState(false);
   const [attachments, setAttachments] = useState<any[]>([]);
   const [autoScrollEnabled, setAutoScrollEnabled] = useState(true);
+  const [showScrollButton, setShowScrollButton] = useState(false);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -679,8 +680,9 @@ const ChatPage: React.FC = () => {
     if (!scrollContainerRef.current) return;
     const { scrollTop, scrollHeight, clientHeight } = scrollContainerRef.current;
 
-    // Check if user is near bottom (within 100px)
-    const isAtBottom = scrollHeight - scrollTop - clientHeight < 100;
+    // Check if user is near bottom (within 150px)
+    const isAtBottom = scrollHeight - scrollTop - clientHeight < 150;
+    setShowScrollButton(!isAtBottom);
 
     if (isGenerating) {
       // If user scrolls up, disable auto-scroll
@@ -691,6 +693,15 @@ const ChatPage: React.FC = () => {
       else if (isAtBottom && !autoScrollEnabled) {
         setAutoScrollEnabled(true);
       }
+    }
+  };
+
+  const forceScrollToBottom = () => {
+    setAutoScrollEnabled(true);
+    setShowScrollButton(false);
+    if (scrollContainerRef.current) {
+      const container = scrollContainerRef.current;
+      container.scrollTo({ top: container.scrollHeight, behavior: 'smooth' });
     }
   };
 
@@ -705,6 +716,10 @@ const ChatPage: React.FC = () => {
       scrollToBottom('auto');
     }
   }, [displayedStreamingMessage, isGenerating, autoScrollEnabled]);
+
+  useEffect(() => {
+    setShowScrollButton(false);
+  }, [id]);
 
   useEffect(() => {
     if (!isGenerating) {
@@ -1384,6 +1399,36 @@ const ChatPage: React.FC = () => {
             )}
             <div ref={messagesEndRef} />
           </div>
+
+          <AnimatePresence>
+            {showScrollButton && (
+              <div className={`${styles.scrollButtonWrapper} ${isGenerating ? styles.loadingBtnWrapper : styles.arrowBtnWrapper}`}>
+                <motion.button
+                  key={isGenerating ? 'loading-btn' : 'arrow-btn'}
+                  initial={{ opacity: 0, y: 10, scale: 0.9 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: 10, scale: 0.9 }}
+                  whileHover={{ y: -2 }}
+                  whileTap={{ scale: 0.92 }}
+                  transition={{ duration: 0.2, ease: "easeOut" }}
+                  onClick={forceScrollToBottom}
+                  className={`${styles.scrollButton} ${isGenerating ? styles.loadingBtn : styles.arrowBtn}`}
+                  title={isGenerating ? "AI is writing... click to scroll to bottom" : "Scroll to bottom"}
+                  type="button"
+                >
+                  {isGenerating ? (
+                    <>
+                      <span className={styles.dot}></span>
+                      <span className={styles.dot}></span>
+                      <span className={styles.dot}></span>
+                    </>
+                  ) : (
+                    <ArrowDown size={18} strokeWidth={2.5} />
+                  )}
+                </motion.button>
+              </div>
+            )}
+          </AnimatePresence>
 
           <AnimatePresence>
             {lockTimeRemaining > 0 && (

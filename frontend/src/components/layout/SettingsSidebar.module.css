@@ -300,7 +300,7 @@
 }
 
 .avatarPlaceholder {
-  background: linear-gradient(135deg, #3B82F6, #8B5CF6);
+  background: #27272a;
   display: flex;
   align-items: center;
   justify-content: center;

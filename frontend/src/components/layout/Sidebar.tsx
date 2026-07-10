@@ -17,7 +17,10 @@ import {
   Mic,
   MessageCircle,
   Settings,
-  Image as ImageIcon
+  Image as ImageIcon,
+  User,
+  Gift,
+  LogIn
 } from 'lucide-react';
 import { useAuthStore } from '../../store/auth.store';
 import { useChatStore, type Conversation } from '../../store/chat.store';
@@ -26,6 +29,7 @@ import { useUsageStore } from '../../store/usage.store';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { UsageIndicator } from '../sidebar/UsageIndicator';
 import { LimitModal } from '../modals/LimitModal';
+import { OAuthBadge } from './OAuthBadge';
 import styles from './Sidebar.module.css';
 
 
@@ -43,6 +47,12 @@ export const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, setIsCollapsed })
   const chatUsage = status?.usage?.chat || (status?.usage ? Object.values(status.usage)[0] : null);
 
   const [showLimitModal, setShowLimitModal] = useState(false);
+  const [avatarError, setAvatarError] = useState(false);
+
+  useEffect(() => {
+    setAvatarError(false);
+  }, [user?.avatar_url]);
+
   const {
     conversations,
     activeConversation,
@@ -458,52 +468,66 @@ export const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, setIsCollapsed })
             )}
           </div>
 
-          <div className={`${styles.profileCard} ${(!isCollapsed && user?.plan_type === 'pro') ? styles.proCard : ''}`}>
-            <div className={styles.profileInfo}>
-              <div className={styles.avatar}>
-                <div className={styles.status} />
-                {user?.avatar_url ? (
-                  <img src={user.avatar_url} alt={user.display_name || 'User'} className={styles.avatarImg} />
-                ) : (
-                  (user?.display_name?.[0] || user?.email?.[0] || 'U').toUpperCase()
+          {user ? (
+            <div className={`${styles.profileCard} ${(!isCollapsed && user.plan_type === 'pro') ? styles.proCard : ''}`}>
+              <div className={styles.profileInfo}>
+                <div className={`${styles.avatar} ${(!user.avatar_url || avatarError) ? styles.avatarPlaceholder : ''}`}>
+                  <div className={styles.status} />
+                  {(user.avatar_url && !avatarError) ? (
+                    <img src={user.avatar_url} alt={user.display_name || 'User'} className={styles.avatarImg} onError={() => setAvatarError(true)} />
+                  ) : (
+                    <User size={18} className={styles.avatarUserIcon} />
+                  )}
+                  <OAuthBadge provider={user.provider} size={12} />
+                </div>
+                {!isCollapsed && (
+                  <div className={styles.details}>
+                    <span className={styles.name}>{user.display_name || user.email?.split('@')[0]}</span>
+                    <div className={styles.badge}>
+                      <Zap size={10} fill="currentColor" />
+                      <span>{user.plan_type === 'pro' ? 'Pro Member' : user.plan_type === 'starter' ? 'Starter Plan' : 'Free Plan'}</span>
+                    </div>
+                  </div>
                 )}
               </div>
-              {!isCollapsed && (
-                <div className={styles.details}>
-                  <span className={styles.name}>{user ? (user.display_name || user.email?.split('@')[0]) : 'Guest User'}</span>
-                  <div className={styles.badge}>
-                    <Zap size={10} fill="currentColor" />
-                    <span>{user ? (user.plan_type === 'pro' ? 'Pro Member' : user.plan_type === 'starter' ? 'Starter Plan' : 'Free Plan') : 'Anonymous'}</span>
-                  </div>
-                </div>
-              )}
-            </div>
 
-            <div className={styles.profileActions}>
-              {user ? (
+              <div className={styles.profileActions}>
                 <button className={styles.signOutBtn} onClick={handleSignOut} title="Sign Out">
                   <LogOut size={16} />
                 </button>
-              ) : (
-                <button className={styles.signOutBtn} onClick={() => handleNavigate('/login')} title="Sign In" style={{ color: 'var(--primary)' }}>
-                  <Zap size={16} />
-                </button>
-              )}
-              {user ? (
-                user.plan_type !== 'pro' && (
+                {user.plan_type !== 'pro' && (
                   <button className={styles.upgradeBtn} onClick={() => setShowLimitModal(true)} title="Upgrade Plan">
                     <Star size={16} />
                     {!isCollapsed && <span>Upgrade</span>}
                   </button>
-                )
+                )}
+              </div>
+            </div>
+          ) : (
+            <div className={isCollapsed ? styles.guestContainerCollapsed : styles.guestContainer}>
+              {isCollapsed ? (
+                <>
+                  <button className={styles.guestBtnCollapsed} onClick={() => handleNavigate('/login')} title="Login">
+                    <LogIn size={18} />
+                  </button>
+                  <button className={`${styles.guestBtnCollapsed} ${styles.joinBtnCollapsedHighlight}`} onClick={() => handleNavigate('/signup')} title="Join Sree AI">
+                    <Gift size={18} className={styles.giftIconFloating} />
+                  </button>
+                </>
               ) : (
-                <button className={styles.upgradeBtn} onClick={() => handleNavigate('/signup')} title="Create Account">
-                  <Plus size={16} />
-                  {!isCollapsed && <span>Join</span>}
-                </button>
+                <>
+                  <button className={styles.loginBtn} onClick={() => handleNavigate('/login')}>
+                    <LogIn size={16} />
+                    <span>Login</span>
+                  </button>
+                  <button className={styles.joinBtn} onClick={() => handleNavigate('/signup')}>
+                    <Gift size={16} className={styles.giftIconFloating} />
+                    <span>Join</span>
+                  </button>
+                </>
               )}
             </div>
-          </div>
+          )}
         </div>
       </aside>
 

@@ -49,7 +49,9 @@ class R2Service {
       const targetBucket = bucket || this.bucketName;
       const bucketPublicUrl = targetBucket === 'image-generation'
         ? process.env.IMAGE_GENERATION_PUBLIC_URL
-        : this.publicUrl;
+        : targetBucket === 'video-generations'
+          ? process.env.VIDEO_GENERATION_PUBLIC_URL
+          : this.publicUrl;
 
       if (bucketPublicUrl) {
         return `${bucketPublicUrl.replace(/\/$/, '')}/${fileName}`;
@@ -83,7 +85,9 @@ class R2Service {
       const targetBucket = bucket || this.bucketName;
       const bucketPublicUrl = targetBucket === 'image-generation'
         ? process.env.IMAGE_GENERATION_PUBLIC_URL
-        : this.publicUrl;
+        : targetBucket === 'video-generations'
+          ? process.env.VIDEO_GENERATION_PUBLIC_URL
+          : this.publicUrl;
 
       if (bucketPublicUrl) {
         return `${bucketPublicUrl.replace(/\/$/, '')}/${fileName}`;

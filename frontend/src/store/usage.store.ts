@@ -29,6 +29,7 @@ export interface UsageStatus {
     voice: { daily: ToolUsage; monthly: ToolUsage; dailyResetsIn?: number | null };
     image: { daily: ToolUsage; monthly: ToolUsage; dailyResetsIn?: number | null };
     stt: { daily: ToolUsage; monthly: ToolUsage; dailyResetsIn?: number | null };
+    video?: { daily: ToolUsage; monthly: ToolUsage; dailyResetsIn?: number | null };
   };
   subscription?: {
     billing_cycle_start: string | null;
@@ -203,7 +204,7 @@ interface UsageState {
   loading: boolean;
   error: string | null;
   fetchStatus: (isManualRefresh?: boolean) => Promise<void>;
-  incrementLocalUsage: (tool?: 'chat' | 'voice' | 'image' | 'stt', amount?: number) => void;
+  incrementLocalUsage: (tool?: 'chat' | 'voice' | 'image' | 'stt' | 'video', amount?: number) => void;
   clearStore: () => void;
 }
 
@@ -263,7 +264,7 @@ export const useUsageStore = create<UsageState>((set, get) => ({
     }
   },
 
-  incrementLocalUsage: (tool: 'chat' | 'voice' | 'image' | 'stt' = 'chat', amount: number = 1) => {
+  incrementLocalUsage: (tool: 'chat' | 'voice' | 'image' | 'stt' | 'video' = 'chat', amount: number = 1) => {
     const { status } = get();
     if (status) {
       const updatedStatus = { ...status };

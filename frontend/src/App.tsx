@@ -13,6 +13,8 @@ import ProtectedRoute from './components/auth/ProtectedRoute';
 import LoadingScreen from './components/shared/LoadingScreen';
 import { supabase } from './lib/supabase';
 
+import VideoGenPage from './pages/VideoGenPage';
+
 import { Toaster } from 'react-hot-toast';
 import { UpgradeModal } from './components/shared/UpgradeModal';
 import { LimitExceededModal } from './components/shared/LimitExceededModal';
@@ -103,6 +105,14 @@ function App() {
           element={
             <ProtectedRoute>
               <ImageGenPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/video/:id?"
+          element={
+            <ProtectedRoute>
+              <VideoGenPage />
             </ProtectedRoute>
           }
         />

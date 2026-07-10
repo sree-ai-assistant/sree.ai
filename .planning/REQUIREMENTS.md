@@ -86,14 +86,14 @@ Requirements for milestone v1.0 — Subscription & Rate Limiting System.
 
 ### User Interface & Layout (UI)
 
-- [ ] **VEO-01**: Create a premium glassmorphic Video Generation Page (`VideoGenPage.tsx`) using 21st.dev components and Stitch design tokens.
-- [ ] **VEO-02**: Provide layout options: prompt input, aspect ratio selectors (16:9, 9:16, 1:1), and quality/tier settings.
-- [ ] **VEO-03**: Implement a high-fidelity video player supporting playback, downloading, fullscreen, and smooth loading state animations.
+- [x] **VEO-01**: Create a premium glassmorphic Video Generation Page (`VideoGenPage.tsx`) using 21st.dev components and Stitch design tokens.
+- [x] **VEO-02**: Provide layout options: prompt input, aspect ratio selectors (16:9, 9:16, 1:1), and quality/tier settings.
+- [x] **VEO-03**: Implement a high-fidelity video player supporting playback, downloading, fullscreen, and smooth loading state animations.
 
 ### Model Integration (MODEL)
 
-- [ ] **VEO-04**: Integrate Google Veo 3.1 APIs (`veo-3.1-generate-preview`, `veo-3.1-fast-generate-preview`, `veo-3.1-lite-generate-preview`).
-- [ ] **VEO-05**: Integrate legacy/stable Google Veo 3 APIs (`veo-3.0-generate-001`, `veo-3.0-fast-generate-001`) and Veo 2 (`veo-2.0-generate-001`).
+- [x] **VEO-04**: Integrate Google Veo 3.1 APIs (`veo-3.1-generate-preview`, `veo-3.1-fast-generate-preview`, `veo-3.1-lite-generate-preview`).
+- [x] **VEO-05**: Integrate legacy/stable Google Veo 3 APIs (`veo-3.0-generate-001`, `veo-3.0-fast-generate-001`) and Veo 2 (`veo-2.0-generate-001`).
 
 ### Access Gating & Quota (GATE)
 
@@ -106,11 +106,13 @@ Requirements for milestone v1.0 — Subscription & Rate Limiting System.
 Deferred to future release. Tracked but not in current roadmap.
 
 ### Payments
+
 - **PAY-01**: Integrate Stripe/Razorpay for real subscription billing
 - **PAY-02**: Handle subscription upgrades, downgrades, and cancellations
 - **PAY-03**: Generate invoices and payment receipts
 
 ### Admin
+
 - **ADMIN-01**: Admin dashboard for viewing user analytics and abuse reports
 - **ADMIN-02**: Manual override for user plan types and limits
 - **ADMIN-03**: Abuse flag review and resolution workflow
@@ -176,16 +178,17 @@ Which phases cover which requirements. Updated during roadmap creation.
 | UX-03 | Phase 13 | Completed |
 | UX-04 | Phase 13 | Completed |
 | UX-05 | Phase 13 | Completed |
-| VEO-01 | Phase 14 | Pending |
-| VEO-02 | Phase 14 | Pending |
-| VEO-03 | Phase 14 | Pending |
-| VEO-04 | Phase 15 | Pending |
-| VEO-05 | Phase 15 | Pending |
+| VEO-01 | Phase 14 | Complete |
+| VEO-02 | Phase 14 | Complete |
+| VEO-03 | Phase 14 | Complete |
+| VEO-04 | Phase 15 | Complete |
+| VEO-05 | Phase 15 | Complete |
 | VEO-06 | Phase 16 | Pending |
 | VEO-07 | Phase 16 | Pending |
 | VEO-08 | Phase 16 | Pending |
 
 **Coverage:**
+
 - v1 requirements: 45 total
 - v2.1 requirements: 8 total
 - Mapped to phases: 53

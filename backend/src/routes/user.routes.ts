@@ -16,7 +16,7 @@ const avatarUpload = multer({ dest: 'uploads/avatars/', limits: { fileSize: 5 * 
 router.get('/profile', authMiddleware, async (req: any, res) => {
   try {
     const { data: profile, error } = await supabaseAdmin
-      .from('users')
+      .from('profiles')
       .select('*')
       .eq('id', req.user.id)
       .single();

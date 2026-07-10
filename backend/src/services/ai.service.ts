@@ -829,6 +829,334 @@ class AiService {
     }
   }
 
+  /**
+   * Generate video using Google models.
+   * Routes to the correct API:
+   *  - Veo models → predictLongRunning (long-running operation with polling)
+   *  - Gemini Omni Flash → Interactions API (synchronous, returns base64 inline)
+   */
+  async generateVideoGoogle(
+    apiKey: string,
+    prompt: string,
+    model: string = 'veo-3.1-fast-generate-preview',
+    options: {
+      resolution?: string;
+      aspectRatio?: string;
+      durationSeconds?: number;
+      fileUrl?: string;
+      lastFrameUrl?: string;
+    } = {}
+  ) {
+    // Route to Interactions API for Omni Flash
+    if (model === 'gemini-omni-flash-preview') {
+      return this.generateVideoOmniFlash(apiKey, prompt, options);
+    }
+
+    // Veo models use predictLongRunning
+    return this.generateVideoVeo(apiKey, prompt, model, options);
+  }
+
+  /**
+   * Generate video using Gemini Omni Flash via the Interactions API.
+   * POST /v1beta/interactions — returns base64 video data inline.
+   */
+  private async generateVideoOmniFlash(
+    apiKey: string,
+    prompt: string,
+    options: {
+      resolution?: string;
+      aspectRatio?: string;
+      durationSeconds?: number;
+      fileUrl?: string;
+      lastFrameUrl?: string;
+    } = {}
+  ) {
+    const { aspectRatio = '16:9', fileUrl } = options;
+
+    console.log(`[AiService] Omni Flash Video Generation | Prompt length: ${prompt.length} | AspectRatio: ${aspectRatio}`);
+
+    // Build input array — Omni Flash accepts an array of typed content parts
+    const inputParts: any[] = [];
+
+    // Attach image/video input if provided
+    if (fileUrl) {
+      try {
+        console.log(`[AiService] Fetching input file for Omni Flash: ${fileUrl}`);
+        const fileRes = await axios.get(fileUrl, { responseType: 'arraybuffer', timeout: 30000 });
+        const base64Data = Buffer.from(fileRes.data).toString('base64');
+        const mimeType = String(fileRes.headers['content-type'] || 'image/png');
+
+        if (mimeType.startsWith('image/')) {
+          inputParts.push({ type: 'image', data: base64Data, mime_type: mimeType });
+          console.log(`[AiService] Attached image to Omni Flash input (${base64Data.length} chars)`);
+        } else if (mimeType.startsWith('video/')) {
+          inputParts.push({ type: 'video', data: base64Data, mime_type: mimeType });
+          console.log(`[AiService] Attached video to Omni Flash input (${base64Data.length} chars)`);
+        }
+      } catch (err: any) {
+        console.error(`[AiService] Error downloading fileUrl for Omni Flash ${fileUrl}:`, err.message);
+      }
+    }
+
+    // Always add the text prompt
+    inputParts.push({ type: 'text', text: prompt });
+
+    // Use either the parts array or a plain string depending on whether there are media inputs
+    const input = inputParts.length === 1 ? prompt : inputParts;
+
+    const payload: any = {
+      model: 'gemini-omni-flash-preview',
+      input,
+    };
+
+    // Set aspect ratio if not default
+    if (aspectRatio && aspectRatio !== '16:9') {
+      payload.response_format = {
+        type: 'video',
+        aspect_ratio: aspectRatio
+      };
+    }
+
+    const interactionsUrl = `https://generativelanguage.googleapis.com/v1beta/interactions?key=${apiKey}`;
+
+    try {
+      console.log(`[AiService] Submitting Omni Flash Interactions request...`);
+      const res = await axios.post(interactionsUrl, payload, {
+        headers: { 'Content-Type': 'application/json' },
+        timeout: 300000, // 5 min — Omni Flash can take a while
+        maxContentLength: Infinity,
+        maxBodyLength: Infinity,
+      });
+
+      const data = res.data;
+
+      // Extract video base64 from the steps array (REST response format)
+      // Structure: { steps: [ { type: "model_output", content: [{ type: "video", mime_type: "video/mp4", data: "base64..." }] } ] }
+      let videoBase64: string | null = null;
+      let videoMimeType = 'video/mp4';
+
+      if (data.steps && Array.isArray(data.steps)) {
+        for (const step of data.steps) {
+          if (step.type === 'model_output' && Array.isArray(step.content)) {
+            for (const part of step.content) {
+              if (part.type === 'video' && part.data) {
+                videoBase64 = part.data;
+                videoMimeType = part.mime_type || 'video/mp4';
+                break;
+              }
+            }
+          }
+          if (videoBase64) break;
+        }
+      }
+
+      if (!videoBase64) {
+        console.error(`[AiService] Omni Flash: No video data in response. Keys: ${Object.keys(data).join(', ')}`);
+        console.error(`[AiService] Omni Flash response (truncated):`, JSON.stringify(data).substring(0, 1000));
+        throw new Error('Omni Flash video generation completed but no video data was returned');
+      }
+
+      const videoBuffer = Buffer.from(videoBase64, 'base64');
+      console.log(`[AiService] Omni Flash video generated, size: ${videoBuffer.length} bytes`);
+
+      return {
+        buffer: videoBuffer,
+        mimeType: videoMimeType
+      };
+
+    } catch (error: any) {
+      let errMsg = error.message;
+      const errorData = error.response?.data;
+
+      if (errorData) {
+        // errorData might be a Buffer if responseType wasn't set correctly
+        let parsed = errorData;
+        if (Buffer.isBuffer(errorData)) {
+          try { parsed = JSON.parse(errorData.toString()); } catch { parsed = { message: errorData.toString().substring(0, 500) }; }
+        }
+        const detail = parsed?.error?.message || parsed?.message;
+        if (detail) {
+          errMsg = typeof detail === 'object' ? JSON.stringify(detail) : String(detail);
+        }
+      }
+
+      console.error(`[AiService] Omni Flash video generation failed: ${errMsg}`);
+      throw new Error(`Video generation failed: ${errMsg}`);
+    }
+  }
+
+  /**
+   * Generate video using Google Veo models via predictLongRunning.
+   * Performs long running operation submission and polling.
+   */
+  private async generateVideoVeo(
+    apiKey: string,
+    prompt: string,
+    model: string = 'veo-3.1-fast-generate-preview',
+    options: {
+      resolution?: string;
+      aspectRatio?: string;
+      durationSeconds?: number;
+      fileUrl?: string;
+      lastFrameUrl?: string;
+    } = {}
+  ) {
+    const { resolution = '720p', aspectRatio = '16:9', durationSeconds = 5, fileUrl, lastFrameUrl } = options;
+
+    const instance: any = { prompt };
+    if (fileUrl) {
+      try {
+        console.log(`[AiService] Fetching input file URL for Google Video generation: ${fileUrl}`);
+        const fileRes = await axios.get(fileUrl, { responseType: 'arraybuffer', timeout: 30000 });
+        const bytesBase64Encoded = Buffer.from(fileRes.data).toString('base64');
+        const mimeType = String(fileRes.headers['content-type'] || (fileUrl.endsWith('.mp4') ? 'video/mp4' : 'image/png'));
+        
+        if (mimeType.startsWith('image/')) {
+          instance.image = {
+            bytesBase64Encoded,
+            mimeType
+          };
+          console.log(`[AiService] Attached image reference to Google Video payload (${bytesBase64Encoded.length} chars)`);
+        } else if (mimeType.startsWith('video/')) {
+          instance.video = {
+            bytesBase64Encoded,
+            mimeType
+          };
+          console.log(`[AiService] Attached video reference to Google Video payload (${bytesBase64Encoded.length} chars)`);
+        }
+      } catch (err: any) {
+        console.error(`[AiService] Error downloading/attaching fileUrl ${fileUrl}:`, err.message);
+      }
+    }
+
+    if (lastFrameUrl) {
+      try {
+        console.log(`[AiService] Fetching ending frame file URL for Google Video generation: ${lastFrameUrl}`);
+        const lastFrameRes = await axios.get(lastFrameUrl, { responseType: 'arraybuffer', timeout: 30000 });
+        const lastFrameBytes = Buffer.from(lastFrameRes.data).toString('base64');
+        const lastFrameMime = lastFrameRes.headers['content-type'] || 'image/png';
+        
+        instance.lastFrame = {
+          bytesBase64Encoded: lastFrameBytes,
+          mimeType: lastFrameMime
+        };
+        instance.last_frame = {
+          bytesBase64Encoded: lastFrameBytes,
+          mimeType: lastFrameMime
+        };
+        console.log(`[AiService] Attached ending frame image reference to Google Video payload (${lastFrameBytes.length} chars)`);
+      } catch (err: any) {
+        console.error(`[AiService] Error downloading/attaching lastFrameUrl ${lastFrameUrl}:`, err.message);
+      }
+    }
+
+    const payload = {
+      instances: [instance],
+      parameters: {
+        sampleCount: 1,
+        resolution,
+        aspectRatio,
+        durationSeconds
+      }
+    };
+
+    const submitUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:predictLongRunning?key=${apiKey}`;
+
+    console.log(`[AiService] Google Video Generation | Model: ${model} | Prompt length: ${prompt.length}`);
+    console.log(`[AiService] Google Video Generation | Params: Resolution: ${resolution} | AspectRatio: ${aspectRatio} | Duration: ${durationSeconds}s`);
+
+    try {
+      // 1. Submit prediction operation
+      const submitRes = await axios.post(submitUrl, payload, {
+        headers: { 'Content-Type': 'application/json' },
+        timeout: 60000,
+      });
+
+      const operation = submitRes.data;
+      if (!operation || !operation.name) {
+        console.error(`[AiService] Google Video Submit: Unexpected response:`, JSON.stringify(operation));
+        throw new Error('Failed to start video generation operation');
+      }
+
+      const operationName = operation.name;
+      console.log(`[AiService] Google Video Operation started: ${operationName}`);
+
+      // 2. Poll operation until done
+      const pollUrl = `https://generativelanguage.googleapis.com/v1beta/${operationName}?key=${apiKey}`;
+      let done = false;
+      let attempts = 0;
+      const maxAttempts = 40; // 40 * 5s = 200 seconds max poll
+      let operationStatus: any = null;
+
+      while (!done && attempts < maxAttempts) {
+        attempts++;
+        await new Promise(resolve => setTimeout(resolve, 5000));
+        
+        console.log(`[AiService] Polling video operation: attempt ${attempts}/${maxAttempts}`);
+        const pollRes = await axios.get(pollUrl, { timeout: 30000 });
+        operationStatus = pollRes.data;
+
+        if (operationStatus.done) {
+          done = true;
+        } else if (operationStatus.error) {
+          throw new Error(operationStatus.error.message || 'Operation failed with error');
+        }
+      }
+
+      if (!done) {
+        throw new Error('Video generation timed out. Please try again.');
+      }
+
+      // 3. Parse result
+      if (operationStatus.error) {
+        throw new Error(operationStatus.error.message || 'Operation failed');
+      }
+
+      const responseData = operationStatus.response;
+      let videoUri = responseData?.generateVideoResponse?.generatedSamples?.[0]?.video?.uri ||
+                     responseData?.generatedVideos?.[0]?.video?.uri;
+
+      if (!videoUri) {
+        console.error(`[AiService] Completed operation data missing video uri:`, JSON.stringify(operationStatus).substring(0, 1000));
+        throw new Error('Video generation completed but no video URI was returned');
+      }
+
+      console.log(`[AiService] Video generation completed. Google URI: ${videoUri}`);
+
+      // 4. Download video file
+      const downloadRes = await axios.get(videoUri, {
+        headers: { 'x-goog-api-key': apiKey },
+        responseType: 'arraybuffer',
+        timeout: 60000
+      });
+
+      const videoBuffer = Buffer.from(downloadRes.data);
+      console.log(`[AiService] Video downloaded, size: ${videoBuffer.length} bytes`);
+
+      return {
+        buffer: videoBuffer,
+        mimeType: 'video/mp4'
+      };
+
+    } catch (error: any) {
+      let errMsg = error.message;
+      const errorData = error.response?.data;
+
+      if (errorData) {
+        const detail = errorData.error?.message || errorData.message;
+        if (detail) {
+          errMsg = typeof detail === 'object' ? JSON.stringify(detail) : String(detail);
+        }
+      }
+
+      console.error(`[AiService] Google Video generation failed: ${errMsg}`);
+      if (errorData) {
+        console.error(`[AiService] Google Error body:`, JSON.stringify(errorData).substring(0, 500));
+      }
+      throw new Error(`Video generation failed: ${errMsg}`);
+    }
+  }
+
   async generateSpeech(apiKey: string, input: string, model: string = 'aura-2-thalia-en') {
     const deepgram = new DeepgramClient({ apiKey });
 

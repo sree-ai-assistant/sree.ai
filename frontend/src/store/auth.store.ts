@@ -20,6 +20,7 @@ export interface User {
   occupation?: string;
   custom_instructions?: string;
   more_about_you?: string;
+  provider?: string;
 }
 
 interface AuthState {
@@ -61,13 +62,33 @@ export const useAuthStore = create<AuthState>((set) => ({
           .eq('id', session.user.id)
           .single();
 
+        const provider = session.user.app_metadata?.provider || 
+                         session.user.identities?.[0]?.provider || 
+                         (session.user.app_metadata?.providers?.[0]) || 
+                         'email';
+
         if (profile) {
+          let avatarUrl = profile.avatar_url;
+          if (!avatarUrl) {
+            const oauthAvatar = session.user.user_metadata?.avatar_url || session.user.user_metadata?.picture;
+            if (oauthAvatar) {
+              avatarUrl = oauthAvatar;
+              supabase
+                .from('profiles')
+                .update({ avatar_url: oauthAvatar })
+                .eq('id', session.user.id)
+                .then(({ error }) => {
+                  if (error) console.error('Error syncing OAuth avatar on init:', error);
+                });
+            }
+          }
+
           set({ 
             user: {
               id: session.user.id,
               email: session.user.email || profile.email,
               display_name: profile.display_name,
-              avatar_url: profile.avatar_url,
+              avatar_url: avatarUrl,
               plan_type: profile.plan_type as 'free' | 'starter' | 'pro',
               requests_remaining: profile.requests_remaining,
               credits: profile.requests_remaining,
@@ -76,6 +97,7 @@ export const useAuthStore = create<AuthState>((set) => ({
               occupation: profile.occupation,
               custom_instructions: profile.custom_instructions,
               more_about_you: profile.more_about_you,
+              provider,
             }, 
             loading: false, 
             initialized: true 
@@ -86,7 +108,8 @@ export const useAuthStore = create<AuthState>((set) => ({
             user: { 
               id: session.user.id, 
               email: session.user.email || '',
-              plan_type: 'free' as 'free'
+              plan_type: 'free' as 'free',
+              provider,
             }, 
             loading: false, 
             initialized: true 
@@ -106,12 +129,32 @@ export const useAuthStore = create<AuthState>((set) => ({
             .eq('id', session.user.id)
             .single();
           
+          let avatarUrl = profile?.avatar_url;
+          if (!avatarUrl && profile) {
+            const oauthAvatar = session.user.user_metadata?.avatar_url || session.user.user_metadata?.picture;
+            if (oauthAvatar) {
+              avatarUrl = oauthAvatar;
+              supabase
+                .from('profiles')
+                .update({ avatar_url: oauthAvatar })
+                .eq('id', session.user.id)
+                .then(({ error }) => {
+                  if (error) console.error('Error syncing OAuth avatar on auth change:', error);
+                });
+            }
+          }
+
+          const provider = session.user.app_metadata?.provider || 
+                           session.user.identities?.[0]?.provider || 
+                           (session.user.app_metadata?.providers?.[0]) || 
+                           'email';
+
           set({ 
             user: {
               id: session.user.id,
               email: session.user.email || '',
               display_name: profile?.display_name,
-              avatar_url: profile?.avatar_url,
+              avatar_url: avatarUrl,
               plan_type: (profile?.plan_type as 'free' | 'starter' | 'pro') || 'free',
               requests_remaining: profile?.requests_remaining,
               credits: profile?.requests_remaining,
@@ -120,6 +163,7 @@ export const useAuthStore = create<AuthState>((set) => ({
               occupation: profile?.occupation,
               custom_instructions: profile?.custom_instructions,
               more_about_you: profile?.more_about_you,
+              provider,
             }
           });
 

@@ -1,0 +1,61 @@
+﻿<USER_REQUEST>
+Goal
+
+Redesign the Video Generation page to match the existing Sree AI Image Generation page while adopting the modern workflow of Google Flow, Runway, Kling, and Pika.
+
+This should feel like Sree AI Version 2, NOT Google Flow cloned.
+
+Maintain the same visual identity used throughout the application:
+
+Dark glassmorphism
+Purple/Blue accent colors
+Rounded cards
+Neon glow
+Premium shadows
+Same typography
+Same spacing system
+Same button styles
+Same animations
+Same border radius
+Same navbar and left sidebar
+
+The Video page should immediately look like it belongs to the Sree AI ecosystem.
+
+Preserve Existing Navigation
+
+Keep exactly as it is:
+
+Top Navigation
+
+Logo
+Chat
+Voice
+Image
+Video
+Tools
+Credits
+User Menu
+
+Left Mini Sidebar
+
+New Video
+History
+Settings
+Profile
+
+Do not redesign navigation.
+
+Only redesign the page content.
+
+Remove the Permanent Settings Panel
+
+Delete the entire left parameter panel.
+
+Remove
+
+Model Selection
+Aspect Ratio
+Parameters
+Usage Card
+
+<truncated 5814 bytes>

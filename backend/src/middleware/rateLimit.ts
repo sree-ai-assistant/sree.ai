@@ -149,12 +149,16 @@ export const rateLimitMiddleware = (toolType: ToolType, provider?: string) => {
             const limitName = result.reason === 'minute' ? 'per minute' : result.reason === 'daily' ? 'daily' : 'monthly';
             result.message = `Voice ${limitName} limit reached (${result.used}/${result.limit}). Please upgrade or add credits or try again later.`;
           }
-        } else if (actualToolType === 'stt') {
-          // STT: read-only check here, credits charged in route handler upon success
+        } else if (actualToolType === 'stt' || actualToolType === 'video') {
+          // STT and Video: read-only check here, credits charged in route handler upon success
           result = await checkRateLimit(identity, actualToolType);
           if (!result.allowed) {
             const limitName = result.reason === 'minute' ? 'per minute' : result.reason === 'daily' ? 'daily' : 'monthly';
-            result.message = `Dictation ${limitName} limit reached (${result.used}/${result.limit}). Please upgrade or try again later.`;
+            if (actualToolType === 'video') {
+              result.message = `Video ${limitName} limit reached (${result.used}/${result.limit}). Please upgrade or try again later.`;
+            } else {
+              result.message = `Dictation ${limitName} limit reached (${result.used}/${result.limit}). Please upgrade or try again later.`;
+            }
           }
         } else {
           // We increment at the start of the request to prevent race conditions for other tools.

@@ -272,6 +272,14 @@
   background: linear-gradient(90deg, #f43f5e, #fb923c);
 }
 
+.videoFill {
+  background: linear-gradient(90deg, #00f2fe, #3b82f6);
+}
+
+.videoPagePills {
+  cursor: pointer;
+}
+
 /* ─── User Section ───────────────────────── */
 .userSection {
   position: relative;
@@ -340,9 +348,14 @@
   color: white;
   border: 2px solid rgba(255, 255, 255, 0.1);
   flex-shrink: 0;
-  overflow: hidden;
   box-shadow: 0 0 8px rgba(139, 92, 246, 0.3);
   transition: all 0.2s ease;
+  position: relative;
+}
+
+.avatarPlaceholder {
+  background: #27272a !important;
+  box-shadow: none !important;
 }
 
 .userButton:hover .userAvatar {
@@ -354,6 +367,7 @@
   width: 100%;
   height: 100%;
   object-fit: cover;
+  border-radius: 50%;
 }
 
 .avatarInitials {
@@ -385,7 +399,7 @@
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  overflow: hidden;
+  position: relative;
 }
 
 .userEmail {
@@ -536,14 +550,15 @@
   font-weight: 600;
   color: white;
   text-decoration: none;
-  background: linear-gradient(135deg, var(--primary), var(--accent));
-  border: none;
+  background: var(--primary);
+  border: 1px solid var(--primary);
   transition: all 0.2s ease;
   box-shadow: 0 2px 12px var(--primary-glow);
 }
 
 .signupBtn:hover {
-  opacity: 0.9;
+  background: #2563EB; /* Solid hover blue */
+  border-color: #2563EB;
   transform: translateY(-1px);
   box-shadow: 0 4px 16px var(--primary-glow);
 }

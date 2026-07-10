@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { authMiddleware } from '../middleware/auth';
+import { authMiddleware, starterPlanMiddleware, videoModelValidationMiddleware } from '../middleware/auth';
 import { flexAuthMiddleware } from '../middleware/anonymousIdentity';
 import { rateLimitMiddleware, featureGateMiddleware } from '../middleware/rateLimit';
 import { abuseDetectionMiddleware } from '../middleware/abuseDetection';
@@ -16,7 +16,7 @@ import fs from 'fs';
 import { TokenManager } from '../utils/tokenManager';
 import { supabaseAdmin } from '../lib/supabase';
 import { videoService, VideoService } from '../services/video.service';
-import { getUsageStatus, checkAndIncrementUsage, type RateLimitIdentity } from '../services/usage.service';
+import { getUsageStatus, checkAndIncrementUsage, checkAndIncrementMultiUsage, type RateLimitIdentity } from '../services/usage.service';
 import path from 'path';
 import axios from 'axios';
 // Removed static uuid import due to ESM/CJS compatibility issues
@@ -858,6 +858,157 @@ router.delete('/image/:id', flexAuthMiddleware, async (req: any, res) => {
     res.json({ success: true, message: 'Image deleted' });
   } catch (error: any) {
     console.error('Delete Image Error:', error.message);
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+
+
+// Video Generation
+router.post('/video', authMiddleware, starterPlanMiddleware, videoModelValidationMiddleware, abuseDetectionMiddleware(), queuePriorityMiddleware, featureGateMiddleware('videoGeneration'), rateLimitMiddleware('video'), withPriorityQueue(async (req: any, res) => {
+  try {
+    const { prompt, model, resolution, aspectRatio, durationSeconds, fileUrl, lastFrameUrl } = req.body;
+    const userId = req.user?.id;
+
+    if (!userId) {
+      return res.status(401).json({ success: false, message: 'Authentication required for video generation' });
+    }
+
+    if (!prompt || !prompt.trim()) {
+      return res.status(400).json({ success: false, message: 'Prompt is required' });
+    }
+
+    const apiKey = req.apiKey;
+    const isByok = (req as any).isByok || false;
+
+    if (!apiKey) {
+      return res.status(400).json({
+        success: false,
+        message: 'Google API Key not found. Please add it in settings.'
+      });
+    }
+
+    // Generate video buffer using Google service
+    const result = await executeWithKeyRotation(
+      'google',
+      isByok,
+      apiKey,
+      (rotatedKey) => aiService.generateVideoGoogle(rotatedKey, prompt, model, {
+        resolution,
+        aspectRatio,
+        durationSeconds: durationSeconds ? Number(durationSeconds) : 5,
+        fileUrl,
+        lastFrameUrl
+      })
+    );
+
+    // Upload video buffer to R2
+    const base64Data = result.buffer.toString('base64');
+    const url = await r2Service.uploadBase64(base64Data, result.mimeType || 'video/mp4', 'video-generations');
+
+    const duration = durationSeconds ? Number(durationSeconds) : 5;
+
+    // Save to user_videos table
+    const { error: dbError } = await supabaseAdmin
+      .from('user_videos')
+      .insert({
+        user_id: userId,
+        url: url,
+        prompt: prompt,
+        model: model,
+        duration: duration,
+        aspect_ratio: aspectRatio || '16:9',
+        resolution: resolution || '720p'
+      });
+
+    if (dbError) {
+      console.error(`[AI Route] Failed to save video to gallery:`, dbError);
+    }
+
+    // Charge usage credits: 1 video = 1 credit, BYOK = 0.2 credits
+    const baseCharge = 1;
+    const chargeAmount = isByok ? 0.2 : 1;
+
+    const identity: RateLimitIdentity = {
+      type: 'authenticated',
+      userId,
+      tier: (req as any).userTier || 'starter'
+    };
+
+    try {
+      await checkAndIncrementMultiUsage(identity, [
+        { tool: 'video', amount: baseCharge, isByok, bypassLimits: true }
+      ]);
+      console.log(`[Video Route] Charged ${chargeAmount} video credit(s) for video (model: ${model}, BYOK: ${isByok})`);
+    } catch (chargeErr: any) {
+      console.error('[Video Route] Failed to charge video credit:', chargeErr);
+    }
+
+    res.json({
+      success: true,
+      data: {
+        video: {
+          url,
+          prompt,
+          model,
+          duration,
+          aspect_ratio: aspectRatio || '16:9',
+          resolution: resolution || '720p'
+        },
+        creditsCharged: chargeAmount
+      }
+    });
+  } catch (error: any) {
+    console.error('Video Generation Error:', error.message);
+    res.status(500).json({ success: false, message: error.message });
+  }
+}));
+
+// Get User Video History
+router.get('/videos', flexAuthMiddleware, async (req: any, res) => {
+  try {
+    const userId = req.user?.id;
+
+    if (!userId) {
+      return res.status(401).json({ success: false, message: 'Authentication required' });
+    }
+
+    const { data, error } = await supabaseAdmin
+      .from('user_videos')
+      .select('*')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+
+    res.json({ success: true, data });
+  } catch (error: any) {
+    console.error('Fetch Videos Error:', error.message);
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// Delete User Video
+router.delete('/video/:id', flexAuthMiddleware, async (req: any, res) => {
+  try {
+    const userId = req.user?.id;
+    const { id } = req.params;
+
+    if (!userId) {
+      return res.status(401).json({ success: false, message: 'Authentication required' });
+    }
+
+    const { error } = await supabaseAdmin
+      .from('user_videos')
+      .delete()
+      .eq('id', id)
+      .eq('user_id', userId);
+
+    if (error) throw error;
+
+    res.json({ success: true, message: 'Video deleted' });
+  } catch (error: any) {
+    console.error('Delete Video Error:', error.message);
     res.status(500).json({ success: false, message: error.message });
   }
 });

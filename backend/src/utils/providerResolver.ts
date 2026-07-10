@@ -142,8 +142,8 @@ export async function resolveProvider(modelId: string): Promise<string> {
   // 4. Prefix/Infix matching for providers (Safety net)
   let resolved: string | null = null;
   
-  // Google Gemini models use a simple model_id like 'gemini-X.X-...'
-  if (normalizedId.startsWith('gemini-') || normalizedId.startsWith('gemini/')) {
+  // Google Gemini & Veo models use a simple model_id like 'gemini-X.X-...' or 'veo-...'
+  if (normalizedId.startsWith('gemini-') || normalizedId.startsWith('gemini/') || normalizedId.startsWith('veo-') || normalizedId.startsWith('veo/')) {
     resolved = 'google';
   }
 

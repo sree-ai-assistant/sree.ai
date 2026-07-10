@@ -23,7 +23,8 @@ import {
   EyeOff,
   X,
   AlertCircle,
-  Calendar
+  Calendar,
+  User
 } from 'lucide-react';
 import { DashboardLayout } from '../features/dashboard/DashboardLayout';
 import { SettingsSidebar } from '../components/layout/SettingsSidebar';
@@ -32,6 +33,7 @@ import { useAuthStore } from '../store/auth.store';
 import { useUsageStore } from '../store/usage.store';
 import ApiKeyModal from '../components/shared/ApiKeyModal';
 import { getProviderLogo, PROVIDER_COLORS } from '../components/icons/ProviderLogos';
+import { OAuthBadge } from '../components/layout/OAuthBadge';
 import styles from './SettingsPage.module.css';
 import { useUIStore } from '../store/ui.store';
 
@@ -112,6 +114,13 @@ const SettingsPage: React.FC = () => {
       });
     }
   }, [user]);
+
+  const [avatarError, setAvatarError] = useState(false);
+
+  useEffect(() => {
+    setAvatarError(false);
+  }, [profileData.avatar_url]);
+
   const [savedKeys, setSavedKeys] = useState<SavedApiKey[]>([]);
   const [keyModalOpen, setKeyModalOpen] = useState(false);
   const [keyModalProvider, setKeyModalProvider] = useState('');
@@ -499,13 +508,14 @@ const SettingsPage: React.FC = () => {
           <div className={styles.profileHero}>
             <div className={styles.avatarSection}>
               <div className={styles.avatarContainer}>
-                {profileData.avatar_url ? (
-                  <img src={profileData.avatar_url} alt="Profile Icon" className={styles.mainAvatar} />
+                {(profileData.avatar_url && !avatarError) ? (
+                  <img src={profileData.avatar_url} alt="Profile Icon" className={styles.mainAvatar} onError={() => setAvatarError(true)} />
                 ) : (
-                  <div className={styles.avatarPlaceholderLarge}>
-                    {(profileData.display_name || user?.email || 'U')[0].toUpperCase()}
+                  <div className={styles.avatarPlaceholderLarge} style={{ background: '#27272a' }}>
+                    <User size={36} style={{ color: 'var(--text-secondary)' }} />
                   </div>
                 )}
+                <OAuthBadge provider={user?.provider} size={16} style={{ bottom: 'auto', right: 'auto', top: '-4px', left: '-4px' }} />
                 <button 
                   className={styles.iconUploadBtn}
                   onClick={() => fileInputRef.current?.click()}
@@ -995,12 +1005,14 @@ const SettingsPage: React.FC = () => {
 
     const displayUsage = usageStatus?.profileUsage ? {
       ...usageStatus.profileUsage,
-      stt: (usageStatus.profileUsage as any).stt || usageStatus?.usage?.stt
+      stt: (usageStatus.profileUsage as any).stt || usageStatus?.usage?.stt,
+      video: (usageStatus.profileUsage as any).video || usageStatus?.usage?.video
     } : {
       chat: usageStatus?.usage?.chat,
       voice: usageStatus?.usage?.voice,
       image: usageStatus?.usage?.image,
       stt: usageStatus?.usage?.stt,
+      video: usageStatus?.usage?.video
     };
 
     return (
@@ -1047,6 +1059,7 @@ const SettingsPage: React.FC = () => {
             {buildServiceCard('Voice', displayUsage?.voice, 'linear-gradient(90deg,#10b981,#3b82f6)', '🎙️')}
             {!isAnon && buildServiceCard('Image', displayUsage?.image, 'linear-gradient(90deg,#f43f5e,#fb923c)', '🖼️')}
             {!isAnon && buildServiceCard('Speech to Text', displayUsage?.stt, 'linear-gradient(90deg,#8b5cf6,#ec4899)', '🎤')}
+            {!isAnon && buildServiceCard('Video', displayUsage?.video, 'linear-gradient(90deg,#f59e0b,#e11d48)', '📹')}
           </div>
 
           {/* Reset info */}
