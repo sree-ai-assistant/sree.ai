@@ -56,6 +56,8 @@ const DEFAULT_SETTINGS: VideoSettings = {
   duration: 8,
 };
 
+let activeHistoryPromise: Promise<void> | null = null;
+
 export const useVideoStore = create<VideoState>((set, get) => ({
   history: [],
   activeVideo: null,
@@ -69,27 +71,43 @@ export const useVideoStore = create<VideoState>((set, get) => ({
   })),
 
   fetchHistory: async () => {
-    set({ isFetchingHistory: true });
-    try {
-      const response = await api.get('/ai/videos');
-      if (response.data.success) {
-        const mapped = response.data.data.map((vid: any) => ({
-          id: vid.id,
-          url: vid.url,
-          videoUrl: vid.url, // map DB 'url' to 'videoUrl'
-          prompt: vid.prompt,
-          model: vid.model,
-          ratio: vid.aspect_ratio || '16:9',
-          speed_tier: vid.resolution === '4k' ? 'standard' : vid.resolution === '1080p' ? 'fast' : 'lite',
-          include_audio: true, // legacy field fallback
-          created_at: vid.created_at,
-        }));
-        set({ history: mapped });
+    if (activeHistoryPromise) {
+      return activeHistoryPromise;
+    }
+
+    const promise = (async () => {
+      set({ isFetchingHistory: true });
+      try {
+        const response = await api.get('/ai/videos');
+        if (response.data.success) {
+          const mapped = response.data.data.map((vid: any) => ({
+            id: vid.id,
+            url: vid.url,
+            videoUrl: vid.url, // map DB 'url' to 'videoUrl'
+            prompt: vid.prompt,
+            model: vid.model,
+            ratio: vid.aspect_ratio || '16:9',
+            speed_tier: vid.resolution === '4k' ? 'standard' : vid.resolution === '1080p' ? 'fast' : 'lite',
+            include_audio: true, // legacy field fallback
+            created_at: vid.created_at,
+          }));
+          set({ history: mapped });
+        }
+      } catch (error) {
+        console.error('History fetch error:', error);
+      } finally {
+        set({ isFetchingHistory: false });
       }
-    } catch (error) {
-      console.error('History fetch error:', error);
+    })();
+
+    activeHistoryPromise = promise;
+
+    try {
+      await promise;
     } finally {
-      set({ isFetchingHistory: false });
+      if (activeHistoryPromise === promise) {
+        activeHistoryPromise = null;
+      }
     }
   },
 

@@ -12,7 +12,8 @@ export const UsageIndicator: React.FC<UsageIndicatorProps> = ({
   isCollapsed,
   onUpgradeClick
 }) => {
-  const { status, fetchStatus } = useUsageStore();
+  const status = useUsageStore(state => state.status);
+  const fetchStatus = useUsageStore(state => state.fetchStatus);
 
   useEffect(() => {
     fetchStatus();

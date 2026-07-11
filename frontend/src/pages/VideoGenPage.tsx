@@ -313,8 +313,8 @@ const GridVideoPlayer: React.FC<{
 
 const VideoGenPage: React.FC = () => {
   const navigate = useNavigate();
-  const { user } = useAuthStore();
-  const { openUpgradeModal } = useUIStore();
+  const user = useAuthStore(state => state.user);
+  const openUpgradeModal = useUIStore(state => state.openUpgradeModal);
   const {
     settings,
     updateSettings,
@@ -346,7 +346,8 @@ const VideoGenPage: React.FC = () => {
   // Modals & triggers
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const [videoLoadErrors, setVideoLoadErrors] = useState<Record<string, boolean>>({});
-  const { status: usageStatus, fetchStatus: fetchUsageStatus } = useUsageStore();
+  const usageStatus = useUsageStore(state => state.status);
+  const fetchUsageStatus = useUsageStore(state => state.fetchStatus);
   const [limitModal, setLimitModal] = useState<{
     isOpen: boolean;
     type: 'anonymous' | 'rate-limited' | 'tiered' | 'abuse-cooldown' | 'abuse-captcha' | 'abuse-auth' | 'abuse-restricted' | 'anonymous-upload';
@@ -374,10 +375,11 @@ const VideoGenPage: React.FC = () => {
   const selectedModel = VEO_MODELS.find(m => m.id === settings.modelId) || VEO_MODELS[0];
 
   // Fetch usage hook
+  const userId = user?.id;
   const fetchUsage = useCallback(async (isManualRefresh: boolean = false) => {
     try {
       await fetchUsageStatus(isManualRefresh);
-      if (user) {
+      if (userId) {
         const response = await apiKeyService.listKeys();
         if (response.success && Array.isArray(response.data)) {
           const googleKey = response.data.find((k: any) => k.provider === 'google' && k.in_use);
@@ -387,7 +389,7 @@ const VideoGenPage: React.FC = () => {
     } catch (err) {
       console.error('Failed to fetch usage or keys:', err);
     }
-  }, [fetchUsageStatus, user]);
+  }, [fetchUsageStatus, userId]);
 
   useEffect(() => {
     fetchUsage(false);

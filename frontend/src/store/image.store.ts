@@ -59,6 +59,8 @@ const DEFAULT_SETTINGS: ImageSettings = {
   imageSize: '1k',
 };
 
+let activeHistoryPromise: Promise<void> | null = null;
+
 export const useImageStore = create<ImageState>((set, get) => ({
   history: [],
   activeImage: null,
@@ -73,16 +75,32 @@ export const useImageStore = create<ImageState>((set, get) => ({
   })),
 
   fetchHistory: async () => {
-    set({ isFetchingHistory: true });
-    try {
-      const response = await api.get('/ai/images');
-      if (response.data.success) {
-        set({ history: response.data.data });
+    if (activeHistoryPromise) {
+      return activeHistoryPromise;
+    }
+
+    const promise = (async () => {
+      set({ isFetchingHistory: true });
+      try {
+        const response = await api.get('/ai/images');
+        if (response.data.success) {
+          set({ history: response.data.data });
+        }
+      } catch (error) {
+        console.error('History fetch error:', error);
+      } finally {
+        set({ isFetchingHistory: false });
       }
-    } catch (error) {
-      console.error('History fetch error:', error);
+    })();
+
+    activeHistoryPromise = promise;
+
+    try {
+      await promise;
     } finally {
-      set({ isFetchingHistory: false });
+      if (activeHistoryPromise === promise) {
+        activeHistoryPromise = null;
+      }
     }
   },
 

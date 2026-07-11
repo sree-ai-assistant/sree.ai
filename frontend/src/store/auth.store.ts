@@ -34,6 +34,8 @@ interface AuthState {
   signOut: () => Promise<void>;
 }
 
+let activeInitializePromise: Promise<void> | null = null;
+
 export const useAuthStore = create<AuthState>((set) => ({
   user: null,
   loading: true,
@@ -42,164 +44,181 @@ export const useAuthStore = create<AuthState>((set) => ({
   setLoading: (loading) => set({ loading }),
   initialize: async () => {
     if (useAuthStore.getState().initialized) return;
-    try {
-      let session = null;
+
+    if (activeInitializePromise) {
+      return activeInitializePromise;
+    }
+
+    activeInitializePromise = (async () => {
       try {
-        const { data } = await Promise.race([
-          supabase.auth.getSession(),
-          new Promise<any>((_, reject) => setTimeout(() => reject(new Error('Session fetch timeout')), 3000))
-        ]);
-        session = data?.session;
-      } catch (e) {
-        console.warn('Auth store init session fetch timeout');
-      }
-      
-      if (session?.user) {
-        // Fetch additional user profile data from public.profiles
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('id, email, display_name, avatar_url, plan_type, requests_remaining, onboarding_completed, nickname, occupation, custom_instructions, more_about_you')
-          .eq('id', session.user.id)
-          .single();
-
-        const provider = session.user.app_metadata?.provider || 
-                         session.user.identities?.[0]?.provider || 
-                         (session.user.app_metadata?.providers?.[0]) || 
-                         'email';
-
-        if (profile) {
-          let avatarUrl = profile.avatar_url;
-          if (!avatarUrl) {
-            const oauthAvatar = session.user.user_metadata?.avatar_url || session.user.user_metadata?.picture;
-            if (oauthAvatar) {
-              avatarUrl = oauthAvatar;
-              supabase
-                .from('profiles')
-                .update({ avatar_url: oauthAvatar })
-                .eq('id', session.user.id)
-                .then(({ error }) => {
-                  if (error) console.error('Error syncing OAuth avatar on init:', error);
-                });
-            }
-          }
-
-          set({ 
-            user: {
-              id: session.user.id,
-              email: session.user.email || profile.email,
-              display_name: profile.display_name,
-              avatar_url: avatarUrl,
-              plan_type: profile.plan_type as 'free' | 'starter' | 'pro',
-              requests_remaining: profile.requests_remaining,
-              credits: profile.requests_remaining,
-              onboarding_completed: profile.onboarding_completed ?? false,
-              nickname: profile.nickname,
-              occupation: profile.occupation,
-              custom_instructions: profile.custom_instructions,
-              more_about_you: profile.more_about_you,
-              provider,
-            }, 
-            loading: false, 
-            initialized: true 
-          });
-        } else {
-          // Fallback to base user data if profile isn't ready yet
-          set({ 
-            user: { 
-              id: session.user.id, 
-              email: session.user.email || '',
-              plan_type: 'free' as 'free',
-              provider,
-            }, 
-            loading: false, 
-            initialized: true 
-          });
+        let session = null;
+        try {
+          const { data } = await Promise.race([
+            supabase.auth.getSession(),
+            new Promise<any>((_, reject) => setTimeout(() => reject(new Error('Session fetch timeout')), 3000))
+          ]);
+          session = data?.session;
+        } catch (e) {
+          console.warn('Auth store init session fetch timeout');
         }
-      } else {
-        set({ user: null, loading: false, initialized: true });
-        useModelStore.getState().fetchModels(false).catch(err => console.error('Failed to fetch models for anonymous user:', err));
-      }
-
-      // Listen for auth changes
-      supabase.auth.onAuthStateChange(async (event, session) => {
-        if ((event === 'SIGNED_IN' || event === 'INITIAL_SESSION') && session?.user) {
+        
+        if (session?.user) {
+          // Fetch additional user profile data from public.profiles
           const { data: profile } = await supabase
             .from('profiles')
-            .select('display_name, avatar_url, plan_type, requests_remaining, onboarding_completed, nickname, occupation, custom_instructions, more_about_you')
+            .select('id, email, display_name, avatar_url, plan_type, requests_remaining, onboarding_completed, nickname, occupation, custom_instructions, more_about_you')
             .eq('id', session.user.id)
             .single();
-          
-          let avatarUrl = profile?.avatar_url;
-          if (!avatarUrl && profile) {
-            const oauthAvatar = session.user.user_metadata?.avatar_url || session.user.user_metadata?.picture;
-            if (oauthAvatar) {
-              avatarUrl = oauthAvatar;
-              supabase
-                .from('profiles')
-                .update({ avatar_url: oauthAvatar })
-                .eq('id', session.user.id)
-                .then(({ error }) => {
-                  if (error) console.error('Error syncing OAuth avatar on auth change:', error);
-                });
-            }
-          }
 
           const provider = session.user.app_metadata?.provider || 
                            session.user.identities?.[0]?.provider || 
                            (session.user.app_metadata?.providers?.[0]) || 
                            'email';
 
-          set({ 
-            user: {
-              id: session.user.id,
-              email: session.user.email || '',
-              display_name: profile?.display_name,
-              avatar_url: avatarUrl,
-              plan_type: (profile?.plan_type as 'free' | 'starter' | 'pro') || 'free',
-              requests_remaining: profile?.requests_remaining,
-              credits: profile?.requests_remaining,
-              onboarding_completed: profile?.onboarding_completed ?? false,
-              nickname: profile?.nickname,
-              occupation: profile?.occupation,
-              custom_instructions: profile?.custom_instructions,
-              more_about_you: profile?.more_about_you,
-              provider,
+          if (profile) {
+            let avatarUrl = profile.avatar_url;
+            if (!avatarUrl) {
+              const oauthAvatar = session.user.user_metadata?.avatar_url || session.user.user_metadata?.picture;
+              if (oauthAvatar) {
+                avatarUrl = oauthAvatar;
+                supabase
+                  .from('profiles')
+                  .update({ avatar_url: oauthAvatar })
+                  .eq('id', session.user.id)
+                  .then(({ error }) => {
+                    if (error) console.error('Error syncing OAuth avatar on init:', error);
+                  });
+              }
             }
-          });
 
-          // Let model.store handle cached models based on 24-hour expiration
-          useModelStore.getState().fetchModels(false).catch(err => console.error('Failed to fetch models:', err));
-
-          // Trigger data migration ONLY during explicit SIGNED_IN login/signup flow (MIG-04)
-          const anonId = getStoredAnonId();
-          if (event === 'SIGNED_IN' && anonId) {
-            try {
-              console.log('[AuthStore] Triggering anonymous data migration...');
-              await userService.migrateAnonymousData(anonId);
-              clearAnonId();
-              console.log('[AuthStore] Migration complete, anonymous identity cleared.');
-            } catch (err) {
-              console.error('[AuthStore] Migration failed:', err);
-            }
+            set({ 
+              user: {
+                id: session.user.id,
+                email: session.user.email || profile.email,
+                display_name: profile.display_name,
+                avatar_url: avatarUrl,
+                plan_type: profile.plan_type as 'free' | 'starter' | 'pro',
+                requests_remaining: profile.requests_remaining,
+                credits: profile.requests_remaining,
+                onboarding_completed: profile.onboarding_completed ?? false,
+                nickname: profile.nickname,
+                occupation: profile.occupation,
+                custom_instructions: profile.custom_instructions,
+                more_about_you: profile.more_about_you,
+                provider,
+              }, 
+              loading: false, 
+              initialized: true 
+            });
+          } else {
+            // Fallback to base user data if profile isn't ready yet
+            set({ 
+              user: { 
+                id: session.user.id, 
+                email: session.user.email || '',
+                plan_type: 'free' as 'free',
+                provider,
+              }, 
+              loading: false, 
+              initialized: true 
+            });
           }
-        } else if (event === 'SIGNED_OUT') {
-          set({ user: null });
-          useChatStore.getState().clearStore();
-          useUsageStore.getState().clearStore();
-          useImageStore.getState().clearStore();
-          // Let model.store handle cached models based on 24-hour expiration
-          useModelStore.getState().fetchModels(false).catch(err => console.error('Failed to fetch anonymous models on sign out:', err));
-          
-          if (window.location.pathname !== '/chat' && window.location.pathname !== '/') {
-            window.location.href = '/chat';
-          }
+        } else {
+          set({ user: null, loading: false, initialized: true });
+          useModelStore.getState().fetchModels(false).catch(err => console.error('Failed to fetch models for anonymous user:', err));
         }
-      });
 
-    } catch (error) {
-      console.error('Auth initialization error:', error);
-      set({ loading: false, initialized: true });
-    }
+        // Listen for auth changes
+        supabase.auth.onAuthStateChange(async (event, session) => {
+          if ((event === 'SIGNED_IN' || event === 'INITIAL_SESSION') && session?.user) {
+            const currentUser = useAuthStore.getState().user;
+            if (currentUser && currentUser.id === session.user.id) {
+              // Already initialized with this user, skip duplicate fetch
+              return;
+            }
+
+            const { data: profile } = await supabase
+              .from('profiles')
+              .select('display_name, avatar_url, plan_type, requests_remaining, onboarding_completed, nickname, occupation, custom_instructions, more_about_you')
+              .eq('id', session.user.id)
+              .single();
+            
+            let avatarUrl = profile?.avatar_url;
+            if (!avatarUrl && profile) {
+              const oauthAvatar = session.user.user_metadata?.avatar_url || session.user.user_metadata?.picture;
+              if (oauthAvatar) {
+                avatarUrl = oauthAvatar;
+                supabase
+                  .from('profiles')
+                  .update({ avatar_url: oauthAvatar })
+                  .eq('id', session.user.id)
+                  .then(({ error }) => {
+                    if (error) console.error('Error syncing OAuth avatar on auth change:', error);
+                  });
+              }
+            }
+
+            const provider = session.user.app_metadata?.provider || 
+                             session.user.identities?.[0]?.provider || 
+                             (session.user.app_metadata?.providers?.[0]) || 
+                             'email';
+
+            set({ 
+              user: {
+                id: session.user.id,
+                email: session.user.email || '',
+                display_name: profile?.display_name,
+                avatar_url: avatarUrl,
+                plan_type: (profile?.plan_type as 'free' | 'starter' | 'pro') || 'free',
+                requests_remaining: profile?.requests_remaining,
+                credits: profile?.requests_remaining,
+                onboarding_completed: profile?.onboarding_completed ?? false,
+                nickname: profile?.nickname,
+                occupation: profile?.occupation,
+                custom_instructions: profile?.custom_instructions,
+                more_about_you: profile?.more_about_you,
+                provider,
+              }
+            });
+
+            // Let model.store handle cached models based on 24-hour expiration
+            useModelStore.getState().fetchModels(false).catch(err => console.error('Failed to fetch models:', err));
+
+            // Trigger data migration ONLY during explicit SIGNED_IN login/signup flow (MIG-04)
+            const anonId = getStoredAnonId();
+            if (event === 'SIGNED_IN' && anonId) {
+              try {
+                console.log('[AuthStore] Triggering anonymous data migration...');
+                await userService.migrateAnonymousData(anonId);
+                clearAnonId();
+                console.log('[AuthStore] Migration complete, anonymous identity cleared.');
+              } catch (err) {
+                console.error('[AuthStore] Migration failed:', err);
+              }
+            }
+          } else if (event === 'SIGNED_OUT') {
+            set({ user: null });
+            useChatStore.getState().clearStore();
+            useUsageStore.getState().clearStore();
+            useImageStore.getState().clearStore();
+            // Let model.store handle cached models based on 24-hour expiration
+            useModelStore.getState().fetchModels(false).catch(err => console.error('Failed to fetch anonymous models on sign out:', err));
+            
+            if (window.location.pathname !== '/chat' && window.location.pathname !== '/') {
+              window.location.href = '/chat';
+            }
+          }
+        });
+
+      } catch (error) {
+        console.error('Auth initialization error:', error);
+        set({ loading: false, initialized: true });
+      } finally {
+        activeInitializePromise = null;
+      }
+    })();
+
+    return activeInitializePromise;
   },
   updateProfile: async (data: Partial<User>) => {
     const { user } = useAuthStore.getState();

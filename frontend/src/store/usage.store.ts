@@ -208,6 +208,8 @@ interface UsageState {
   clearStore: () => void;
 }
 
+let activeFetchPromise: Promise<void> | null = null;
+
 export const useUsageStore = create<UsageState>((set, get) => ({
   status: null,
   loading: false,
@@ -251,16 +253,34 @@ export const useUsageStore = create<UsageState>((set, get) => ({
       }
     }
 
-    set({ loading: true, error: null });
-    try {
-      const response = await usageService.getStatus();
-      if (response.success) {
-        set({ status: response.status, loading: false });
-      } else {
-        set({ error: response.message || 'Failed to fetch usage', loading: false });
+    if (!isManualRefresh && activeFetchPromise) {
+      return activeFetchPromise;
+    }
+
+    const promise = (async () => {
+      set({ loading: true, error: null });
+      try {
+        const response = await usageService.getStatus();
+        if (response.success) {
+          set({ status: response.status, loading: false });
+        } else {
+          set({ error: response.message || 'Failed to fetch usage', loading: false });
+        }
+      } catch (err: any) {
+        set({ error: err.message || 'An error occurred', loading: false });
       }
-    } catch (err: any) {
-      set({ error: err.message || 'An error occurred', loading: false });
+    })();
+
+    if (!isManualRefresh) {
+      activeFetchPromise = promise;
+    }
+
+    try {
+      await promise;
+    } finally {
+      if (!isManualRefresh && activeFetchPromise === promise) {
+        activeFetchPromise = null;
+      }
     }
   },
 

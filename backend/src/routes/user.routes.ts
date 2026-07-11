@@ -449,7 +449,17 @@ router.post('/onboarding/complete', authMiddleware, async (req: any, res) => {
 
     // Validate age (minimum 13 years)
     const dob = new Date(date_of_birth);
+    if (isNaN(dob.getTime())) {
+      return res.status(400).json({ success: false, message: 'Invalid date' });
+    }
     const today = new Date();
+    if (dob > today) {
+      return res.status(400).json({ success: false, message: 'Date cannot be in the future' });
+    }
+    if (dob.getFullYear() < 1900) {
+      return res.status(400).json({ success: false, message: 'Year of birth must be 1900 or later' });
+    }
+
     const age = today.getFullYear() - dob.getFullYear();
     const monthDiff = today.getMonth() - dob.getMonth();
     const actualAge = monthDiff < 0 || (monthDiff === 0 && today.getDate() < dob.getDate()) ? age - 1 : age;

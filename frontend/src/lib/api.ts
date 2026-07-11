@@ -124,10 +124,28 @@ export const sessionService = {
   },
 };
 
+let activeListKeysPromise: Promise<any> | null = null;
+
 export const apiKeyService = {
   listKeys: async () => {
-    const response = await api.get('/user/settings/keys');
-    return response.data;
+    if (activeListKeysPromise) {
+      return activeListKeysPromise;
+    }
+
+    const promise = (async () => {
+      const response = await api.get('/user/settings/keys');
+      return response.data;
+    })();
+
+    activeListKeysPromise = promise;
+
+    try {
+      return await promise;
+    } finally {
+      if (activeListKeysPromise === promise) {
+        activeListKeysPromise = null;
+      }
+    }
   },
   saveKey: async (data: { name: string; provider: string; key: string }) => {
     const response = await api.post('/user/settings/keys', data);

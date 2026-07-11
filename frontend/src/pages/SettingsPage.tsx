@@ -261,10 +261,22 @@ const SettingsPage: React.FC = () => {
     if (uaData) {
       os = uaData.platform || os;
       const brands = uaData.brands;
-      const mainBrand = brands.find((b: any) => b.brand !== 'Chromium' && b.brand !== 'Not A;Brand');
+      const mainBrand = brands.find((b: any) => {
+        const name = b.brand.toLowerCase();
+        return !name.includes('chromium') && 
+               !name.includes('not') && 
+               !name.includes('brand') &&
+               !name.includes('a;');
+      });
       if (mainBrand) {
         browser = mainBrand.brand;
         version = mainBrand.version;
+      } else {
+        const chromiumBrand = brands.find((b: any) => b.brand.toLowerCase().includes('chromium'));
+        if (chromiumBrand) {
+          browser = 'Chromium';
+          version = chromiumBrand.version;
+        }
       }
     }
 

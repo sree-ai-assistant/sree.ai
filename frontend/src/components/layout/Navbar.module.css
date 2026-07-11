@@ -297,7 +297,7 @@
   cursor: pointer;
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-  /* flex-direction: row-reverse; */
+  font-family: var(--font-sans);
 }
 
 .userButton:hover {
@@ -314,10 +314,11 @@
 .userInfo {
   display: flex;
   flex-direction: column;
-  align-items: flex-end;
+  align-items: center;
 }
 
 .userName {
+  font-family: var(--font-sans);
   font-size: 0.8rem;
   font-weight: 700;
   color: var(--text-primary);
@@ -329,12 +330,43 @@
 }
 
 .userPlan {
-  font-size: 0.65rem;
+  font-family: var(--font-sans);
+  font-size: 0.6rem;
   font-weight: 600;
-  color: var(--primary);
-  line-height: 1.2;
+  line-height: 1;
   text-transform: uppercase;
-  letter-spacing: 0.02em;
+  letter-spacing: 0.06em;
+  padding: 2.5px 8px;
+  border-radius: 9999px;
+  margin-top: 5px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.userPlan.free {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: var(--text-secondary);
+}
+
+.userPlan.starter {
+  background: rgba(59, 130, 246, 0.08);
+  border: 1px solid rgba(59, 130, 246, 0.2);
+  color: #60a5fa;
+}
+
+.userPlan.pro {
+  background: linear-gradient(135deg, rgba(168, 85, 247, 0.15), rgba(99, 102, 241, 0.15));
+  border: 1px solid rgba(168, 85, 247, 0.3);
+  color: #c084fc;
+  box-shadow: 0 0 10px rgba(168, 85, 247, 0.15);
+  text-shadow: 0 0 4px rgba(168, 85, 247, 0.3);
+}
+
+.userPlan:hover {
+  transform: scale(1.02);
 }
 
 .userAvatar {
@@ -413,9 +445,34 @@
 }
 
 .userRole {
-  font-size: 0.75rem;
-  color: var(--primary);
-  font-weight: 500;
+  font-size: 0.62rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 3px 6px;
+  border-radius: 6px;
+  display: inline-block;
+  margin-top: 4px;
+  line-height: 1;
+}
+
+.userRole.freeRole {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: var(--text-secondary);
+}
+
+.userRole.starterRole {
+  background: rgba(59, 130, 246, 0.1);
+  border: 1px solid rgba(59, 130, 246, 0.2);
+  color: #60a5fa;
+}
+
+.userRole.proRole {
+  background: linear-gradient(135deg, rgba(168, 85, 247, 0.15), rgba(99, 102, 241, 0.15));
+  border: 1px solid rgba(168, 85, 247, 0.3);
+  color: #a78bfa;
+  box-shadow: 0 0 8px rgba(168, 85, 247, 0.15);
 }
 
 /* ─── Dropdown usage block ───────────────── */
@@ -557,7 +614,8 @@
 }
 
 .signupBtn:hover {
-  background: #2563EB; /* Solid hover blue */
+  background: #2563EB;
+  /* Solid hover blue */
   border-color: #2563EB;
   transform: translateY(-1px);
   box-shadow: 0 4px 16px var(--primary-glow);

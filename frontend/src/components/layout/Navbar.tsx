@@ -377,7 +377,9 @@ export const Navbar: React.FC = () => {
             >
               <div className={`${styles.userInfo} ${isSettingsPage ? styles.showUserInfo : ''}`}>
                 <span className={styles.userName}>{displayName}</span>
-                <span className={styles.userPlan}>{planLabel} Plan</span>
+                <span className={`${styles.userPlan} ${styles[(user.plan_type || 'free').toLowerCase()]}`}>
+                  {planLabel} Plan
+                </span>
               </div>
               <div className={`${styles.userAvatar} ${(!user.avatar_url || avatarError) ? styles.avatarPlaceholder : ''}`}>
                 {(user.avatar_url && !avatarError) ? (
@@ -410,7 +412,9 @@ export const Navbar: React.FC = () => {
                       </div>
                       <div>
                         <p className={styles.userEmail}>{user.email}</p>
-                        <p className={styles.userRole}>{planLabel} Plan</p>
+                        <p className={`${styles.userRole} ${styles[`${(user.plan_type || 'free').toLowerCase()}Role`]}`}>
+                          {planLabel} Plan
+                        </p>
                       </div>
                     </div>
                   </div>

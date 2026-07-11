@@ -85,6 +85,7 @@ function validateDOB(dateStr: string): string | null {
 
   if (isNaN(dob.getTime())) return 'Invalid date';
   if (dob > today) return 'Date cannot be in the future';
+  if (dob.getFullYear() < 1900) return 'Put Your Real Date of Birth';
 
   const age = today.getFullYear() - dob.getFullYear();
   const monthDiff = today.getMonth() - dob.getMonth();
@@ -626,10 +627,10 @@ const OnboardingPage: React.FC = () => {
                           <input
                             type="password"
                             className={`${styles.keyInput} ${status === 'valid'
-                                ? styles.keyInputValid
-                                : status === 'invalid'
-                                  ? styles.keyInputInvalid
-                                  : ''
+                              ? styles.keyInputValid
+                              : status === 'invalid'
+                                ? styles.keyInputInvalid
+                                : ''
                               }`}
                             value={key}
                             onChange={(e) =>
