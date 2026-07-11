@@ -45,6 +45,7 @@ const PROVIDER_MAP: Record<string, string> = {
   'google/gemma-2-2b-it': 'nvidia',
   'z-ai/glm4.7': 'nvidia',
   'z-ai/glm-5.1': 'nvidia',
+  'z-ai/glm-5.2': 'nvidia',
   'nvidia/ising-calibration-1-35b-a3b': 'nvidia',
   'meta/llama-3.1-8b-instruct': 'nvidia',
   'nvidia/llama-3.1-nemotron-nano-8b-v1': 'nvidia',
@@ -161,6 +162,7 @@ export async function resolveProvider(modelId: string): Promise<string> {
       normalizedId.includes('microsoft/') ||
       normalizedId.includes('qwen/') ||
       normalizedId.includes('moonshotai/') ||
+      normalizedId.includes('z-ai/') ||
       normalizedId.includes('deepseek-ai/'))) {
     resolved = 'nvidia';
   }
