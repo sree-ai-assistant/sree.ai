@@ -754,8 +754,9 @@
     display: flex !important;
   }
 
-  /* Hide image page usage pill on small screens to prevent navbar crowding */
-  .imagePagePills {
+  /* Hide image and video page usage pills on small screens to prevent navbar crowding */
+  .imagePagePills,
+  .videoPagePills {
     display: none !important;
   }
 

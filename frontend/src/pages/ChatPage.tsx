@@ -803,7 +803,7 @@ const ChatPage: React.FC = () => {
     { title: 'Debug my code', desc: 'Help find the memory leak', icon: <Code size={18} /> },
   ];
 
-  const handleSend = async (text?: string, isRetry: boolean = false, retryAttachments: any[] = [], autoRetryCount: number = 0) => {
+  const handleSend = async (text?: string, isRetry: boolean = false, retryAttachments: any[] = [], autoRetryCount: number = 0): Promise<void> => {
     let hasRetried = false;
     if (lockTimeRemaining > 0) return;
 
