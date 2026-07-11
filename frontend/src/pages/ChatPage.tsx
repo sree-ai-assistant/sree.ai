@@ -804,6 +804,7 @@ const ChatPage: React.FC = () => {
   ];
 
   const handleSend = async (text?: string, isRetry: boolean = false, retryAttachments: any[] = [], autoRetryCount: number = 0) => {
+    let hasRetried = false;
     if (lockTimeRemaining > 0) return;
 
     const currentAttachments = isRetry ? retryAttachments : [...attachments];
@@ -819,7 +820,7 @@ const ChatPage: React.FC = () => {
       anonId = identity.anonId;
     }
 
-    if (isGenerating || (!user?.id && !anonId)) return;
+    if ((!isRetry && isGenerating) || (!user?.id && !anonId)) return;
 
     let currentConvId = activeConversation?.id;
     const assistantOptimisticId = `temp_assistant_${Date.now()}`;
@@ -1205,6 +1206,7 @@ const ChatPage: React.FC = () => {
       }
 
       if (autoRetryCount < 1) {
+        hasRetried = true;
         setStreamingStatus('Retrying with optimized context...');
         return handleSend(text, true, currentAttachments, autoRetryCount + 1);
       }
@@ -1229,16 +1231,18 @@ const ChatPage: React.FC = () => {
       }
     } finally {
       // Only clear local UI state if this was the active request for this conversation
-      if (streamingIdRef.current === currentConvId) {
-        setIsGenerating(false);
-        setIsProcessingVideo(false);
-        setStreamingMessage('');
-        setDisplayedStreamingMessage('');
-        fullContentRef.current = '';
-        setStreamingStatus(null);
-        streamingIdRef.current = null;
+      if (!hasRetried) {
+        if (streamingIdRef.current === currentConvId) {
+          setIsGenerating(false);
+          setIsProcessingVideo(false);
+          setStreamingMessage('');
+          setDisplayedStreamingMessage('');
+          fullContentRef.current = '';
+          setStreamingStatus(null);
+          streamingIdRef.current = null;
+        }
+        streamingOptimisticIdRef.current = null;
       }
-      streamingOptimisticIdRef.current = null;
     }
   };
 

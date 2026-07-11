@@ -480,8 +480,15 @@ class AiService {
           errorMsg.includes('context limit') ||
           errorMsg.includes('prompt') ||
           errorMsg.includes('supported') ||
+          errorMsg.includes('too large') ||
+          errorMsg.includes('entity') ||
+          errorMsg.includes('payload') ||
+          error.status === 413 ||
           (error.status === 400 && (errorMsg.includes('token') || errorMsg.includes('context') || errorMsg.includes('length'))) ||
-          (detailMsg.toLowerCase().includes('token') && !detailMsg.toLowerCase().includes('rate limit'));
+          (detailMsg.toLowerCase().includes('token') && !detailMsg.toLowerCase().includes('rate limit')) ||
+          detailMsg.toLowerCase().includes('too large') ||
+          detailMsg.toLowerCase().includes('entity') ||
+          detailMsg.toLowerCase().includes('payload');
 
         if ((isTimeout || isTokenLimit) && retryCount < maxRetries) {
           retryCount++;
