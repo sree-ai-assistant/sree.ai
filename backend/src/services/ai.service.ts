@@ -447,6 +447,16 @@ class AiService {
           requestParams.max_tokens = reservedTokens;
         }
 
+        if (provider === 'groq' && model.includes('compound')) {
+          requestParams.compound_custom = {
+            tools: {
+              enabled_tools: ["web_search", "code_interpreter", "visit_website"]
+            }
+          };
+          requestParams.max_completion_tokens = reservedTokens;
+          delete requestParams.max_tokens;
+        }
+
         return await openai.chat.completions.create(requestParams);
 
       } catch (error: any) {

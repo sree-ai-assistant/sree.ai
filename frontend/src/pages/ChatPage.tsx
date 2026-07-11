@@ -25,7 +25,7 @@ const cleanTextForTTS = (text: string) => {
   let processed = text.replace(/<(think|thinking)>[\s\S]*?<\/\1>/gi, '');
   processed = processed.replace(/<(think|thinking)>[\s\S]*/gi, '');
   processed = processed.replace(/\[SYSTEM INSTRUCTION: [\s\S]*?\]/gi, '');
-  
+
   const noEmojis = processed.replace(/[\p{Emoji_Presentation}\p{Extended_Pictographic}]/gu, '');
   return noEmojis
     .replace(/```[\s\S]*?```/g, '')
@@ -149,7 +149,7 @@ const ChatPage: React.FC = () => {
         if (item.url && item.url.startsWith('blob:')) {
           try {
             URL.revokeObjectURL(item.url);
-          } catch (e) {}
+          } catch (e) { }
         }
       });
     });
@@ -253,7 +253,7 @@ const ChatPage: React.FC = () => {
           try {
             activeAudioRef.current.pause();
             activeAudioRef.current.src = '';
-          } catch (e) {}
+          } catch (e) { }
           activeAudioRef.current = null;
         }
         isCancelledRef.current = true;
@@ -301,7 +301,7 @@ const ChatPage: React.FC = () => {
       try {
         activeAudioRef.current.pause();
         activeAudioRef.current.src = '';
-      } catch (e) {}
+      } catch (e) { }
       activeAudioRef.current = null;
     }
 
@@ -439,13 +439,13 @@ const ChatPage: React.FC = () => {
           try {
             activeAudioRef.current.pause();
             activeAudioRef.current.src = '';
-          } catch (e) {}
+          } catch (e) { }
           activeAudioRef.current = null;
         }
         const durationSeconds = ttsStartTimeRef.current > 0 ? (Date.now() - ttsStartTimeRef.current) / 1000 : 0;
         const sessionId = ttsSessionIdRef.current;
         const callsCount = ttsCallsCountRef.current;
-        aiService.voiceComplete(durationSeconds, sessionId || undefined, 2 + callsCount).catch(() => {});
+        aiService.voiceComplete(durationSeconds, sessionId || undefined, 2 + callsCount).catch(() => { });
       }
       clearTtsCache();
     };
@@ -922,6 +922,8 @@ const ChatPage: React.FC = () => {
     let assistantMessage = '';
     let isStreamFinishedLocal = false;
     let isSaved = false;
+    let responseStatus: number | null = null;
+    let responseStatusText = '';
 
     try {
       let currentSession = session;
@@ -989,6 +991,9 @@ const ChatPage: React.FC = () => {
         }),
         signal: abortController.signal,
       });
+
+      responseStatus = response.status;
+      responseStatusText = response.statusText;
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
@@ -1207,8 +1212,39 @@ const ChatPage: React.FC = () => {
 
       if (autoRetryCount < 1) {
         hasRetried = true;
-        setStreamingStatus('Retrying with optimized context...');
-        return handleSend(text, true, currentAttachments, autoRetryCount + 1);
+        const errStr = (error?.message || '').toLowerCase() + ' ' + JSON.stringify(error || {}).toLowerCase();
+        const isEntityTooLarge =
+          responseStatus === 413 ||
+          /too large/i.test(responseStatusText) ||
+          /too large/i.test(errStr);
+
+        if (isEntityTooLarge) {
+          // Trigger the retry API call immediately in parallel (background)
+          const retryPromise = handleSend(text, true, currentAttachments, autoRetryCount + 1);
+
+          setStreamingStatus('Just a Moment');
+          await new Promise(r => setTimeout(r, 5000));
+
+          if (streamingIdRef.current === currentConvId && !fullContentRef.current) {
+            setStreamingStatus('Finding Best Results');
+          }
+          await new Promise(r => setTimeout(r, 5000));
+
+          if (streamingIdRef.current === currentConvId && !fullContentRef.current) {
+            setStreamingStatus('All Most There');
+          }
+          await new Promise(r => setTimeout(r, 3000));
+
+          return retryPromise;
+        } else {
+          // Trigger the retry API call immediately in parallel (background)
+          const retryPromise = handleSend(text, true, currentAttachments, autoRetryCount + 1);
+
+          setStreamingStatus('Retrying with optimized context...');
+          await new Promise(r => setTimeout(r, 1500));
+
+          return retryPromise;
+        }
       }
 
       const hasPartialContent = assistantMessage.trim().length > 0;
