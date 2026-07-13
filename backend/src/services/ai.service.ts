@@ -701,7 +701,10 @@ class AiService {
       if (errorData) {
         console.error(`[AiService] Error body:`, JSON.stringify(errorData));
       }
-      throw new Error(`Image generation failed: ${errMsg}`);
+      const newErr = new Error(`Image generation failed: ${errMsg}`);
+      (newErr as any).status = error.status || error.response?.status;
+      (newErr as any).response = error.response;
+      throw newErr;
     }
   }
 
@@ -842,7 +845,10 @@ class AiService {
       if (errorData) {
         console.error(`[AiService] Google Error body:`, JSON.stringify(errorData).substring(0, 500));
       }
-      throw new Error(`Image generation failed: ${errMsg}`);
+      const newErr = new Error(`Image generation failed: ${errMsg}`);
+      (newErr as any).status = error.status || error.response?.status;
+      (newErr as any).response = error.response;
+      throw newErr;
     }
   }
 
@@ -998,7 +1004,10 @@ class AiService {
       }
 
       console.error(`[AiService] Omni Flash video generation failed: ${errMsg}`);
-      throw new Error(`Video generation failed: ${errMsg}`);
+      const newErr = new Error(`Video generation failed: ${errMsg}`);
+      (newErr as any).status = error.status || error.response?.status;
+      (newErr as any).response = error.response;
+      throw newErr;
     }
   }
 
@@ -1170,7 +1179,10 @@ class AiService {
       if (errorData) {
         console.error(`[AiService] Google Error body:`, JSON.stringify(errorData).substring(0, 500));
       }
-      throw new Error(`Video generation failed: ${errMsg}`);
+      const newErr = new Error(`Video generation failed: ${errMsg}`);
+      (newErr as any).status = error.status || error.response?.status;
+      (newErr as any).response = error.response;
+      throw newErr;
     }
   }
 

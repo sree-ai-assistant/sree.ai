@@ -108,4 +108,37 @@ describe('rateLimitMiddleware', () => {
     );
     expect(next).toHaveBeenCalled();
   });
+
+  it('should bypass user API keys when useByok is false in body', async () => {
+    vi.mocked(checkRateLimit).mockResolvedValue({ allowed: true });
+    (req as any).user = { id: 'user-123' };
+    req.body = { useByok: false, model: 'veo-3.1-generate-preview' };
+    
+    // Mock resolveProvider to return a provider name
+    const { resolveProvider } = await import('../utils/providerResolver');
+    vi.mocked(resolveProvider).mockResolvedValue('google');
+
+    const middleware = rateLimitMiddleware('video');
+    await middleware(req as Request, res as Response, next);
+
+    expect(ApiKeyService.getUserApiKey).toHaveBeenCalledWith(null, 'google');
+    expect(next).toHaveBeenCalled();
+  });
+
+  it('should bypass user API keys when useByok is false in query', async () => {
+    vi.mocked(checkRateLimit).mockResolvedValue({ allowed: true });
+    (req as any).user = { id: 'user-123' };
+    req.query = { useByok: 'false' };
+    req.body = { model: 'veo-3.1-generate-preview' };
+
+    // Mock resolveProvider to return a provider name
+    const { resolveProvider } = await import('../utils/providerResolver');
+    vi.mocked(resolveProvider).mockResolvedValue('google');
+
+    const middleware = rateLimitMiddleware('video');
+    await middleware(req as Request, res as Response, next);
+
+    expect(ApiKeyService.getUserApiKey).toHaveBeenCalledWith(null, 'google');
+    expect(next).toHaveBeenCalled();
+  });
 });

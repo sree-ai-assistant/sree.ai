@@ -90,8 +90,8 @@ describe('auth middleware plan & model validation', () => {
       expect(res.status).not.toHaveBeenCalled();
     });
 
-    it('should allow veo-2.0-generate-preview model', async () => {
-      req.body = { model: 'veo-2.0-generate-preview' };
+    it('should allow veo-3.1-generate-preview model', async () => {
+      req.body = { model: 'veo-3.1-generate-preview' };
 
       await videoModelValidationMiddleware(req as Request, res as Response, next);
 
@@ -117,7 +117,7 @@ describe('auth middleware plan & model validation', () => {
       expect(res.json).toHaveBeenCalledWith(expect.objectContaining({
         success: false,
         code: 'INVALID_MODEL',
-        message: expect.stringContaining('Only Google Veo models are supported')
+        message: expect.stringContaining('Invalid video generation model. Supported models:')
       }));
       expect(next).not.toHaveBeenCalled();
     });

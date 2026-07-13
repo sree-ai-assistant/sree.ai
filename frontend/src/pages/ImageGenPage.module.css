@@ -997,3 +997,60 @@
   opacity: 0.8;
   background: rgba(255, 255, 255, 0.03) !important;
 }
+
+/* BYOK footer / info badges */
+.chatFooter {
+  display: flex;
+  justify-content: flex-start;
+  align-items: center;
+  padding: 6px 4px 0;
+  font-size: 0.72rem;
+  width: 100%;
+}
+
+.byokActiveBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.75rem;
+  color: #10b981;
+  background: rgba(16, 185, 129, 0.06);
+  border: 1px solid rgba(16, 185, 129, 0.15);
+  padding: 4px 10px;
+  border-radius: 100px;
+  font-weight: 500;
+}
+
+.byokInactiveBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.75rem;
+  color: #94a3b8;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  padding: 4px 10px;
+  border-radius: 100px;
+  font-weight: 400;
+}
+
+.byokLink {
+  background: none;
+  border: none;
+  color: var(--primary);
+  padding: 0;
+  font-size: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.infoIcon {
+  color: #94a3b8;
+  flex-shrink: 0;
+}
+
+.activeCheck {
+  color: #10b981;
+  flex-shrink: 0;
+}

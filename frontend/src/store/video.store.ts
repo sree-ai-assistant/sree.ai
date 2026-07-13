@@ -25,6 +25,7 @@ export interface VideoSettings {
   inputUrl: string | null;
   lastFrameUrl: string | null;
   duration: number; // 4, 6, 8, 10
+  useByok: boolean;
 }
 
 interface VideoState {
@@ -54,6 +55,7 @@ const DEFAULT_SETTINGS: VideoSettings = {
   inputUrl: null,
   lastFrameUrl: null,
   duration: 8,
+  useByok: true,
 };
 
 let activeHistoryPromise: Promise<void> | null = null;
@@ -155,7 +157,8 @@ export const useVideoStore = create<VideoState>((set, get) => ({
           aspectRatio: ratioStr,
           durationSeconds: settings.duration || 8,
           fileUrl: settings.inputUrl || undefined,
-          lastFrameUrl: settings.lastFrameUrl || undefined
+          lastFrameUrl: settings.lastFrameUrl || undefined,
+          useByok: settings.useByok
         })
       );
 

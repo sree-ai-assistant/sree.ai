@@ -1229,6 +1229,29 @@
   display: flex;
   flex-direction: column;
   gap: 12px;
+
+  /* Scrollable for small screens */
+  max-height: calc(100vh - 240px);
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.15) transparent;
+}
+
+.barParamsPopup::-webkit-scrollbar {
+  width: 4px;
+}
+
+.barParamsPopup::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.barParamsPopup::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 10px;
+}
+
+.barParamsPopup::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.3);
 }
 
 .popupSection {
@@ -1330,6 +1353,151 @@
   color: rgba(255, 255, 255, 0.4);
   pointer-events: none;
 }
+
+/* Custom Model Dropdown Container */
+.customModelDropdownContainer {
+  position: relative;
+  width: 100%;
+}
+
+.customModelDropdownTrigger {
+  width: 100%;
+  padding: 10px 14px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  cursor: pointer;
+  outline: none;
+  transition: all 0.2s ease;
+  text-align: left;
+}
+
+.customModelDropdownTrigger:hover {
+  border-color: rgba(255, 255, 255, 0.16);
+  background: rgba(255, 255, 255, 0.07);
+}
+
+.selectedModelInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.selectedModelName {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: white;
+}
+
+.selectedModelDesc {
+  font-size: 0.68rem;
+  color: rgba(255, 255, 255, 0.4);
+  font-weight: 400;
+}
+
+.customDropdownArrow {
+  color: rgba(255, 255, 255, 0.4);
+  transition: transform 0.2s ease;
+}
+
+.customDropdownArrowOpen {
+  transform: rotate(180deg);
+}
+
+.dropdownOverlayBackdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 110;
+  background: transparent;
+}
+
+.customModelDropdownMenu {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  background: rgba(20, 20, 24, 0.98);
+  backdrop-filter: blur(25px);
+  -webkit-backdrop-filter: blur(25px);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 12px;
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  z-index: 120;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6);
+  max-height: 250px;
+  overflow-y: auto;
+}
+
+.customModelDropdownItem {
+  width: 100%;
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: none;
+  background: transparent;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  text-align: left;
+}
+
+.customModelDropdownItem:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.customModelDropdownItemActive {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.modelItemDetails {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.modelItemNameRow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.modelItemName {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: white;
+}
+
+.premiumBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 0.6rem;
+  font-weight: 700;
+  color: var(--accent);
+  background: rgba(var(--accent-rgb), 0.12);
+  padding: 1px 5px;
+  border-radius: 4px;
+  text-transform: uppercase;
+}
+
+.modelItemDesc {
+  font-size: 0.68rem;
+  color: rgba(255, 255, 255, 0.4);
+  font-weight: 400;
+}
+
+.itemCheckIcon {
+  color: var(--primary);
+  flex-shrink: 0;
+}
+
 
 .audioToggleRow {
   display: flex;
@@ -2720,7 +2888,7 @@
   filter: drop-shadow(0 0 6px var(--primary-glow));
 }
 
-@media (max-width: 650px) {
+@media (max-width: 450px) {
   .viewport {
     padding: 16px 12px !important;
   }
@@ -2749,6 +2917,8 @@
     padding: 12px !important;
     gap: 10px !important;
     bottom: calc(100% + 12px) !important;
+    max-height: calc(100vh - 200px) !important;
+    overflow-y: auto !important;
   }
 
   .popupSection {
@@ -2765,14 +2935,14 @@
   .popupLabel {
     font-size: 0.65rem !important;
   }
-  
+
   .popupSelect {
     padding: 8px 30px 8px 10px !important;
     font-size: 0.78rem !important;
   }
-}
 
-@media (max-width: 450px) {
+
+
   .summaryCapsuleBtn span {
     display: none !important;
   }

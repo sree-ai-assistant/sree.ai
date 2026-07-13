@@ -16,6 +16,7 @@ export interface AIModel {
   is_fast: boolean;
   is_new: boolean;
   is_image: boolean;
+  is_video?: boolean;
   created_at: string;
 }
 
@@ -44,7 +45,7 @@ function resolveSelectedModel(
   visionRequired: boolean
 ): AIModel | null {
   let updatedSelected = currentSelected
-    ? models.find((m) => m.model_id === currentSelected.model_id) ?? null
+    ? models.find((m) => m.model_id === currentSelected.model_id && !m.is_video) ?? null
     : null;
 
   if (updatedSelected?.in_maintenance) {
@@ -52,13 +53,14 @@ function resolveSelectedModel(
   }
 
   if (visionRequired && (!updatedSelected || !updatedSelected.is_vision)) {
-    updatedSelected = models.find((m) => m.is_vision && !m.in_maintenance) || updatedSelected;
+    updatedSelected = models.find((m) => m.is_vision && !m.is_video && !m.in_maintenance) || updatedSelected;
   }
 
   return (
     updatedSelected ||
-    models.find((m) => !m.is_image && m.model_id === 'meta/llama-3.1-70b-instruct' && !m.in_maintenance) ||
-    models.find((m) => !m.is_image && !m.in_maintenance) ||
+    models.find((m) => !m.is_image && !m.is_video && m.model_id === 'meta/llama-3.1-70b-instruct' && !m.in_maintenance) ||
+    models.find((m) => !m.is_image && !m.is_video && !m.in_maintenance) ||
+    models.find((m) => !m.is_image && !m.is_video) ||
     models.find((m) => !m.is_image) ||
     models[0] ||
     null
@@ -151,7 +153,7 @@ export const useModelStore = create<ModelState>()(
       },
 
       setSelectedModel: (modelId: string) => {
-        const model = get().models.find(m => m.model_id === modelId);
+        const model = get().models.find(m => m.model_id === modelId && !m.is_video);
         if (model) {
           if (model.in_maintenance) {
             return;
@@ -165,7 +167,7 @@ export const useModelStore = create<ModelState>()(
         set({ visionRequired: required });
 
         if (required && selectedModel && !selectedModel.is_vision) {
-          const visionModel = models.find(m => m.is_vision && !m.in_maintenance);
+          const visionModel = models.find(m => m.is_vision && !m.is_video && !m.in_maintenance);
           if (visionModel) {
             set({ selectedModel: visionModel });
           }

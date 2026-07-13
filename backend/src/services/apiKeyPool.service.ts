@@ -31,13 +31,21 @@ export function classifyApiError(error: any): ErrorType {
   const msg = (error.message || '').toLowerCase();
   const detail = JSON.stringify(error.response?.data || error.data || '').toLowerCase();
 
-  // Auth failures — key is invalid/expired
+  // Auth failures — key is invalid/expired/blocked/unauthorized
   if (
     status === 401 || status === 403 ||
-    msg.includes('invalid') && msg.includes('key') ||
+    (msg.includes('invalid') && msg.includes('key')) ||
     msg.includes('unauthorized') ||
     msg.includes('forbidden') ||
-    msg.includes('authentication')
+    msg.includes('authentication') ||
+    msg.includes('api_key_service_blocked') ||
+    msg.includes('permission_denied') ||
+    msg.includes('permission denied') ||
+    ((msg.includes('key') || msg.includes('api') || msg.includes('generativelanguage')) && msg.includes('blocked')) ||
+    detail.includes('api_key_service_blocked') ||
+    detail.includes('permission_denied') ||
+    detail.includes('permission denied') ||
+    ((detail.includes('key') || detail.includes('api')) && detail.includes('blocked'))
   ) {
     return 'auth';
   }

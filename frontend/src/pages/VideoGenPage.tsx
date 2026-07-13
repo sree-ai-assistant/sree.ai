@@ -331,6 +331,14 @@ const VideoGenPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'generate' | 'gallery'>('generate');
   const [hasGoogleKey, setHasGoogleKey] = useState(false);
   const [paramsOpen, setParamsOpen] = useState(false);
+  const [modelDropdownOpen, setModelDropdownOpen] = useState(false);
+
+  // Close inner dropdown if outer params panel is closed
+  useEffect(() => {
+    if (!paramsOpen) {
+      setModelDropdownOpen(false);
+    }
+  }, [paramsOpen]);
 
   // Input Mode state & File upload state
   const [inputMode, setInputMode] = useState<'ingredients' | 'frames'>('ingredients');
@@ -991,17 +999,73 @@ const VideoGenPage: React.FC = () => {
                                     {/* Model */}
                                     <div className={styles.popupSection}>
                                       <span className={styles.popupLabel}>Model</span>
-                                      <div className={styles.modelSelectWrapper}>
-                                        <select
-                                          className={styles.popupSelect}
-                                          value={settings.modelId}
-                                          onChange={(e) => updateSettings({ modelId: e.target.value })}
+                                      <div className={styles.customModelDropdownContainer}>
+                                        <button
+                                          type="button"
+                                          className={styles.customModelDropdownTrigger}
+                                          onClick={() => setModelDropdownOpen(!modelDropdownOpen)}
                                         >
-                                          {VEO_MODELS.map((m) => (
-                                            <option key={m.id} value={m.id}>{m.name}</option>
-                                          ))}
-                                        </select>
-                                        <ChevronDown size={14} className={styles.selectArrow} />
+                                          <div className={styles.selectedModelInfo}>
+                                            <span className={styles.selectedModelName}>
+                                              {selectedModel.name}
+                                              {selectedModel.requiresPremium && (
+                                                <span className={styles.premiumBadge}>
+                                                  👑 VIP
+                                                </span>
+                                              )}
+                                            </span>
+                                            <span className={styles.selectedModelDesc}>
+                                              {selectedModel.desc}
+                                            </span>
+                                          </div>
+                                          <ChevronDown
+                                            size={14}
+                                            className={`${styles.customDropdownArrow} ${
+                                              modelDropdownOpen ? styles.customDropdownArrowOpen : ''
+                                            }`}
+                                          />
+                                        </button>
+
+                                        {modelDropdownOpen && (
+                                          <>
+                                            <div
+                                              className={styles.dropdownOverlayBackdrop}
+                                              onClick={() => setModelDropdownOpen(false)}
+                                            />
+                                            <div className={styles.customModelDropdownMenu}>
+                                              {VEO_MODELS.map((m) => (
+                                                <button
+                                                  key={m.id}
+                                                  type="button"
+                                                  className={`${styles.customModelDropdownItem} ${
+                                                    settings.modelId === m.id ? styles.customModelDropdownItemActive : ''
+                                                  }`}
+                                                  onClick={() => {
+                                                    updateSettings({ modelId: m.id });
+                                                    setModelDropdownOpen(false);
+                                                  }}
+                                                >
+                                                  <div className={styles.modelItemDetails}>
+                                                    <div className={styles.modelItemNameRow}>
+                                                      <span className={styles.modelItemName}>{m.name}</span>
+                                                      {m.requiresPremium && (
+                                                        <span className={styles.premiumBadge}>
+                                                          👑 VIP
+                                                        </span>
+                                                      )}
+                                                    </div>
+                                                    <span className={styles.modelItemDesc}>
+                                                      {m.desc}
+                                                    </span>
+                                                  </div>
+                                                  {settings.modelId === m.id && (
+                                                    <Check size={14} className={styles.itemCheckIcon} />
+                                                  )}
+                                                </button>
+                                              ))}
+                                            </div>
+                                          </>
+                                        )}
                                       </div>
                                     </div>
 
@@ -1023,7 +1087,7 @@ const VideoGenPage: React.FC = () => {
                                     </div>
 
                                     {/* Audio Toggle */}
-                                    <div className={styles.popupSection} style={{ borderBottom: 'none', paddingBottom: 0 }}>
+                                    <div className={styles.popupSection}>
                                       <div className={styles.audioToggleRow}>
                                         <span className={styles.popupLabel} style={{ marginBottom: 0 }}>Include Audio</span>
                                         <button
@@ -1036,12 +1100,36 @@ const VideoGenPage: React.FC = () => {
                                       </div>
                                     </div>
 
+                                    {/* BYOK Toggle */}
+                                    <div className={styles.popupSection} style={{ borderBottom: 'none', paddingBottom: 0 }}>
+                                      <div className={styles.audioToggleRow}>
+                                        <div style={{ display: 'flex', flexDirection: 'column' }}>
+                                          <span className={styles.popupLabel} style={{ marginBottom: 0 }}>Use BYOK</span>
+                                          {!hasGoogleKey && <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>No Google API key configured</span>}
+                                        </div>
+                                        <button
+                                          type="button"
+                                          className={`${styles.audioToggleBtn} ${settings.useByok && hasGoogleKey ? styles.audioToggleBtnActive : ''}`}
+                                          onClick={() => {
+                                            if (!hasGoogleKey) {
+                                              toast.error('No Google API key configured. Please configure it in Settings first.');
+                                              navigate('/settings?tab=keys');
+                                              return;
+                                            }
+                                            updateSettings({ useByok: !settings.useByok });
+                                          }}
+                                        >
+                                          {settings.useByok && hasGoogleKey ? 'Enabled' : 'Disabled'}
+                                        </button>
+                                      </div>
+                                    </div>
+
                                     {/* Cost calculation */}
                                     <div className={styles.creditCostSection}>
                                       <span className={styles.creditCostLabel}>Cost</span>
                                       <span className={styles.creditCostValue}>
                                         <Zap size={12} fill="currentColor" className={styles.costZapIcon} />
-                                        {settings.outputsCount * 1} Credits
+                                        {(settings.outputsCount * (hasGoogleKey && settings.useByok ? 0.2 : 1)).toFixed(1).replace('.0', '')} Credits
                                       </span>
                                     </div>
                                   </motion.div>
@@ -1102,10 +1190,15 @@ const VideoGenPage: React.FC = () => {
 
                     {/* BYOK footer */}
                     <div className={styles.chatFooter}>
-                      {hasGoogleKey ? (
+                      {hasGoogleKey && settings.useByok ? (
                         <div className={styles.byokActiveBadge}>
                           <Check size={12} className={styles.activeCheck} />
                           <span>BYOK active &mdash; <strong>0.2 credits</strong>/video</span>
+                        </div>
+                      ) : hasGoogleKey ? (
+                        <div className={styles.byokInactiveBadge}>
+                          <Info size={12} className={styles.infoIcon} />
+                          <span>1 credit/video. <button type="button" onClick={() => updateSettings({ useByok: true })} className={styles.byokLink}>Enable BYOK (0.2 credits)</button></span>
                         </div>
                       ) : (
                         <div className={styles.byokInactiveBadge}>

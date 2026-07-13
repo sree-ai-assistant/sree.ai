@@ -26,6 +26,7 @@ export interface ImageSettings {
   seed: number;
   cfgScale: number;
   imageSize: string;
+  useByok: boolean;
 }
 
 interface ImageState {
@@ -57,6 +58,7 @@ const DEFAULT_SETTINGS: ImageSettings = {
   seed: 0,
   cfgScale: 5,
   imageSize: '1k',
+  useByok: true,
 };
 
 let activeHistoryPromise: Promise<void> | null = null;

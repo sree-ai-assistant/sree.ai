@@ -5,7 +5,7 @@ import {
   Image as ImageIcon, Wand2, Trash2, Loader2, Sparkles,
   Download, Settings2, ChevronDown, Zap, X, RotateCcw, RefreshCcw, Copy, LayoutGrid, Plus,
   Maximize2, History, Layers, Sliders, Palette, Eye, Settings, HelpCircle, LogOut,
-  Check, AlertCircle, Lock
+  Check, AlertCircle, Lock, Info
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
@@ -13,7 +13,7 @@ import { DashboardLayout } from '../features/dashboard/DashboardLayout';
 import { useAuthStore } from '../store/auth.store';
 import { useModelStore } from '../store/model.store';
 import { useImageStore } from '../store/image.store';
-import api from '../lib/api';
+import api, { apiKeyService } from '../lib/api';
 import { useUIStore } from '../store/ui.store';
 import { useUsageStore } from '../store/usage.store';
 import styles from './ImageGenPage.module.css';
@@ -110,6 +110,8 @@ const ImageGenPage: React.FC = () => {
   const [imageLoadErrors, setImageLoadErrors] = useState<Record<string, boolean>>({});
   const [downloadStatus, setDownloadStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
   const { status: usageStatus, fetchStatus: fetchUsageStatus } = useUsageStore();
+  const [hasGoogleKey, setHasGoogleKey] = useState(false);
+  const [hasNvidiaKey, setHasNvidiaKey] = useState(false);
 
   const [usageMinimized, setUsageMinimized] = useState(() => window.innerWidth <= 768 ? false : true);
   const { openUpgradeModal } = useUIStore();
@@ -178,10 +180,19 @@ const ImageGenPage: React.FC = () => {
   const fetchUsage = useCallback(async (isManualRefresh: boolean = false) => {
     try {
       await fetchUsageStatus(isManualRefresh);
+      if (user?.id) {
+        const response = await apiKeyService.listKeys();
+        if (response.success && Array.isArray(response.data)) {
+          const googleKey = response.data.find((k: any) => k.provider === 'google' && k.in_use);
+          const nvidiaKey = response.data.find((k: any) => k.provider === 'nvidia' && k.in_use);
+          setHasGoogleKey(!!googleKey);
+          setHasNvidiaKey(!!nvidiaKey);
+        }
+      }
     } catch (err) {
-      console.error('Failed to fetch usage:', err);
+      console.error('Failed to fetch usage or keys:', err);
     }
-  }, [fetchUsageStatus]);
+  }, [fetchUsageStatus, user?.id]);
 
   useEffect(() => {
     fetchModels();
@@ -229,6 +240,7 @@ const ImageGenPage: React.FC = () => {
         height: ratio.h,
         cfg_scale: isGoogleImage ? undefined : ((isFlux && !isFluxDev) ? undefined : settings.cfgScale),
         image_size: isGoogleImage ? settings.imageSize : undefined,
+        useByok: settings.useByok,
       });
     } catch (error: any) {
       if (error.response?.status === 429) {
@@ -541,6 +553,37 @@ const ImageGenPage: React.FC = () => {
                         }}
                       />
                     </div>
+
+                    {/* BYOK Toggle */}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: '16px' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <div style={{ display: 'flex', flexDirection: 'column' }}>
+                          <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Use BYOK</span>
+                          {isGoogleImage ? (
+                            !hasGoogleKey && <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>No Google key configured</span>
+                          ) : (
+                            !hasNvidiaKey && <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>No NVIDIA key configured</span>
+                          )}
+                        </div>
+                        <button
+                          type="button"
+                          className={`${styles.ratioButton} ${settings.useByok && (isGoogleImage ? hasGoogleKey : hasNvidiaKey) ? styles.ratioButtonActive : ''}`}
+                          style={{ padding: '6px 12px', height: 'auto', display: 'flex', alignItems: 'center', gap: '4px', margin: 0, width: 'auto' }}
+                          onClick={() => {
+                            const reqKey = isGoogleImage ? hasGoogleKey : hasNvidiaKey;
+                            if (!reqKey) {
+                              const providerName = isGoogleImage ? 'Google' : 'NVIDIA';
+                              toast.error(`No active ${providerName} API key configured. Please configure it in Settings first.`);
+                              navigate('/settings?tab=keys');
+                              return;
+                            }
+                            updateSettings({ useByok: !settings.useByok });
+                          }}
+                        >
+                          {settings.useByok && (isGoogleImage ? hasGoogleKey : hasNvidiaKey) ? 'Enabled' : 'Disabled'}
+                        </button>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -700,6 +743,35 @@ const ImageGenPage: React.FC = () => {
                         <span className={styles.creditsValue}>—</span>
                         <span className={styles.creditsTotal}>No limit data</span>
                       </>
+                    )}
+                  </div>
+                  
+                  {/* Cost per Image indicator with premium savings badge */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: '12px', marginTop: '12px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Generation Cost</span>
+                      <span style={{ fontSize: '0.8rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        <Zap size={11} fill="currentColor" style={{ color: 'var(--primary)' }} />
+                        {settings.useByok && (isGoogleImage ? hasGoogleKey : hasNvidiaKey) ? '0.2' : '1'} Credits
+                      </span>
+                    </div>
+                    {(isGoogleImage ? hasGoogleKey : hasNvidiaKey) ? (
+                      settings.useByok ? (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px', background: 'rgba(16, 185, 129, 0.1)', color: '#10b981', padding: '4px 8px', borderRadius: '6px', fontSize: '0.7rem', fontWeight: 500 }}>
+                          <Check size={11} />
+                          <span>BYOK active — saving 80% credits</span>
+                        </div>
+                      ) : (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px', background: 'rgba(255, 193, 7, 0.1)', color: '#ffc107', padding: '4px 8px', borderRadius: '6px', fontSize: '0.7rem', fontWeight: 500 }}>
+                          <Info size={11} />
+                          <span>BYOK key detected but not active</span>
+                        </div>
+                      )
+                    ) : (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '4px', background: 'rgba(255, 255, 255, 0.03)', color: 'var(--text-muted)', padding: '4px 8px', borderRadius: '6px', fontSize: '0.7rem' }}>
+                        <Info size={11} />
+                        <span>Using platform credits. Configure API keys for 80% discount.</span>
+                      </div>
                     )}
                   </div>
                   {usage?.tier?.toLowerCase() !== 'pro' && (
@@ -914,6 +986,26 @@ const ImageGenPage: React.FC = () => {
                       >
                         {isGenerating ? <Loader2 className="animate-spin" size={24} /> : <Wand2 size={24} />}
                       </button>
+                    </div>
+
+                    {/* BYOK footer */}
+                    <div className={styles.chatFooter}>
+                      {(isGoogleImage ? hasGoogleKey : hasNvidiaKey) && settings.useByok ? (
+                        <div className={styles.byokActiveBadge}>
+                          <Check size={12} className={styles.activeCheck} />
+                          <span>BYOK active &mdash; <strong>0.2 credits</strong>/image</span>
+                        </div>
+                      ) : (isGoogleImage ? hasGoogleKey : hasNvidiaKey) ? (
+                        <div className={styles.byokInactiveBadge}>
+                          <Info size={12} className={styles.infoIcon} />
+                          <span>1 credit/image. <button type="button" onClick={() => updateSettings({ useByok: true })} className={styles.byokLink}>Enable BYOK (0.2 credits)</button></span>
+                        </div>
+                      ) : (
+                        <div className={styles.byokInactiveBadge}>
+                          <Info size={12} className={styles.infoIcon} />
+                          <span>1 credit/image. <button type="button" onClick={() => navigate('/settings?tab=keys')} className={styles.byokLink}>Use BYOK for 0.2</button></span>
+                        </div>
+                      )}
                     </div>
                   </div>
                 </motion.div>

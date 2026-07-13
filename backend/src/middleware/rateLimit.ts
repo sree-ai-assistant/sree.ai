@@ -85,8 +85,10 @@ export const rateLimitMiddleware = (toolType: ToolType, provider?: string) => {
       }
 
       // Detect BYOK if provider is specified or detected
+      const skipUserKey = req.body?.useByok === false || req.body?.useByok === 'false' || req.query?.useByok === 'false';
+
       if (detectedProvider && detectedProvider !== 'unknown') {
-        const result = await ApiKeyService.getUserApiKey(user?.id, detectedProvider);
+        const result = await ApiKeyService.getUserApiKey(skipUserKey ? null : user?.id, detectedProvider);
         apiKey = result.key;
         isByok = result.source === 'user';
 
@@ -98,7 +100,7 @@ export const rateLimitMiddleware = (toolType: ToolType, provider?: string) => {
 
       // For voice requests using Deepgram, check if the user has a Deepgram BYOK key
       if (actualToolType === 'voice') {
-        const result = await ApiKeyService.getUserApiKey(user?.id, 'deepgram');
+        const result = await ApiKeyService.getUserApiKey(skipUserKey ? null : user?.id, 'deepgram');
         // If they provided a custom deepgram key, we treat it as BYOK for quota purposes.
         // Even if they also use nvidia, deepgram is the primary cost for voice in this context.
         if (result.source === 'user') {
@@ -108,8 +110,8 @@ export const rateLimitMiddleware = (toolType: ToolType, provider?: string) => {
 
       // For STT requests, check Groq or Deepgram BYOK (either counts as BYOK for quota)
       if (actualToolType === 'stt') {
-        const groqCheck = await ApiKeyService.getUserApiKey(user?.id, 'groq');
-        const dgCheck = await ApiKeyService.getUserApiKey(user?.id, 'deepgram');
+        const groqCheck = await ApiKeyService.getUserApiKey(skipUserKey ? null : user?.id, 'groq');
+        const dgCheck = await ApiKeyService.getUserApiKey(skipUserKey ? null : user?.id, 'deepgram');
         if (groqCheck.source === 'user' || dgCheck.source === 'user') {
           isByok = true;
         }

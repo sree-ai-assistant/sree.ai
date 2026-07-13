@@ -52,7 +52,7 @@ export const ModelSelector: React.FC = () => {
 
   // Compute which providers actually have chat models
   const availableProviders = useMemo(() => {
-    const chatModels = models.filter(m => !m.is_image);
+    const chatModels = models.filter(m => !m.is_image && !m.is_video);
     const providerSet = new Set(chatModels.map(m => m.provider?.toLowerCase()));
     return PROVIDER_TABS.filter(t => providerSet.has(t.provider));
   }, [models]);
@@ -66,6 +66,7 @@ export const ModelSelector: React.FC = () => {
 
   const filteredModels = models.filter(model => {
     if (model.is_image) return false;
+    if (model.is_video) return false;
 
     // Provider filter
     if (activeTab !== 'all') {
