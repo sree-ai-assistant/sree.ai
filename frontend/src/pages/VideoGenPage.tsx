@@ -934,7 +934,7 @@ const VideoGenPage: React.FC = () => {
                                   }}
                                 />
                                 <span className={styles.summaryRatioText}>
-                                  {ASPECT_RATIOS[settings.ratioIndex]?.desc}
+                                  {ASPECT_RATIOS[settings.ratioIndex]?.label}
                                 </span>
                               </span>
                               <span className={styles.summaryDot}>·</span>
@@ -991,10 +991,7 @@ const VideoGenPage: React.FC = () => {
                                                 height: `${ar.iconSize.h}px`,
                                               }}
                                             />
-                                            <div className={styles.ratioPillText}>
-                                              <span className={styles.ratioPillLabel}>{ar.desc}</span>
-                                              <span className={styles.ratioPillSub}>{ar.label}</span>
-                                            </div>
+                                            <span className={styles.ratioPillLabel}>{ar.label}</span>
                                           </button>
                                         ))}
                                       </div>
