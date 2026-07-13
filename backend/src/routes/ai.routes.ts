@@ -795,6 +795,22 @@ router.post('/image', flexAuthMiddleware, abuseDetectionMiddleware(), queuePrior
       }
     }
 
+    // Charge usage credits only upon success: 1 image = 1 credit, BYOK = 0.2 credits
+    const tier = (req as any).userTier || 'anonymous';
+    const chargeAmount = isByok ? 0.2 : 1;
+    const identity: RateLimitIdentity = userId
+      ? { type: 'authenticated', userId, tier }
+      : { type: 'anonymous', anonId: anonId || 'unknown', tier: 'anonymous' as any };
+
+    try {
+      await checkAndIncrementMultiUsage(identity, [
+        { tool: 'image', amount: images.length || 1, isByok, bypassLimits: true }
+      ]);
+      console.log(`[Image Route] Charged ${chargeAmount * (images.length || 1)} image credit(s) for ${images.length} images (model: ${model}, BYOK: ${isByok})`);
+    } catch (chargeErr: any) {
+      console.error('[Image Route] Failed to charge image credit:', chargeErr);
+    }
+
     res.json({ success: true, data: { images } });
   } catch (error: any) {
     console.error('Image Generation Error:', error.message);
