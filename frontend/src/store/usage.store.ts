@@ -203,12 +203,12 @@ interface UsageState {
   status: UsageStatus | null;
   loading: boolean;
   error: string | null;
-  fetchStatus: (isManualRefresh?: boolean) => Promise<void>;
+  fetchStatus: (isManualRefresh?: boolean) => Promise<boolean>;
   incrementLocalUsage: (tool?: 'chat' | 'voice' | 'image' | 'stt' | 'video', amount?: number) => void;
   clearStore: () => void;
 }
 
-let activeFetchPromise: Promise<void> | null = null;
+let activeFetchPromise: Promise<boolean> | null = null;
 
 export const useUsageStore = create<UsageState>((set, get) => ({
   status: null,
@@ -242,7 +242,7 @@ export const useUsageStore = create<UsageState>((set, get) => ({
           (t) => React.createElement(RateLimitToast, { resetsAt, toastId: t.id, visible: t.visible }),
           { id: 'usage-rate-limit-toast', duration: 10000 }
         );
-        return;
+        return false;
       }
 
       timestamps.push(now);
@@ -263,11 +263,14 @@ export const useUsageStore = create<UsageState>((set, get) => ({
         const response = await usageService.getStatus();
         if (response.success) {
           set({ status: response.status, loading: false });
+          return true;
         } else {
           set({ error: response.message || 'Failed to fetch usage', loading: false });
+          return false;
         }
       } catch (err: any) {
         set({ error: err.message || 'An error occurred', loading: false });
+        return false;
       }
     })();
 
@@ -276,7 +279,7 @@ export const useUsageStore = create<UsageState>((set, get) => ({
     }
 
     try {
-      await promise;
+      return await promise;
     } finally {
       if (!isManualRefresh && activeFetchPromise === promise) {
         activeFetchPromise = null;

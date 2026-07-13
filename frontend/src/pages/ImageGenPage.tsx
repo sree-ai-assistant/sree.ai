@@ -179,7 +179,10 @@ const ImageGenPage: React.FC = () => {
 
   const fetchUsage = useCallback(async (isManualRefresh: boolean = false) => {
     try {
-      await fetchUsageStatus(isManualRefresh);
+      const success = await fetchUsageStatus(isManualRefresh);
+      if (success === false) {
+        return;
+      }
       if (user?.id) {
         const response = await apiKeyService.listKeys();
         if (response.success && Array.isArray(response.data)) {

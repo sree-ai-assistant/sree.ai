@@ -402,7 +402,10 @@ const VideoGenPage: React.FC = () => {
   const userId = user?.id;
   const fetchUsage = useCallback(async (isManualRefresh: boolean = false) => {
     try {
-      await fetchUsageStatus(isManualRefresh);
+      const success = await fetchUsageStatus(isManualRefresh);
+      if (success === false) {
+        return;
+      }
       if (userId) {
         const response = await apiKeyService.listKeys();
         if (response.success && Array.isArray(response.data)) {
