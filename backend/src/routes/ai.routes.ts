@@ -3,7 +3,7 @@ import { authMiddleware, starterPlanMiddleware, videoModelValidationMiddleware }
 import { flexAuthMiddleware } from '../middleware/anonymousIdentity';
 import { rateLimitMiddleware, featureGateMiddleware } from '../middleware/rateLimit';
 import { abuseDetectionMiddleware } from '../middleware/abuseDetection';
-import { uploadSizeValidator, queuePriorityMiddleware } from '../middleware/uploadEnforcement';
+import { uploadSizeValidator, queuePriorityMiddleware, uploadAgreementMiddleware } from '../middleware/uploadEnforcement';
 import { withPriorityQueue } from '../services/queue.service';
 import { PLAN_CONFIGS as PLANS, type PlanTier } from '../config/plans';
 import { aiService } from '../services/ai.service';
@@ -1014,7 +1014,7 @@ router.delete('/video/:id', flexAuthMiddleware, async (req: any, res) => {
 });
 
 // Voice Transcription
-router.post('/voice', flexAuthMiddleware, abuseDetectionMiddleware(), queuePriorityMiddleware, featureGateMiddleware('voiceToText'), rateLimitMiddleware('voice', 'deepgram'), upload.single('file'), uploadSizeValidator, withPriorityQueue(async (req: any, res) => {
+router.post('/voice', flexAuthMiddleware, abuseDetectionMiddleware(), queuePriorityMiddleware, featureGateMiddleware('voiceToText'), rateLimitMiddleware('voice', 'deepgram'), uploadAgreementMiddleware, upload.single('file'), uploadSizeValidator, withPriorityQueue(async (req: any, res) => {
   try {
     const file = req.file;
     const userId = req.user?.id;
@@ -1056,7 +1056,7 @@ router.post('/voice', flexAuthMiddleware, abuseDetectionMiddleware(), queuePrior
 }));
 
 // Speech to Text (Dictate Mode) — Groq Whisper primary, Deepgram fallback
-router.post('/stt', flexAuthMiddleware, abuseDetectionMiddleware(), queuePriorityMiddleware, featureGateMiddleware('voiceToText'), rateLimitMiddleware('stt'), upload.single('file'), uploadSizeValidator, withPriorityQueue(async (req: any, res) => {
+router.post('/stt', flexAuthMiddleware, abuseDetectionMiddleware(), queuePriorityMiddleware, featureGateMiddleware('voiceToText'), rateLimitMiddleware('stt'), uploadAgreementMiddleware, upload.single('file'), uploadSizeValidator, withPriorityQueue(async (req: any, res) => {
   try {
     const file = req.file;
     const userId = req.user?.id;
@@ -1212,7 +1212,7 @@ router.post('/stt', flexAuthMiddleware, abuseDetectionMiddleware(), queuePriorit
 }));
 
 // File Upload to R2
-router.post('/upload', flexAuthMiddleware, abuseDetectionMiddleware(), queuePriorityMiddleware, featureGateMiddleware('fileUpload'), rateLimitMiddleware('file_upload'), upload.single('file'), uploadSizeValidator, withPriorityQueue(async (req: any, res) => {
+router.post('/upload', flexAuthMiddleware, abuseDetectionMiddleware(), queuePriorityMiddleware, featureGateMiddleware('fileUpload'), rateLimitMiddleware('file_upload'), uploadAgreementMiddleware, upload.single('file'), uploadSizeValidator, withPriorityQueue(async (req: any, res) => {
   try {
     const file = req.file;
     if (!file) {

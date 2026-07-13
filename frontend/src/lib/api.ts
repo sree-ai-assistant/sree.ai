@@ -174,6 +174,10 @@ export const userService = {
     const response = await api.post('/user/subscription/upgrade', { tier });
     return response.data;
   },
+  agreeUpload: async () => {
+    const response = await api.post('/user/profile/agree-upload');
+    return response.data;
+  },
 };
 
 export const usageService = {

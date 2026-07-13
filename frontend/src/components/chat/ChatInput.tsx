@@ -7,6 +7,7 @@ import { useModelStore } from '../../store/model.store';
 import { useAuthStore } from '../../store/auth.store';
 import { uploadFile } from '../../api/storage';
 import { aiService } from '../../lib/api';
+import { useUploadAgreementStore } from '../../store/upload-agreement.store';
 
 export interface Attachment {
   file: File;
@@ -438,6 +439,14 @@ export const ChatInput: React.FC<ChatInputProps> = ({
     // Block anonymous users from uploading files
     if (!user) {
       onAuthRequired?.();
+      if (fileInputRef.current) fileInputRef.current.value = '';
+      if (imageInputRef.current) imageInputRef.current.value = '';
+      return;
+    }
+
+    // Require user agreement to the content upload policy
+    const agreed = await useUploadAgreementStore.getState().checkAgreement();
+    if (!agreed) {
       if (fileInputRef.current) fileInputRef.current.value = '';
       if (imageInputRef.current) imageInputRef.current.value = '';
       return;

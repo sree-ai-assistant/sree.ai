@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { authMiddleware } from '../middleware/auth';
 import { supabaseAdmin } from '../lib/supabase';
+import { uploadAgreementMiddleware } from '../middleware/uploadEnforcement';
 import { ApiKeyService } from '../services/apiKey.service';
 import { ProviderValidationService } from '../services/providerValidation.service';
 import { migrateDataToUser } from '../services/anonymous.service';
@@ -85,8 +86,36 @@ router.patch('/profile', authMiddleware, async (req: any, res) => {
   }
 });
 
+// Agree to File Upload Policy
+router.post('/profile/agree-upload', authMiddleware, async (req: any, res) => {
+  try {
+    const userId = req.user.id;
+    const now = new Date().toISOString();
+
+    const { error } = await supabaseAdmin
+      .from('profiles')
+      .update({
+        file_upload_agreed: true,
+        file_upload_agreed_at: now
+      })
+      .eq('id', userId);
+
+    if (error) throw error;
+
+    res.json({
+      success: true,
+      message: 'Agreement recorded successfully',
+      file_upload_agreed: true,
+      file_upload_agreed_at: now
+    });
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+
 // Upload avatar
-router.post('/avatar', authMiddleware, avatarUpload.single('avatar'), async (req: any, res) => {
+router.post('/avatar', authMiddleware, uploadAgreementMiddleware, avatarUpload.single('avatar'), async (req: any, res) => {
   try {
     const file = req.file;
     if (!file) {

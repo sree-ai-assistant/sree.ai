@@ -957,6 +957,13 @@
   object-fit: cover;
   border: 1px solid rgba(255, 255, 255, 0.12);
   display: block;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.frameSlotThumb:hover {
+  transform: scale(1.06);
+  border-color: rgba(255, 255, 255, 0.3);
 }
 
 .frameSlotLoading {
@@ -1293,7 +1300,7 @@
   min-width: 290px;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 10px;
 
   /* Scrollable for small screens */
   max-height: calc(100vh - 240px);
@@ -3023,4 +3030,65 @@
     margin-left: 0 !important;
     opacity: 0.8 !important;
   }
+}
+
+/* ===== Preview Modal Lightbox for Uploaded Media ===== */
+.previewModalOverlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.85);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  cursor: zoom-out;
+}
+
+.previewModalContent {
+  position: relative;
+  max-width: 90vw;
+  max-height: 85vh;
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+  background: #0f172a;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: default;
+}
+
+.previewModalMedia {
+  max-width: 100%;
+  max-height: 85vh;
+  object-fit: contain;
+  display: block;
+}
+
+.previewModalClose {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: rgba(15, 23, 42, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  z-index: 10;
+  backdrop-filter: blur(4px);
+}
+
+.previewModalClose:hover {
+  background: rgba(239, 68, 68, 0.9);
+  border-color: transparent;
+  transform: rotate(90deg);
 }

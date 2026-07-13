@@ -36,6 +36,7 @@ import { getProviderLogo, PROVIDER_COLORS } from '../components/icons/ProviderLo
 import { OAuthBadge } from '../components/layout/OAuthBadge';
 import styles from './SettingsPage.module.css';
 import { useUIStore } from '../store/ui.store';
+import { useUploadAgreementStore } from '../store/upload-agreement.store';
 
 interface SavedApiKey {
   id: string;
@@ -406,6 +407,11 @@ const SettingsPage: React.FC = () => {
 
     if (file.size > 5 * 1024 * 1024) {
       alert('File size must be less than 5MB');
+      return;
+    }
+
+    const agreed = await useUploadAgreementStore.getState().checkAgreement();
+    if (!agreed) {
       return;
     }
 

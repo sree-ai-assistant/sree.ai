@@ -18,6 +18,7 @@ import VideoGenPage from './pages/VideoGenPage';
 import { Toaster } from 'react-hot-toast';
 import { UpgradeModal } from './components/shared/UpgradeModal';
 import { LimitExceededModal } from './components/shared/LimitExceededModal';
+import { UploadAgreementModal } from './components/shared/UploadAgreementModal';
 
 import { useUIStore } from './store/ui.store';
 
@@ -56,6 +57,7 @@ function App() {
       <Toaster position="top-right" />
       <UpgradeModal />
       <LimitExceededModal />
+      <UploadAgreementModal />
       <Routes>
         {/* Auth Routes */}
         <Route path="/login" element={<LoginPage />} />

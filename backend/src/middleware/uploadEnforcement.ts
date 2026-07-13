@@ -1,6 +1,8 @@
 import type { Request, Response, NextFunction } from 'express';
 import { getPlanConfig } from '../config/plans';
+import { supabaseAdmin } from '../lib/supabase';
 import fs from 'fs';
+
 
 /**
  * Upload Size Validator
@@ -72,3 +74,47 @@ export const queuePriorityMiddleware = (req: Request, res: Response, next: NextF
   (req as any).priority = plan.features.priorityQueue;
   next();
 };
+
+/**
+ * Upload Agreement Middleware
+ * 
+ * Verifies if the authenticated user has agreed to the file upload policy.
+ * If not agreed, returns a 403 Forbidden.
+ */
+export const uploadAgreementMiddleware = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const user = (req as any).user;
+    
+    // Agreement only applies to authenticated users who have a database profile.
+    if (user) {
+      const { data: profile, error } = await supabaseAdmin
+        .from('profiles')
+        .select('file_upload_agreed')
+        .eq('id', user.id)
+        .single();
+
+      if (error || !profile) {
+        console.error('[Upload Agreement] Failed to fetch user profile:', error?.message || 'No profile found');
+        return res.status(500).json({
+          success: false,
+          code: 'PROFILE_FETCH_FAILED',
+          message: 'Failed to verify file upload agreement.'
+        });
+      }
+
+      if (!profile.file_upload_agreed) {
+        return res.status(403).json({
+          success: false,
+          code: 'AGREEMENT_REQUIRED',
+          message: 'You must agree to the file upload policy before uploading files.'
+        });
+      }
+    }
+
+    next();
+  } catch (error) {
+    console.error('[Upload Agreement] Middleware error:', error);
+    next(error);
+  }
+};
+

@@ -1066,10 +1066,6 @@ class AiService {
           bytesBase64Encoded: lastFrameBytes,
           mimeType: lastFrameMime
         };
-        instance.last_frame = {
-          bytesBase64Encoded: lastFrameBytes,
-          mimeType: lastFrameMime
-        };
         console.log(`[AiService] Attached ending frame image reference to Google Video payload (${lastFrameBytes.length} chars)`);
       } catch (err: any) {
         console.error(`[AiService] Error downloading/attaching lastFrameUrl ${lastFrameUrl}:`, err.message);

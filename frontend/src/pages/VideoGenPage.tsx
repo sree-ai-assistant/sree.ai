@@ -15,6 +15,7 @@ import { useAuthStore } from '../store/auth.store';
 import { useVideoStore } from '../store/video.store';
 import { useUIStore } from '../store/ui.store';
 import { useUsageStore } from '../store/usage.store';
+import { useUploadAgreementStore } from '../store/upload-agreement.store';
 import { aiService, apiKeyService } from '../lib/api';
 import styles from './VideoGenPage.module.css';
 import { VideoSidebar } from '../components/video/VideoSidebar';
@@ -41,6 +42,19 @@ const SPEED_TIERS = [
   { id: 'fast', label: 'Fast Mode', desc: 'Quick processing' },
   { id: 'standard', label: 'Standard Mode', desc: 'High visual fidelity' }
 ];
+
+const ALLOWED_FRAME_TYPES = [
+  'image/png', 'image/jpeg', 'image/webp', 'image/heic', 'image/heif',
+  'image/gif', 'image/bmp', 'image/tiff', 'video/videoframe/jpeg2000', 'video/jpeg2000'
+];
+
+const ALLOWED_EXTENSIONS = ['.png', '.jpg', '.jpeg', '.webp', '.heic', '.heif', '.gif', '.bmp', '.tiff', '.tif', '.jp2', '.j2k', '.jpf', '.jpx', '.jpm', '.mj2'];
+
+const isSupportedFrameFile = (file: File): boolean => {
+  if (ALLOWED_FRAME_TYPES.includes(file.type)) return true;
+  const fileName = file.name.toLowerCase();
+  return ALLOWED_EXTENSIONS.some(ext => fileName.endsWith(ext));
+};
 
 
 
@@ -183,7 +197,7 @@ const GridVideoPlayer: React.FC<{
       videoRef.current.pause();
       setIsPlaying(false);
     } else {
-      videoRef.current.play().catch(() => {});
+      videoRef.current.play().catch(() => { });
       setIsPlaying(true);
     }
   };
@@ -257,7 +271,7 @@ const GridVideoPlayer: React.FC<{
         onLoadedMetadata={handleLoadedMetadata}
         style={{ width: '100%', height: '100%', objectFit: 'cover' }}
       />
-      
+
       {/* Delete button */}
       <button
         type="button"
@@ -354,6 +368,8 @@ const VideoGenPage: React.FC = () => {
   // Modals & triggers
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const [videoLoadErrors, setVideoLoadErrors] = useState<Record<string, boolean>>({});
+  const [previewMediaUrl, setPreviewMediaUrl] = useState<string | null>(null);
+  const [previewMediaType, setPreviewMediaType] = useState<'image' | 'video' | null>(null);
   const usageStatus = useUsageStore(state => state.status);
   const fetchUsageStatus = useUsageStore(state => state.fetchStatus);
   const [limitModal, setLimitModal] = useState<{
@@ -434,6 +450,13 @@ const VideoGenPage: React.FC = () => {
     const isVideo = file.type.startsWith('video/');
     if (!isImage && !isVideo) {
       toast.error('Only image or video files are supported.');
+      if (fileInputRef.current) fileInputRef.current.value = '';
+      return;
+    }
+
+    const agreed = await useUploadAgreementStore.getState().checkAgreement();
+    if (!agreed) {
+      if (fileInputRef.current) fileInputRef.current.value = '';
       return;
     }
 
@@ -469,8 +492,15 @@ const VideoGenPage: React.FC = () => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    if (!file.type.startsWith('image/')) {
-      toast.error('Only image files are supported for starting frame.');
+    if (!isSupportedFrameFile(file)) {
+      toast.error('Unsupported file type. Please upload a valid image or JPEG2000 video frame.');
+      if (startFrameInputRef.current) startFrameInputRef.current.value = '';
+      return;
+    }
+
+    const agreed = await useUploadAgreementStore.getState().checkAgreement();
+    if (!agreed) {
+      if (startFrameInputRef.current) startFrameInputRef.current.value = '';
       return;
     }
 
@@ -505,8 +535,15 @@ const VideoGenPage: React.FC = () => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    if (!file.type.startsWith('image/')) {
-      toast.error('Only image files are supported for ending frame.');
+    if (!isSupportedFrameFile(file)) {
+      toast.error('Unsupported file type. Please upload a valid image or JPEG2000 video frame.');
+      if (endFrameInputRef.current) endFrameInputRef.current.value = '';
+      return;
+    }
+
+    const agreed = await useUploadAgreementStore.getState().checkAgreement();
+    if (!agreed) {
+      if (endFrameInputRef.current) endFrameInputRef.current.value = '';
       return;
     }
 
@@ -830,8 +867,8 @@ const VideoGenPage: React.FC = () => {
 
                   {/* Hidden Native File Inputs */}
                   <input type="file" ref={fileInputRef} style={{ display: 'none' }} accept="image/*,video/*" onChange={handleFileSelect} />
-                  <input type="file" ref={startFrameInputRef} style={{ display: 'none' }} accept="image/*" onChange={handleStartFrameSelect} />
-                  <input type="file" ref={endFrameInputRef} style={{ display: 'none' }} accept="image/*" onChange={handleEndFrameSelect} />
+                  <input type="file" ref={startFrameInputRef} style={{ display: 'none' }} accept="image/png, image/jpeg, image/webp, image/heic, image/heif, image/gif, image/bmp, image/tiff, video/videoframe/jpeg2000, video/jpeg2000" onChange={handleStartFrameSelect} />
+                  <input type="file" ref={endFrameInputRef} style={{ display: 'none' }} accept="image/png, image/jpeg, image/webp, image/heic, image/heif, image/gif, image/bmp, image/tiff, video/videoframe/jpeg2000, video/jpeg2000" onChange={handleEndFrameSelect} />
 
                   {/* Prompt Box wrapper */}
                   <div className={styles.promptBoxWrapper}>
@@ -844,7 +881,15 @@ const VideoGenPage: React.FC = () => {
                             {/* Start frame slot */}
                             {startFrameFile ? (
                               <div className={styles.frameSlot}>
-                                <img src={startFrameFile.preview} alt="start" className={styles.frameSlotThumb} />
+                                <img
+                                  src={startFrameFile.preview}
+                                  alt="start"
+                                  className={styles.frameSlotThumb}
+                                  onClick={() => {
+                                    setPreviewMediaUrl(startFrameFile.preview);
+                                    setPreviewMediaType('image');
+                                  }}
+                                />
                                 {startFrameFile.isUploading && <div className={styles.frameSlotLoading}><Loader2 size={10} className={styles.progressSpinner} /></div>}
                                 <button type="button" className={styles.frameSlotRemove} onClick={removeStartFrameFile}><X size={8} /></button>
                               </div>
@@ -857,7 +902,15 @@ const VideoGenPage: React.FC = () => {
                             {/* End frame slot */}
                             {endFrameFile ? (
                               <div className={styles.frameSlot}>
-                                <img src={endFrameFile.preview} alt="end" className={styles.frameSlotThumb} />
+                                <img
+                                  src={endFrameFile.preview}
+                                  alt="end"
+                                  className={styles.frameSlotThumb}
+                                  onClick={() => {
+                                    setPreviewMediaUrl(endFrameFile.preview);
+                                    setPreviewMediaType('image');
+                                  }}
+                                />
                                 {endFrameFile.isUploading && <div className={styles.frameSlotLoading}><Loader2 size={10} className={styles.progressSpinner} /></div>}
                                 <button type="button" className={styles.frameSlotRemove} onClick={removeEndFrameFile}><X size={8} /></button>
                               </div>
@@ -872,9 +925,24 @@ const VideoGenPage: React.FC = () => {
                           uploadedFile ? (
                             <div className={styles.frameSlot}>
                               {uploadedFile.type === 'image' ? (
-                                <img src={uploadedFile.preview} alt="ingredient" className={styles.frameSlotThumb} />
+                                <img
+                                  src={uploadedFile.preview}
+                                  alt="ingredient"
+                                  className={styles.frameSlotThumb}
+                                  onClick={() => {
+                                    setPreviewMediaUrl(uploadedFile.preview);
+                                    setPreviewMediaType('image');
+                                  }}
+                                />
                               ) : (
-                                <video src={uploadedFile.preview} className={styles.frameSlotThumb} />
+                                <video
+                                  src={uploadedFile.preview}
+                                  className={styles.frameSlotThumb}
+                                  onClick={() => {
+                                    setPreviewMediaUrl(uploadedFile.preview);
+                                    setPreviewMediaType('video');
+                                  }}
+                                />
                               )}
                               {uploadedFile.isUploading && <div className={styles.frameSlotLoading}><Loader2 size={10} className={styles.progressSpinner} /></div>}
                               <button type="button" className={styles.frameSlotRemove} onClick={removeUploadedFile}><X size={8} /></button>
@@ -933,9 +1001,9 @@ const VideoGenPage: React.FC = () => {
                                     height: `${ASPECT_RATIOS[settings.ratioIndex]?.iconSizeMini.h}px`,
                                   }}
                                 />
-                                <span className={styles.summaryRatioText}>
+                                {/* <span className={styles.summaryRatioText}>
                                   {ASPECT_RATIOS[settings.ratioIndex]?.label}
-                                </span>
+                                </span> */}
                               </span>
                               <span className={styles.summaryDot}>·</span>
                               <span>x{settings.outputsCount}</span>
@@ -1038,9 +1106,8 @@ const VideoGenPage: React.FC = () => {
                                           </div>
                                           <ChevronDown
                                             size={14}
-                                            className={`${styles.customDropdownArrow} ${
-                                              modelDropdownOpen ? styles.customDropdownArrowOpen : ''
-                                            }`}
+                                            className={`${styles.customDropdownArrow} ${modelDropdownOpen ? styles.customDropdownArrowOpen : ''
+                                              }`}
                                           />
                                         </button>
 
@@ -1055,9 +1122,8 @@ const VideoGenPage: React.FC = () => {
                                                 <button
                                                   key={m.id}
                                                   type="button"
-                                                  className={`${styles.customModelDropdownItem} ${
-                                                    settings.modelId === m.id ? styles.customModelDropdownItemActive : ''
-                                                  }`}
+                                                  className={`${styles.customModelDropdownItem} ${settings.modelId === m.id ? styles.customModelDropdownItemActive : ''
+                                                    }`}
                                                   onClick={() => {
                                                     updateSettings({ modelId: m.id });
                                                     setModelDropdownOpen(false);
@@ -1206,26 +1272,26 @@ const VideoGenPage: React.FC = () => {
                     </div>
                   </div>
 
-                    {/* BYOK footer */}
-                    <div className={styles.chatFooter}>
-                      {hasGoogleKey && settings.useByok ? (
-                        <div className={styles.byokActiveBadge}>
-                          <Check size={12} className={styles.activeCheck} />
-                          <span>BYOK active &mdash; <strong>0.2 credits</strong>/video</span>
-                        </div>
-                      ) : hasGoogleKey ? (
-                        <div className={styles.byokInactiveBadge}>
-                          <Info size={12} className={styles.infoIcon} />
-                          <span>1 credit/video. <button type="button" onClick={() => updateSettings({ useByok: true })} className={styles.byokLink}>Enable BYOK (0.2 credits)</button></span>
-                        </div>
-                      ) : (
-                        <div className={styles.byokInactiveBadge}>
-                          <Info size={12} className={styles.infoIcon} />
-                          <span>1 credit/video. <button type="button" onClick={() => navigate('/settings?tab=keys')} className={styles.byokLink}>Use BYOK for 0.2</button></span>
-                        </div>
-                      )}
-                    </div>
-                  </motion.div>
+                  {/* BYOK footer */}
+                  <div className={styles.chatFooter}>
+                    {hasGoogleKey && settings.useByok ? (
+                      <div className={styles.byokActiveBadge}>
+                        <Check size={12} className={styles.activeCheck} />
+                        <span>BYOK active &mdash; <strong>0.2 credits</strong>/video</span>
+                      </div>
+                    ) : hasGoogleKey ? (
+                      <div className={styles.byokInactiveBadge}>
+                        <Info size={12} className={styles.infoIcon} />
+                        <span>1 credit/video. <button type="button" onClick={() => updateSettings({ useByok: true })} className={styles.byokLink}>Enable BYOK (0.2 credits)</button></span>
+                      </div>
+                    ) : (
+                      <div className={styles.byokInactiveBadge}>
+                        <Info size={12} className={styles.infoIcon} />
+                        <span>1 credit/video. <button type="button" onClick={() => navigate('/settings?tab=keys')} className={styles.byokLink}>Use BYOK for 0.2</button></span>
+                      </div>
+                    )}
+                  </div>
+                </motion.div>
               ) : (
                 <motion.div
                   key="gallery"
@@ -1255,7 +1321,7 @@ const VideoGenPage: React.FC = () => {
                             </div>
                           ) : (
                             <div className={styles.galleryImageWrapper}>
-                              <video src={vid.videoUrl || vid.url} muted playsInline loop onMouseEnter={(e) => e.currentTarget.play().catch(() => {})} onMouseLeave={(e) => { e.currentTarget.pause(); e.currentTarget.currentTime = 0; }} className={styles.galleryImage} onError={() => setVideoLoadErrors((prev) => ({ ...prev, [vid.id]: true }))} />
+                              <video src={vid.videoUrl || vid.url} muted playsInline loop onMouseEnter={(e) => e.currentTarget.play().catch(() => { })} onMouseLeave={(e) => { e.currentTarget.pause(); e.currentTarget.currentTime = 0; }} className={styles.galleryImage} onError={() => setVideoLoadErrors((prev) => ({ ...prev, [vid.id]: true }))} />
                             </div>
                           )}
                           <div className={styles.galleryOverlay}>
@@ -1298,6 +1364,46 @@ const VideoGenPage: React.FC = () => {
           description="This will permanently delete this video generation from your history. This action cannot be undone."
           confirmLabel="Delete Video"
         />
+
+        <AnimatePresence>
+          {previewMediaUrl && (
+            <motion.div
+              className={styles.previewModalOverlay}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => {
+                setPreviewMediaUrl(null);
+                setPreviewMediaType(null);
+              }}
+            >
+              <motion.div
+                className={styles.previewModalContent}
+                initial={{ scale: 0.9, y: 20 }}
+                animate={{ scale: 1, y: 0 }}
+                exit={{ scale: 0.9, y: 20 }}
+                transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+                onClick={(e) => e.stopPropagation()}
+              >
+                <button
+                  type="button"
+                  className={styles.previewModalClose}
+                  onClick={() => {
+                    setPreviewMediaUrl(null);
+                    setPreviewMediaType(null);
+                  }}
+                >
+                  <X size={20} />
+                </button>
+                {previewMediaType === 'video' ? (
+                  <video src={previewMediaUrl} controls autoPlay loop className={styles.previewModalMedia} />
+                ) : (
+                  <img src={previewMediaUrl} alt="Preview" className={styles.previewModalMedia} />
+                )}
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
     </DashboardLayout>
   );
