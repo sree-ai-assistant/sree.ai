@@ -31,8 +31,8 @@ const VEO_MODELS = [
 
 // Aspect ratios with sizes
 const ASPECT_RATIOS = [
-  { label: '16:9', ratio: '16/9', width: 32, height: 18, desc: 'Landscape' },
-  { label: '9:16', ratio: '9/16', width: 18, height: 32, desc: 'Portrait' }
+  { label: '16:9', ratio: '16/9', width: 32, height: 18, desc: 'Landscape', iconSize: { w: 20, h: 12 }, iconSizeMini: { w: 12, h: 8 } },
+  { label: '9:16', ratio: '9/16', width: 18, height: 32, desc: 'Portrait', iconSize: { w: 12, h: 20 }, iconSizeMini: { w: 8, h: 12 } }
 ];
 
 // Speed/Quality pricing structures
@@ -925,7 +925,18 @@ const VideoGenPage: React.FC = () => {
                               <span className={styles.summaryDot}>·</span>
                               <span>{settings.duration}s</span>
                               <span className={styles.summaryDot}>·</span>
-                              <span className={styles.summaryRatioIcon}>{ASPECT_RATIOS[settings.ratioIndex]?.label}</span>
+                              <span className={styles.summaryRatioIcon}>
+                                <div
+                                  className={styles.summaryRatioBox}
+                                  style={{
+                                    width: `${ASPECT_RATIOS[settings.ratioIndex]?.iconSizeMini.w}px`,
+                                    height: `${ASPECT_RATIOS[settings.ratioIndex]?.iconSizeMini.h}px`,
+                                  }}
+                                />
+                                <span className={styles.summaryRatioText}>
+                                  {ASPECT_RATIOS[settings.ratioIndex]?.desc}
+                                </span>
+                              </span>
                               <span className={styles.summaryDot}>·</span>
                               <span>x{settings.outputsCount}</span>
                               <Sliders size={12} className={styles.summarySliderIcon} />
@@ -970,10 +981,20 @@ const VideoGenPage: React.FC = () => {
                                           <button
                                             key={ar.label}
                                             type="button"
-                                            className={`${styles.popupPill} ${settings.ratioIndex === idx ? styles.popupPillActive : ''}`}
+                                            className={`${styles.popupPill} ${styles.ratioPopupPill} ${settings.ratioIndex === idx ? styles.popupPillActive : ''}`}
                                             onClick={() => updateSettings({ ratioIndex: idx })}
                                           >
-                                            {ar.label}
+                                            <div
+                                              className={styles.popupRatioBox}
+                                              style={{
+                                                width: `${ar.iconSize.w}px`,
+                                                height: `${ar.iconSize.h}px`,
+                                              }}
+                                            />
+                                            <div className={styles.ratioPillText}>
+                                              <span className={styles.ratioPillLabel}>{ar.desc}</span>
+                                              <span className={styles.ratioPillSub}>{ar.label}</span>
+                                            </div>
                                           </button>
                                         ))}
                                       </div>

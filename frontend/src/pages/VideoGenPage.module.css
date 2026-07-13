@@ -1161,7 +1161,72 @@
 }
 
 .summaryRatioIcon {
-  opacity: 0.8;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  opacity: 0.9;
+}
+
+.summaryRatioBox {
+  border: 1px solid currentColor;
+  border-radius: 2px;
+  background: transparent;
+  display: inline-block;
+  box-sizing: border-box;
+  flex-shrink: 0;
+}
+
+.summaryRatioText {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: white;
+}
+
+.popupRatioBox {
+  border: 1.5px solid currentColor;
+  border-radius: 3px;
+  background: transparent;
+  display: inline-block;
+  box-sizing: border-box;
+  flex-shrink: 0;
+  opacity: 0.85;
+  transition: all 0.2s ease;
+}
+
+.ratioPopupPill {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: flex-start !important;
+  gap: 10px !important;
+  padding: 8px 12px !important;
+  min-height: 42px !important;
+}
+
+.ratioPillText {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  line-height: 1.1;
+}
+
+.ratioPillLabel {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.popupPillActive .ratioPillLabel {
+  color: white !important;
+}
+
+.ratioPillSub {
+  font-size: 0.68rem;
+  color: rgba(255, 255, 255, 0.45);
+  margin-top: 1px;
+}
+
+.popupPillActive .ratioPillSub {
+  color: rgba(255, 255, 255, 0.75) !important;
 }
 
 .summarySliderIcon {
