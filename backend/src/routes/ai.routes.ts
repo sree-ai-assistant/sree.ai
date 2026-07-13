@@ -1014,7 +1014,7 @@ router.delete('/video/:id', flexAuthMiddleware, async (req: any, res) => {
 });
 
 // Voice Transcription
-router.post('/voice', flexAuthMiddleware, abuseDetectionMiddleware(), queuePriorityMiddleware, featureGateMiddleware('voiceToText'), rateLimitMiddleware('voice', 'deepgram'), uploadAgreementMiddleware, upload.single('file'), uploadSizeValidator, withPriorityQueue(async (req: any, res) => {
+router.post('/voice', flexAuthMiddleware, abuseDetectionMiddleware(), queuePriorityMiddleware, featureGateMiddleware('voiceToText'), rateLimitMiddleware('voice', 'deepgram'), upload.single('file'), uploadSizeValidator, withPriorityQueue(async (req: any, res) => {
   try {
     const file = req.file;
     const userId = req.user?.id;
@@ -1056,7 +1056,7 @@ router.post('/voice', flexAuthMiddleware, abuseDetectionMiddleware(), queuePrior
 }));
 
 // Speech to Text (Dictate Mode) — Groq Whisper primary, Deepgram fallback
-router.post('/stt', flexAuthMiddleware, abuseDetectionMiddleware(), queuePriorityMiddleware, featureGateMiddleware('voiceToText'), rateLimitMiddleware('stt'), uploadAgreementMiddleware, upload.single('file'), uploadSizeValidator, withPriorityQueue(async (req: any, res) => {
+router.post('/stt', flexAuthMiddleware, abuseDetectionMiddleware(), queuePriorityMiddleware, featureGateMiddleware('voiceToText'), rateLimitMiddleware('stt'), upload.single('file'), uploadSizeValidator, withPriorityQueue(async (req: any, res) => {
   try {
     const file = req.file;
     const userId = req.user?.id;
