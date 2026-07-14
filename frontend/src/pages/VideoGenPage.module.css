@@ -997,6 +997,7 @@
 /* Ingredients mode — compact attach icon */
 .mediaAttachBtn {
   background: rgba(255, 255, 255, 0.05);
+  background: transparent;
   border: 1px dashed rgba(255, 255, 255, 0.15);
   border-radius: 10px;
   width: 36px;
