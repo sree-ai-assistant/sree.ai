@@ -361,7 +361,7 @@ const VideoGenPage: React.FC = () => {
   const startFrameInputRef = useRef<HTMLInputElement | null>(null);
   const endFrameInputRef = useRef<HTMLInputElement | null>(null);
 
-  const [uploadedFile, setUploadedFile] = useState<{ file: File; preview: string; url?: string; isUploading: boolean; type: 'image' | 'video' } | null>(null);
+  const [uploadedFiles, setUploadedFiles] = useState<{ id: string; file: File; preview: string; url?: string; isUploading: boolean; type: 'image' | 'video' }[]>([]);
   const [startFrameFile, setStartFrameFile] = useState<{ file: File; preview: string; url?: string; isUploading: boolean } | null>(null);
   const [endFrameFile, setEndFrameFile] = useState<{ file: File; preview: string; url?: string; isUploading: boolean } | null>(null);
 
@@ -446,15 +446,23 @@ const VideoGenPage: React.FC = () => {
 
   // Ingredients Upload
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
 
-    const isImage = file.type.startsWith('image/');
-    const isVideo = file.type.startsWith('video/');
-    if (!isImage && !isVideo) {
-      toast.error('Only image or video files are supported.');
+    if (uploadedFiles.length + files.length > 5) {
+      toast.error('You can upload a maximum of 5 reference images or videos.');
       if (fileInputRef.current) fileInputRef.current.value = '';
       return;
+    }
+
+    for (const file of files) {
+      const isImage = file.type.startsWith('image/');
+      const isVideo = file.type.startsWith('video/');
+      if (!isImage && !isVideo) {
+        toast.error(`File "${file.name}" is not supported. Only images or videos are allowed.`);
+        if (fileInputRef.current) fileInputRef.current.value = '';
+        return;
+      }
     }
 
     const agreed = await useUploadAgreementStore.getState().checkAgreement();
@@ -463,31 +471,61 @@ const VideoGenPage: React.FC = () => {
       return;
     }
 
-    const preview = URL.createObjectURL(file);
-    const fileType: 'image' | 'video' = isImage ? 'image' : 'video';
-    setUploadedFile({ file, preview, isUploading: true, type: fileType });
+    const newUploads = files.map(file => {
+      const id = Math.random().toString(36).substring(7);
+      const isImage = file.type.startsWith('image/');
+      return {
+        id,
+        file,
+        preview: URL.createObjectURL(file),
+        isUploading: true,
+        type: (isImage ? 'image' : 'video') as 'image' | 'video'
+      };
+    });
 
-    try {
-      const result = await uploadFile(file);
-      if (result.success && result.url) {
-        setUploadedFile(prev => prev ? { ...prev, url: result.url, isUploading: false } : null);
-        updateSettings({ inputUrl: result.url });
-        toast.success('File uploaded successfully');
-      } else {
-        toast.error(result.message || 'Upload failed');
-        setUploadedFile(null);
-      }
-    } catch (err) {
-      toast.error('Failed to upload file');
-      setUploadedFile(null);
-    }
+    setUploadedFiles(prev => [...prev, ...newUploads]);
+
+    await Promise.all(
+      newUploads.map(async (tempItem) => {
+        try {
+          const result = await uploadFile(tempItem.file);
+          if (result.success && result.url) {
+            setUploadedFiles(prev => {
+              const updated = prev.map(item =>
+                item.id === tempItem.id ? { ...item, url: result.url, isUploading: false } : item
+              );
+              const urls = updated.filter(f => !f.isUploading && f.url).map(f => f.url as string);
+              updateSettings({
+                inputUrls: urls,
+                inputUrl: urls[0] || null
+              });
+              return updated;
+            });
+            toast.success(`"${tempItem.file.name}" uploaded successfully`);
+          } else {
+            toast.error(result.message || `Upload failed for ${tempItem.file.name}`);
+            setUploadedFiles(prev => prev.filter(item => item.id !== tempItem.id));
+          }
+        } catch (err) {
+          toast.error(`Failed to upload ${tempItem.file.name}`);
+          setUploadedFiles(prev => prev.filter(item => item.id !== tempItem.id));
+        }
+      })
+    );
 
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
-  const removeUploadedFile = () => {
-    setUploadedFile(null);
-    updateSettings({ inputUrl: null });
+  const removeUploadedFile = (id: string) => {
+    setUploadedFiles(prev => {
+      const updated = prev.filter(f => f.id !== id);
+      const urls = updated.filter(f => !f.isUploading && f.url).map(f => f.url as string);
+      updateSettings({
+        inputUrls: urls,
+        inputUrl: urls[0] || null
+      });
+      return updated;
+    });
   };
 
   // Starting Frame Upload
@@ -579,13 +617,16 @@ const VideoGenPage: React.FC = () => {
   const handleModeChange = (mode: 'ingredients' | 'frames') => {
     setInputMode(mode);
     if (mode === 'ingredients') {
+      const urls = uploadedFiles.filter(f => !f.isUploading && f.url).map(f => f.url as string);
       updateSettings({
-        inputUrl: uploadedFile?.url || null,
+        inputUrl: urls[0] || null,
+        inputUrls: urls,
         lastFrameUrl: null
       });
     } else {
       updateSettings({
         inputUrl: startFrameFile?.url || null,
+        inputUrls: [],
         lastFrameUrl: endFrameFile?.url || null
       });
     }
@@ -869,7 +910,7 @@ const VideoGenPage: React.FC = () => {
                   </div>
 
                   {/* Hidden Native File Inputs */}
-                  <input type="file" ref={fileInputRef} style={{ display: 'none' }} accept="image/*,video/*" onChange={handleFileSelect} />
+                  <input type="file" ref={fileInputRef} style={{ display: 'none' }} accept="image/*,video/*" multiple onChange={handleFileSelect} />
                   <input type="file" ref={startFrameInputRef} style={{ display: 'none' }} accept="image/png, image/jpeg, image/webp, image/heic, image/heif, image/gif, image/bmp, image/tiff, video/videoframe/jpeg2000, video/jpeg2000" onChange={handleStartFrameSelect} />
                   <input type="file" ref={endFrameInputRef} style={{ display: 'none' }} accept="image/png, image/jpeg, image/webp, image/heic, image/heif, image/gif, image/bmp, image/tiff, video/videoframe/jpeg2000, video/jpeg2000" onChange={handleEndFrameSelect} />
 
@@ -924,37 +965,56 @@ const VideoGenPage: React.FC = () => {
                             )}
                           </div>
                         ) : (
-                          /* Ingredients mode: compact media attach icon */
-                          uploadedFile ? (
-                            <div className={styles.frameSlot}>
-                              {uploadedFile.type === 'image' ? (
-                                <img
-                                  src={uploadedFile.preview}
-                                  alt="ingredient"
-                                  className={styles.frameSlotThumb}
-                                  onClick={() => {
-                                    setPreviewMediaUrl(uploadedFile.preview);
-                                    setPreviewMediaType('image');
-                                  }}
-                                />
-                              ) : (
-                                <video
-                                  src={uploadedFile.preview}
-                                  className={styles.frameSlotThumb}
-                                  onClick={() => {
-                                    setPreviewMediaUrl(uploadedFile.preview);
-                                    setPreviewMediaType('video');
-                                  }}
-                                />
-                              )}
-                              {uploadedFile.isUploading && <div className={styles.frameSlotLoading}><Loader2 size={10} className={styles.progressSpinner} /></div>}
-                              <button type="button" className={styles.frameSlotRemove} onClick={removeUploadedFile}><X size={8} /></button>
-                            </div>
-                          ) : (
-                            <button type="button" className={styles.mediaAttachBtn} onClick={() => fileInputRef.current?.click()} disabled={isGenerating || isFreePlan} title="Add media ingredient">
-                              <ImagePlus size={16} />
-                            </button>
-                          )
+                          /* Ingredients mode: multi-media attach layout */
+                          <>
+                            {uploadedFiles.length < 5 && (
+                              <button
+                                type="button"
+                                className={styles.mediaAttachBtn}
+                                onClick={() => fileInputRef.current?.click()}
+                                disabled={isGenerating || isFreePlan}
+                                title="Add media ingredient (Max 5)"
+                              >
+                                <Plus size={16} />
+                              </button>
+                            )}
+                            {uploadedFiles.map((fileItem) => (
+                              <div key={fileItem.id} className={styles.frameSlot}>
+                                {fileItem.type === 'image' ? (
+                                  <img
+                                    src={fileItem.preview}
+                                    alt="ingredient"
+                                    className={styles.frameSlotThumb}
+                                    onClick={() => {
+                                      setPreviewMediaUrl(fileItem.preview);
+                                      setPreviewMediaType('image');
+                                    }}
+                                  />
+                                ) : (
+                                  <video
+                                    src={fileItem.preview}
+                                    className={styles.frameSlotThumb}
+                                    onClick={() => {
+                                      setPreviewMediaUrl(fileItem.preview);
+                                      setPreviewMediaType('video');
+                                    }}
+                                  />
+                                )}
+                                {fileItem.isUploading && (
+                                  <div className={styles.frameSlotLoading}>
+                                    <Loader2 size={10} className={styles.progressSpinner} />
+                                  </div>
+                                )}
+                                <button
+                                  type="button"
+                                  className={styles.frameSlotRemove}
+                                  onClick={() => removeUploadedFile(fileItem.id)}
+                                >
+                                  <X size={8} />
+                                </button>
+                              </div>
+                            ))}
+                          </>
                         )}
                       </div>
 

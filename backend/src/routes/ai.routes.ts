@@ -883,7 +883,7 @@ router.delete('/image/:id', flexAuthMiddleware, async (req: any, res) => {
 // Video Generation
 router.post('/video', authMiddleware, starterPlanMiddleware, videoModelValidationMiddleware, abuseDetectionMiddleware(), queuePriorityMiddleware, featureGateMiddleware('videoGeneration'), rateLimitMiddleware('video'), withPriorityQueue(async (req: any, res) => {
   try {
-    const { prompt, model, resolution, aspectRatio, durationSeconds, fileUrl, lastFrameUrl } = req.body;
+    const { prompt, model, resolution, aspectRatio, durationSeconds, fileUrl, fileUrls, lastFrameUrl } = req.body;
     const userId = req.user?.id;
 
     if (!userId) {
@@ -904,46 +904,92 @@ router.post('/video', authMiddleware, starterPlanMiddleware, videoModelValidatio
       });
     }
 
-    // Generate video buffer using Google service
-    const result = await executeWithKeyRotation(
-      'google',
-      isByok,
-      apiKey,
-      (rotatedKey) => aiService.generateVideoGoogle(rotatedKey, prompt, model, {
-        resolution,
-        aspectRatio,
-        durationSeconds: durationSeconds ? Number(durationSeconds) : 5,
-        fileUrl,
-        lastFrameUrl
+    // Determine the list of reference file URLs to process (up to 5)
+    const urlsToProcess = (fileUrls && Array.isArray(fileUrls) && fileUrls.length > 0)
+      ? fileUrls
+      : [fileUrl];
+
+    if (urlsToProcess.length > 5) {
+      return res.status(400).json({ success: false, message: 'Maximum of 5 reference files is allowed.' });
+    }
+
+    // Generate video buffers in parallel
+    const results = await Promise.all(
+      urlsToProcess.map(async (itemUrl) => {
+        try {
+          const result = await executeWithKeyRotation(
+            'google',
+            isByok,
+            apiKey,
+            (rotatedKey) => aiService.generateVideoGoogle(rotatedKey, prompt, model, {
+              resolution,
+              aspectRatio,
+              durationSeconds: durationSeconds ? Number(durationSeconds) : 5,
+              fileUrl: itemUrl,
+              lastFrameUrl
+            })
+          );
+
+          // Upload video buffer to R2
+          const base64Data = result.buffer.toString('base64');
+          const url = await r2Service.uploadBase64(base64Data, result.mimeType || 'video/mp4', 'video-generations');
+
+          const duration = durationSeconds ? Number(durationSeconds) : 5;
+
+          // Save to user_videos table
+          const { data: dbData, error: dbError } = await supabaseAdmin
+            .from('user_videos')
+            .insert({
+              user_id: userId,
+              url: url,
+              prompt: prompt,
+              model: model,
+              duration: duration,
+              aspect_ratio: aspectRatio || '16:9',
+              resolution: resolution || '720p'
+            })
+            .select();
+
+          if (dbError) {
+            console.error(`[AI Route] Failed to save video to gallery:`, dbError);
+          }
+
+          const dbRecord = dbData?.[0];
+
+          return {
+            success: true,
+            video: {
+              id: dbRecord?.id || Math.random().toString(36).substring(7),
+              url,
+              prompt,
+              model,
+              duration,
+              aspect_ratio: aspectRatio || '16:9',
+              resolution: resolution || '720p',
+              created_at: dbRecord?.created_at || new Date().toISOString()
+            }
+          };
+        } catch (err: any) {
+          console.error('[AI Route] Individual video generation failed:', err.message);
+          return {
+            success: false,
+            error: err.message
+          };
+        }
       })
     );
 
-    // Upload video buffer to R2
-    const base64Data = result.buffer.toString('base64');
-    const url = await r2Service.uploadBase64(base64Data, result.mimeType || 'video/mp4', 'video-generations');
+    const successfulVideos = results.filter((r) => r.success).map((r) => r.video);
+    const failedResults = results.filter((r) => !r.success);
 
-    const duration = durationSeconds ? Number(durationSeconds) : 5;
-
-    // Save to user_videos table
-    const { error: dbError } = await supabaseAdmin
-      .from('user_videos')
-      .insert({
-        user_id: userId,
-        url: url,
-        prompt: prompt,
-        model: model,
-        duration: duration,
-        aspect_ratio: aspectRatio || '16:9',
-        resolution: resolution || '720p'
-      });
-
-    if (dbError) {
-      console.error(`[AI Route] Failed to save video to gallery:`, dbError);
+    if (successfulVideos.length === 0) {
+      const errorMsg = failedResults[0]?.error || 'Video generation failed';
+      return res.status(500).json({ success: false, message: errorMsg });
     }
 
-    // Charge usage credits: 1 video = 1 credit, BYOK = 0.2 credits
-    const baseCharge = 1;
-    const chargeAmount = isByok ? 0.2 : 1;
+    // Charge usage credits: 1 video = 1 credit, BYOK = 0.2 credits (charge only for successful videos)
+    const baseCharge = 1 * successfulVideos.length;
+    const chargeAmount = (isByok ? 0.2 : 1) * successfulVideos.length;
 
     const identity: RateLimitIdentity = {
       type: 'authenticated',
@@ -955,7 +1001,7 @@ router.post('/video', authMiddleware, starterPlanMiddleware, videoModelValidatio
       await checkAndIncrementMultiUsage(identity, [
         { tool: 'video', amount: baseCharge, isByok, bypassLimits: true }
       ]);
-      console.log(`[Video Route] Charged ${chargeAmount} video credit(s) for video (model: ${model}, BYOK: ${isByok})`);
+      console.log(`[Video Route] Charged ${chargeAmount} video credit(s) for ${successfulVideos.length} video(s) (model: ${model}, BYOK: ${isByok})`);
     } catch (chargeErr: any) {
       console.error('[Video Route] Failed to charge video credit:', chargeErr);
     }
@@ -963,14 +1009,8 @@ router.post('/video', authMiddleware, starterPlanMiddleware, videoModelValidatio
     res.json({
       success: true,
       data: {
-        video: {
-          url,
-          prompt,
-          model,
-          duration,
-          aspect_ratio: aspectRatio || '16:9',
-          resolution: resolution || '720p'
-        },
+        video: successfulVideos[0],
+        videos: successfulVideos,
         creditsCharged: chargeAmount
       }
     });

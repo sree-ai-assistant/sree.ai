@@ -23,6 +23,7 @@ export interface VideoSettings {
   includeAudio: boolean;
   outputsCount: number; // 1 to 4
   inputUrl: string | null;
+  inputUrls: string[];
   lastFrameUrl: string | null;
   duration: number; // 4, 6, 8, 10
   useByok: boolean;
@@ -53,6 +54,7 @@ const DEFAULT_SETTINGS: VideoSettings = {
   includeAudio: true,
   outputsCount: 1,
   inputUrl: null,
+  inputUrls: [],
   lastFrameUrl: null,
   duration: 8,
   useByok: true,
@@ -157,6 +159,7 @@ export const useVideoStore = create<VideoState>((set, get) => ({
           aspectRatio: ratioStr,
           durationSeconds: settings.duration || 8,
           fileUrl: settings.inputUrl || undefined,
+          fileUrls: settings.inputUrls.length > 0 ? settings.inputUrls : undefined,
           lastFrameUrl: settings.lastFrameUrl || undefined,
           useByok: settings.useByok
         })
@@ -170,19 +173,21 @@ export const useVideoStore = create<VideoState>((set, get) => ({
           // Increment usage count locally immediately after a successful request
           useUsageStore.getState().incrementLocalUsage('video', response.data.data?.creditsCharged || 1);
 
-          const videoData = response.data.data.video;
-          const newVideo: GeneratedVideo = {
-            id: videoData.id || Math.random().toString(36).substring(7) + '_' + idx,
-            url: videoData.url,
-            videoUrl: videoData.url,
-            prompt: videoData.prompt,
-            model: videoData.model,
-            ratio: videoData.aspect_ratio || ratioStr,
-            speed_tier: settings.speedTier,
-            include_audio: settings.includeAudio,
-            created_at: videoData.created_at || new Date().toISOString(),
-          };
-          newVideos.push(newVideo);
+          const videosData = response.data.data.videos || [response.data.data.video];
+          videosData.forEach((videoData: any, vIdx: number) => {
+            const newVideo: GeneratedVideo = {
+              id: videoData.id || Math.random().toString(36).substring(7) + '_' + idx + '_' + vIdx,
+              url: videoData.url,
+              videoUrl: videoData.url,
+              prompt: videoData.prompt,
+              model: videoData.model,
+              ratio: videoData.aspect_ratio || ratioStr,
+              speed_tier: settings.speedTier,
+              include_audio: settings.includeAudio,
+              created_at: videoData.created_at || new Date().toISOString(),
+            };
+            newVideos.push(newVideo);
+          });
         }
       });
 
