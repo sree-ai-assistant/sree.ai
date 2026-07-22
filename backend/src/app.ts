@@ -20,10 +20,10 @@ app.use(cors({
       'http://127.0.0.1:5173',
       'http://127.0.0.1:5174'
     ].filter(Boolean);
-    
+
     // In development, we're more permissive
     const isDevelopment = process.env.NODE_ENV === 'development';
-    
+
     if (!origin || allowedOrigins.includes(origin) || isDevelopment) {
       // If allowed, return the actual origin instead of true
       // This ensures Access-Control-Allow-Origin matches the request
@@ -38,7 +38,13 @@ app.use(cors({
 }));
 app.use(morgan('dev'));
 app.use(cookieParser());
-app.use(express.json({ limit: '50mb' }));
+app.use(express.json({
+  limit: '50mb',
+  // Preserve raw body for Razorpay webhook signature verification
+  verify: (req: any, _res, buf) => {
+    req.rawBody = buf.toString();
+  },
+}));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
 // Routes
