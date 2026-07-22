@@ -4,10 +4,45 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Check, Zap, Star, ArrowLeft, Sparkles, CheckCircle2, Lock, HelpCircle, Infinity } from 'lucide-react';
 import { useAuthStore } from '../store/auth.store';
 import { useUsageStore } from '../store/usage.store';
-import { userService } from '../lib/api';
+import { paymentService } from '../lib/api';
 import { DashboardLayout } from '../features/dashboard/DashboardLayout';
 import toast from 'react-hot-toast';
 import styles from './PricingPage.module.css';
+
+declare global {
+  interface Window { Razorpay: any; }
+}
+
+/** Load Razorpay checkout.js on demand — avoids 600+ extra requests on every page */
+let razorpayLoaded = false;
+function loadRazorpayScript(): Promise<void> {
+  if (razorpayLoaded || window.Razorpay) {
+    razorpayLoaded = true;
+    return Promise.resolve();
+  }
+  return new Promise((resolve, reject) => {
+    const script = document.createElement('script');
+    script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+    script.id = 'razorpay-checkout-script';
+    script.onload = () => { razorpayLoaded = true; resolve(); };
+    script.onerror = () => reject(new Error('Failed to load Razorpay checkout'));
+    document.head.appendChild(script);
+  });
+}
+
+/** Remove Razorpay script + iframes to stop background network calls */
+function cleanupRazorpay() {
+  // Remove the script tag
+  const script = document.getElementById('razorpay-checkout-script');
+  if (script) script.remove();
+  // Remove any Razorpay iframes (checkout modal leftovers)
+  document.querySelectorAll('iframe[src*="razorpay"]').forEach(el => el.remove());
+  // Remove Razorpay backdrop/overlay divs
+  document.querySelectorAll('.razorpay-container, .razorpay-backdrop').forEach(el => el.remove());
+  // Reset state so script can be re-loaded if needed
+  razorpayLoaded = false;
+  delete (window as any).Razorpay;
+}
 
 export const PricingPage: React.FC = () => {
   const navigate = useNavigate();
@@ -19,6 +54,16 @@ export const PricingPage: React.FC = () => {
   const [loadingTier, setLoadingTier] = useState<'starter' | 'pro' | 'free' | null>(null);
   const [successTier, setSuccessTier] = useState<'starter' | 'pro' | 'free' | null>(null);
 
+  // Dynamic currency display — toggles every 3 seconds
+  const [displayCurrency, setDisplayCurrency] = useState<'usd' | 'inr'>('usd');
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setDisplayCurrency(prev => prev === 'usd' ? 'inr' : 'usd');
+    }, 12000);
+    return () => clearInterval(interval);
+  }, []);
+
   // Pre-select tier if passed in query params (e.g. /pricing?plan=pro)
   useEffect(() => {
     const planParam = searchParams.get('plan');
@@ -29,58 +74,172 @@ export const PricingPage: React.FC = () => {
 
   const handleSelectPlan = async (tier: 'free' | 'starter' | 'pro') => {
     if (!user) {
-      // Redirect to signup with redirect back to pricing and selected plan
       navigate(`/signup?redirect=pricing&plan=${tier}`);
       return;
     }
 
-    if (user.plan_type === tier) {
+    const currentTier = user.plan_type || 'free';
+
+    if (currentTier === tier) {
       toast.success(`You are already on the ${tier.toUpperCase()} plan.`);
       return;
     }
 
+    const tierOrder = { free: 0, starter: 1, pro: 2 };
+    const currentOrder = tierOrder[currentTier as keyof typeof tierOrder] ?? 0;
+    const targetOrder = tierOrder[tier];
+    const isFromFree = currentTier === 'free';
+
+    // ─────────────────────────────────────────────────────────────
+    // CASE 1: Free → Paid (immediate Razorpay checkout)
+    // ─────────────────────────────────────────────────────────────
+    if (isFromFree && targetOrder > 0) {
+      setLoadingTier(tier);
+      try {
+        await loadRazorpayScript();
+
+        const { data } = await paymentService.createSubscription(
+          tier as 'starter' | 'pro',
+          billingPeriod,
+        );
+
+        const options = {
+          key: data.key_id,
+          subscription_id: data.subscription_id,
+          name: data.name,
+          description: data.description,
+          currency: data.currency,
+          prefill: data.prefill,
+          theme: { color: '#3b82f6' },
+          modal: {
+            ondismiss: () => {
+              setLoadingTier(null);
+              cleanupRazorpay();
+              toast('Payment cancelled.', { icon: '⚠️' });
+            },
+          },
+          handler: async (response: any) => {
+            cleanupRazorpay();
+            try {
+              const verifyResult = await paymentService.verifyPayment({
+                razorpay_payment_id: response.razorpay_payment_id,
+                razorpay_subscription_id: response.razorpay_subscription_id,
+                razorpay_signature: response.razorpay_signature,
+              });
+
+              if (verifyResult.success) {
+                setUser({ ...user, plan_type: tier });
+                await fetchStatus(false);
+                toast.success(verifyResult.message || `Welcome to ${tier.charAt(0).toUpperCase() + tier.slice(1)}!`);
+                navigate('/chat');
+              } else {
+                toast.error('Payment verification failed. Contact support.');
+              }
+            } catch (err: any) {
+              console.error('Verification error:', err);
+              toast.error(err?.response?.data?.message || 'Payment verification failed.');
+            } finally {
+              setLoadingTier(null);
+            }
+          },
+        };
+
+        const rzp = new window.Razorpay(options);
+        rzp.on('payment.failed', (resp: any) => {
+          setLoadingTier(null);
+          toast.error(resp.error?.description || 'Payment failed. Please try again.');
+        });
+        rzp.open();
+      } catch (error: any) {
+        console.error('Create subscription failed:', error);
+        toast.error(error?.response?.data?.message || 'Failed to initiate payment.');
+        setLoadingTier(null);
+      }
+      return;
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // CASE 2: Paid → Free  (end-of-cycle downgrade)
+    // CASE 3: Paid → Paid  (end-of-cycle switch — both up & down)
+    // ─────────────────────────────────────────────────────────────
+    const isDowngrade = targetOrder < currentOrder;
+    const isUpgrade = targetOrder > currentOrder;
+    const tierLabel = tier.charAt(0).toUpperCase() + tier.slice(1);
+    const currentLabel = currentTier.charAt(0).toUpperCase() + currentTier.slice(1);
+
+    let confirmMessage: string;
+    if (tier === 'free') {
+      confirmMessage =
+        `Are you sure you want to downgrade from ${currentLabel} to Free?\n\n` +
+        `Your ${currentLabel} plan will remain active until the end of your current billing cycle. ` +
+        `After that, you'll be on the Free plan with reduced limits.`;
+    } else if (isDowngrade) {
+      confirmMessage =
+        `Are you sure you want to downgrade from ${currentLabel} to ${tierLabel}?\n\n` +
+        `Your ${currentLabel} plan will remain active until the end of your current billing cycle. ` +
+        `The ${tierLabel} plan will automatically start after that.`;
+    } else {
+      confirmMessage =
+        `Are you sure you want to upgrade from ${currentLabel} to ${tierLabel}?\n\n` +
+        `Your ${currentLabel} plan will remain active until the end of your current billing cycle. ` +
+        `The ${tierLabel} plan will automatically start after that.`;
+    }
+
+    const confirmed = window.confirm(confirmMessage);
+    if (!confirmed) return;
+
     setLoadingTier(tier);
     try {
-      const response = await userService.upgradeSubscription(tier);
+      const response = await paymentService.scheduleChange(
+        tier,
+        tier !== 'free' ? billingPeriod : undefined,
+      );
       if (response.success) {
-        // Update local user store state
-        setUser({
-          ...user,
-          plan_type: tier,
-        });
-
-        // Sync limits and counts to usage store
-        await fetchStatus(false);
-
-        setSuccessTier(tier);
-        toast.success(`Welcome to ${tier.charAt(0).toUpperCase() + tier.slice(1)}!`);
-      } else {
-        toast.error(response.message || 'Upgrade failed. Please try again.');
+        toast.success(
+          response.message ||
+          `${isDowngrade ? 'Downgrade' : 'Upgrade'} to ${tierLabel} scheduled at end of billing cycle.`
+        );
+        // Navigate to billing settings so user can see the upcoming plan
+        navigate('/settings?tab=billing');
       }
     } catch (error: any) {
-      console.error('Plan selection failed:', error);
-      toast.error(error.message || 'An error occurred during subscription.');
+      toast.error(error?.response?.data?.message || `Failed to schedule plan change.`);
     } finally {
       setLoadingTier(null);
     }
   };
 
-  const getPrice = (baseMonthlyPrice: number) => {
-    if (billingPeriod === 'annually') {
-      // 20% discount for annual
-      const discounted = baseMonthlyPrice * 0.8;
+  // Dual currency pricing: INR for Indian users, USD for international
+  const PRICES = {
+    free: { usd: 0, inr: 0 },
+    starter: { usd: 8, inr: 399 },
+    pro: { usd: 29, inr: 899 },
+  };
+
+  const getPrice = (tier: 'free' | 'starter' | 'pro') => {
+    const base = PRICES[tier];
+    const cur = displayCurrency;
+    const symbol = cur === 'inr' ? '₹' : '$';
+    const monthly = base[cur];
+
+    if (billingPeriod === 'annually' && monthly > 0) {
+      const discounted = monthly * 0.8;
+      const yearly = discounted * 12;
       return {
-        amount: discounted.toFixed(2),
+        symbol,
+        amount: cur === 'inr' ? Math.round(discounted).toString() : discounted.toFixed(2),
         period: '/mo',
-        extra: `Billed annually ($${(discounted * 12).toFixed(0)}/yr)`,
+        extra: `Billed annually (${symbol}${cur === 'inr' ? Math.round(yearly).toLocaleString('en-IN') : yearly.toFixed(0)}/yr)`,
       };
     }
     return {
-      amount: baseMonthlyPrice.toString(),
-      period: '/mo',
-      extra: 'Billed monthly',
+      symbol,
+      amount: monthly.toString(),
+      period: monthly > 0 ? '/mo' : '',
+      extra: monthly > 0 ? 'Billed monthly' : 'Free forever',
     };
   };
+
 
   const planCards = [
     {
@@ -281,7 +440,7 @@ export const PricingPage: React.FC = () => {
         <div className={styles.grid}>
           {planCards.map((plan) => {
             const isCurrent = user ? user.plan_type === plan.tier : false;
-            const price = getPrice(plan.price);
+            const price = getPrice(plan.tier);
             const isBestValue = plan.tier === 'starter' && !isCurrent;
 
             return (
@@ -299,7 +458,18 @@ export const PricingPage: React.FC = () => {
                 <div className={styles.cardHeader}>
                   <div className={`${styles.planTier} ${plan.themeClass}`}>{plan.name}</div>
                   <div className={styles.priceDisplay}>
-                    <span className={styles.priceAmount}>${price.amount}</span>
+                    <AnimatePresence mode="wait">
+                      <motion.span
+                        key={`${plan.tier}-${displayCurrency}-${billingPeriod}`}
+                        className={styles.priceAmount}
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -10 }}
+                        transition={{ duration: 0.3 }}
+                      >
+                        {price.symbol}{price.amount}
+                      </motion.span>
+                    </AnimatePresence>
                     {plan.price > 0 && <span className={styles.pricePeriod}>{price.period}</span>}
                   </div>
                   <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: 16 }}>{price.extra}</p>
@@ -315,9 +485,9 @@ export const PricingPage: React.FC = () => {
                     <svg className={styles.borderBeam}>
                       {Array.from({ length: 24 }).map((_, i) => {
                         const f = i / 23; // 0 to 1
-                        const L = 6.0 + (1 - f) * 22.0; 
+                        const L = 6.0 + (1 - f) * 22.0;
                         const G = L;
-                        
+
                         // Pure blue color interpolation (deep blue to soft sky blue) from the old style
                         const r = Math.round(30 + f * (96 - 30));
                         const g = Math.round(58 + f * (165 - 58));
@@ -372,13 +542,31 @@ export const PricingPage: React.FC = () => {
                       </>
                     ) : loadingTier === plan.tier ? (
                       'Processing...'
-                    ) : (
-                      <>
-                        {plan.tier === 'pro' && <Zap size={18} />}
-                        {plan.tier === 'starter' && <Star size={18} />}
-                        {!user && plan.tier === 'free' ? 'Sign Up' : plan.btnText}
-                      </>
-                    )}
+                    ) : (() => {
+                      const tierOrder = { free: 0, starter: 1, pro: 2 };
+                      const currentOrder = tierOrder[user?.plan_type as keyof typeof tierOrder] ?? 0;
+                      const targetOrder = tierOrder[plan.tier];
+                      const isFromFree = !user?.plan_type || user.plan_type === 'free';
+                      const isUpgrade = targetOrder > currentOrder;
+                      const isDowngrade = targetOrder < currentOrder && !isFromFree;
+                      return (
+                        <>
+                          {plan.tier === 'pro' && <Zap size={18} />}
+                          {plan.tier === 'starter' && <Star size={18} />}
+                          {!user && plan.tier === 'free'
+                            ? 'Sign Up'
+                            : isFromFree && isUpgrade
+                              ? `Upgrade to ${plan.name}`
+                              : isDowngrade && plan.tier === 'free'
+                                ? `Downgrade to Free`
+                                : isDowngrade
+                                  ? `Switch to ${plan.name}`
+                                  : isUpgrade
+                                    ? `Switch to ${plan.name}`
+                                    : plan.btnText}
+                        </>
+                      );
+                    })()}
                   </span>
                 </button>
 
@@ -461,9 +649,9 @@ export const PricingPage: React.FC = () => {
               <tbody>
                 <tr className={styles.tr}>
                   <td className={`${styles.td} ${styles.tdLabel}`}>Monthly Pricing</td>
-                  <td className={`${styles.td} ${styles.tdCol}`}>$0</td>
-                  <td className={`${styles.td} ${styles.tdCol}`}>$8/mo</td>
-                  <td className={`${styles.td} ${styles.tdCol}`}>$29/mo</td>
+                  <td className={`${styles.td} ${styles.tdCol}`}>{displayCurrency === 'inr' ? '₹0' : '$0'}</td>
+                  <td className={`${styles.td} ${styles.tdCol}`}>{displayCurrency === 'inr' ? '₹399/mo' : '$8/mo'}</td>
+                  <td className={`${styles.td} ${styles.tdCol}`}>{displayCurrency === 'inr' ? '₹899/mo' : '$29/mo'}</td>
                 </tr>
                 <tr className={styles.tr}>
                   <td className={`${styles.td} ${styles.tdLabel}`}>Annual Discount</td>

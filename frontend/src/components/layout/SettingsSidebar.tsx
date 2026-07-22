@@ -16,7 +16,8 @@ import {
   Camera,
   RefreshCw,
   Crown,
-  Sparkles
+  Sparkles,
+  BarChart3,
 } from 'lucide-react';
 import { useAuthStore } from '../../store/auth.store';
 import { OAuthBadge } from './OAuthBadge';
@@ -61,8 +62,9 @@ export const SettingsSidebar: React.FC<SettingsSidebarProps> = ({
   const menuItems = [
     { id: 'profile', label: 'Profile', icon: LucideUser, color: '#3B82F6' },
     { id: 'keys', label: 'API Keys', icon: Key, color: '#8B5CF6' },
-    { id: 'billing', label: 'Billing & Usage', icon: CreditCard, color: '#10B981' },
-    { id: 'security', label: 'Security', icon: Shield, color: '#F59E0B' },
+    { id: 'usage', label: 'Usage', icon: BarChart3, color: '#10B981' },
+    { id: 'billing', label: 'Billing', icon: CreditCard, color: '#F59E0B' },
+    { id: 'security', label: 'Security', icon: Shield, color: '#6366F1' },
     { id: 'notifications', label: 'Notifications', icon: Bell, color: '#EC4899' },
   ];
 

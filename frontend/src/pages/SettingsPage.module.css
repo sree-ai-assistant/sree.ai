@@ -1500,3 +1500,117 @@
   margin-left: 2px;
 }
 
+/* --- Billing Overview --- */
+.billingOverview {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.planCard {
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.03) 0%, rgba(255, 255, 255, 0.01) 100%);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 20px;
+  padding: 28px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 24px;
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.1);
+  transition: border-color 0.3s, box-shadow 0.3s;
+}
+
+.planCard:hover {
+  border-color: rgba(255, 255, 255, 0.1);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.2);
+}
+
+.planInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex: 1;
+}
+
+.currentPlanLabel {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--primary, #6366f1);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.planName {
+  font-size: 1.6rem;
+  font-weight: 800;
+  color: white;
+  margin: 0;
+  letter-spacing: -0.02em;
+}
+
+.planPrice {
+  font-size: 2.2rem;
+  font-weight: 800;
+  color: white;
+  margin: 8px 0;
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+}
+
+.planPrice span {
+  font-size: 0.9rem;
+  color: rgba(255, 255, 255, 0.4);
+  font-weight: 500;
+}
+
+.planActions {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  align-items: flex-end;
+  min-width: 180px;
+}
+
+.upgradeBtn {
+  width: 100%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, var(--primary, #6366f1) 0%, #8b5cf6 100%);
+  color: white;
+  border: none;
+  padding: 12px 24px;
+  border-radius: 12px;
+  font-weight: 700;
+  font-size: 0.88rem;
+  cursor: pointer;
+  transition: all 0.25s;
+  box-shadow: 0 4px 16px rgba(99, 102, 241, 0.25);
+  font-family: inherit;
+}
+
+.upgradeBtn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(99, 102, 241, 0.4);
+}
+
+.upgradeBtn:active {
+  transform: translateY(0);
+}
+
+@media (max-width: 768px) {
+  .planCard {
+    flex-direction: column;
+    align-items: stretch;
+    padding: 20px;
+  }
+  
+  .planActions {
+    align-items: stretch;
+    width: 100%;
+    min-width: unset;
+  }
+}

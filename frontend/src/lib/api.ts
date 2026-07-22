@@ -187,5 +187,53 @@ export const usageService = {
   },
 };
 
+export const paymentService = {
+  createSubscription: async (tier: 'starter' | 'pro', period: 'monthly' | 'annually') => {
+    const response = await api.post('/payment/create-subscription', { tier, period });
+    return response.data;
+  },
+  verifyPayment: async (data: {
+    razorpay_payment_id: string;
+    razorpay_subscription_id: string;
+    razorpay_signature: string;
+  }) => {
+    const response = await api.post('/payment/verify', data);
+    return response.data;
+  },
+  getStatus: async () => {
+    const response = await api.get('/payment/status');
+    return response.data;
+  },
+  cancelSubscription: async () => {
+    const response = await api.post('/payment/cancel');
+    return response.data;
+  },
+  syncPlans: async () => {
+    const response = await api.post('/payment/plans/sync');
+    return response.data;
+  },
+  scheduleChange: async (tier: 'starter' | 'pro' | 'free', period?: 'monthly' | 'annually') => {
+    const response = await api.post('/payment/schedule-change', { tier, period });
+    return response.data;
+  },
+  activateNow: async () => {
+    const response = await api.post('/payment/activate-now');
+    return response.data;
+  },
+  cancelUpcoming: async () => {
+    const response = await api.post('/payment/cancel-upcoming');
+    return response.data;
+  },
+  cancelCurrent: async () => {
+    const response = await api.post('/payment/cancel-current');
+    return response.data;
+  },
+  cancelPendingActivation: async () => {
+    const response = await api.post('/payment/cancel-pending-activation');
+    return response.data;
+  },
+};
+
 
 export default api;
+

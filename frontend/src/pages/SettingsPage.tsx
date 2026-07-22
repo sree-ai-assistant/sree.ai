@@ -1,7 +1,7 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { 
+import {
   Save, 
   ShieldCheck, 
   Trash2, 
@@ -24,11 +24,17 @@ import {
   X,
   AlertCircle,
   Calendar,
-  User
+  User,
+  CreditCard,
+  ArrowUpRight,
+  ArrowDownRight,
+  Clock,
+  XCircle,
+  Loader2,
 } from 'lucide-react';
 import { DashboardLayout } from '../features/dashboard/DashboardLayout';
 import { SettingsSidebar } from '../components/layout/SettingsSidebar';
-import api, { sessionService, apiKeyService, userService } from '../lib/api';
+import api, { sessionService, apiKeyService, userService, paymentService } from '../lib/api';
 import { useAuthStore } from '../store/auth.store';
 import { useUsageStore } from '../store/usage.store';
 import ApiKeyModal from '../components/shared/ApiKeyModal';
@@ -71,6 +77,569 @@ const PLAN_CONFIG: Record<string, { label: string; price: string; period: string
   free: { label: 'Free', price: '$0', period: '/month', color: '#6B7280', requests: 5000, storage: '1 GB' },
   starter: { label: 'Starter', price: '$9.00', period: '/month', color: '#3B82F6', requests: 25000, storage: '5 GB' },
   pro: { label: 'Pro', price: '$29.00', period: '/month', color: '#8B5CF6', requests: 50000, storage: '10 GB' },
+};
+
+const BillingSection: React.FC<{ user: any; navigate: any }> = ({ user, navigate }) => {
+  const [billingData, setBillingData] = useState<any>(null);
+  const [billingLoading, setBillingLoading] = useState(true);
+  const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [confirmModal, setConfirmModal] = useState<{ type: string; title: string; message: string } | null>(null);
+  const [toastMsg, setToastMsg] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
+
+  const plan = PLAN_CONFIG[user?.plan_type || 'free'];
+
+  const fetchBillingData = useCallback(async () => {
+    try {
+      setBillingLoading(true);
+      const result = await paymentService.getStatus();
+      setBillingData(result.data);
+    } catch (err) {
+      console.error('Failed to fetch billing data:', err);
+    } finally {
+      setBillingLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchBillingData();
+  }, [fetchBillingData]);
+
+  const showToast = (text: string, type: 'success' | 'error') => {
+    setToastMsg({ text, type });
+    setTimeout(() => setToastMsg(null), 4000);
+  };
+
+  const handleActivateNow = async () => {
+    setConfirmModal(null);
+    setActionLoading('activate');
+    try {
+      const result = await paymentService.activateNow();
+      if (result.data?.immediate) {
+        showToast(result.message || 'Plan activated!', 'success');
+        await fetchBillingData();
+        return;
+      }
+      const checkoutData = result.data;
+      const script = document.createElement('script');
+      script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+      script.onload = () => {
+        const options = {
+          key: checkoutData.key_id,
+          subscription_id: checkoutData.subscription_id,
+          name: checkoutData.name,
+          description: checkoutData.description,
+          currency: checkoutData.currency,
+          prefill: checkoutData.prefill,
+          theme: { color: '#6366f1' },
+          handler: async (response: any) => {
+            try {
+              await paymentService.verifyPayment({
+                razorpay_payment_id: response.razorpay_payment_id,
+                razorpay_subscription_id: response.razorpay_subscription_id,
+                razorpay_signature: response.razorpay_signature,
+              });
+              showToast(`Upgraded to ${checkoutData.tier} plan!`, 'success');
+              await fetchBillingData();
+            } catch (err) {
+              showToast('Payment verification failed. Please contact support.', 'error');
+            }
+            document.querySelectorAll('.razorpay-container, .razorpay-backdrop, script[src*="razorpay"]').forEach(el => el.remove());
+          },
+          modal: {
+            ondismiss: async () => {
+              // Clean up the orphaned Razorpay subscription on the server
+              try {
+                await paymentService.cancelPendingActivation();
+              } catch (e) {
+                console.warn('Failed to cancel pending activation:', e);
+              }
+              showToast('Payment cancelled. Your upcoming plan change remains scheduled.', 'error');
+              fetchBillingData();
+              document.querySelectorAll('.razorpay-container, .razorpay-backdrop, script[src*="razorpay"]').forEach(el => el.remove());
+            },
+          },
+        };
+        const rzp = new (window as any).Razorpay(options);
+        rzp.open();
+      };
+      document.body.appendChild(script);
+    } catch (err: any) {
+      showToast(err?.response?.data?.message || 'Failed to activate plan.', 'error');
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleCancelUpcoming = async () => {
+    setConfirmModal(null);
+    setActionLoading('cancel-upcoming');
+    try {
+      const result = await paymentService.cancelUpcoming();
+      showToast(result.message || 'Upcoming change cancelled.', 'success');
+      await fetchBillingData();
+    } catch (err: any) {
+      showToast(err?.response?.data?.message || 'Failed to cancel upcoming change.', 'error');
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleCancelCurrent = async () => {
+    setConfirmModal(null);
+    setActionLoading('cancel-current');
+    try {
+      const result = await paymentService.cancelCurrent();
+      showToast(result.message || 'Subscription set to cancel at cycle end.', 'success');
+      await fetchBillingData();
+    } catch (err: any) {
+      showToast(err?.response?.data?.message || 'Failed to cancel subscription.', 'error');
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const formatDate = (dateStr: string) => {
+    if (!dateStr) return '—';
+    return new Date(dateStr).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+  };
+
+  const TIER_LABELS: Record<string, string> = { free: 'Free', starter: 'Starter', pro: 'Pro' };
+  const TIER_COLORS: Record<string, string> = {
+    free: '#6B7280',
+    starter: '#3B82F6',
+    pro: '#8B5CF6',
+  };
+
+  if (billingLoading) {
+    return (
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        className={styles.sectionContent}
+        style={{ display: 'flex', flexDirection: 'column', gap: 24 }}
+      >
+        <div 
+          className={styles.planCard} 
+          style={{ 
+            background: 'rgba(255, 255, 255, 0.02)', 
+            borderColor: 'rgba(255, 255, 255, 0.06)',
+            cursor: 'default'
+          }}
+        >
+          <div className={styles.planInfo}>
+            <div className="skeleton" style={{ width: 80, height: 12, borderRadius: 4, marginBottom: 8 }} />
+            <div className="skeleton" style={{ width: 180, height: 28, borderRadius: 6, marginBottom: 12 }} />
+            <div className="skeleton" style={{ width: 120, height: 36, borderRadius: 8, marginBottom: 16 }} />
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 4 }}>
+              <div className="skeleton" style={{ width: 16, height: 16, borderRadius: 4 }} />
+              <div className="skeleton" style={{ width: 220, height: 14, borderRadius: 4 }} />
+            </div>
+          </div>
+          <div className={styles.planActions} style={{ minWidth: 180 }}>
+            <div className="skeleton" style={{ width: '100%', height: 42, borderRadius: 12 }} />
+            <div className="skeleton" style={{ width: '80%', height: 34, borderRadius: 10, marginTop: 8 }} />
+          </div>
+        </div>
+
+        <div style={{ marginTop: 24 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
+            <div className="skeleton" style={{ width: 16, height: 16, borderRadius: 4 }} />
+            <div className="skeleton" style={{ width: 140, height: 18, borderRadius: 4 }} />
+          </div>
+          <div style={{ 
+            borderRadius: 12, 
+            overflow: 'hidden', 
+            border: '1px solid rgba(255,255,255,0.06)' 
+          }}>
+            {[1, 2, 3].map((i) => (
+              <div 
+                key={i}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  padding: '0.85rem 1.15rem',
+                  background: i % 2 === 0 ? 'rgba(255,255,255,0.02)' : 'transparent',
+                  borderBottom: i < 3 ? '1px solid rgba(255,255,255,0.04)' : 'none',
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <div className="skeleton skeleton-circle" style={{ width: 30, height: 30 }} />
+                  <div>
+                    <div className="skeleton" style={{ width: 80, height: 14, borderRadius: 4, marginBottom: 4 }} />
+                    <div className="skeleton" style={{ width: 100, height: 10, borderRadius: 3 }} />
+                  </div>
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
+                  <div className="skeleton" style={{ width: 60, height: 14, borderRadius: 4 }} />
+                  <div className="skeleton" style={{ width: 40, height: 10, borderRadius: 3 }} />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </motion.div>
+    );
+  }
+
+  const currentTier = billingData?.tier || user?.plan_type || 'free';
+  const hasActiveSubscription = billingData?.has_active_subscription;
+  const upcomingTier = billingData?.upcoming_tier;
+  const cancelAtCycleEnd = billingData?.cancel_at_cycle_end;
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      className={styles.sectionContent}
+    >
+      <AnimatePresence>
+        {toastMsg && (
+          <motion.div
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            style={{
+              position: 'fixed', top: 24, right: 24, zIndex: 9999,
+              padding: '0.85rem 1.25rem', borderRadius: 12,
+              background: toastMsg.type === 'success' ? 'rgba(16,185,129,0.15)' : 'rgba(239,68,68,0.15)',
+              border: `1px solid ${toastMsg.type === 'success' ? 'rgba(16,185,129,0.3)' : 'rgba(239,68,68,0.3)'}`,
+              color: toastMsg.type === 'success' ? '#10b981' : '#ef4444',
+              fontSize: '0.85rem', fontWeight: 600, backdropFilter: 'blur(12px)',
+              display: 'flex', alignItems: 'center', gap: 8,
+              boxShadow: '0 8px 24px rgba(0,0,0,0.3)',
+            }}
+          >
+            {toastMsg.type === 'success' ? <CheckCircle2 size={16} /> : <XCircle size={16} />}
+            {toastMsg.text}
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {confirmModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            style={{
+              position: 'fixed', inset: 0, zIndex: 9998,
+              background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+            }}
+            onClick={() => setConfirmModal(null)}
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              onClick={(e) => e.stopPropagation()}
+              style={{
+                background: 'var(--bg-secondary, #1a1a2e)', borderRadius: 16, padding: '2rem',
+                width: '100%', maxWidth: 420, border: '1px solid rgba(255,255,255,0.08)',
+                boxShadow: '0 24px 48px rgba(0,0,0,0.4)',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: '1.25rem' }}>
+                <AlertCircle size={22} style={{ color: '#f59e0b' }} />
+                <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+                  {confirmModal.title}
+                </h3>
+              </div>
+              <p style={{ color: 'var(--text-muted)', fontSize: '0.88rem', lineHeight: 1.6, marginBottom: '1.5rem' }}>
+                {confirmModal.message}
+              </p>
+              <div style={{ display: 'flex', gap: 12, justifyContent: 'flex-end' }}>
+                <button
+                  onClick={() => setConfirmModal(null)}
+                  style={{
+                    padding: '0.6rem 1.2rem', borderRadius: 10, border: '1px solid rgba(255,255,255,0.1)',
+                    background: 'transparent', color: 'var(--text-secondary)', cursor: 'pointer',
+                    fontSize: '0.85rem', fontWeight: 600,
+                  }}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => {
+                    if (confirmModal.type === 'activate') handleActivateNow();
+                    else if (confirmModal.type === 'cancel-upcoming') handleCancelUpcoming();
+                    else if (confirmModal.type === 'cancel-current') handleCancelCurrent();
+                  }}
+                  style={{
+                    padding: '0.6rem 1.2rem', borderRadius: 10, border: 'none',
+                    background: confirmModal.type === 'activate'
+                      ? 'linear-gradient(135deg, #6366f1, #8b5cf6)'
+                      : 'linear-gradient(135deg, #ef4444, #f87171)',
+                    color: '#fff', cursor: 'pointer', fontSize: '0.85rem', fontWeight: 600,
+                  }}
+                >
+                  {confirmModal.type === 'activate' ? 'Activate Now' : 'Confirm'}
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <div className={styles.billingOverview}>
+        <div className={styles.planCard} style={{ position: 'relative' }}>
+          <div className={styles.planInfo}>
+            <span className={styles.currentPlanLabel}>Current Plan</span>
+            <h2 className={styles.planName} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              {TIER_LABELS[currentTier] || currentTier} 
+              {billingData?.billing_period && <span style={{ fontSize: '0.7em', color: 'var(--text-muted)', fontWeight: 400 }}>({billingData.billing_period})</span>}
+            </h2>
+            <p className={styles.planPrice}>{plan.price}<span>{plan.period}</span></p>
+            {hasActiveSubscription && billingData?.billing_cycle_start && (
+              <div className={styles.billingCycleInfo}>
+                <Calendar size={14} className={styles.calendarIcon} />
+                <span className={styles.cycleLabel}>Billing Cycle:</span>
+                <span className={styles.cycleDates}>
+                  {formatDate(billingData.billing_cycle_start)} – {formatDate(billingData.current_period_end)}
+                </span>
+              </div>
+            )}
+            {cancelAtCycleEnd && !upcomingTier && (
+              <div style={{
+                marginTop: 8, padding: '6px 12px', borderRadius: 8,
+                background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.2)',
+                color: '#ef4444', fontSize: '0.78rem', fontWeight: 600,
+                display: 'inline-flex', alignItems: 'center', gap: 6,
+              }}>
+                <Clock size={13} /> Cancels at cycle end
+              </div>
+            )}
+          </div>
+          <div className={styles.planActions}>
+            <button className={styles.upgradeBtn} onClick={() => navigate('/pricing')}>
+              {currentTier === 'pro' ? 'Change Plan' : 'Upgrade Plan'}
+            </button>
+            {hasActiveSubscription && currentTier !== 'free' && !cancelAtCycleEnd && (
+              <button
+                onClick={() => setConfirmModal({
+                  type: 'cancel-current',
+                  title: 'Cancel Subscription',
+                  message: `Your ${TIER_LABELS[currentTier]} plan will remain active until ${formatDate(billingData?.current_period_end)}. After that, you'll be downgraded to the Free plan. No further charges will apply.`,
+                })}
+                style={{
+                  padding: '0.55rem 1rem', borderRadius: 10,
+                  border: '1px solid rgba(239,68,68,0.3)', background: 'rgba(239,68,68,0.08)',
+                  color: '#ef4444', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 600,
+                  marginTop: 8, transition: 'all 0.2s',
+                }}
+                disabled={actionLoading === 'cancel-current'}
+              >
+                {actionLoading === 'cancel-current' ? (
+                  <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> Cancelling…
+                  </span>
+                ) : 'Cancel Subscription'}
+              </button>
+            )}
+          </div>
+        </div>
+
+        {upcomingTier && (
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            style={{
+              background: 'var(--bg-card, rgba(255,255,255,0.03))',
+              border: `1px solid ${TIER_COLORS[upcomingTier] || '#6366f1'}30`,
+              borderRadius: 16, padding: '1.5rem', marginTop: 16,
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <div style={{
+                  width: 36, height: 36, borderRadius: 10,
+                  background: `${TIER_COLORS[upcomingTier] || '#6366f1'}20`,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                }}>
+                  {upcomingTier === 'free' ? (
+                    <ArrowDownRight size={18} style={{ color: '#ef4444' }} />
+                  ) : currentTier === 'pro' && upcomingTier === 'starter' ? (
+                    <ArrowDownRight size={18} style={{ color: '#f59e0b' }} />
+                  ) : (
+                    <ArrowUpRight size={18} style={{ color: TIER_COLORS[upcomingTier] || '#6366f1' }} />
+                  )}
+                </div>
+                <div>
+                  <span style={{
+                    fontSize: '0.68rem', textTransform: 'uppercase', letterSpacing: '0.08em',
+                    fontWeight: 700, color: TIER_COLORS[upcomingTier] || '#6366f1',
+                  }}>
+                    Upcoming Plan
+                  </span>
+                  <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+                    {TIER_LABELS[upcomingTier] || upcomingTier}
+                    {billingData?.upcoming_period && (
+                      <span style={{ fontSize: '0.7em', color: 'var(--text-muted)', fontWeight: 400, marginLeft: 6 }}>
+                        ({billingData.upcoming_period})
+                      </span>
+                    )}
+                  </h3>
+                </div>
+              </div>
+              <div style={{
+                padding: '4px 10px', borderRadius: 8,
+                background: 'rgba(245,158,11,0.12)', border: '1px solid rgba(245,158,11,0.2)',
+                color: '#f59e0b', fontSize: '0.72rem', fontWeight: 700,
+              }}>
+                Scheduled
+              </div>
+            </div>
+
+            <div style={{
+              display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16,
+              padding: '10px 14px', borderRadius: 10,
+              background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)',
+            }}>
+              <Calendar size={14} style={{ color: 'var(--text-muted)' }} />
+              <span style={{ color: 'var(--text-secondary)', fontSize: '0.82rem' }}>
+                Activates on <strong style={{ color: 'var(--text-primary)' }}>{formatDate(billingData?.upcoming_start_date)}</strong>
+              </span>
+            </div>
+
+            <div style={{ display: 'flex', gap: 10 }}>
+              <button
+                onClick={() => setConfirmModal({
+                  type: 'activate',
+                  title: 'Activate Now',
+                  message: upcomingTier === 'free'
+                    ? 'This will immediately downgrade you to the Free plan. Your current plan benefits will end now.'
+                    : `This will immediately switch you to the ${TIER_LABELS[upcomingTier]} plan. You'll be charged right away and your current plan will be cancelled.`,
+                })}
+                disabled={actionLoading === 'activate'}
+                style={{
+                  flex: 1, padding: '0.6rem 1rem', borderRadius: 10, border: 'none',
+                  background: `linear-gradient(135deg, ${TIER_COLORS[upcomingTier] || '#6366f1'}, ${TIER_COLORS[upcomingTier] || '#6366f1'}cc)`,
+                  color: '#fff', cursor: 'pointer', fontSize: '0.82rem', fontWeight: 700,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+                  transition: 'all 0.2s', opacity: actionLoading === 'activate' ? 0.6 : 1,
+                }}
+              >
+                {actionLoading === 'activate' ? (
+                  <><Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> Processing…</>
+                ) : (
+                  <><Zap size={14} /> Activate Now</>
+                )}
+              </button>
+              <button
+                onClick={() => setConfirmModal({
+                  type: 'cancel-upcoming',
+                  title: 'Cancel Scheduled Change',
+                  message: `This will cancel the scheduled switch to ${TIER_LABELS[upcomingTier]}. You'll continue on your current ${TIER_LABELS[currentTier]} plan.`,
+                })}
+                disabled={actionLoading === 'cancel-upcoming'}
+                style={{
+                  padding: '0.6rem 1rem', borderRadius: 10,
+                  border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.04)',
+                  color: 'var(--text-secondary)', cursor: 'pointer', fontSize: '0.82rem', fontWeight: 600,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+                  transition: 'all 0.2s', opacity: actionLoading === 'cancel-upcoming' ? 0.6 : 1,
+                }}
+              >
+                {actionLoading === 'cancel-upcoming' ? (
+                  <><Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /></>
+                ) : (
+                  <><X size={14} /> Cancel Change</>
+                )}
+              </button>
+            </div>
+          </motion.div>
+        )}
+
+        {billingData?.payment_history?.length > 0 && (
+          <div style={{ marginTop: 24 }}>
+            <h3 style={{
+              fontSize: '0.9rem', fontWeight: 700, color: 'var(--text-primary)',
+              marginBottom: 12, display: 'flex', alignItems: 'center', gap: 8,
+            }}>
+              <CreditCard size={16} style={{ color: 'var(--text-muted)' }} />
+              Payment History
+            </h3>
+            <div style={{
+              borderRadius: 12, overflow: 'hidden',
+              border: '1px solid rgba(255,255,255,0.06)',
+            }}>
+              {billingData.payment_history.map((payment: any, i: number) => (
+                <div
+                  key={payment.id || i}
+                  style={{
+                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                    padding: '0.85rem 1.15rem',
+                    background: i % 2 === 0 ? 'rgba(255,255,255,0.02)' : 'transparent',
+                    borderBottom: i < billingData.payment_history.length - 1 ? '1px solid rgba(255,255,255,0.04)' : 'none',
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <div style={{
+                      width: 30, height: 30, borderRadius: 8,
+                      background: payment.status === 'captured' ? 'rgba(16,185,129,0.12)' : 'rgba(239,68,68,0.12)',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    }}>
+                      {payment.status === 'captured' ? (
+                        <CheckCircle2 size={14} style={{ color: '#10b981' }} />
+                      ) : (
+                        <XCircle size={14} style={{ color: '#ef4444' }} />
+                      )}
+                    </div>
+                    <div>
+                      <span style={{ fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-primary)' }}>
+                        {TIER_LABELS[payment.tier] || payment.tier || '—'} Plan
+                      </span>
+                      <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                        {formatDate(payment.created_at)}
+                      </div>
+                    </div>
+                  </div>
+                  <div style={{ textAlign: 'right' }}>
+                    <span style={{
+                      fontSize: '0.85rem', fontWeight: 700,
+                      color: payment.status === 'captured' ? '#10b981' : '#ef4444',
+                    }}>
+                      ₹{((payment.amount || 0) / 100).toFixed(2)}
+                    </span>
+                    <div style={{
+                      fontSize: '0.68rem', fontWeight: 600, textTransform: 'uppercase',
+                      color: payment.status === 'captured' ? '#10b981' : '#ef4444',
+                    }}>
+                      {payment.status}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {!hasActiveSubscription && (
+          <div style={{
+            textAlign: 'center', padding: '3rem 1rem', marginTop: 16,
+            borderRadius: 16, background: 'rgba(255,255,255,0.02)',
+            border: '1px solid rgba(255,255,255,0.06)',
+          }}>
+            <CreditCard size={40} style={{ color: 'var(--text-muted)', marginBottom: 12, opacity: 0.5 }} />
+            <h3 style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--text-primary)', marginBottom: 4 }}>
+              No active subscription
+            </h3>
+            <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: 16 }}>
+              Upgrade to unlock more features and higher limits.
+            </p>
+            <button
+              className={styles.upgradeBtn}
+              onClick={() => navigate('/pricing')}
+              style={{ margin: '0 auto' }}
+            >
+              View Plans
+            </button>
+          </div>
+        )}
+      </div>
+    </motion.div>
+  );
 };
 
 const SettingsPage: React.FC = () => {
@@ -871,7 +1440,7 @@ const SettingsPage: React.FC = () => {
     );
   };
 
-  const renderBillingSection = () => {
+  const renderUsageSection = () => {
     const plan = PLAN_CONFIG[user?.plan_type || 'free'];
     const isAnon = usageStatus?.tier?.toLowerCase() === 'anonymous';
 
@@ -1098,6 +1667,10 @@ const SettingsPage: React.FC = () => {
     );
   };
 
+  const renderBillingSection = () => {
+    return <BillingSection user={user} navigate={navigate} />;
+  };
+
   const renderSecuritySection = () => {
     const formatLastActive = (dateStr: string) => {
       const date = new Date(dateStr);
@@ -1289,6 +1862,7 @@ const SettingsPage: React.FC = () => {
     switch (activeSection) {
       case 'profile': return renderProfileSection();
       case 'keys': return renderKeysSection();
+      case 'usage': return renderUsageSection();
       case 'billing': return renderBillingSection();
       case 'security': return renderSecuritySection();
       case 'notifications': return renderNotificationsSection();
