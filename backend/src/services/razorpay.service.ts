@@ -124,7 +124,7 @@ export async function createSubscription(
 
   // total_count = how many billing cycles before auto-expiry
   // monthly → 120 (10 years), annually → 10 (10 years)
-  const totalCount = period === 'monthly' ? 120 : 10;
+  const totalCount = period === 'monthly' ? 1 : 1;   // i set it to one month for monthly and 1 year for yearly!
 
   const subscription = await razorpay.subscriptions.create({
     plan_id: planId,

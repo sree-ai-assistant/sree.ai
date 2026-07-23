@@ -347,15 +347,33 @@ router.post('/webhook', paymentRateLimit(30), async (req: Request, res: Response
         const userId = sub.notes?.user_id;
         const tier = sub.notes?.tier;
         const period = sub.notes?.period || 'monthly';
+        const isDeferred = sub.notes?.deferred === 'true';
 
         if (userId && tier) {
-          // Check if there's an existing (paused) subscription to clean up
+          // Check current subscription state
           const { data: existingSub } = await supabaseAdmin
             .from('subscriptions')
-            .select('razorpay_subscription_id')
+            .select('razorpay_subscription_id, tier, status, pending_activation_sub_id, upcoming_razorpay_sub_id')
             .eq('user_id', userId)
             .single();
 
+          // ── GUARD: If this activated sub is a deferred/upcoming sub ──
+          // Don't overwrite the current plan. The deferred sub's auth payment
+          // (₹5) fires subscription.activated but the user should stay on their
+          // current plan until the deferred sub's start_at date arrives.
+          const activatedSubId = sub.id;
+          const isCurrentSub = existingSub?.razorpay_subscription_id === activatedSubId;
+          const isPendingSub = existingSub?.pending_activation_sub_id === activatedSubId;
+          const isUpcomingSub = existingSub?.upcoming_razorpay_sub_id === activatedSubId;
+
+          if ((isPendingSub || isUpcomingSub || isDeferred) && !isCurrentSub && existingSub?.status === 'active') {
+            // This is a deferred sub's auth — user's current plan is still active.
+            // Don't switch the plan yet. Just log it.
+            console.log(`[Webhook] Deferred sub ${activatedSubId} authenticated (₹auth), current plan (${existingSub.tier}) unaffected: user=${userId}`);
+            break;
+          }
+
+          // ── Normal activation: first-time sub or deferred sub that has actually started ──
           const oldSubId = existingSub?.razorpay_subscription_id;
           if (oldSubId && oldSubId !== sub.id) {
             // Cancel the old (paused) subscription — we're switching to the new one
@@ -395,6 +413,7 @@ router.post('/webhook', paymentRateLimit(30), async (req: Request, res: Response
               upcoming_razorpay_sub_id: null,
               upcoming_start_date: null,
               cancel_at_cycle_end: false,
+              pending_activation_sub_id: null,
             }, { onConflict: 'user_id' });
 
           // Also update profile
@@ -450,18 +469,26 @@ router.post('/webhook', paymentRateLimit(30), async (req: Request, res: Response
             })
             .eq('user_id', userId);
 
-          // Record payment
+          // Record payment (skip if already recorded by /verify)
           if (payment) {
-            await supabaseAdmin.from('payment_history').insert({
-              user_id: userId,
-              razorpay_payment_id: payment.id,
-              razorpay_subscription_id: sub.id,
-              amount: payment.amount,
-              currency: payment.currency || 'INR',
-              status: 'captured',
-              tier,
-              billing_period: period,
-            });
+            const { data: existingPayment } = await supabaseAdmin
+              .from('payment_history')
+              .select('id')
+              .eq('razorpay_payment_id', payment.id)
+              .maybeSingle();
+
+            if (!existingPayment) {
+              await supabaseAdmin.from('payment_history').insert({
+                user_id: userId,
+                razorpay_payment_id: payment.id,
+                razorpay_subscription_id: sub.id,
+                amount: payment.amount,
+                currency: payment.currency || 'INR',
+                status: 'captured',
+                tier,
+                billing_period: period,
+              });
+            }
           }
 
           console.log(`[Webhook] Subscription charged: user=${userId}, tier=${tier}`);
@@ -476,14 +503,57 @@ router.post('/webhook', paymentRateLimit(30), async (req: Request, res: Response
 
         const userId = sub.notes?.user_id;
         if (userId) {
-          // Check if there's an upcoming plan scheduled
+          // CRITICAL: Check if this cancelled sub is the user's CURRENT subscription.
+          // If it's a deferred/pending/old sub, do NOT downgrade the user.
           const { data: existingSub } = await supabaseAdmin
             .from('subscriptions')
-            .select('upcoming_tier, upcoming_period, upcoming_razorpay_sub_id, upcoming_start_date')
+            .select('razorpay_subscription_id, upcoming_tier, upcoming_period, upcoming_razorpay_sub_id, upcoming_start_date, pending_activation_sub_id')
             .eq('user_id', userId)
             .single();
 
-          if (existingSub?.upcoming_tier && existingSub.upcoming_tier !== 'free') {
+          if (!existingSub) break;
+
+          const cancelledSubId = sub.id;
+          const isCurrentSub = existingSub.razorpay_subscription_id === cancelledSubId;
+          const isUpcomingSub = existingSub.upcoming_razorpay_sub_id === cancelledSubId;
+          const isPendingSub = existingSub.pending_activation_sub_id === cancelledSubId;
+
+          // If this is a pending/deferred sub that was cancelled (e.g. user dismissed checkout),
+          // just clean up the reference — do NOT touch the current plan.
+          if (isPendingSub && !isCurrentSub) {
+            await supabaseAdmin
+              .from('subscriptions')
+              .update({ pending_activation_sub_id: null })
+              .eq('user_id', userId);
+            console.log(`[Webhook] Pending/deferred sub ${cancelledSubId} cancelled — no plan change: user=${userId}`);
+            break;
+          }
+
+          // If this is an upcoming deferred sub that was cancelled,
+          // clear the upcoming fields — do NOT touch the current plan.
+          if (isUpcomingSub && !isCurrentSub) {
+            await supabaseAdmin
+              .from('subscriptions')
+              .update({
+                upcoming_tier: null,
+                upcoming_period: null,
+                upcoming_razorpay_sub_id: null,
+                upcoming_start_date: null,
+                cancel_at_cycle_end: false,
+              })
+              .eq('user_id', userId);
+            console.log(`[Webhook] Upcoming deferred sub ${cancelledSubId} cancelled — current plan unaffected: user=${userId}`);
+            break;
+          }
+
+          // If it's NOT the current sub and not pending/upcoming, just ignore
+          if (!isCurrentSub) {
+            console.log(`[Webhook] Ignoring cancellation of unrelated sub ${cancelledSubId}: user=${userId}`);
+            break;
+          }
+
+          // ── This IS the current subscription being cancelled ──
+          if (existingSub.upcoming_tier && existingSub.upcoming_tier !== 'free') {
             // Upcoming plan exists — don't downgrade to free, just mark current as cancelled
             // The deferred subscription will activate via subscription.activated webhook
             await supabaseAdmin
@@ -491,8 +561,8 @@ router.post('/webhook', paymentRateLimit(30), async (req: Request, res: Response
               .update({ status: 'pending_switch' })
               .eq('user_id', userId);
 
-            console.log(`[Webhook] Subscription cancelled but upcoming plan (${existingSub.upcoming_tier}) scheduled: user=${userId}`);
-          } else if (existingSub?.upcoming_tier === 'free') {
+            console.log(`[Webhook] Current sub cancelled but upcoming plan (${existingSub.upcoming_tier}) scheduled: user=${userId}`);
+          } else if (existingSub.upcoming_tier === 'free') {
             // User is downgrading to free at end of cycle
             await supabaseAdmin
               .from('subscriptions')
@@ -524,7 +594,7 @@ router.post('/webhook', paymentRateLimit(30), async (req: Request, res: Response
               })
               .eq('id', userId);
 
-            console.log(`[Webhook] Subscription cancelled → downgraded to Free (scheduled): user=${userId}`);
+            console.log(`[Webhook] Current sub cancelled → downgraded to Free (scheduled): user=${userId}`);
           } else {
             // No upcoming plan — simple cancellation → downgrade to free
             await supabaseAdmin
@@ -547,7 +617,7 @@ router.post('/webhook', paymentRateLimit(30), async (req: Request, res: Response
               })
               .eq('id', userId);
 
-            console.log(`[Webhook] Subscription cancelled → downgraded to Free: user=${userId}`);
+            console.log(`[Webhook] Current sub cancelled → downgraded to Free: user=${userId}`);
           }
         }
         break;
@@ -581,14 +651,20 @@ router.post('/webhook', paymentRateLimit(30), async (req: Request, res: Response
           // Check if we already have an upcoming plan set (expected pause from our code)
           const { data: existingSub } = await supabaseAdmin
             .from('subscriptions')
-            .select('upcoming_tier, cancel_at_cycle_end, billing_cycle_end')
+            .select('razorpay_subscription_id, upcoming_tier, cancel_at_cycle_end, billing_cycle_end, pending_activation_sub_id')
             .eq('user_id', userId)
             .single();
 
-          if (existingSub?.upcoming_tier) {
-            // Expected pause — our code already set upcoming_tier
-            // (cancel-current set 'free', schedule-change set 'starter'/'pro')
-            console.log(`[Webhook] Subscription paused (expected): user=${userId}, upcoming=${existingSub.upcoming_tier}`);
+          // GUARD: If the paused sub is not the current sub, ignore it
+          if (existingSub?.razorpay_subscription_id && existingSub.razorpay_subscription_id !== sub.id) {
+            console.log(`[Webhook] Ignoring pause for non-current sub ${sub.id}: user=${userId}`);
+            break;
+          }
+
+          if (existingSub?.upcoming_tier || existingSub?.pending_activation_sub_id) {
+            // Expected pause — our code has or is about to set upcoming_tier
+            // (cancel-current → 'free', schedule-change → 'starter'/'pro', verify-schedule-change in progress)
+            console.log(`[Webhook] Subscription paused (expected): user=${userId}, upcoming=${existingSub.upcoming_tier || 'pending checkout'}`);
           } else {
             // Unexpected pause — someone paused it manually in Razorpay dashboard
             // Set upcoming_tier='free' so the auto-downgrade in /status catches it
@@ -876,88 +952,104 @@ router.post('/schedule-change', authMiddleware, paymentRateLimit(5), async (req:
       ? new Date(sub.billing_cycle_end)
       : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
 
-    // PAUSE current Razorpay subscription (NOT cancel — pause is reversible!)
-    // If user later cancels the upcoming plan, we can RESUME this sub.
-    // Cancel is irreversible on Razorpay — once cancelled, it's dead forever.
-    let rzpSubAlive = true;
-    try {
-      const rzpSub = await fetchSubscription(sub.razorpay_subscription_id);
-      const rzpStatus = rzpSub?.status;
-      if (['cancelled', 'completed', 'expired'].includes(rzpStatus)) {
-        rzpSubAlive = false;
-        console.log(`[Payment] Razorpay sub ${sub.razorpay_subscription_id} already ${rzpStatus}, skipping pause`);
-      } else if (rzpStatus === 'paused') {
-        rzpSubAlive = false; // Already paused from a previous schedule-change
-        console.log(`[Payment] Razorpay sub ${sub.razorpay_subscription_id} already paused`);
-      }
-    } catch (fetchErr) {
-      rzpSubAlive = false;
-      console.log(`[Payment] Could not fetch Razorpay sub ${sub.razorpay_subscription_id}, treating as dead`);
-    }
-
-    if (rzpSubAlive) {
+    // ── CASE A: Paid → Free (no checkout needed, immediate pause) ──
+    if (tier === 'free') {
+      // Pause current sub (same as cancel-current flow)
+      let rzpSubAlive = true;
       try {
-        await pauseSubscription(sub.razorpay_subscription_id);
-        console.log(`[Payment] Paused current sub ${sub.razorpay_subscription_id}`);
-      } catch (pauseErr: any) {
-        const errMsg = pauseErr.message || pauseErr?.error?.description || '';
-        const errDesc = pauseErr?.error?.description || '';
-        console.error('[Payment] Failed to pause current sub:', errMsg || errDesc);
-        // If pause fails, fall back to cancel at cycle end
+        const rzpSub = await fetchSubscription(sub.razorpay_subscription_id);
+        const rzpStatus = rzpSub?.status;
+        if (['cancelled', 'completed', 'expired'].includes(rzpStatus)) {
+          rzpSubAlive = false;
+        } else if (rzpStatus === 'paused') {
+          rzpSubAlive = false;
+        }
+      } catch (_) {
+        rzpSubAlive = false;
+      }
+
+      if (rzpSubAlive) {
         try {
-          await cancelSubscriptionAtCycleEnd(sub.razorpay_subscription_id);
-          console.log(`[Payment] Fallback: cancelled at cycle end instead of pause`);
-        } catch (cancelErr: any) {
-          const cMsg = cancelErr?.error?.description || cancelErr.message || '';
-          const isHarmless = cMsg.includes('already cancelled') || cMsg.includes('no billing cycle');
-          if (!isHarmless) {
-            console.error('[Payment] Fallback cancel also failed:', cMsg);
-            return res.status(500).json({ success: false, message: 'Failed to schedule change.' });
+          await pauseSubscription(sub.razorpay_subscription_id);
+          console.log(`[Payment] Paused current sub ${sub.razorpay_subscription_id} for free downgrade`);
+        } catch (pauseErr: any) {
+          try {
+            await cancelSubscriptionAtCycleEnd(sub.razorpay_subscription_id);
+            console.log(`[Payment] Fallback: cancelled at cycle end instead of pause`);
+          } catch (cancelErr: any) {
+            const cMsg = cancelErr?.error?.description || cancelErr.message || '';
+            const isHarmless = cMsg.includes('already cancelled') || cMsg.includes('no billing cycle');
+            if (!isHarmless) {
+              return res.status(500).json({ success: false, message: 'Failed to schedule change.' });
+            }
           }
         }
       }
+
+      // Save upcoming free plan info in DB immediately
+      await supabaseAdmin
+        .from('subscriptions')
+        .update({
+          upcoming_tier: 'free',
+          upcoming_period: null,
+          upcoming_razorpay_sub_id: null,
+          upcoming_start_date: cycleEnd.toISOString(),
+          cancel_at_cycle_end: true,
+        })
+        .eq('user_id', userId);
+
+      console.log(`[Payment] Scheduled downgrade to Free: user=${userId}, at ${cycleEnd.toISOString()}`);
+
+      return res.json({
+        success: true,
+        message: `Downgrade to Free scheduled for ${cycleEnd.toLocaleDateString()}.`,
+        data: {
+          upcoming_tier: 'free',
+          upcoming_start_date: cycleEnd.toISOString(),
+          immediate: true, // signals frontend: no checkout needed
+        },
+      });
     }
 
-    let upcomingSubId: string | null = null;
-
-    if (tier !== 'free') {
-      // Create deferred subscription for the new paid plan
-      const startAtUnix = Math.floor(cycleEnd.getTime() / 1000);
-      try {
-        const deferredSub = await createDeferredSubscription(
-          tier as 'starter' | 'pro',
-          period as 'monthly' | 'annually',
-          userEmail,
-          userId,
-          startAtUnix,
-        );
-        upcomingSubId = deferredSub.id;
-      } catch (err: any) {
-        console.error('[Payment] Failed to create deferred subscription:', err);
-        return res.status(500).json({ success: false, message: 'Failed to create upcoming subscription.' });
-      }
+    // ── CASE B: Paid → Paid (needs checkout for ₹0 auth / autopay) ──
+    // Create deferred subscription — DON'T pause old sub yet.
+    // The pause + DB save happens in /verify-schedule-change AFTER user authenticates.
+    const startAtUnix = Math.floor(cycleEnd.getTime() / 1000);
+    let deferredSub: any;
+    try {
+      deferredSub = await createDeferredSubscription(
+        tier as 'starter' | 'pro',
+        period as 'monthly' | 'annually',
+        userEmail,
+        userId,
+        startAtUnix,
+      );
+    } catch (err: any) {
+      console.error('[Payment] Failed to create deferred subscription:', err);
+      return res.status(500).json({ success: false, message: 'Failed to create upcoming subscription.' });
     }
 
-    // Save upcoming plan info in DB
+    // Store the deferred sub ID temporarily so verify-schedule-change can find it
     await supabaseAdmin
       .from('subscriptions')
-      .update({
-        upcoming_tier: tier,
-        upcoming_period: tier === 'free' ? null : period,
-        upcoming_razorpay_sub_id: upcomingSubId,
-        upcoming_start_date: cycleEnd.toISOString(),
-        cancel_at_cycle_end: true,
-      })
+      .update({ pending_activation_sub_id: deferredSub.id })
       .eq('user_id', userId);
 
-    console.log(`[Payment] Scheduled plan change: user=${userId}, ${sub.tier} → ${tier}, activates=${cycleEnd.toISOString()}`);
+    console.log(`[Payment] Schedule-change checkout: user=${userId}, ${sub.tier} → ${tier}, deferredSub=${deferredSub.id}`);
 
+    // Return checkout data — frontend opens Razorpay checkout for ₹0 auth
     res.json({
       success: true,
-      message: `Plan change to ${tier.charAt(0).toUpperCase() + tier.slice(1)} scheduled for ${cycleEnd.toLocaleDateString()}.`,
       data: {
-        upcoming_tier: tier,
-        upcoming_period: tier === 'free' ? null : period,
+        subscription_id: deferredSub.id,
+        key_id: getKeyId(),
+        amount: PLAN_PRICES_INR[tier as 'starter' | 'pro'][period as 'monthly' | 'annually'],
+        currency: 'INR',
+        tier,
+        period,
+        name: 'Sree AI',
+        description: `${tier.charAt(0).toUpperCase() + tier.slice(1)} Plan — Starts ${cycleEnd.toLocaleDateString()}`,
+        prefill: { email: userEmail },
         upcoming_start_date: cycleEnd.toISOString(),
       },
     });
@@ -966,6 +1058,167 @@ router.post('/schedule-change', authMiddleware, paymentRateLimit(5), async (req:
     res.status(500).json({ success: false, message: error.message || 'Failed to schedule plan change' });
   }
 });
+
+/* ------------------------------------------------------------------ */
+/*  POST /payment/verify-schedule-change                                */
+/*  Verify auth after schedule-change checkout, then pause old sub     */
+/* ------------------------------------------------------------------ */
+
+router.post('/verify-schedule-change', authMiddleware, paymentRateLimit(5), async (req: any, res: Response) => {
+  try {
+    const {
+      razorpay_payment_id,
+      razorpay_subscription_id,
+      razorpay_signature,
+    } = req.body;
+    const userId = req.user.id;
+
+    // 1. Verify signature
+    if (razorpay_payment_id && razorpay_subscription_id && razorpay_signature) {
+      const isValid = verifyPaymentSignature(
+        razorpay_payment_id,
+        razorpay_subscription_id,
+        razorpay_signature,
+      );
+      if (!isValid) {
+        console.error('[Payment] Schedule-change signature verification failed: user=', userId);
+        return res.status(400).json({ success: false, message: 'Signature verification failed.' });
+      }
+    }
+
+    // 2. Find the pending deferred sub
+    const { data: sub } = await supabaseAdmin
+      .from('subscriptions')
+      .select('*')
+      .eq('user_id', userId)
+      .single();
+
+    if (!sub || !sub.pending_activation_sub_id) {
+      return res.status(400).json({ success: false, message: 'No pending schedule change found.' });
+    }
+
+    const deferredSubId = sub.pending_activation_sub_id;
+
+    // 3. Fetch deferred sub from Razorpay to get tier/period
+    const rzpDeferred = await fetchSubscription(deferredSubId);
+    const tier = rzpDeferred?.notes?.tier;
+    const period = rzpDeferred?.notes?.period || 'monthly';
+
+    if (!tier) {
+      return res.status(400).json({ success: false, message: 'Could not determine upcoming plan.' });
+    }
+
+    const cycleEnd = sub.billing_cycle_end
+      ? new Date(sub.billing_cycle_end)
+      : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+
+    // 4. NOW pause the current Razorpay subscription (safe — user has authenticated)
+    if (sub.razorpay_subscription_id) {
+      let rzpSubAlive = true;
+      try {
+        const rzpSub = await fetchSubscription(sub.razorpay_subscription_id);
+        const rzpStatus = rzpSub?.status;
+        if (['cancelled', 'completed', 'expired', 'paused'].includes(rzpStatus)) {
+          rzpSubAlive = false;
+        }
+      } catch (_) {
+        rzpSubAlive = false;
+      }
+
+      if (rzpSubAlive) {
+        try {
+          await pauseSubscription(sub.razorpay_subscription_id);
+          console.log(`[Payment] Paused current sub ${sub.razorpay_subscription_id} after schedule-change auth`);
+        } catch (pauseErr: any) {
+          try {
+            await cancelSubscriptionAtCycleEnd(sub.razorpay_subscription_id);
+            console.log(`[Payment] Fallback: cancelled at cycle end`);
+          } catch (cancelErr: any) {
+            const cMsg = cancelErr?.error?.description || cancelErr.message || '';
+            const isHarmless = cMsg.includes('already cancelled') || cMsg.includes('no billing cycle');
+            if (!isHarmless) {
+              console.error('[Payment] Could not pause/cancel old sub:', cMsg);
+            }
+          }
+        }
+      }
+    }
+
+    // 5. Save upcoming plan info in DB
+    await supabaseAdmin
+      .from('subscriptions')
+      .update({
+        upcoming_tier: tier,
+        upcoming_period: period,
+        upcoming_razorpay_sub_id: deferredSubId,
+        upcoming_start_date: cycleEnd.toISOString(),
+        cancel_at_cycle_end: true,
+        pending_activation_sub_id: null, // clear the temporary field
+      })
+      .eq('user_id', userId);
+
+    console.log(`[Payment] Schedule-change verified: user=${userId}, ${sub.tier} → ${tier}, activates=${cycleEnd.toISOString()}`);
+
+    res.json({
+      success: true,
+      message: `Plan change to ${tier.charAt(0).toUpperCase() + tier.slice(1)} scheduled for ${cycleEnd.toLocaleDateString()}.`,
+      data: {
+        upcoming_tier: tier,
+        upcoming_period: period,
+        upcoming_start_date: cycleEnd.toISOString(),
+      },
+    });
+  } catch (error: any) {
+    console.error('[Payment] Verify schedule-change error:', error);
+    res.status(500).json({ success: false, message: error.message || 'Failed to verify schedule change' });
+  }
+});
+
+/* ------------------------------------------------------------------ */
+/*  POST /payment/cancel-pending-schedule                               */
+/*  Cancel a deferred sub created by schedule-change if user dismissed  */
+/*  the checkout modal without authenticating.                         */
+/* ------------------------------------------------------------------ */
+
+router.post('/cancel-pending-schedule', authMiddleware, paymentRateLimit(5), async (req: any, res: Response) => {
+  try {
+    const userId = req.user.id;
+
+    const { data: sub } = await supabaseAdmin
+      .from('subscriptions')
+      .select('pending_activation_sub_id')
+      .eq('user_id', userId)
+      .single();
+
+    if (!sub?.pending_activation_sub_id) {
+      return res.json({ success: true, message: 'Nothing to clean up.' });
+    }
+
+    // Cancel the orphaned deferred sub on Razorpay
+    try {
+      await cancelSubscription(sub.pending_activation_sub_id);
+    } catch (e: any) {
+      const desc = e?.error?.description || e.message || '';
+      if (!desc.includes('already cancelled')) {
+        console.warn('[Payment] Failed to cancel pending schedule sub:', desc);
+      }
+    }
+
+    // Clear the pending field
+    await supabaseAdmin
+      .from('subscriptions')
+      .update({ pending_activation_sub_id: null })
+      .eq('user_id', userId);
+
+    console.log(`[Payment] Cancelled pending schedule-change checkout: user=${userId}`);
+
+    res.json({ success: true, message: 'Schedule change cancelled.' });
+  } catch (error: any) {
+    console.error('[Payment] Cancel pending schedule error:', error);
+    res.status(500).json({ success: false, message: error.message || 'Failed to cancel pending schedule' });
+  }
+});
+
 
 /* ------------------------------------------------------------------ */
 /*  POST /payment/activate-now                                          */

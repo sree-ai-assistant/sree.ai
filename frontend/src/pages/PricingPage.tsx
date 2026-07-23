@@ -194,14 +194,69 @@ export const PricingPage: React.FC = () => {
         tier,
         tier !== 'free' ? billingPeriod : undefined,
       );
-      if (response.success) {
+
+      // CASE A: Paid → Free (immediate, no checkout needed)
+      if (response.data?.immediate || tier === 'free') {
         toast.success(
           response.message ||
-          `${isDowngrade ? 'Downgrade' : 'Upgrade'} to ${tierLabel} scheduled at end of billing cycle.`
+          `Downgrade to Free scheduled at end of billing cycle.`
         );
-        // Navigate to billing settings so user can see the upcoming plan
         navigate('/settings?tab=billing');
+        return;
       }
+
+      // CASE B: Paid → Paid (open Razorpay checkout for ₹0 auth)
+      const checkoutData = response.data;
+      if (!checkoutData?.subscription_id) {
+        toast.error('Failed to initiate plan change checkout.');
+        return;
+      }
+
+      const script = document.createElement('script');
+      script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+      script.onload = () => {
+        const options = {
+          key: checkoutData.key_id,
+          subscription_id: checkoutData.subscription_id,
+          name: checkoutData.name,
+          description: checkoutData.description,
+          currency: checkoutData.currency,
+          prefill: checkoutData.prefill,
+          theme: { color: '#6366f1' },
+          handler: async (rzpResponse: any) => {
+            try {
+              const verifyResult = await paymentService.verifyScheduleChange({
+                razorpay_payment_id: rzpResponse.razorpay_payment_id,
+                razorpay_subscription_id: rzpResponse.razorpay_subscription_id,
+                razorpay_signature: rzpResponse.razorpay_signature,
+              });
+              toast.success(
+                verifyResult.message ||
+                `${tierLabel} plan scheduled at end of billing cycle.`
+              );
+              navigate('/settings?tab=billing');
+            } catch (err) {
+              toast.error('Failed to verify plan change. Please contact support.');
+            }
+            document.querySelectorAll('.razorpay-container, .razorpay-backdrop, script[src*="razorpay"]').forEach(el => el.remove());
+          },
+          modal: {
+            ondismiss: async () => {
+              // Clean up the orphaned deferred subscription
+              try {
+                await paymentService.cancelPendingSchedule();
+              } catch (e) {
+                console.warn('Failed to cancel pending schedule:', e);
+              }
+              toast.error('Plan change cancelled.');
+              document.querySelectorAll('.razorpay-container, .razorpay-backdrop, script[src*="razorpay"]').forEach(el => el.remove());
+            },
+          },
+        };
+        const rzp = new (window as any).Razorpay(options);
+        rzp.open();
+      };
+      document.body.appendChild(script);
     } catch (error: any) {
       toast.error(error?.response?.data?.message || `Failed to schedule plan change.`);
     } finally {

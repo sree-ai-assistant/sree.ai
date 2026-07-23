@@ -232,6 +232,18 @@ export const paymentService = {
     const response = await api.post('/payment/cancel-pending-activation');
     return response.data;
   },
+  verifyScheduleChange: async (data: {
+    razorpay_payment_id: string;
+    razorpay_subscription_id: string;
+    razorpay_signature: string;
+  }) => {
+    const response = await api.post('/payment/verify-schedule-change', data);
+    return response.data;
+  },
+  cancelPendingSchedule: async () => {
+    const response = await api.post('/payment/cancel-pending-schedule');
+    return response.data;
+  },
 };
 
 
