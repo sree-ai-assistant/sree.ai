@@ -124,7 +124,7 @@ export async function createSubscription(
 
   // total_count = how many billing cycles before auto-expiry
   // monthly → 120 (10 years), annually → 10 (10 years)
-  const totalCount = period === 'monthly' ? 1 : 1;   // i set it to one month for monthly and 1 year for yearly!
+  const totalCount = period === 'monthly' ? 2 : 1;   // i set it to one month for monthly and 1 year for yearly!
 
   const subscription = await razorpay.subscriptions.create({
     plan_id: planId,
@@ -173,6 +173,18 @@ export async function pauseSubscription(subscriptionId: string): Promise<any> {
  */
 export async function resumeSubscription(subscriptionId: string): Promise<any> {
   return razorpay.subscriptions.resume(subscriptionId, { resume_at: 'now' });
+}
+
+/**
+ * Update a subscription's start_at date on Razorpay.
+ * Works on 'authenticated' and 'active' subs.
+ * Used by "Activate Now" to advance a deferred sub's start to now.
+ */
+export async function updateSubscriptionStartAt(subscriptionId: string, startAt: number): Promise<any> {
+  return razorpay.subscriptions.update(subscriptionId, {
+    start_at: startAt,
+    schedule_change_at: 'now',
+  });
 }
 
 /**

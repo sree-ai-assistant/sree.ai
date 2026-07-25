@@ -289,17 +289,25 @@ router.post('/verify', authMiddleware, paymentRateLimit(5), async (req: any, res
       })
       .eq('id', userId);
 
-    // 7. Record in payment history
-    await supabaseAdmin.from('payment_history').insert({
-      user_id: userId,
-      razorpay_payment_id,
-      razorpay_subscription_id,
-      amount: PLAN_PRICES_INR[tier as 'starter' | 'pro']?.[period as 'monthly' | 'annually'] || 0,
-      currency: 'INR',
-      status: 'captured',
-      tier,
-      billing_period: period,
-    });
+    // 7. Record in payment history (with duplicate guard — webhook may arrive first)
+    const { data: existingPayment } = await supabaseAdmin
+      .from('payment_history')
+      .select('id')
+      .eq('razorpay_payment_id', razorpay_payment_id)
+      .maybeSingle();
+
+    if (!existingPayment) {
+      await supabaseAdmin.from('payment_history').insert({
+        user_id: userId,
+        razorpay_payment_id,
+        razorpay_subscription_id,
+        amount: PLAN_PRICES_INR[tier as 'starter' | 'pro']?.[period as 'monthly' | 'annually'] || 0,
+        currency: 'INR',
+        status: 'captured',
+        tier,
+        billing_period: period,
+      });
+    }
 
     console.log(`[Payment] ✅ Subscription activated: user=${userId}, tier=${tier}, period=${period}`);
 
@@ -1307,10 +1315,12 @@ router.post('/activate-now', authMiddleware, paymentRateLimit(5), async (req: an
     }
 
     // ── Activate Now: switch to a paid tier ──────────────────────
-    // IMPORTANT: Do NOT cancel the current subscription or change
-    // tier/status yet. Only create a new Razorpay subscription and
-    // return checkout data. The actual switch happens in /verify
-    // after the user successfully pays.
+    // Razorpay does NOT allow updating start_at for UPI-based subs,
+    // so we always create a new immediate subscription and open checkout.
+    // IMPORTANT: Do NOT cancel the deferred sub or clear upcoming fields here.
+    // That only happens after the user successfully pays in /verify.
+    // If the user dismisses checkout, their scheduled plan change is preserved.
+
     const newSub = await createSubscription(
       upcomingTier as 'starter' | 'pro',
       upcomingPeriod as 'monthly' | 'annually',
@@ -1318,18 +1328,15 @@ router.post('/activate-now', authMiddleware, paymentRateLimit(5), async (req: an
       userId,
     );
 
-    // Store the pending activation sub ID so /verify knows this is
-    // an "activate now" flow and can complete the switch.
+    // Store pending activation sub so /verify knows this is an "activate now" flow
     await supabaseAdmin
       .from('subscriptions')
-      .update({
-        pending_activation_sub_id: newSub.id,
-      })
+      .update({ pending_activation_sub_id: newSub.id })
       .eq('user_id', userId);
 
-    console.log(`[Payment] Activate-now checkout created: user=${userId}, upcoming=${upcomingTier}, newSub=${newSub.id}`);
+    console.log(`[Payment] Activate-now checkout: user=${userId}, upcoming=${upcomingTier}, newSub=${newSub.id}`);
 
-    // Return checkout data (frontend opens Razorpay checkout)
+    // Return checkout data — frontend opens Razorpay checkout
     res.json({
       success: true,
       data: {
@@ -1349,6 +1356,9 @@ router.post('/activate-now', authMiddleware, paymentRateLimit(5), async (req: an
     res.status(500).json({ success: false, message: error.message || 'Failed to activate plan' });
   }
 });
+
+
+
 
 /* ------------------------------------------------------------------ */
 /*  POST /payment/cancel-upcoming                                       */

@@ -2,10 +2,10 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  Save, 
-  ShieldCheck, 
-  Trash2, 
-  RefreshCw, 
+  Save,
+  ShieldCheck,
+  Trash2,
+  RefreshCw,
   Zap,
   Mail,
   Smartphone,
@@ -218,10 +218,10 @@ const BillingSection: React.FC<{ user: any; navigate: any }> = ({ user, navigate
         className={styles.sectionContent}
         style={{ display: 'flex', flexDirection: 'column', gap: 24 }}
       >
-        <div 
-          className={styles.planCard} 
-          style={{ 
-            background: 'rgba(255, 255, 255, 0.02)', 
+        <div
+          className={styles.planCard}
+          style={{
+            background: 'rgba(255, 255, 255, 0.02)',
             borderColor: 'rgba(255, 255, 255, 0.06)',
             cursor: 'default'
           }}
@@ -246,13 +246,13 @@ const BillingSection: React.FC<{ user: any; navigate: any }> = ({ user, navigate
             <div className="skeleton" style={{ width: 16, height: 16, borderRadius: 4 }} />
             <div className="skeleton" style={{ width: 140, height: 18, borderRadius: 4 }} />
           </div>
-          <div style={{ 
-            borderRadius: 12, 
-            overflow: 'hidden', 
-            border: '1px solid rgba(255,255,255,0.06)' 
+          <div style={{
+            borderRadius: 12,
+            overflow: 'hidden',
+            border: '1px solid rgba(255,255,255,0.06)'
           }}>
             {[1, 2, 3].map((i) => (
-              <div 
+              <div
                 key={i}
                 style={{
                   display: 'flex',
@@ -387,7 +387,7 @@ const BillingSection: React.FC<{ user: any; navigate: any }> = ({ user, navigate
           <div className={styles.planInfo}>
             <span className={styles.currentPlanLabel}>Current Plan</span>
             <h2 className={styles.planName} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              {TIER_LABELS[currentTier] || currentTier} 
+              {TIER_LABELS[currentTier] || currentTier}
               {billingData?.billing_period && <span style={{ fontSize: '0.7em', color: 'var(--text-muted)', fontWeight: 400 }}>({billingData.billing_period})</span>}
             </h2>
             <p className={styles.planPrice}>{plan.price}<span>{plan.period}</span></p>
@@ -509,7 +509,7 @@ const BillingSection: React.FC<{ user: any; navigate: any }> = ({ user, navigate
                   title: 'Activate Now',
                   message: upcomingTier === 'free'
                     ? 'This will immediately downgrade you to the Free plan. Your current plan benefits will end now.'
-                    : `This will immediately switch you to the ${TIER_LABELS[upcomingTier]} plan. You'll be charged right away and your current plan will be cancelled.`,
+                    : `This will immediately switch you to the ${TIER_LABELS[upcomingTier]} plan. A payment checkout will open to complete the activation.`,
                 })}
                 disabled={actionLoading === 'activate'}
                 style={{
@@ -723,7 +723,7 @@ const SettingsPage: React.FC = () => {
     try {
       setDeletingAccount(true);
       setDeleteError('');
-      
+
       // Call backend to delete data and user auth record
       await userService.deleteAccount();
 
@@ -756,7 +756,7 @@ const SettingsPage: React.FC = () => {
 
     const initSettings = async () => {
       const details = await getDeviceDetails();
-      
+
       // Sync current session with persistent device ID
       try {
         await sessionService.syncSession(details);
@@ -779,7 +779,7 @@ const SettingsPage: React.FC = () => {
         // Group by device_id to avoid "fake" duplicate sessions
         const sessionData: UserSession[] = response.data;
         const deviceMap = new Map<string, UserSession>();
-        
+
         // Priority: current session > most recent active
         const sortedSessions = [...sessionData].sort((a, b) => {
           if (a.is_current) return -1;
@@ -827,16 +827,16 @@ const SettingsPage: React.FC = () => {
 
     // @ts-ignore
     const uaData = navigator.userAgentData;
-    
+
     if (uaData) {
       os = uaData.platform || os;
       const brands = uaData.brands;
       const mainBrand = brands.find((b: any) => {
         const name = b.brand.toLowerCase();
-        return !name.includes('chromium') && 
-               !name.includes('not') && 
-               !name.includes('brand') &&
-               !name.includes('a;');
+        return !name.includes('chromium') &&
+          !name.includes('not') &&
+          !name.includes('brand') &&
+          !name.includes('a;');
       });
       if (mainBrand) {
         browser = mainBrand.brand;
@@ -989,11 +989,11 @@ const SettingsPage: React.FC = () => {
       setLastSaved('profile');
       const formData = new FormData();
       formData.append('avatar', file);
-      
+
       const response = await api.post('/user/avatar', formData, {
         headers: { 'Content-Type': 'multipart/form-data' }
       });
-      
+
       if (response.data.avatar_url) {
         setProfileData(prev => ({ ...prev, avatar_url: response.data.avatar_url }));
         await updateProfile({ avatar_url: response.data.avatar_url });
@@ -1048,7 +1048,7 @@ const SettingsPage: React.FC = () => {
 
   const handleChangePassword = async () => {
     setPasswordError('');
-    
+
     if (!newPassword || newPassword.length < 6) {
       setPasswordError('Password must be at least 6 characters');
       return;
@@ -1085,7 +1085,7 @@ const SettingsPage: React.FC = () => {
   };
 
   const renderProfileSection = () => (
-    <motion.div 
+    <motion.div
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       className={styles.sectionContent}
@@ -1103,7 +1103,7 @@ const SettingsPage: React.FC = () => {
                   </div>
                 )}
                 <OAuthBadge provider={user?.provider} size={16} style={{ bottom: 'auto', right: 'auto', top: '-4px', left: '-4px' }} />
-                <button 
+                <button
                   className={styles.iconUploadBtn}
                   onClick={() => fileInputRef.current?.click()}
                   title="Upload New Icon"
@@ -1120,7 +1120,7 @@ const SettingsPage: React.FC = () => {
                 <h4 className={styles.avatarTitle}>Profile Icon</h4>
                 <p className={styles.avatarDesc}>Update your account icon. Square images work best.</p>
                 <div className={styles.avatarActions}>
-                  <button 
+                  <button
                     className={styles.textActionBtn}
                     onClick={() => fileInputRef.current?.click()}
                     disabled={status === 'saving'}
@@ -1133,8 +1133,8 @@ const SettingsPage: React.FC = () => {
                 </div>
               </div>
             </div>
-            <input 
-              type="file" 
+            <input
+              type="file"
               ref={fileInputRef}
               onChange={handleFileChange}
               className={styles.hiddenInput}
@@ -1162,8 +1162,8 @@ const SettingsPage: React.FC = () => {
             <div className={styles.formRow}>
               <div className={styles.fieldGroup}>
                 <label>Display Name</label>
-                <input 
-                  type="text" 
+                <input
+                  type="text"
                   value={profileData.display_name}
                   onChange={(e) => setProfileData(prev => ({ ...prev, display_name: e.target.value }))}
                   placeholder="E.g. John Doe"
@@ -1182,7 +1182,7 @@ const SettingsPage: React.FC = () => {
           </div>
 
           <div className={styles.cardFooter}>
-            <button 
+            <button
               className={styles.actionButton}
               onClick={handleUpdateProfile}
               disabled={status === 'saving'}
@@ -1206,7 +1206,7 @@ const SettingsPage: React.FC = () => {
             <div className={styles.formSection}>
               <div className={styles.fieldGroup} style={{ marginBottom: '24px' }}>
                 <label>Custom Instructions</label>
-                <textarea 
+                <textarea
                   value={profileData.custom_instructions}
                   onChange={(e) => setProfileData(prev => ({ ...prev, custom_instructions: e.target.value }))}
                   placeholder="Additional behavior, style, and tone preferences..."
@@ -1220,8 +1220,8 @@ const SettingsPage: React.FC = () => {
               <div className={styles.formRow} style={{ marginBottom: '24px' }}>
                 <div className={styles.fieldGroup}>
                   <label>Nickname</label>
-                  <input 
-                    type="text" 
+                  <input
+                    type="text"
                     value={profileData.nickname}
                     onChange={(e) => setProfileData(prev => ({ ...prev, nickname: e.target.value }))}
                     placeholder="What should the AI call you?"
@@ -1231,8 +1231,8 @@ const SettingsPage: React.FC = () => {
                 </div>
                 <div className={styles.fieldGroup}>
                   <label>Occupation</label>
-                  <input 
-                    type="text" 
+                  <input
+                    type="text"
                     value={profileData.occupation}
                     onChange={(e) => setProfileData(prev => ({ ...prev, occupation: e.target.value }))}
                     placeholder="E.g. Wedding photographer, Software Developer"
@@ -1244,7 +1244,7 @@ const SettingsPage: React.FC = () => {
 
               <div className={styles.fieldGroup}>
                 <label>More About You</label>
-                <textarea 
+                <textarea
                   value={profileData.more_about_you}
                   onChange={(e) => setProfileData(prev => ({ ...prev, more_about_you: e.target.value }))}
                   placeholder="Interests, values, or preferences to keep in mind..."
@@ -1255,7 +1255,7 @@ const SettingsPage: React.FC = () => {
             </div>
           </div>
           <div className={styles.cardFooter}>
-            <button 
+            <button
               className={styles.actionButton}
               onClick={handleUpdateProfile}
               disabled={status === 'saving'}
@@ -1311,11 +1311,11 @@ const SettingsPage: React.FC = () => {
       return `${dd}-${mm}-${yy}`;
     };
 
-    const getKeyCountForProvider = (providerId: string) => 
+    const getKeyCountForProvider = (providerId: string) =>
       savedKeys.filter(k => k.provider === providerId).length;
 
     return (
-      <motion.div 
+      <motion.div
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         className={styles.sectionContent}
@@ -1333,7 +1333,7 @@ const SettingsPage: React.FC = () => {
                 return (
                   <div key={provider.id} className={styles.providerItem}>
                     <div className={styles.providerInfo}>
-                      <div 
+                      <div
                         className={styles.providerLogo}
                         style={{ background: `${providerColor}12`, borderColor: `${providerColor}25` }}
                       >
@@ -1350,7 +1350,7 @@ const SettingsPage: React.FC = () => {
                         )}
                       </div>
                     </div>
-                    <button 
+                    <button
                       className={styles.providerButton}
                       onClick={() => openKeyModal(provider.id)}
                     >
@@ -1376,11 +1376,11 @@ const SettingsPage: React.FC = () => {
                 savedKeys.map(key => {
                   const providerColor = PROVIDER_COLORS[key.provider] || '#6366f1';
                   return (
-                    <div 
-                      key={key.id} 
+                    <div
+                      key={key.id}
                       className={`${styles.savedKeyItem} ${!key.in_use ? styles.savedKeyItemDisabled : ''}`}
                     >
-                      <div 
+                      <div
                         className={styles.savedKeyProviderIcon}
                         style={{ background: `${providerColor}12`, border: `1px solid ${providerColor}25` }}
                       >
@@ -1401,15 +1401,15 @@ const SettingsPage: React.FC = () => {
                       </div>
                       <div className={styles.savedKeyActions}>
                         <div className={styles.savedKeyToggle}>
-                          <input 
-                            type="checkbox" 
-                            id={`toggle-${key.id}`} 
+                          <input
+                            type="checkbox"
+                            id={`toggle-${key.id}`}
                             checked={key.in_use}
                             onChange={() => handleToggleKey(key.id, key.in_use)}
                           />
                           <label htmlFor={`toggle-${key.id}`}></label>
                         </div>
-                        <button 
+                        <button
                           className={styles.savedKeyDeleteBtn}
                           onClick={() => handleDeleteKey(key.id)}
                           title="Delete this API key"
@@ -1449,7 +1449,7 @@ const SettingsPage: React.FC = () => {
         const initialStart = new Date(usageStatus.subscription.billing_cycle_start);
         let start = initialStart;
         let end = new Date(initialStart.getTime() + 30 * 24 * 60 * 60 * 1000);
-        
+
         if (usageStatus.subscription.is_free_rolling) {
           const now = new Date();
           if (now.getTime() > initialStart.getTime()) {
@@ -1462,7 +1462,7 @@ const SettingsPage: React.FC = () => {
         } else if (usageStatus.subscription.billing_cycle_end) {
           end = new Date(usageStatus.subscription.billing_cycle_end);
         }
-        
+
         const fmt = (d: Date) => d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
         return `${fmt(start)} – ${fmt(end)}`;
       }
@@ -1473,7 +1473,7 @@ const SettingsPage: React.FC = () => {
       if (usageStatus?.subscription?.billing_cycle_start) {
         const initialStart = new Date(usageStatus.subscription.billing_cycle_start);
         let end = new Date(initialStart.getTime() + 30 * 24 * 60 * 60 * 1000);
-        
+
         if (usageStatus.subscription.is_free_rolling) {
           const now = new Date();
           if (now.getTime() > initialStart.getTime()) {
@@ -1486,7 +1486,7 @@ const SettingsPage: React.FC = () => {
         } else if (usageStatus.subscription.billing_cycle_end) {
           end = new Date(usageStatus.subscription.billing_cycle_end);
         }
-        
+
         const now = new Date();
         const diffMs = end.getTime() - now.getTime();
         const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
@@ -1688,7 +1688,7 @@ const SettingsPage: React.FC = () => {
     };
 
     return (
-      <motion.div 
+      <motion.div
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         className={styles.sectionContent}
@@ -1713,7 +1713,7 @@ const SettingsPage: React.FC = () => {
                 </div>
                 <button className={styles.secondaryButton} onClick={() => setPasswordModalOpen(true)}>Change Password</button>
               </div>
-              
+
               <div className={styles.securityItem}>
                 <div className={styles.securityInfo}>
                   <div className={styles.securityIconBox} style={{ color: '#10B981' }}>
@@ -1776,7 +1776,7 @@ const SettingsPage: React.FC = () => {
                           <span className={styles.activeTag}>Active</span>
                         </div>
                       ) : (
-                        <button 
+                        <button
                           className={styles.logoutDeviceBtn}
                           onClick={() => handleLogoutSession(session.id)}
                           title="Revoke access for this device"
@@ -1823,7 +1823,7 @@ const SettingsPage: React.FC = () => {
   };
 
   const renderNotificationsSection = () => (
-    <motion.div 
+    <motion.div
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       className={styles.sectionContent}
@@ -1872,49 +1872,49 @@ const SettingsPage: React.FC = () => {
 
   return (
     <>
-    <DashboardLayout 
-      isCollapsed={isSidebarCollapsed}
-      setIsCollapsed={setIsSidebarCollapsed}
-      sidebar={
-        <SettingsSidebar 
-          isCollapsed={isSidebarCollapsed} 
-          setIsCollapsed={setIsSidebarCollapsed}
-          activeSection={activeSection}
-          onSectionChange={setActiveSection}
-          onAvatarUpload={async (file) => {
-            // Re-use handleFileChange logic but for a single file
-            const event = { target: { files: [file] } } as unknown as React.ChangeEvent<HTMLInputElement>;
-            await handleFileChange(event);
-          }}
-          isUploadingAvatar={status === 'saving' && lastSaved === 'profile'}
-        />
-      }
-    >
-      <div className={styles.pageContainer}>
-        <div className={styles.pageContent}>
-          <header className={styles.settingsHeader}>
-            <div className={styles.headerTitleGroup}>
-              <h1 className={styles.pageTitle}>{activeSection.charAt(0).toUpperCase() + activeSection.slice(1)}</h1>
-              <div className={styles.breadcrumb}>
-                <span className={styles.breadcrumbLink}>Settings</span>
-                <ChevronRight size={14} className={styles.breadcrumbDivider} />
-                <span className={styles.activeBreadcrumb}>{activeSection.charAt(0).toUpperCase() + activeSection.slice(1)}</span>
+      <DashboardLayout
+        isCollapsed={isSidebarCollapsed}
+        setIsCollapsed={setIsSidebarCollapsed}
+        sidebar={
+          <SettingsSidebar
+            isCollapsed={isSidebarCollapsed}
+            setIsCollapsed={setIsSidebarCollapsed}
+            activeSection={activeSection}
+            onSectionChange={setActiveSection}
+            onAvatarUpload={async (file) => {
+              // Re-use handleFileChange logic but for a single file
+              const event = { target: { files: [file] } } as unknown as React.ChangeEvent<HTMLInputElement>;
+              await handleFileChange(event);
+            }}
+            isUploadingAvatar={status === 'saving' && lastSaved === 'profile'}
+          />
+        }
+      >
+        <div className={styles.pageContainer}>
+          <div className={styles.pageContent}>
+            <header className={styles.settingsHeader}>
+              <div className={styles.headerTitleGroup}>
+                <h1 className={styles.pageTitle}>{activeSection.charAt(0).toUpperCase() + activeSection.slice(1)}</h1>
+                <div className={styles.breadcrumb}>
+                  <span className={styles.breadcrumbLink}>Settings</span>
+                  <ChevronRight size={14} className={styles.breadcrumbDivider} />
+                  <span className={styles.activeBreadcrumb}>{activeSection.charAt(0).toUpperCase() + activeSection.slice(1)}</span>
+                </div>
               </div>
-            </div>
-            <div className={styles.headerActions}>
-              <button className={styles.helpBtn}>
-                <HelpCircle size={18} />
-                <span>Documentation</span>
-              </button>
-            </div>
-          </header>
+              <div className={styles.headerActions}>
+                <button className={styles.helpBtn}>
+                  <HelpCircle size={18} />
+                  <span>Documentation</span>
+                </button>
+              </div>
+            </header>
 
-          <div className={styles.layoutMain}>
-            {renderSection()}
+            <div className={styles.layoutMain}>
+              {renderSection()}
+            </div>
           </div>
         </div>
-      </div>
-    </DashboardLayout>
+      </DashboardLayout>
 
       {/* Password Change Modal */}
       <AnimatePresence>
