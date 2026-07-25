@@ -366,19 +366,30 @@ router.post('/webhook', paymentRateLimit(30), async (req: Request, res: Response
             .single();
 
           // ── GUARD: If this activated sub is a deferred/upcoming sub ──
-          // Don't overwrite the current plan. The deferred sub's auth payment
-          // (₹5) fires subscription.activated but the user should stay on their
-          // current plan until the deferred sub's start_at date arrives.
+          // Check whether Razorpay actually started it (status=active, meaning charged)
+          // vs. just authenticated it (status=authenticated, just ₹5 auth).
+          // Only block the auth event — allow the real activation through.
           const activatedSubId = sub.id;
           const isCurrentSub = existingSub?.razorpay_subscription_id === activatedSubId;
           const isPendingSub = existingSub?.pending_activation_sub_id === activatedSubId;
           const isUpcomingSub = existingSub?.upcoming_razorpay_sub_id === activatedSubId;
 
-          if ((isPendingSub || isUpcomingSub || isDeferred) && !isCurrentSub && existingSub?.status === 'active') {
-            // This is a deferred sub's auth — user's current plan is still active.
-            // Don't switch the plan yet. Just log it.
-            console.log(`[Webhook] Deferred sub ${activatedSubId} authenticated (₹auth), current plan (${existingSub.tier}) unaffected: user=${userId}`);
-            break;
+          if ((isPendingSub || isUpcomingSub || isDeferred) && !isCurrentSub) {
+            // Fetch the sub's actual status from Razorpay to decide
+            let rzpStatus = 'unknown';
+            try {
+              const rzpSub = await fetchSubscription(activatedSubId);
+              rzpStatus = rzpSub?.status || 'unknown';
+            } catch (_) { /* if we can't fetch, let it through */ }
+
+            if (rzpStatus === 'authenticated') {
+              // Just auth — user's current plan is still running. Don't switch yet.
+              console.log(`[Webhook] Deferred sub ${activatedSubId} authenticated (₹auth), current plan (${existingSub?.tier}) unaffected: user=${userId}`);
+              break;
+            }
+            // rzpStatus is 'active' — Razorpay actually charged and started it.
+            // Fall through to process the plan switch.
+            console.log(`[Webhook] Deferred sub ${activatedSubId} is now ACTIVE on Razorpay — processing plan switch: user=${userId}`);
           }
 
           // ── Normal activation: first-time sub or deferred sub that has actually started ──
@@ -1595,6 +1606,106 @@ router.post('/plans/sync', authMiddleware, paymentRateLimit(3), async (req: any,
   } catch (error: any) {
     console.error('[Payment] Plan sync error:', error);
     res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+/* ------------------------------------------------------------------ */
+/*  POST /payment/test-cycle-end  (DEV ONLY)                           */
+/*  Sets up a test scenario where the current plan ends in ~N min      */
+/*  and a deferred upcoming sub is ready to take over.                 */
+/* ------------------------------------------------------------------ */
+router.post('/test-cycle-end', authMiddleware, async (req: any, res: Response) => {
+  if (process.env.NODE_ENV !== 'development') {
+    return res.status(403).json({ success: false, message: 'Only available in development.' });
+  }
+
+  try {
+    const userId = req.user.id;
+    const userEmail = req.user.email;
+    const minutesFromNow = Number(req.body.minutesFromNow) || 15;
+    const upcomingTier = (req.body.tier || 'pro') as 'starter' | 'pro';
+    const upcomingPeriod = (req.body.period || 'monthly') as 'monthly' | 'annually';
+
+    const { data: sub } = await supabaseAdmin
+      .from('subscriptions')
+      .select('*')
+      .eq('user_id', userId)
+      .single();
+
+    if (!sub) {
+      return res.status(400).json({ success: false, message: 'No subscription found.' });
+    }
+
+    // Cancel existing deferred sub if any
+    if (sub.upcoming_razorpay_sub_id) {
+      try {
+        await cancelSubscription(sub.upcoming_razorpay_sub_id);
+        console.log(`[Test] Cancelled old deferred sub: ${sub.upcoming_razorpay_sub_id}`);
+      } catch (e: any) {
+        console.warn('[Test] Could not cancel old deferred:', e?.error?.description || e.message);
+      }
+    }
+
+    // Set cycle end to N minutes from now
+    const cycleEnd = new Date(Date.now() + minutesFromNow * 60 * 1000);
+    const startAtUnix = Math.floor(cycleEnd.getTime() / 1000);
+
+    // Create deferred sub
+    const deferredSub = await createDeferredSubscription(
+      upcomingTier, upcomingPeriod, userEmail, userId, startAtUnix,
+    );
+    console.log(`[Test] Created deferred sub: ${deferredSub.id}, start_at=${cycleEnd.toISOString()}`);
+
+    // Pause current sub if active
+    if (sub.razorpay_subscription_id) {
+      try {
+        const rzpCurrent = await fetchSubscription(sub.razorpay_subscription_id);
+        if (rzpCurrent?.status === 'active') {
+          await pauseSubscription(sub.razorpay_subscription_id);
+          console.log(`[Test] Paused current sub: ${sub.razorpay_subscription_id}`);
+        }
+      } catch (e: any) {
+        console.warn('[Test] Could not pause current:', e?.error?.description || e.message);
+      }
+    }
+
+    // Update DB
+    await supabaseAdmin
+      .from('subscriptions')
+      .update({
+        billing_cycle_end: cycleEnd.toISOString(),
+        current_period_end: cycleEnd.toISOString(),
+        upcoming_tier: upcomingTier,
+        upcoming_period: upcomingPeriod,
+        upcoming_razorpay_sub_id: deferredSub.id,
+        upcoming_start_date: cycleEnd.toISOString(),
+        cancel_at_cycle_end: true,
+        pending_activation_sub_id: deferredSub.id,
+      })
+      .eq('user_id', userId);
+
+    console.log(`[Test] Ready: ${sub.tier} ends ${cycleEnd.toLocaleTimeString()}, ${upcomingTier} starts after`);
+
+    res.json({
+      success: true,
+      message: `Test set up! ${sub.tier} ends at ${cycleEnd.toLocaleTimeString()}. Now authenticate the ${upcomingTier} plan.`,
+      data: {
+        subscription_id: deferredSub.id,
+        key_id: getKeyId(),
+        amount: 500,
+        currency: 'INR',
+        tier: upcomingTier,
+        period: upcomingPeriod,
+        cycle_ends_at: cycleEnd.toISOString(),
+        start_at_unix: startAtUnix,
+        name: 'Sree AI Test',
+        description: `${upcomingTier} Plan (starts ${cycleEnd.toLocaleTimeString()})`,
+        prefill: { email: userEmail },
+      },
+    });
+  } catch (error: any) {
+    console.error('[Test] Setup error:', error);
+    res.status(500).json({ success: false, message: error.message || 'Test setup failed' });
   }
 });
 
