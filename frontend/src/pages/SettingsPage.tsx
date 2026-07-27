@@ -85,8 +85,9 @@ const BillingSection: React.FC<{ user: any; navigate: any }> = ({ user, navigate
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [confirmModal, setConfirmModal] = useState<{ type: string; title: string; message: string } | null>(null);
   const [toastMsg, setToastMsg] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
-
-  const plan = PLAN_CONFIG[user?.plan_type || 'free'];
+  // plan config for display — derived from billingData.tier (source of truth from API)
+  // Will re-render when billingData arrives; starts with user.plan_type fallback
+  const plan = PLAN_CONFIG[billingData?.tier || user?.plan_type || 'free'] || PLAN_CONFIG.free;
 
   const fetchBillingData = useCallback(async () => {
     try {
@@ -200,7 +201,7 @@ const BillingSection: React.FC<{ user: any; navigate: any }> = ({ user, navigate
 
   const formatDate = (dateStr: string) => {
     if (!dateStr) return '—';
-    return new Date(dateStr).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+    return new Date(dateStr).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' });
   };
 
   const TIER_LABELS: Record<string, string> = { free: 'Free', starter: 'Starter', pro: 'Pro' };

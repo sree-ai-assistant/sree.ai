@@ -453,6 +453,37 @@ router.post('/webhook', paymentRateLimit(30), async (req: Request, res: Response
               .eq('id', userId);
           }
 
+          // Record the activation payment in payment_history
+          // (the subscription.charged event may also fire, but we guard against duplicates)
+          try {
+            const rzpSub = await fetchSubscription(sub.id);
+            const latestPaymentId = rzpSub?.payment_id || null;
+            if (latestPaymentId) {
+              const { data: existingPayment } = await supabaseAdmin
+                .from('payment_history')
+                .select('id')
+                .eq('razorpay_payment_id', latestPaymentId)
+                .maybeSingle();
+
+              if (!existingPayment) {
+                const amount = rzpSub?.current_end ? (tier === 'pro' ? 89900 : 39900) : 0;
+                await supabaseAdmin.from('payment_history').insert({
+                  user_id: userId,
+                  razorpay_payment_id: latestPaymentId,
+                  razorpay_subscription_id: sub.id,
+                  amount: amount,
+                  currency: 'INR',
+                  status: 'captured',
+                  tier,
+                  billing_period: period,
+                });
+                console.log(`[Webhook] Payment ${latestPaymentId} recorded for activation: user=${userId}`);
+              }
+            }
+          } catch (payErr: any) {
+            console.warn(`[Webhook] Could not record activation payment: ${payErr.message}`);
+          }
+
           console.log(`[Webhook] Subscription activated: user=${userId}, tier=${tier}`);
         }
         break;
@@ -731,12 +762,21 @@ router.get('/status', authMiddleware, paymentRateLimit(10), async (req: any, res
       .single();
 
     if (!sub || (sub.status !== 'active' && sub.status !== 'pending_switch')) {
+      // Still fetch payment history for cancelled/free users
+      const { data: pastPayments } = await supabaseAdmin
+        .from('payment_history')
+        .select('*')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false })
+        .limit(10);
+
       return res.json({
         success: true,
         data: {
           has_active_subscription: false,
           tier: 'free',
           status: sub?.status || 'none',
+          payment_history: pastPayments || [],
         },
       });
     }
@@ -792,12 +832,21 @@ router.get('/status', authMiddleware, paymentRateLimit(10), async (req: any, res
         })
         .eq('id', userId);
 
+      // Still fetch payment history for free users (past transactions)
+      const { data: freePayments } = await supabaseAdmin
+        .from('payment_history')
+        .select('*')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false })
+        .limit(10);
+
       return res.json({
         success: true,
         data: {
           has_active_subscription: false,
           tier: 'free',
           status: 'cancelled',
+          payment_history: freePayments || [],
         },
       });
     }
