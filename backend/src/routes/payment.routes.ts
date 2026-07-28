@@ -574,7 +574,7 @@ router.post('/webhook', paymentRateLimit(30), async (req: Request, res: Response
           // If it's a deferred/pending/old sub, do NOT downgrade the user.
           const { data: existingSub } = await supabaseAdmin
             .from('subscriptions')
-            .select('razorpay_subscription_id, tier, billing_period, upcoming_tier, upcoming_period, upcoming_razorpay_sub_id, upcoming_start_date, pending_activation_sub_id, previous_tier, previous_period, previous_razorpay_sub_id')
+            .select('razorpay_subscription_id, tier, billing_period, upcoming_tier, upcoming_period, upcoming_razorpay_sub_id, upcoming_start_date, pending_activation_sub_id, previous_tier, previous_period, previous_razorpay_sub_id, billing_cycle_start, billing_cycle_end, current_period_end')
             .eq('user_id', userId)
             .single();
 
@@ -664,24 +664,50 @@ router.post('/webhook', paymentRateLimit(30), async (req: Request, res: Response
             console.log(`[Webhook] Current sub cancelled → downgraded to Free (scheduled): user=${userId}`);
           } else if (existingSub.previous_tier && existingSub.previous_tier !== 'free') {
             // ── ROLLBACK: Deferred sub payment failed → revert to previous plan ──
-            // The new sub is being cancelled (all payment retries failed).
-            // The old Razorpay sub is already dead (cancel_at_cycle_end killed it),
-            // so we just revert the user to the old tier's LIMITS.
-            // They'll need to re-subscribe to get a new Razorpay sub.
+            // The new sub is being cancelled (payment retries failed or user cancelled).
+            // Try to RESUME the paused old subscription first.
             const prevTier = existingSub.previous_tier;
             const prevPeriod = existingSub.previous_period || 'monthly';
+            const prevSubId = existingSub.previous_razorpay_sub_id;
 
-            // Revert to previous tier in DB (no active Razorpay sub — user must re-subscribe)
+            let resumedOldSub = false;
+            if (prevSubId) {
+              try {
+                await resumeSubscription(prevSubId);
+                resumedOldSub = true;
+                console.log(`[Webhook] Resumed paused old sub ${prevSubId} → rolling back to ${prevTier}`);
+              } catch (resumeErr: any) {
+                console.warn(`[Webhook] Could not resume old sub ${prevSubId}: ${resumeErr?.error?.description || resumeErr.message}`);
+              }
+            }
+
+            // Compute the new billing cycle for the resumed sub
+            const rollbackNow = new Date();
+            const rollbackCycleEnd = new Date();
+            if (prevPeriod === 'annually') {
+              rollbackCycleEnd.setFullYear(rollbackNow.getFullYear() + 1);
+            } else {
+              rollbackCycleEnd.setMonth(rollbackNow.getMonth() + 1);
+            }
+
             const prevPlan = PLAN_CONFIGS[prevTier as keyof typeof PLAN_CONFIGS] || PLAN_CONFIGS.free;
             await supabaseAdmin
               .from('subscriptions')
               .update({
-                status: 'cancelled',
+                status: resumedOldSub ? 'active' : 'cancelled',
                 tier: prevTier,
                 billing_period: prevPeriod,
-                razorpay_subscription_id: null,
+                razorpay_subscription_id: resumedOldSub ? prevSubId : null,
                 razorpay_plan_id: null,
                 plan_id: `plan_${prevTier}_${prevPeriod}`,
+                billing_cycle_start: resumedOldSub ? rollbackNow.toISOString() : existingSub.billing_cycle_start,
+                billing_cycle_end: resumedOldSub ? rollbackCycleEnd.toISOString() : existingSub.billing_cycle_end,
+                current_period_end: resumedOldSub ? rollbackCycleEnd.toISOString() : existingSub.current_period_end,
+                cancel_at_cycle_end: false,
+                upcoming_tier: null,
+                upcoming_period: null,
+                upcoming_razorpay_sub_id: null,
+                upcoming_start_date: null,
                 // Clear rollback fields
                 previous_tier: null,
                 previous_period: null,
@@ -705,7 +731,7 @@ router.post('/webhook', paymentRateLimit(30), async (req: Request, res: Response
               })
               .eq('id', userId);
 
-            console.log(`[Webhook] New sub payment failed → reverted to ${prevTier} limits (no active Razorpay sub, user must re-subscribe): user=${userId}`);
+            console.log(`[Webhook] New sub cancelled → reverted to ${prevTier} (${resumedOldSub ? `resumed old sub ${prevSubId}` : 'old sub dead, user needs to re-subscribe'}): user=${userId}`);
           } else {
             // No upcoming plan, no previous tier — simple cancellation → downgrade to free
             await supabaseAdmin
@@ -938,7 +964,8 @@ router.get('/status', authMiddleware, paymentRateLimit(10), async (req: any, res
         success: true,
         data: {
           has_active_subscription: false,
-          tier: 'free',
+          // Return actual tier from DB (e.g. 'starter' after rollback), not hardcoded 'free'
+          tier: sub?.tier || 'free',
           status: sub?.status || 'none',
           payment_history: pastPayments || [],
         },
