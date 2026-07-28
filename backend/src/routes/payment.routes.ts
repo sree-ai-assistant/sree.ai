@@ -1023,6 +1023,18 @@ router.get('/status', authMiddleware, paymentRateLimit(10), async (req: any, res
       .order('created_at', { ascending: false })
       .limit(10);
 
+    // If there are payment failures, fetch the subscription's short_url
+    // so the frontend can link users to update their payment method
+    let subscriptionShortUrl: string | null = null;
+    if ((sub.payment_failure_count || 0) > 0 && sub.razorpay_subscription_id) {
+      try {
+        const rzpSub = await fetchSubscription(sub.razorpay_subscription_id);
+        subscriptionShortUrl = rzpSub?.short_url || null;
+      } catch (_) {
+        // Non-critical — just skip the link
+      }
+    }
+
     res.json({
       success: true,
       data: {
@@ -1042,6 +1054,7 @@ router.get('/status', authMiddleware, paymentRateLimit(10), async (req: any, res
         // Payment failure info
         payment_failure_count: sub.payment_failure_count || 0,
         last_payment_failure_at: sub.last_payment_failure_at || null,
+        subscription_short_url: subscriptionShortUrl,
         // Payment history
         payment_history: payments || [],
       },

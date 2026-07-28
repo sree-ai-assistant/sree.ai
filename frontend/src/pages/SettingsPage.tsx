@@ -448,31 +448,78 @@ const BillingSection: React.FC<{ user: any; navigate: any }> = ({ user, navigate
             animate={{ opacity: 1, y: 0 }}
             style={{
               marginTop: 16,
-              padding: '1rem 1.25rem',
-              borderRadius: 12,
-              background: 'rgba(239, 68, 68, 0.08)',
-              border: '1px solid rgba(239, 68, 68, 0.25)',
-              display: 'flex',
-              alignItems: 'flex-start',
-              gap: 12,
+              padding: '1.25rem 1.5rem',
+              borderRadius: 14,
+              background: billingData.payment_failure_count >= 3
+                ? 'rgba(239, 68, 68, 0.12)'
+                : 'rgba(245, 158, 11, 0.08)',
+              border: `1px solid ${billingData.payment_failure_count >= 3 ? 'rgba(239, 68, 68, 0.3)' : 'rgba(245, 158, 11, 0.25)'}`,
             }}
           >
-            <AlertCircle size={20} style={{ color: '#ef4444', flexShrink: 0, marginTop: 2 }} />
-            <div>
-              <div style={{ fontSize: '0.88rem', fontWeight: 700, color: '#ef4444', marginBottom: 4 }}>
-                Payment Failed — Attempt {billingData.payment_failure_count}/3
-              </div>
-              <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', lineHeight: 1.5 }}>
-                Your last payment attempt failed. Razorpay will automatically retry.
-                {billingData.payment_failure_count >= 3
-                  ? ' All retry attempts exhausted — your plan may be downgraded soon.'
-                  : ' If all attempts fail, your plan will revert to the previous tier.'}
-              </div>
-              {billingData.last_payment_failure_at && (
-                <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: 6, opacity: 0.7 }}>
-                  Last failed: {formatDate(billingData.last_payment_failure_at)}
+            <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
+              <AlertCircle size={22} style={{
+                color: billingData.payment_failure_count >= 3 ? '#ef4444' : '#f59e0b',
+                flexShrink: 0, marginTop: 1,
+              }} />
+              <div style={{ flex: 1 }}>
+                <div style={{
+                  fontSize: '0.9rem', fontWeight: 700, marginBottom: 6,
+                  color: billingData.payment_failure_count >= 3 ? '#ef4444' : '#f59e0b',
+                }}>
+                  {billingData.payment_failure_count >= 3
+                    ? '⚠ All payment attempts exhausted'
+                    : `Payment failed for your ${TIER_LABELS[billingData.tier] || billingData.tier} Plan`}
                 </div>
-              )}
+                <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', lineHeight: 1.6, marginBottom: 10 }}>
+                  {billingData.payment_failure_count >= 3
+                    ? `Your ₹${((plan?.prices?.monthly || 0) * 100 / 100).toFixed(0)} ${TIER_LABELS[billingData.tier] || ''} plan payment could not be processed after 3 attempts. Your plan will be reverted to your previous tier. You can update your payment method and retry.`
+                    : `We couldn't process your ₹${((plan?.prices?.monthly || 0) * 100 / 100).toFixed(0)} payment (attempt ${billingData.payment_failure_count} of 3). We'll automatically retry soon — or you can update your payment method now to resolve this faster.`}
+                </div>
+
+                {/* Retry progress indicator */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+                  {[1, 2, 3].map((attempt) => (
+                    <div key={attempt} style={{
+                      width: 8, height: 8, borderRadius: '50%',
+                      background: attempt <= billingData.payment_failure_count
+                        ? '#ef4444'
+                        : 'rgba(255,255,255,0.12)',
+                      transition: 'background 0.3s ease',
+                    }} />
+                  ))}
+                  <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginLeft: 4 }}>
+                    {billingData.payment_failure_count}/3 attempts failed
+                  </span>
+                </div>
+
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                  {billingData.subscription_short_url && (
+                    <a
+                      href={billingData.subscription_short_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={{
+                        display: 'inline-flex', alignItems: 'center', gap: 6,
+                        padding: '8px 16px', borderRadius: 8,
+                        background: billingData.payment_failure_count >= 3 ? '#ef4444' : '#f59e0b',
+                        color: '#fff', fontSize: '0.78rem', fontWeight: 700,
+                        textDecoration: 'none',
+                        transition: 'opacity 0.2s',
+                      }}
+                      onMouseEnter={(e) => (e.currentTarget.style.opacity = '0.85')}
+                      onMouseLeave={(e) => (e.currentTarget.style.opacity = '1')}
+                    >
+                      <CreditCard size={14} />
+                      Update Payment Method
+                    </a>
+                  )}
+                  {billingData.last_payment_failure_at && (
+                    <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>
+                      Last attempt: {formatDate(billingData.last_payment_failure_at)}
+                    </span>
+                  )}
+                </div>
+              </div>
             </div>
           </motion.div>
         )}
