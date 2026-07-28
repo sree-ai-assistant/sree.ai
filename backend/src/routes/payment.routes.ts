@@ -521,6 +521,17 @@ router.post('/webhook', paymentRateLimit(30), async (req: Request, res: Response
           // might still fail later. We must keep previous_* until payment.status === 'captured'.
           const paymentConfirmed = payment && payment.status === 'captured';
 
+          // Fetch previous sub ID BEFORE we clear it (need it to cancel the old paused sub)
+          let oldPausedSubId: string | null = null;
+          if (paymentConfirmed) {
+            const { data: chargedExistingSub } = await supabaseAdmin
+              .from('subscriptions')
+              .select('previous_razorpay_sub_id')
+              .eq('user_id', userId)
+              .single();
+            oldPausedSubId = chargedExistingSub?.previous_razorpay_sub_id || null;
+          }
+
           await supabaseAdmin
             .from('subscriptions')
             .update({
@@ -539,6 +550,16 @@ router.post('/webhook', paymentRateLimit(30), async (req: Request, res: Response
               } : {}),
             })
             .eq('user_id', userId);
+
+          // Cancel the old paused subscription now that payment is confirmed
+          if (paymentConfirmed && oldPausedSubId) {
+            try {
+              await cancelSubscription(oldPausedSubId);
+              console.log(`[Webhook] Cancelled old paused sub ${oldPausedSubId} (new sub payment confirmed)`);
+            } catch (_) {
+              // Already dead — ignore
+            }
+          }
 
           console.log(`[Webhook] subscription.charged: user=${userId}, payment=${paymentConfirmed ? 'CAPTURED — cleared rollback info' : 'NOT YET CAPTURED — keeping rollback info'}`);
 
