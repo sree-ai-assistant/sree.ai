@@ -441,6 +441,42 @@ const BillingSection: React.FC<{ user: any; navigate: any }> = ({ user, navigate
           </div>
         </div>
 
+        {/* Payment failure warning banner */}
+        {billingData?.payment_failure_count > 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: -8 }}
+            animate={{ opacity: 1, y: 0 }}
+            style={{
+              marginTop: 16,
+              padding: '1rem 1.25rem',
+              borderRadius: 12,
+              background: 'rgba(239, 68, 68, 0.08)',
+              border: '1px solid rgba(239, 68, 68, 0.25)',
+              display: 'flex',
+              alignItems: 'flex-start',
+              gap: 12,
+            }}
+          >
+            <AlertCircle size={20} style={{ color: '#ef4444', flexShrink: 0, marginTop: 2 }} />
+            <div>
+              <div style={{ fontSize: '0.88rem', fontWeight: 700, color: '#ef4444', marginBottom: 4 }}>
+                Payment Failed — Attempt {billingData.payment_failure_count}/3
+              </div>
+              <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', lineHeight: 1.5 }}>
+                Your last payment attempt failed. Razorpay will automatically retry.
+                {billingData.payment_failure_count >= 3
+                  ? ' All retry attempts exhausted — your plan may be downgraded soon.'
+                  : ' If all attempts fail, your plan will revert to the previous tier.'}
+              </div>
+              {billingData.last_payment_failure_at && (
+                <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: 6, opacity: 0.7 }}>
+                  Last failed: {formatDate(billingData.last_payment_failure_at)}
+                </div>
+              )}
+            </div>
+          </motion.div>
+        )}
+
         {upcomingTier && (
           <motion.div
             initial={{ opacity: 0, y: 10 }}
@@ -607,7 +643,9 @@ const BillingSection: React.FC<{ user: any; navigate: any }> = ({ user, navigate
                       fontSize: '0.68rem', fontWeight: 600, textTransform: 'uppercase',
                       color: payment.status === 'captured' ? '#10b981' : '#ef4444',
                     }}>
-                      {payment.status}
+                      {payment.status === 'failed' && payment.retry_count
+                        ? `FAILED (${payment.retry_count}/3)`
+                        : payment.status}
                     </div>
                   </div>
                 </div>

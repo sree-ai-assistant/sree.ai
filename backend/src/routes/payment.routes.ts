@@ -361,7 +361,7 @@ router.post('/webhook', paymentRateLimit(30), async (req: Request, res: Response
           // Check current subscription state
           const { data: existingSub } = await supabaseAdmin
             .from('subscriptions')
-            .select('razorpay_subscription_id, tier, status, pending_activation_sub_id, upcoming_razorpay_sub_id')
+            .select('razorpay_subscription_id, tier, billing_period, status, pending_activation_sub_id, upcoming_razorpay_sub_id')
             .eq('user_id', userId)
             .single();
 
@@ -394,14 +394,22 @@ router.post('/webhook', paymentRateLimit(30), async (req: Request, res: Response
 
           // ── Normal activation: first-time sub or deferred sub that has actually started ──
           const oldSubId = existingSub?.razorpay_subscription_id;
-          if (oldSubId && oldSubId !== sub.id) {
-            // Cancel the old (paused) subscription — we're switching to the new one
+          const isDeferredSwitch = oldSubId && oldSubId !== sub.id;
+
+          if (isDeferredSwitch) {
+            // PAUSE the old subscription (don't cancel) — keep it as rollback
+            // If the new sub's payment fails, we can RESUME this one.
             try {
-              await cancelSubscription(oldSubId);
-              console.log(`[Webhook] Cancelled old sub ${oldSubId} (replaced by ${sub.id})`);
+              await pauseSubscription(oldSubId);
+              console.log(`[Webhook] Paused old sub ${oldSubId} (rollback safety for ${sub.id})`);
             } catch (e: any) {
-              // Already dead — ignore
-              console.log(`[Webhook] Old sub ${oldSubId} cleanup: ${e?.error?.description || e.message}`);
+              // If pause fails (already paused/cancelled), try to cancel as fallback
+              try {
+                await cancelSubscription(oldSubId);
+                console.log(`[Webhook] Old sub ${oldSubId} couldn't be paused, cancelled instead: ${e?.error?.description || e.message}`);
+              } catch (_) {
+                console.log(`[Webhook] Old sub ${oldSubId} cleanup failed (already dead): ${e?.error?.description || e.message}`);
+              }
             }
           }
 
@@ -433,6 +441,13 @@ router.post('/webhook', paymentRateLimit(30), async (req: Request, res: Response
               upcoming_start_date: null,
               cancel_at_cycle_end: false,
               pending_activation_sub_id: null,
+              // Reset payment failure tracking for the new sub
+              payment_failure_count: 0,
+              last_payment_failure_at: null,
+              // Save previous tier for rollback if this is a deferred switch
+              previous_tier: isDeferredSwitch ? (existingSub?.tier || null) : null,
+              previous_period: isDeferredSwitch ? (existingSub?.billing_period || null) : null,
+              previous_razorpay_sub_id: isDeferredSwitch ? oldSubId : null,
             }, { onConflict: 'user_id' });
 
           // Also update profile
@@ -509,6 +524,13 @@ router.post('/webhook', paymentRateLimit(30), async (req: Request, res: Response
             cycleEnd.setMonth(now.getMonth() + 1);
           }
 
+          // Fetch existing sub to check for paused old sub that needs cleanup
+          const { data: chargedExistingSub } = await supabaseAdmin
+            .from('subscriptions')
+            .select('previous_razorpay_sub_id')
+            .eq('user_id', userId)
+            .single();
+
           await supabaseAdmin
             .from('subscriptions')
             .update({
@@ -516,8 +538,25 @@ router.post('/webhook', paymentRateLimit(30), async (req: Request, res: Response
               billing_cycle_start: now.toISOString(),
               billing_cycle_end: cycleEnd.toISOString(),
               current_period_end: cycleEnd.toISOString(),
+              // Payment succeeded — reset failure tracking
+              payment_failure_count: 0,
+              last_payment_failure_at: null,
+              // Clear previous tier — no longer need rollback
+              previous_tier: null,
+              previous_period: null,
+              previous_razorpay_sub_id: null,
             })
             .eq('user_id', userId);
+
+          // Cancel the paused old subscription now that the new one is confirmed
+          if (chargedExistingSub?.previous_razorpay_sub_id) {
+            try {
+              await cancelSubscription(chargedExistingSub.previous_razorpay_sub_id);
+              console.log(`[Webhook] Cancelled paused old sub ${chargedExistingSub.previous_razorpay_sub_id} (new sub payment confirmed)`);
+            } catch (_) {
+              // Already dead — ignore
+            }
+          }
 
           // Record payment (skip if already recorded by /verify)
           if (payment) {
@@ -557,7 +596,7 @@ router.post('/webhook', paymentRateLimit(30), async (req: Request, res: Response
           // If it's a deferred/pending/old sub, do NOT downgrade the user.
           const { data: existingSub } = await supabaseAdmin
             .from('subscriptions')
-            .select('razorpay_subscription_id, upcoming_tier, upcoming_period, upcoming_razorpay_sub_id, upcoming_start_date, pending_activation_sub_id')
+            .select('razorpay_subscription_id, tier, billing_period, upcoming_tier, upcoming_period, upcoming_razorpay_sub_id, upcoming_start_date, pending_activation_sub_id, previous_tier, previous_period, previous_razorpay_sub_id')
             .eq('user_id', userId)
             .single();
 
@@ -645,11 +684,69 @@ router.post('/webhook', paymentRateLimit(30), async (req: Request, res: Response
               .eq('id', userId);
 
             console.log(`[Webhook] Current sub cancelled → downgraded to Free (scheduled): user=${userId}`);
-          } else {
-            // No upcoming plan — simple cancellation → downgrade to free
+          } else if (existingSub.previous_tier && existingSub.previous_tier !== 'free' && existingSub.previous_razorpay_sub_id) {
+            // ── ROLLBACK: Deferred sub payment failed → revert to previous plan ──
+            // The new sub is being cancelled (payment failed after retries).
+            // Resume the paused old sub and revert to the previous tier.
+            const prevTier = existingSub.previous_tier;
+            const prevPeriod = existingSub.previous_period || 'monthly';
+            const prevSubId = existingSub.previous_razorpay_sub_id;
+
+            let resumedOldSub = false;
+            try {
+              await resumeSubscription(prevSubId);
+              resumedOldSub = true;
+              console.log(`[Webhook] Resumed paused old sub ${prevSubId} (rolling back to ${prevTier})`);
+            } catch (resumeErr: any) {
+              console.warn(`[Webhook] Could not resume old sub ${prevSubId}: ${resumeErr?.error?.description || resumeErr.message}`);
+            }
+
+            // Revert to previous tier in DB
+            const prevPlan = PLAN_CONFIGS[prevTier as keyof typeof PLAN_CONFIGS] || PLAN_CONFIGS.free;
             await supabaseAdmin
               .from('subscriptions')
-              .update({ status: 'cancelled' })
+              .update({
+                status: resumedOldSub ? 'active' : 'cancelled',
+                tier: prevTier,
+                billing_period: prevPeriod,
+                razorpay_subscription_id: resumedOldSub ? prevSubId : null,
+                plan_id: `plan_${prevTier}_${prevPeriod}`,
+                // Clear rollback fields
+                previous_tier: null,
+                previous_period: null,
+                previous_razorpay_sub_id: null,
+                payment_failure_count: 0,
+                last_payment_failure_at: null,
+              })
+              .eq('user_id', userId);
+
+            await supabaseAdmin
+              .from('profiles')
+              .update({
+                plan_type: prevTier,
+                updated_at: new Date().toISOString(),
+                chat_limit_daily: prevPlan.limits.chat.daily,
+                chat_limit_monthly: prevPlan.limits.chat.monthly,
+                voice_limit_daily: prevPlan.limits.voice.daily,
+                voice_limit_monthly: prevPlan.limits.voice.monthly,
+                image_limit_daily: prevPlan.limits.image.daily,
+                image_limit_monthly: prevPlan.limits.image.monthly,
+              })
+              .eq('id', userId);
+
+            console.log(`[Webhook] Current sub cancelled → reverted to ${prevTier} (${resumedOldSub ? 'resumed old sub' : 'old sub dead, user needs to re-subscribe'}): user=${userId}`);
+          } else {
+            // No upcoming plan, no previous tier — simple cancellation → downgrade to free
+            await supabaseAdmin
+              .from('subscriptions')
+              .update({
+                status: 'cancelled',
+                payment_failure_count: 0,
+                last_payment_failure_at: null,
+                previous_tier: null,
+                previous_period: null,
+                previous_razorpay_sub_id: null,
+              })
               .eq('user_id', userId);
 
             const freePlan = PLAN_CONFIGS.free;
@@ -676,16 +773,48 @@ router.post('/webhook', paymentRateLimit(30), async (req: Request, res: Response
       /* ---- Payment failed ---- */
       case 'payment.failed': {
         const payment = payload.payment?.entity;
+        const failedInvoice = payload.payment?.entity?.invoice_id;
         if (payment?.notes?.user_id) {
-          await supabaseAdmin.from('payment_history').insert({
-            user_id: payment.notes.user_id,
-            razorpay_payment_id: payment.id,
-            amount: payment.amount,
-            currency: payment.currency || 'INR',
-            status: 'failed',
-            tier: payment.notes.tier || null,
-          });
-          console.log(`[Webhook] Payment failed: user=${payment.notes.user_id}`);
+          const failedUserId = payment.notes.user_id;
+
+          // Increment payment_failure_count on the subscription
+          const { data: failSub } = await supabaseAdmin
+            .from('subscriptions')
+            .select('payment_failure_count, razorpay_subscription_id')
+            .eq('user_id', failedUserId)
+            .single();
+
+          const newFailCount = (failSub?.payment_failure_count || 0) + 1;
+
+          await supabaseAdmin
+            .from('subscriptions')
+            .update({
+              payment_failure_count: newFailCount,
+              last_payment_failure_at: new Date().toISOString(),
+            })
+            .eq('user_id', failedUserId);
+
+          // Record in payment_history with retry count
+          try {
+            await supabaseAdmin.from('payment_history').insert({
+              user_id: failedUserId,
+              razorpay_payment_id: payment.id,
+              razorpay_subscription_id: payment.notes?.subscription_id || failSub?.razorpay_subscription_id || null,
+              amount: payment.amount,
+              currency: payment.currency || 'INR',
+              status: 'failed',
+              tier: payment.notes.tier || null,
+              billing_period: payment.notes.period || null,
+              retry_count: newFailCount,
+            });
+          } catch (insertErr: any) {
+            // Duplicate payment_id — ignore (unique index guard)
+            if (!insertErr.message?.includes('unique') && !insertErr.message?.includes('duplicate')) {
+              console.error(`[Webhook] Failed to record payment failure: ${insertErr.message}`);
+            }
+          }
+
+          console.log(`[Webhook] Payment failed (attempt ${newFailCount}): user=${failedUserId}, payment=${payment.id}`);
         }
         break;
       }
@@ -875,6 +1004,9 @@ router.get('/status', authMiddleware, paymentRateLimit(10), async (req: any, res
         upcoming_period: sub.upcoming_period || null,
         upcoming_start_date: sub.upcoming_start_date || null,
         upcoming_razorpay_sub_id: sub.upcoming_razorpay_sub_id || null,
+        // Payment failure info
+        payment_failure_count: sub.payment_failure_count || 0,
+        last_payment_failure_at: sub.last_payment_failure_at || null,
         // Payment history
         payment_history: payments || [],
       },
