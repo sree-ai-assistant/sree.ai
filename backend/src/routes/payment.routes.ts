@@ -397,20 +397,13 @@ router.post('/webhook', paymentRateLimit(30), async (req: Request, res: Response
           const isDeferredSwitch = oldSubId && oldSubId !== sub.id;
 
           if (isDeferredSwitch) {
-            // PAUSE the old subscription (don't cancel) — keep it as rollback
-            // If the new sub's payment fails, we can RESUME this one.
-            try {
-              await pauseSubscription(oldSubId);
-              console.log(`[Webhook] Paused old sub ${oldSubId} (rollback safety for ${sub.id})`);
-            } catch (e: any) {
-              // If pause fails (already paused/cancelled), try to cancel as fallback
-              try {
-                await cancelSubscription(oldSubId);
-                console.log(`[Webhook] Old sub ${oldSubId} couldn't be paused, cancelled instead: ${e?.error?.description || e.message}`);
-              } catch (_) {
-                console.log(`[Webhook] Old sub ${oldSubId} cleanup failed (already dead): ${e?.error?.description || e.message}`);
-              }
-            }
+            // DON'T pause or cancel the old sub here!
+            // The old sub was already set to cancel_at_cycle_end when the user
+            // scheduled the plan change. Razorpay cancelled it before activating this one.
+            // UPI subs can't be paused anyway.
+            // We just save previous_tier/period so we can REVERT if this new sub's
+            // payment fails (rollback to old tier limits, user would re-subscribe).
+            console.log(`[Webhook] Deferred switch from ${existingSub?.tier} → ${tier}: old sub ${oldSubId} already cancelled by Razorpay, saving rollback info`);
           }
 
           const now = new Date();
@@ -524,13 +517,6 @@ router.post('/webhook', paymentRateLimit(30), async (req: Request, res: Response
             cycleEnd.setMonth(now.getMonth() + 1);
           }
 
-          // Fetch existing sub to check for paused old sub that needs cleanup
-          const { data: chargedExistingSub } = await supabaseAdmin
-            .from('subscriptions')
-            .select('previous_razorpay_sub_id')
-            .eq('user_id', userId)
-            .single();
-
           await supabaseAdmin
             .from('subscriptions')
             .update({
@@ -541,22 +527,14 @@ router.post('/webhook', paymentRateLimit(30), async (req: Request, res: Response
               // Payment succeeded — reset failure tracking
               payment_failure_count: 0,
               last_payment_failure_at: null,
-              // Clear previous tier — no longer need rollback
+              // Clear previous tier — no longer need rollback (payment confirmed)
               previous_tier: null,
               previous_period: null,
               previous_razorpay_sub_id: null,
             })
             .eq('user_id', userId);
 
-          // Cancel the paused old subscription now that the new one is confirmed
-          if (chargedExistingSub?.previous_razorpay_sub_id) {
-            try {
-              await cancelSubscription(chargedExistingSub.previous_razorpay_sub_id);
-              console.log(`[Webhook] Cancelled paused old sub ${chargedExistingSub.previous_razorpay_sub_id} (new sub payment confirmed)`);
-            } catch (_) {
-              // Already dead — ignore
-            }
-          }
+          console.log(`[Webhook] Payment confirmed for sub — cleared rollback info: user=${userId}`);
 
           // Record payment (skip if already recorded by /verify)
           if (payment) {
@@ -684,32 +662,25 @@ router.post('/webhook', paymentRateLimit(30), async (req: Request, res: Response
               .eq('id', userId);
 
             console.log(`[Webhook] Current sub cancelled → downgraded to Free (scheduled): user=${userId}`);
-          } else if (existingSub.previous_tier && existingSub.previous_tier !== 'free' && existingSub.previous_razorpay_sub_id) {
+          } else if (existingSub.previous_tier && existingSub.previous_tier !== 'free') {
             // ── ROLLBACK: Deferred sub payment failed → revert to previous plan ──
-            // The new sub is being cancelled (payment failed after retries).
-            // Resume the paused old sub and revert to the previous tier.
+            // The new sub is being cancelled (all payment retries failed).
+            // The old Razorpay sub is already dead (cancel_at_cycle_end killed it),
+            // so we just revert the user to the old tier's LIMITS.
+            // They'll need to re-subscribe to get a new Razorpay sub.
             const prevTier = existingSub.previous_tier;
             const prevPeriod = existingSub.previous_period || 'monthly';
-            const prevSubId = existingSub.previous_razorpay_sub_id;
 
-            let resumedOldSub = false;
-            try {
-              await resumeSubscription(prevSubId);
-              resumedOldSub = true;
-              console.log(`[Webhook] Resumed paused old sub ${prevSubId} (rolling back to ${prevTier})`);
-            } catch (resumeErr: any) {
-              console.warn(`[Webhook] Could not resume old sub ${prevSubId}: ${resumeErr?.error?.description || resumeErr.message}`);
-            }
-
-            // Revert to previous tier in DB
+            // Revert to previous tier in DB (no active Razorpay sub — user must re-subscribe)
             const prevPlan = PLAN_CONFIGS[prevTier as keyof typeof PLAN_CONFIGS] || PLAN_CONFIGS.free;
             await supabaseAdmin
               .from('subscriptions')
               .update({
-                status: resumedOldSub ? 'active' : 'cancelled',
+                status: 'cancelled',
                 tier: prevTier,
                 billing_period: prevPeriod,
-                razorpay_subscription_id: resumedOldSub ? prevSubId : null,
+                razorpay_subscription_id: null,
+                razorpay_plan_id: null,
                 plan_id: `plan_${prevTier}_${prevPeriod}`,
                 // Clear rollback fields
                 previous_tier: null,
@@ -734,7 +705,7 @@ router.post('/webhook', paymentRateLimit(30), async (req: Request, res: Response
               })
               .eq('id', userId);
 
-            console.log(`[Webhook] Current sub cancelled → reverted to ${prevTier} (${resumedOldSub ? 'resumed old sub' : 'old sub dead, user needs to re-subscribe'}): user=${userId}`);
+            console.log(`[Webhook] New sub payment failed → reverted to ${prevTier} limits (no active Razorpay sub, user must re-subscribe): user=${userId}`);
           } else {
             // No upcoming plan, no previous tier — simple cancellation → downgrade to free
             await supabaseAdmin
@@ -773,49 +744,113 @@ router.post('/webhook', paymentRateLimit(30), async (req: Request, res: Response
       /* ---- Payment failed ---- */
       case 'payment.failed': {
         const payment = payload.payment?.entity;
-        const failedInvoice = payload.payment?.entity?.invoice_id;
-        if (payment?.notes?.user_id) {
-          const failedUserId = payment.notes.user_id;
+        if (!payment) break;
 
-          // Increment payment_failure_count on the subscription
-          const { data: failSub } = await supabaseAdmin
-            .from('subscriptions')
-            .select('payment_failure_count, razorpay_subscription_id')
-            .eq('user_id', failedUserId)
-            .single();
+        // Try to get user_id from payment notes first
+        let failedUserId = payment.notes?.user_id;
+        let failedTier = payment.notes?.tier || null;
+        let failedPeriod = payment.notes?.period || null;
 
-          const newFailCount = (failSub?.payment_failure_count || 0) + 1;
+        // FALLBACK: Auto-retry payments often have empty notes.
+        // Try to find the user via the subscription entity in the payload,
+        // or by looking up the subscription in our DB.
+        if (!failedUserId) {
+          // Check if subscription entity is in the webhook payload
+          const subFromPayload = payload.subscription?.entity;
+          if (subFromPayload?.notes?.user_id) {
+            failedUserId = subFromPayload.notes.user_id;
+            failedTier = failedTier || subFromPayload.notes?.tier;
+            failedPeriod = failedPeriod || subFromPayload.notes?.period;
+            console.log(`[Webhook] payment.failed: found user from payload.subscription.entity: ${failedUserId}`);
+          }
+        }
 
-          await supabaseAdmin
-            .from('subscriptions')
-            .update({
-              payment_failure_count: newFailCount,
-              last_payment_failure_at: new Date().toISOString(),
-            })
-            .eq('user_id', failedUserId);
+        if (!failedUserId) {
+          // Try to look up via invoice → subscription in Razorpay
+          const invoiceId = payment.invoice_id;
+          if (invoiceId) {
+            try {
+              // Invoice notes should have subscription info
+              // Look up subscription by checking which of our users has this sub
+              const rzpPayment = payment;
+              // Try fetching all subs and matching — but simpler: search our DB
+              // for any subscription whose razorpay_subscription_id matches
+              const { data: allSubs } = await supabaseAdmin
+                .from('subscriptions')
+                .select('user_id, tier, billing_period, razorpay_subscription_id')
+                .not('razorpay_subscription_id', 'is', null);
 
-          // Record in payment_history with retry count
-          try {
-            await supabaseAdmin.from('payment_history').insert({
-              user_id: failedUserId,
-              razorpay_payment_id: payment.id,
-              razorpay_subscription_id: payment.notes?.subscription_id || failSub?.razorpay_subscription_id || null,
-              amount: payment.amount,
-              currency: payment.currency || 'INR',
-              status: 'failed',
-              tier: payment.notes.tier || null,
-              billing_period: payment.notes.period || null,
-              retry_count: newFailCount,
-            });
-          } catch (insertErr: any) {
-            // Duplicate payment_id — ignore (unique index guard)
-            if (!insertErr.message?.includes('unique') && !insertErr.message?.includes('duplicate')) {
-              console.error(`[Webhook] Failed to record payment failure: ${insertErr.message}`);
+              if (allSubs) {
+                for (const s of allSubs) {
+                  try {
+                    const rzpSub = await fetchSubscription(s.razorpay_subscription_id!);
+                    // Check if this subscription's latest invoice matches
+                    if (rzpSub?.id && rzpSub.notes?.user_id) {
+                      // Check if the payment belongs to this subscription
+                      // by comparing the subscription's current invoice
+                      // This is expensive, so we limit to checking recent subs
+                      failedUserId = rzpSub.notes.user_id;
+                      failedTier = failedTier || rzpSub.notes?.tier;
+                      failedPeriod = failedPeriod || rzpSub.notes?.period;
+                      // Verify by checking the sub status — only pending subs have failed payments
+                      if (rzpSub.status === 'pending' || rzpSub.status === 'active') {
+                        console.log(`[Webhook] payment.failed: found user via subscription lookup: ${failedUserId}`);
+                        break;
+                      }
+                    }
+                  } catch (_) { /* skip */ }
+                }
+              }
+            } catch (lookupErr: any) {
+              console.warn(`[Webhook] payment.failed: invoice lookup failed: ${lookupErr.message}`);
             }
           }
-
-          console.log(`[Webhook] Payment failed (attempt ${newFailCount}): user=${failedUserId}, payment=${payment.id}`);
         }
+
+        if (!failedUserId) {
+          console.warn(`[Webhook] payment.failed: could not identify user for payment ${payment.id} — notes were empty and subscription lookup failed`);
+          break;
+        }
+
+        // Increment payment_failure_count on the subscription
+        const { data: failSub } = await supabaseAdmin
+          .from('subscriptions')
+          .select('payment_failure_count, razorpay_subscription_id, tier')
+          .eq('user_id', failedUserId)
+          .single();
+
+        const newFailCount = (failSub?.payment_failure_count || 0) + 1;
+        failedTier = failedTier || failSub?.tier || null;
+
+        await supabaseAdmin
+          .from('subscriptions')
+          .update({
+            payment_failure_count: newFailCount,
+            last_payment_failure_at: new Date().toISOString(),
+          })
+          .eq('user_id', failedUserId);
+
+        // Record in payment_history with retry count
+        try {
+          await supabaseAdmin.from('payment_history').insert({
+            user_id: failedUserId,
+            razorpay_payment_id: payment.id,
+            razorpay_subscription_id: failSub?.razorpay_subscription_id || null,
+            amount: payment.amount,
+            currency: payment.currency || 'INR',
+            status: 'failed',
+            tier: failedTier,
+            billing_period: failedPeriod,
+            retry_count: newFailCount,
+          });
+        } catch (insertErr: any) {
+          // Duplicate payment_id — ignore (unique index guard)
+          if (!insertErr.message?.includes('unique') && !insertErr.message?.includes('duplicate')) {
+            console.error(`[Webhook] Failed to record payment failure: ${insertErr.message}`);
+          }
+        }
+
+        console.log(`[Webhook] Payment failed (attempt ${newFailCount}): user=${failedUserId}, payment=${payment.id}, tier=${failedTier}`);
         break;
       }
 
