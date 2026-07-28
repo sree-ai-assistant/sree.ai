@@ -516,6 +516,10 @@ router.post('/webhook', paymentRateLimit(30), async (req: Request, res: Response
           } else {
             cycleEnd.setMonth(now.getMonth() + 1);
           }
+          // Only clear rollback info if the payment was ACTUALLY captured (confirmed).
+          // Razorpay fires subscription.charged even for invoice creation — the payment
+          // might still fail later. We must keep previous_* until payment.status === 'captured'.
+          const paymentConfirmed = payment && payment.status === 'captured';
 
           await supabaseAdmin
             .from('subscriptions')
@@ -527,14 +531,16 @@ router.post('/webhook', paymentRateLimit(30), async (req: Request, res: Response
               // Payment succeeded — reset failure tracking
               payment_failure_count: 0,
               last_payment_failure_at: null,
-              // Clear previous tier — no longer need rollback (payment confirmed)
-              previous_tier: null,
-              previous_period: null,
-              previous_razorpay_sub_id: null,
+              // Only clear previous tier when payment is confirmed captured
+              ...(paymentConfirmed ? {
+                previous_tier: null,
+                previous_period: null,
+                previous_razorpay_sub_id: null,
+              } : {}),
             })
             .eq('user_id', userId);
 
-          console.log(`[Webhook] Payment confirmed for sub — cleared rollback info: user=${userId}`);
+          console.log(`[Webhook] subscription.charged: user=${userId}, payment=${paymentConfirmed ? 'CAPTURED — cleared rollback info' : 'NOT YET CAPTURED — keeping rollback info'}`);
 
           // Record payment (skip if already recorded by /verify)
           if (payment) {
@@ -662,10 +668,10 @@ router.post('/webhook', paymentRateLimit(30), async (req: Request, res: Response
               .eq('id', userId);
 
             console.log(`[Webhook] Current sub cancelled → downgraded to Free (scheduled): user=${userId}`);
-          } else if (existingSub.previous_tier && existingSub.previous_tier !== 'free') {
+          } else if (existingSub.previous_tier && existingSub.previous_tier !== 'free' && existingSub.previous_razorpay_sub_id) {
             // ── ROLLBACK: Deferred sub payment failed → revert to previous plan ──
             // The new sub is being cancelled (payment retries failed or user cancelled).
-            // Try to RESUME the paused old subscription first.
+            // Try to RESUME the paused old subscription.
             const prevTier = existingSub.previous_tier;
             const prevPeriod = existingSub.previous_period || 'monthly';
             const prevSubId = existingSub.previous_razorpay_sub_id;
