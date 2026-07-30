@@ -945,6 +945,128 @@ router.post('/webhook', paymentRateLimit(30), async (req: Request, res: Response
         }
 
         console.log(`[Webhook] Payment failed (attempt ${newFailCount}): user=${failedUserId}, payment=${payment.id}, tier=${failedTier}`);
+
+        // ── Send payment failure notification to n8n (fire-and-forget) ──
+        const n8nWebhookUrl = process.env.N8N_PAYMENT_FAILURE_WEBHOOK_URL;
+        const n8nwebwookSecret = process.env.N8N_WEBHOOK_SECRET;
+        if (n8nWebhookUrl) {
+          (async () => {
+            try {
+              // Fetch user profile + email
+              const [{ data: userProfile }, { data: authData }] = await Promise.all([
+                supabaseAdmin.from('profiles').select('display_name').eq('id', failedUserId).single(),
+                supabaseAdmin.auth.admin.getUserById(failedUserId),
+              ]);
+
+              const userName = userProfile?.display_name || 'User';
+              const userEmail = authData?.user?.email || '';
+
+              // Fetch Razorpay subscription short_url for payment method update
+              let subscriptionShortUrl = '';
+              if (failSub?.razorpay_subscription_id) {
+                try {
+                  const rzpSub = await fetchSubscription(failSub.razorpay_subscription_id);
+                  subscriptionShortUrl = rzpSub?.short_url || '';
+                } catch (_) { /* ignore */ }
+              }
+
+              // Price lookup
+              const tierKey = failedTier as 'starter' | 'pro';
+              const periodKey = (failedPeriod || 'monthly') as 'monthly' | 'annually';
+              const planPriceRaw = PLAN_PRICES_INR[tierKey]?.[periodKey] || payment.amount || 0;
+              const planPriceInr = planPriceRaw / 100; // paise → rupees
+
+              // Payment method info
+              const paymentMethod = payment.method || '';
+              const cardLast4 = payment.card?.last4 || '';
+
+              // Failure reason
+              const failureReason = payment.error_description || payment.error_reason || 'Payment could not be processed';
+
+              // Timestamps
+              const failedAt = new Date();
+              const failedAtFormatted = failedAt.toLocaleString('en-IN', {
+                day: 'numeric', month: 'short', year: 'numeric',
+                hour: 'numeric', minute: '2-digit', hour12: true,
+              });
+
+              // Next retry (Razorpay retries ~24h later)
+              const nextRetryDate = new Date(failedAt.getTime() + 24 * 60 * 60 * 1000);
+              const nextRetryFormatted = nextRetryDate.toLocaleString('en-IN', {
+                day: 'numeric', month: 'short', year: 'numeric',
+                hour: 'numeric', minute: '2-digit', hour12: true,
+              });
+
+              // Downgrade date (~3 days from first failure)
+              const downgradeDateObj = new Date(failedAt.getTime() + 3 * 24 * 60 * 60 * 1000);
+              const downgradeDate = downgradeDateObj.toLocaleString('en-IN', {
+                day: 'numeric', month: 'short', year: 'numeric',
+              });
+
+              const tierLabel: Record<string, string> = { starter: 'Starter', pro: 'Pro' };
+              const periodLabel: Record<string, string> = { monthly: 'Monthly', annually: 'Annually' };
+
+              const webhookPayload = {
+                reason: 'payment_failure',
+                company: {
+                  name: 'Sree AI',
+                  website: 'https://sreeai.qzz.io',
+                  logo: 'https://sreeai.qzz.io/Sree-ai-Primary-logo.png',
+                  supportEmail: 'support@sreeai.qzz.io',
+                },
+                user: {
+                  name: userName,
+                  email: userEmail,
+                },
+                subscription: {
+                  planName: tierLabel[failedTier || ''] || failedTier || 'Unknown',
+                  planPrice: `₹${planPriceInr}`,
+                  currency: 'INR',
+                  billingCycle: periodLabel[failedPeriod || 'monthly'] || failedPeriod || 'Monthly',
+                  subscriptionId: failSub?.razorpay_subscription_id || '',
+                  status: 'active',
+                },
+                payment: {
+                  paymentId: payment.id || '',
+                  invoiceId: payment.invoice_id || '',
+                  amount: String(planPriceInr),
+                  paymentMethod: paymentMethod,
+                  last4: cardLast4,
+                  failureReason: failureReason,
+                  failedAt: failedAtFormatted,
+                },
+                retry: {
+                  currentAttempt: newFailCount,
+                  maxAttempts: 3,
+                  nextRetryDate: newFailCount < 3 ? nextRetryFormatted : null,
+                  willRetry: newFailCount < 3,
+                },
+                account: {
+                  gracePeriodDays: 3,
+                  downgradeDate: downgradeDate,
+                  downgradePlan: 'Free',
+                },
+                links: {
+                  billing: 'https://sreeai.qzz.io/settings?tab=billing',
+                  updatePaymentMethod: subscriptionShortUrl,
+                  dashboard: 'https://sreeai.qzz.io/chat',
+                  support: 'https://sreeai.qzz.io/contact',
+                },
+              };
+
+              const resp = await fetch(n8nWebhookUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-Webhook-Secret': n8nwebwookSecret! },
+                body: JSON.stringify(webhookPayload),
+              });
+
+              console.log(`[Webhook] n8n payment failure notification sent: status=${resp.status}, user=${failedUserId}`);
+            } catch (n8nErr: any) {
+              // Fire-and-forget — don't break the webhook response
+              console.warn(`[Webhook] n8n notification failed (non-critical): ${n8nErr.message}`);
+            }
+          })();
+        }
         break;
       }
 
