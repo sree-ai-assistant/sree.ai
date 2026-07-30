@@ -662,6 +662,7 @@ router.post('/webhook', paymentRateLimit(30), async (req: Request, res: Response
               .from('subscriptions')
               .update({
                 status: 'cancelled',
+                cancelled_at: new Date().toISOString(),
                 tier: 'free',
                 upcoming_tier: null,
                 upcoming_period: null,
@@ -764,6 +765,7 @@ router.post('/webhook', paymentRateLimit(30), async (req: Request, res: Response
                 .from('subscriptions')
                 .update({
                   status: 'cancelled',
+                  cancelled_at: new Date().toISOString(),
                   tier: 'free',
                   razorpay_subscription_id: null,
                   razorpay_plan_id: null,
@@ -803,6 +805,7 @@ router.post('/webhook', paymentRateLimit(30), async (req: Request, res: Response
               .from('subscriptions')
               .update({
                 status: 'cancelled',
+                cancelled_at: new Date().toISOString(),
                 payment_failure_count: 0,
                 last_payment_failure_at: null,
                 previous_tier: null,
@@ -1031,7 +1034,7 @@ router.get('/status', authMiddleware, paymentRateLimit(10), async (req: any, res
         cancelledSubscription = {
           tier: sub.tier,
           billing_period: sub.billing_period,
-          cancelled_at: sub.billing_cycle_end || sub.current_period_end || null,
+          cancelled_at: sub.cancelled_at || null,
         };
       }
 
