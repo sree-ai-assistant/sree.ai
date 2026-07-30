@@ -75,7 +75,7 @@ interface UserSession {
 
 const PLAN_CONFIG: Record<string, { label: string; price: string; period: string; color: string; requests: number; storage: string }> = {
   free: { label: 'Free', price: '$0', period: '/month', color: '#6B7280', requests: 5000, storage: '1 GB' },
-  starter: { label: 'Starter', price: '$9.00', period: '/month', color: '#3B82F6', requests: 25000, storage: '5 GB' },
+  starter: { label: 'Starter', price: '$8.00', period: '/month', color: '#3B82F6', requests: 25000, storage: '5 GB' },
   pro: { label: 'Pro', price: '$29.00', period: '/month', color: '#8B5CF6', requests: 50000, storage: '10 GB' },
 };
 
@@ -440,6 +440,91 @@ const BillingSection: React.FC<{ user: any; navigate: any }> = ({ user, navigate
             )}
           </div>
         </div>
+
+        {/* Cancelled subscription note — shown below plan card */}
+        {billingData?.cancelled_subscription && (() => {
+          const cs = billingData.cancelled_subscription;
+          const cancelledAt = cs.cancelled_at ? new Date(cs.cancelled_at) : null;
+          const now = new Date();
+          const diffMs = cancelledAt ? now.getTime() - cancelledAt.getTime() : 0;
+          const diffSecs = Math.floor(diffMs / 1000);
+          const diffMins = Math.floor(diffSecs / 60);
+          const diffHours = Math.floor(diffMins / 60);
+          const diffDays = Math.floor(diffHours / 24);
+          const TWO_WEEKS_MS = 14 * 24 * 60 * 60 * 1000;
+
+          // Hide after 2 weeks
+          if (cancelledAt && diffMs > TWO_WEEKS_MS) return null;
+
+          let timeAgo = '';
+          if (!cancelledAt) {
+            timeAgo = 'Recently';
+          } else if (diffDays >= 7) {
+            timeAgo = cancelledAt.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+          } else if (diffDays >= 1) {
+            timeAgo = `${diffDays} day${diffDays > 1 ? 's' : ''} ago`;
+          } else if (diffHours >= 1) {
+            timeAgo = `${diffHours} hour${diffHours > 1 ? 's' : ''} ago`;
+          } else if (diffMins >= 1) {
+            timeAgo = `${diffMins} min${diffMins > 1 ? 's' : ''} ago`;
+          } else {
+            timeAgo = 'Just now';
+          }
+
+          return (
+            <motion.div
+              initial={{ opacity: 0, y: -6 }}
+              animate={{ opacity: 1, y: 0 }}
+              style={{
+                marginTop: 12,
+                padding: '0.85rem 1.15rem',
+                borderRadius: 12,
+                background: 'rgba(255,255,255,0.025)',
+                border: '1px solid rgba(255,255,255,0.06)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                gap: 12,
+                flexWrap: 'wrap',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <div style={{
+                  width: 8, height: 8, borderRadius: '50%',
+                  background: '#ef4444', flexShrink: 0,
+                }} />
+                <div>
+                  <span style={{
+                    fontSize: '0.82rem', color: 'var(--text-secondary)', fontWeight: 500,
+                  }}>
+                    Previous plan: <span style={{ fontWeight: 700, color: 'var(--text-primary)' }}>
+                      {TIER_LABELS[cs.tier] || cs.tier} {cs.billing_period ? `(${cs.billing_period})` : ''}
+                    </span>
+                  </span>
+                  <span style={{
+                    fontSize: '0.72rem', color: 'var(--text-muted)', marginLeft: 10,
+                  }}>
+                    Cancelled {timeAgo}
+                  </span>
+                </div>
+              </div>
+              <button
+                onClick={() => navigate('/pricing')}
+                style={{
+                  padding: '6px 14px', borderRadius: 8, border: 'none',
+                  background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
+                  color: '#fff', fontSize: '0.75rem', fontWeight: 700,
+                  cursor: 'pointer', transition: 'opacity 0.2s',
+                  whiteSpace: 'nowrap',
+                }}
+                onMouseEnter={(e) => (e.currentTarget.style.opacity = '0.85')}
+                onMouseLeave={(e) => (e.currentTarget.style.opacity = '1')}
+              >
+                Resubscribe
+              </button>
+            </motion.div>
+          );
+        })()}
 
         {/* Payment failure warning banner */}
         {billingData?.payment_failure_count > 0 && (() => {

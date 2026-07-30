@@ -1025,14 +1025,24 @@ router.get('/status', authMiddleware, paymentRateLimit(10), async (req: any, res
         .order('created_at', { ascending: false })
         .limit(10);
 
+      // Build cancelled subscription info (only if the sub existed and was cancelled with a real tier)
+      let cancelledSubscription = null;
+      if (sub?.status === 'cancelled' && sub.tier && sub.tier !== 'free') {
+        cancelledSubscription = {
+          tier: sub.tier,
+          billing_period: sub.billing_period,
+          cancelled_at: sub.billing_cycle_end || sub.current_period_end || null,
+        };
+      }
+
       return res.json({
         success: true,
         data: {
           has_active_subscription: false,
-          // Return actual tier from DB (e.g. 'starter' after rollback), not hardcoded 'free'
-          tier: sub?.tier || 'free',
+          tier: 'free',
           status: sub?.status || 'none',
           payment_history: pastPayments || [],
+          ...(cancelledSubscription ? { cancelled_subscription: cancelledSubscription } : {}),
         },
       });
     }
