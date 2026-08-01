@@ -751,3 +751,149 @@
     font-size: 0.85rem;
   }
 }
+
+/* --- UPGRADE PROCESSING OVERLAY --- */
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(8, 12, 22, 0.75);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.4s ease, visibility 0.4s ease;
+}
+
+.overlay.active {
+  opacity: 1;
+  visibility: visible;
+}
+
+/* --- WIND ANIMATION --- */
+.windContainer {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.windLine {
+  position: absolute;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.7), transparent);
+  border-radius: 999px;
+  opacity: 0;
+}
+
+.overlay.active .windLine {
+  animation: windFly 1.2s linear infinite;
+}
+
+@keyframes windFly {
+  0% {
+    transform: translateX(100vw);
+    opacity: 0;
+  }
+
+  30% {
+    opacity: 0.8;
+  }
+
+  70% {
+    opacity: 0.8;
+  }
+
+  100% {
+    transform: translateX(-100vw);
+    opacity: 0;
+  }
+}
+
+/* --- SREE AI LOGO TRAJECTORY --- */
+.logoWrapper {
+  position: relative;
+  z-index: 10;
+  margin-bottom: 2rem;
+}
+
+.logoImg {
+  width: 130px;
+  height: auto;
+  filter: drop-shadow(0 0 25px rgba(139, 92, 246, 0.6));
+  transform: scale(0);
+}
+
+.overlay.active .logoImg {
+  animation: logoTrajectory 2s cubic-bezier(0.61, 0.05, 0.02, 1.18) forwards;
+}
+
+@keyframes logoTrajectory {
+  0% {
+    transform: scale(0) translateX(0);
+    opacity: 0;
+  }
+
+  55% {
+    transform: scale(0.75) translateX(-110px);
+    opacity: 1;
+  }
+
+  100% {
+    transform: scale(1) translateX(0);
+    opacity: 1;
+  }
+}
+
+/* --- STATUS TEXT ANIMATION --- */
+.statusTextContainer {
+  position: relative;
+  z-index: 10;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.statusText {
+  color: transparent;
+  font-size: 1.15rem;
+  font-weight: 500;
+  letter-spacing: 0.5px;
+  margin: 0;
+  opacity: 1;
+  transform: translateY(0);
+  transition: opacity 0.3s ease, transform 0.3s ease;
+
+  /* Shimmer Effect */
+  background: linear-gradient(90deg,
+      #94a3b8 0%,
+      #ffffff 50%,
+      #94a3b8 100%);
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  background-clip: text;
+  animation: txtShimmer 2.5s linear infinite;
+
+  filter: drop-shadow(0 2px 5px rgba(0, 0, 0, 0.5));
+}
+
+@keyframes txtShimmer {
+  to {
+    background-position: 200% center;
+  }
+}
+
+.statusText.fadeOut {
+  opacity: 0;
+  transform: translateY(-8px);
+}
+
+.statusText.fadeIn {
+  opacity: 1;
+  transform: translateY(8px);
+}

@@ -54,15 +54,49 @@ export const PricingPage: React.FC = () => {
   const [loadingTier, setLoadingTier] = useState<'starter' | 'pro' | 'free' | null>(null);
   const [successTier, setSuccessTier] = useState<'starter' | 'pro' | 'free' | null>(null);
 
-  // Dynamic currency display — toggles every 3 seconds
-  const [displayCurrency, setDisplayCurrency] = useState<'usd' | 'inr'>('usd');
+  const [loadingText, setLoadingText] = useState("Initiating secure checkout...");
+  const [isTextFading, setIsTextFading] = useState(false);
+
+  // Dynamic currency display — INR for 12s, USD for 3s
+  const [displayCurrency, setDisplayCurrency] = useState<'usd' | 'inr'>('inr');
 
   useEffect(() => {
-    const interval = setInterval(() => {
+    let t1: ReturnType<typeof setTimeout>;
+    let t2: ReturnType<typeof setTimeout>;
+
+    if (loadingTier && loadingTier !== 'free') {
+      setLoadingText("Initiating secure checkout...");
+      setIsTextFading(false);
+
+      t1 = setTimeout(() => {
+        setIsTextFading(true);
+        setTimeout(() => {
+          setLoadingText("Connecting to gateway...");
+          setIsTextFading(false);
+        }, 300);
+      }, 2000);
+
+      t2 = setTimeout(() => {
+        setIsTextFading(true);
+        setTimeout(() => {
+          setLoadingText("Almost there...");
+          setIsTextFading(false);
+        }, 300);
+      }, 3500);
+    }
+
+    return () => {
+      clearTimeout(t1);
+      clearTimeout(t2);
+    };
+  }, [loadingTier]);
+
+  useEffect(() => {
+    const timeout = setTimeout(() => {
       setDisplayCurrency(prev => prev === 'usd' ? 'inr' : 'usd');
-    }, 12000);
-    return () => clearInterval(interval);
-  }, []);
+    }, displayCurrency === 'inr' ? 12000 : 3000);
+    return () => clearTimeout(timeout);
+  }, [displayCurrency]);
 
   // Pre-select tier if passed in query params (e.g. /pricing?plan=pro)
   useEffect(() => {
@@ -266,9 +300,9 @@ export const PricingPage: React.FC = () => {
 
   // Dual currency pricing: INR for Indian users, USD for international
   const PRICES = {
-    free: { usd: 0, inr: 0 },
-    starter: { usd: 8, inr: 399 },
-    pro: { usd: 29, inr: 899 },
+    free: { usd: 0, inr: 0, inrOriginal: 0 },
+    starter: { usd: 8, inr: 399, inrOriginal: 800 },
+    pro: { usd: 29, inr: 899, inrOriginal: 2800 },
   };
 
   const getPrice = (tier: 'free' | 'starter' | 'pro') => {
@@ -280,16 +314,25 @@ export const PricingPage: React.FC = () => {
     if (billingPeriod === 'annually' && monthly > 0) {
       const discounted = monthly * 0.8;
       const yearly = discounted * 12;
+      const orig = cur === 'inr' ? Math.round(base.inrOriginal * 0.8) : undefined;
+      const diff = orig ? Math.round(((orig - discounted) / orig) * 100) : undefined;
       return {
         symbol,
         amount: cur === 'inr' ? Math.round(discounted).toString() : discounted.toFixed(2),
+        originalAmount: orig?.toString(),
+        discountPercent: diff,
         period: '/mo',
         extra: `Billed annually (${symbol}${cur === 'inr' ? Math.round(yearly).toLocaleString('en-IN') : yearly.toFixed(0)}/yr)`,
       };
     }
+
+    const orig = cur === 'inr' && base.inrOriginal > 0 ? base.inrOriginal : undefined;
+    const diff = orig ? Math.round(((orig - monthly) / orig) * 100) : undefined;
     return {
       symbol,
       amount: monthly.toString(),
+      originalAmount: orig?.toString(),
+      discountPercent: diff,
       period: monthly > 0 ? '/mo' : '',
       extra: monthly > 0 ? 'Billed monthly' : 'Free forever',
     };
@@ -354,6 +397,7 @@ export const PricingPage: React.FC = () => {
         { label: 'Chat Requests', daily: '200/day', monthly: '3000/month' },
         { label: 'Voice Requests', daily: '100/day', monthly: '1000/month' },
         { label: 'Image Requests', daily: '70/day', monthly: '1000/month' },
+        { label: 'Video Requests', daily: '30/day', monthly: '200/month' },
         { label: 'BYOK Support', supported: true },
       ],
       features: [
@@ -435,6 +479,25 @@ export const PricingPage: React.FC = () => {
 
     return (
       <div className={styles.inner}>
+        {/* --- UPGRADE PROCESSING OVERLAY --- */}
+        <div className={`${styles.overlay} ${loadingTier && loadingTier !== 'free' ? styles.active : ''}`}>
+          <div className={styles.windContainer}>
+            <div className={styles.windLine} style={{ top: '22%', width: '140px', animationDelay: '1.3s' }}></div>
+            <div className={styles.windLine} style={{ top: '36%', width: '90px', animationDelay: '1.5s' }}></div>
+            <div className={styles.windLine} style={{ top: '48%', width: '180px', animationDelay: '1.65s' }}></div>
+            <div className={styles.windLine} style={{ top: '62%', width: '110px', animationDelay: '1.95s' }}></div>
+            <div className={styles.windLine} style={{ top: '76%', width: '160px', animationDelay: '1.75s' }}></div>
+          </div>
+          <div className={styles.logoWrapper}>
+            <img src="https://sreeai.qzz.io/Sree-ai-Primary-logo.png" alt="Sree AI Logo" className={styles.logoImg} />
+          </div>
+          <div className={styles.statusTextContainer}>
+            <p className={`${styles.statusText} ${isTextFading ? styles.fadeOut : ''}`}>
+              {loadingText}
+            </p>
+          </div>
+        </div>
+
         <div className={styles.backBtnWrapper}>
           <button className={styles.backBtn} onClick={() => navigate(-1)}>
             <ArrowLeft size={16} />
@@ -522,10 +585,40 @@ export const PricingPage: React.FC = () => {
                         exit={{ opacity: 0, y: -10 }}
                         transition={{ duration: 0.3 }}
                       >
+                        {price.originalAmount && (
+                          <span style={{
+                            textDecoration: 'line-through',
+                            color: 'rgba(255, 255, 255, 0.35)',
+                            fontSize: '0.55em',
+                            marginRight: '12px',
+                            fontWeight: 600
+                          }}>
+                            {price.symbol}{price.originalAmount}
+                          </span>
+                        )}
                         {price.symbol}{price.amount}
                       </motion.span>
                     </AnimatePresence>
                     {plan.price > 0 && <span className={styles.pricePeriod}>{price.period}</span>}
+                    {price.discountPercent && (
+                      <span style={{
+                        marginLeft: '12px',
+                        background: 'rgba(251, 191, 36, 0.15)',
+                        color: '#fbbf24',
+                        padding: '4px 10px',
+                        borderRadius: '8px',
+                        fontSize: '0.85rem',
+                        fontWeight: 700,
+                        border: '1px solid rgba(251, 191, 36, 0.3)',
+                        alignSelf: 'center',
+                        whiteSpace: 'nowrap',
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.02em',
+                        transform: 'translateY(-4px)'
+                      }}>
+                        -{price.discountPercent}% OFF
+                      </span>
+                    )}
                   </div>
                   <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: 16 }}>{price.extra}</p>
                   <p className={styles.planDesc}>{plan.description}</p>
@@ -761,6 +854,18 @@ export const PricingPage: React.FC = () => {
                   <td className={`${styles.td} ${styles.tdCol}`}>30 / month</td>
                   <td className={`${styles.td} ${styles.tdCol}`}>70 / month</td>
                   <td className={`${styles.td} ${styles.tdCol}`}>1000 / month</td>
+                </tr>
+                <tr className={styles.tr}>
+                  <td className={`${styles.td} ${styles.tdLabel}`}>Daily Video Generations</td>
+                  <td className={`${styles.td} ${styles.tdCol}`}><span className={styles.dash}>—</span></td>
+                  <td className={`${styles.td} ${styles.tdCol}`}><span className={styles.dash}>—</span></td>
+                  <td className={`${styles.td} ${styles.tdCol}`}>30 / day</td>
+                </tr>
+                <tr className={styles.tr}>
+                  <td className={`${styles.td} ${styles.tdLabel}`}>Monthly Video Generations</td>
+                  <td className={`${styles.td} ${styles.tdCol}`}><span className={styles.dash}>—</span></td>
+                  <td className={`${styles.td} ${styles.tdCol}`}><span className={styles.dash}>—</span></td>
+                  <td className={`${styles.td} ${styles.tdCol}`}>200 / month</td>
                 </tr>
                 <tr className={styles.tr}>
                   <td className={`${styles.td} ${styles.tdLabel}`}>

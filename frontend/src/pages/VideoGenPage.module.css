@@ -20,6 +20,7 @@
   filter: blur(100px);
   pointer-events: none;
   z-index: 1;
+  animation: float 6s ease-in-out infinite;
 }
 
 .glowBlobRight {
@@ -32,6 +33,23 @@
   filter: blur(100px);
   pointer-events: none;
   z-index: 1;
+  animation: float 6s ease-in-out infinite;
+}
+
+/* animation for the glowBlob */
+
+@keyframes float {
+  0% {
+    transform: translateY(0px);
+  }
+
+  50% {
+    transform: translateY(-20px);
+  }
+
+  100% {
+    transform: translateY(0px);
+  }
 }
 
 /* Sidebar parameter drawer for mobile / history drawer */
@@ -3030,6 +3048,12 @@
   .summarySliderIcon {
     margin-left: 0 !important;
     opacity: 0.8 !important;
+  }
+}
+
+@media (max-height: 820px) and (max-width: 450px) {
+  .barParamsPopup {
+    max-height: calc(85vh - 200px) !important;
   }
 }
 
