@@ -84,6 +84,7 @@ const PROVIDER_MAP: Record<string, string> = {
   'gemini-3': 'google',
   'gemini-3.1-pro': 'google',
   'gemini-3.5-flash': 'google',
+  'gemini-3.6-flash': 'google',
   'gemini-flash-latest': 'google',
   'gemini-flash-lite-latest': 'google',
   'gemini-3-flash-preview': 'google',
@@ -108,9 +109,9 @@ const PROVIDER_MAP: Record<string, string> = {
  */
 export async function resolveProvider(modelId: string): Promise<string> {
   if (!modelId) return 'unknown';
-  
+
   const normalizedId = modelId.toLowerCase();
-  
+
   // 1. Check in-memory cache
   if (providerCache.has(normalizedId)) {
     return providerCache.get(normalizedId)!;
@@ -142,7 +143,7 @@ export async function resolveProvider(modelId: string): Promise<string> {
 
   // 4. Prefix/Infix matching for providers (Safety net)
   let resolved: string | null = null;
-  
+
   // Google Gemini & Veo models use a simple model_id like 'gemini-X.X-...' or 'veo-...'
   if (normalizedId.startsWith('gemini-') || normalizedId.startsWith('gemini/') || normalizedId.startsWith('veo-') || normalizedId.startsWith('veo/')) {
     resolved = 'google';
@@ -152,18 +153,18 @@ export async function resolveProvider(modelId: string): Promise<string> {
     resolved = 'groq';
   }
 
-  if (!resolved && (normalizedId.includes('meta/') || 
-      normalizedId.includes('mistralai/') || 
-      normalizedId.includes('nvidia/') ||
-      normalizedId.includes('stabilityai/') ||
-      normalizedId.includes('black-forest-labs/') ||
-      normalizedId.includes('google/') ||
-      normalizedId.includes('openai/') ||
-      normalizedId.includes('microsoft/') ||
-      normalizedId.includes('qwen/') ||
-      normalizedId.includes('moonshotai/') ||
-      normalizedId.includes('z-ai/') ||
-      normalizedId.includes('deepseek-ai/'))) {
+  if (!resolved && (normalizedId.includes('meta/') ||
+    normalizedId.includes('mistralai/') ||
+    normalizedId.includes('nvidia/') ||
+    normalizedId.includes('stabilityai/') ||
+    normalizedId.includes('black-forest-labs/') ||
+    normalizedId.includes('google/') ||
+    normalizedId.includes('openai/') ||
+    normalizedId.includes('microsoft/') ||
+    normalizedId.includes('qwen/') ||
+    normalizedId.includes('moonshotai/') ||
+    normalizedId.includes('z-ai/') ||
+    normalizedId.includes('deepseek-ai/'))) {
     resolved = 'nvidia';
   }
 
