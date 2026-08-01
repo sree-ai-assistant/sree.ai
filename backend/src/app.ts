@@ -12,9 +12,14 @@ const app = express();
 app.use(helmet());
 app.use(cors({
   origin: (origin, callback) => {
+    // Split FRONTEND_URL by comma if it exists to allow multiple domains
+    const envOrigins = process.env.FRONTEND_URL
+      ? process.env.FRONTEND_URL.split(',').map(u => u.trim())
+      : [];
+
     // List of allowed origins
     const allowedOrigins = [
-      process.env.FRONTEND_URL,
+      ...envOrigins,
       'http://localhost:5173',
       'http://localhost:5174',
       'http://127.0.0.1:5173',
