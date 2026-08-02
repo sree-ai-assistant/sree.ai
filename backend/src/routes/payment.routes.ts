@@ -67,6 +67,23 @@ function paymentRateLimit(maxRequests: number, windowMs = 60_000) {
   };
 }
 
+/**
+ * Fetch the active Razorpay offer ID from app_config for a specific tier.
+ * Returns null if no offer is configured.
+ */
+async function getActiveOfferId(tier: 'starter' | 'pro'): Promise<string | null> {
+  try {
+    const { data } = await supabaseAdmin
+      .from('app_config')
+      .select('value')
+      .eq('key', `razorpay_offer_id_${tier}`)
+      .single();
+    return data?.value || null;
+  } catch {
+    return null;
+  }
+}
+
 const router = Router();
 
 /* ------------------------------------------------------------------ */
@@ -121,12 +138,16 @@ router.post('/create-subscription', authMiddleware, paymentRateLimit(5), async (
       }
     }
 
+    // Fetch active offer (if any) for the specific tier
+    const offerId = await getActiveOfferId(tier as 'starter' | 'pro');
+
     // Create subscription on Razorpay
     const subscription = await createSubscription(
       tier as 'starter' | 'pro',
       period as 'monthly' | 'annually',
       userEmail,
       userId,
+      offerId,
     );
 
     // Store the pending subscription in our DB
@@ -1045,9 +1066,9 @@ router.post('/webhook', paymentRateLimit(30), async (req: Request, res: Response
                   downgradePlan: 'Free',
                 },
                 links: {
-                  billing: 'https://sreeai.qzz.io/settings?tab=billing',
+                  billing: 'https://app.sreeai.qzz.io/settings?tab=billing',
                   updatePaymentMethod: subscriptionShortUrl,
-                  dashboard: 'https://sreeai.qzz.io/chat',
+                  dashboard: 'https://app.sreeai.qzz.io/chat',
                   support: 'https://sreeai.qzz.io/contact',
                 },
               };
@@ -1488,6 +1509,7 @@ router.post('/schedule-change', authMiddleware, paymentRateLimit(5), async (req:
     // Create deferred subscription — DON'T pause old sub yet.
     // The pause + DB save happens in /verify-schedule-change AFTER user authenticates.
     const startAtUnix = Math.floor(cycleEnd.getTime() / 1000);
+    const offerId = await getActiveOfferId(tier as 'starter' | 'pro');
     let deferredSub: any;
     try {
       deferredSub = await createDeferredSubscription(
@@ -1496,6 +1518,7 @@ router.post('/schedule-change', authMiddleware, paymentRateLimit(5), async (req:
         userEmail,
         userId,
         startAtUnix,
+        offerId,
       );
     } catch (err: any) {
       console.error('[Payment] Failed to create deferred subscription:', err);
@@ -1786,11 +1809,13 @@ router.post('/activate-now', authMiddleware, paymentRateLimit(5), async (req: an
     // That only happens after the user successfully pays in /verify.
     // If the user dismisses checkout, their scheduled plan change is preserved.
 
+    const activateOfferId = await getActiveOfferId(upcomingTier as 'starter' | 'pro');
     const newSub = await createSubscription(
       upcomingTier as 'starter' | 'pro',
       upcomingPeriod as 'monthly' | 'annually',
       userEmail,
       userId,
+      activateOfferId,
     );
 
     // Store pending activation sub so /verify knows this is an "activate now" flow
