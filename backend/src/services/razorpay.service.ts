@@ -227,6 +227,15 @@ export async function fetchSubscription(subscriptionId: string): Promise<any> {
   return razorpay.subscriptions.fetch(subscriptionId);
 }
 
+/**
+ * Fetch a Razorpay Invoice by ID.
+ * Invoices for subscriptions contain `subscription_id` — used to trace
+ * which subscription a failed payment belongs to.
+ */
+export async function fetchInvoice(invoiceId: string): Promise<any> {
+  return (razorpay as any).invoices.fetch(invoiceId);
+}
+
 /* ------------------------------------------------------------------ */
 /*  Payment / Signature Verification                                    */
 /* ------------------------------------------------------------------ */

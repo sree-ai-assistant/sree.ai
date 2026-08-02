@@ -17,6 +17,7 @@ import {
   pauseSubscription,
   resumeSubscription,
   fetchSubscription,
+  fetchInvoice,
   verifyPaymentSignature,
   verifyWebhookSignature,
   syncAllPlans,
@@ -860,43 +861,40 @@ router.post('/webhook', paymentRateLimit(30), async (req: Request, res: Response
         }
 
         if (!failedUserId) {
-          // Try to look up via invoice → subscription in Razorpay
+          // Deterministic lookup: invoice_id → Razorpay invoice → subscription_id → our DB
           const invoiceId = payment.invoice_id;
           if (invoiceId) {
             try {
-              // Invoice notes should have subscription info
-              // Look up subscription by checking which of our users has this sub
-              const rzpPayment = payment;
-              // Try fetching all subs and matching — but simpler: search our DB
-              // for any subscription whose razorpay_subscription_id matches
-              const { data: allSubs } = await supabaseAdmin
-                .from('subscriptions')
-                .select('user_id, tier, billing_period, razorpay_subscription_id')
-                .not('razorpay_subscription_id', 'is', null);
+              // Fetch the invoice from Razorpay to get the subscription_id
+              const rzpInvoice = await fetchInvoice(invoiceId);
+              const invoiceSubId = rzpInvoice?.subscription_id;
 
-              if (allSubs) {
-                for (const s of allSubs) {
-                  try {
-                    const rzpSub = await fetchSubscription(s.razorpay_subscription_id!);
-                    // Check if this subscription's latest invoice matches
-                    if (rzpSub?.id && rzpSub.notes?.user_id) {
-                      // Check if the payment belongs to this subscription
-                      // by comparing the subscription's current invoice
-                      // This is expensive, so we limit to checking recent subs
-                      failedUserId = rzpSub.notes.user_id;
-                      failedTier = failedTier || rzpSub.notes?.tier;
-                      failedPeriod = failedPeriod || rzpSub.notes?.period;
-                      // Verify by checking the sub status — only pending subs have failed payments
-                      if (rzpSub.status === 'pending' || rzpSub.status === 'active') {
-                        console.log(`[Webhook] payment.failed: found user via subscription lookup: ${failedUserId}`);
-                        break;
-                      }
-                    }
-                  } catch (_) { /* skip */ }
+              if (invoiceSubId) {
+                // Look up our DB for this exact subscription
+                const { data: matchedSub } = await supabaseAdmin
+                  .from('subscriptions')
+                  .select('user_id, tier, billing_period')
+                  .eq('razorpay_subscription_id', invoiceSubId)
+                  .single();
+
+                if (matchedSub) {
+                  failedUserId = matchedSub.user_id;
+                  failedTier = failedTier || matchedSub.tier;
+                  failedPeriod = failedPeriod || matchedSub.billing_period;
+                  console.log(`[Webhook] payment.failed: found user via invoice→subscription lookup: ${failedUserId}, sub=${invoiceSubId}`);
+                } else {
+                  // Sub not in our DB — try fetching from Razorpay for notes
+                  const rzpSub = await fetchSubscription(invoiceSubId);
+                  if (rzpSub?.notes?.user_id) {
+                    failedUserId = rzpSub.notes.user_id;
+                    failedTier = failedTier || rzpSub.notes?.tier;
+                    failedPeriod = failedPeriod || rzpSub.notes?.period;
+                    console.log(`[Webhook] payment.failed: found user via invoice→rzp subscription notes: ${failedUserId}`);
+                  }
                 }
               }
             } catch (lookupErr: any) {
-              console.warn(`[Webhook] payment.failed: invoice lookup failed: ${lookupErr.message}`);
+              console.warn(`[Webhook] payment.failed: invoice→subscription lookup failed: ${lookupErr.message}`);
             }
           }
         }
