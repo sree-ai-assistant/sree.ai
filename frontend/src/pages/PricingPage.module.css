@@ -405,7 +405,7 @@
   color: var(--text-muted);
 }
 
-@media (max-width: 968px) {
+@media (max-width: 1108px) {
   .grid {
     grid-template-columns: 1fr;
     gap: 32px;

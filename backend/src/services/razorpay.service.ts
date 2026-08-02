@@ -119,6 +119,7 @@ export async function createSubscription(
   period: BillingPeriod,
   customerEmail: string,
   userId: string,
+  offerId?: string | null,
 ): Promise<any> {
   const planId = await getOrCreatePlan(tier, period);
 
@@ -126,7 +127,7 @@ export async function createSubscription(
   // monthly → 120 (10 years), annually → 10 (10 years)
   const totalCount = period === 'monthly' ? 2 : 1;   // i set it to one month for monthly and 1 year for yearly!
 
-  const subscription = await razorpay.subscriptions.create({
+  const subOptions: any = {
     plan_id: planId,
     customer_notify: 1,
     total_count: totalCount,
@@ -137,8 +138,13 @@ export async function createSubscription(
       period,
       email: customerEmail,
     },
-  });
+  };
 
+  if (offerId) {
+    subOptions.offer_id = offerId;
+  }
+
+  const subscription = await razorpay.subscriptions.create(subOptions);
   return subscription;
 }
 
@@ -198,11 +204,12 @@ export async function createDeferredSubscription(
   customerEmail: string,
   userId: string,
   startAt: number, // Unix timestamp (seconds)
+  offerId?: string | null,
 ): Promise<any> {
   const planId = await getOrCreatePlan(tier, period);
   const totalCount = period === 'monthly' ? 120 : 10;
 
-  const subscription = await razorpay.subscriptions.create({
+  const subOptions: any = {
     plan_id: planId,
     customer_notify: 1,
     total_count: totalCount,
@@ -215,8 +222,13 @@ export async function createDeferredSubscription(
       email: customerEmail,
       deferred: 'true',
     },
-  });
+  };
 
+  if (offerId) {
+    subOptions.offer_id = offerId;
+  }
+
+  const subscription = await razorpay.subscriptions.create(subOptions);
   return subscription;
 }
 
