@@ -1509,7 +1509,6 @@ router.post('/schedule-change', authMiddleware, paymentRateLimit(5), async (req:
     // Create deferred subscription — DON'T pause old sub yet.
     // The pause + DB save happens in /verify-schedule-change AFTER user authenticates.
     const startAtUnix = Math.floor(cycleEnd.getTime() / 1000);
-    const offerId = await getActiveOfferId(tier as 'starter' | 'pro');
     let deferredSub: any;
     try {
       deferredSub = await createDeferredSubscription(
@@ -1518,7 +1517,6 @@ router.post('/schedule-change', authMiddleware, paymentRateLimit(5), async (req:
         userEmail,
         userId,
         startAtUnix,
-        offerId,
       );
     } catch (err: any) {
       console.error('[Payment] Failed to create deferred subscription:', err);
