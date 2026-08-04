@@ -21,7 +21,7 @@
   background: radial-gradient(circle, rgba(139, 92, 246, 0.15) 0%, transparent 70%);
   filter: blur(100px);
   opacity: 0.8;
-  animation: float-glow-top 20s ease-in-out infinite alternate;
+  animation: float-glow-top 10s ease-in-out infinite alternate;
 }
 
 .aura-bottom {
@@ -33,7 +33,7 @@
   background: radial-gradient(circle, rgba(59, 130, 246, 0.15) 0%, transparent 70%);
   filter: blur(100px);
   opacity: 0.8;
-  animation: float-glow-bottom 20s ease-in-out infinite alternate;
+  animation: float-glow-bottom 10s ease-in-out infinite alternate;
 }
 
 @keyframes float-glow-top {

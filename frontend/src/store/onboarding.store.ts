@@ -23,22 +23,26 @@ export interface OnboardingApiKeys {
 }
 
 interface OnboardingState {
-  // Current step (1 or 2)
+  // Current step (1, 2, or 3)
   currentStep: number;
-  
+
   // Step 1: Profile
   profile: OnboardingProfile;
-  
-  // Step 2: API Keys
+
+  // Step 2: Plan Selection (no persistent state needed — handled by payment service)
+  selectedPlan: 'free' | 'starter' | 'pro';
+
+  // Step 3: API Keys
   apiKeys: OnboardingApiKeys;
-  
+
   // Completion
   isCompleted: boolean;
   isSubmitting: boolean;
-  
+
   // Actions
   setStep: (step: number) => void;
   setProfile: (profile: Partial<OnboardingProfile>) => void;
+  setSelectedPlan: (plan: 'free' | 'starter' | 'pro') => void;
   setApiKey: (provider: keyof OnboardingApiKeys, value: string) => void;
   clearApiKey: (provider: keyof OnboardingApiKeys) => void;
   completeOnboarding: (userId: string) => Promise<boolean>;
@@ -54,6 +58,7 @@ const INITIAL_STATE = {
     dateOfBirth: '',
     description: '',
   },
+  selectedPlan: 'free' as const,
   apiKeys: {
     google: '',
     groq: '',
@@ -75,6 +80,8 @@ export const useOnboardingStore = create<OnboardingState>()(
         set((state) => ({
           profile: { ...state.profile, ...profile },
         })),
+
+      setSelectedPlan: (plan) => set({ selectedPlan: plan }),
 
       setApiKey: (provider, value) =>
         set((state) => ({
@@ -119,7 +126,7 @@ export const useOnboardingStore = create<OnboardingState>()(
             date_of_birth: profile.dateOfBirth || null,
             description: profile.description.trim() || null,
             onboarding_completed: true,
-            onboarding_step: 2,
+            onboarding_step: 3,
             updated_at: new Date().toISOString(),
           };
 
@@ -146,6 +153,7 @@ export const useOnboardingStore = create<OnboardingState>()(
       partialize: (state) => ({
         currentStep: state.currentStep,
         profile: state.profile,
+        selectedPlan: state.selectedPlan,
         apiKeys: {
           // Never persist actual API keys in localStorage
           google: '',
