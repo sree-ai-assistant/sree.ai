@@ -58,7 +58,7 @@ function resolveSelectedModel(
 
   return (
     updatedSelected ||
-    models.find((m) => !m.is_image && !m.is_video && m.model_id === 'meta/llama-3.1-70b-instruct' && !m.in_maintenance) ||
+    models.find((m) => !m.is_image && !m.is_video && m.model_id === 'nvidia/nemotron-mini-4b-instruct' && !m.in_maintenance) ||
     models.find((m) => !m.is_image && !m.is_video && !m.in_maintenance) ||
     models.find((m) => !m.is_image && !m.is_video) ||
     models.find((m) => !m.is_image) ||

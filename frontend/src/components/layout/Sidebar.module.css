@@ -632,7 +632,7 @@
   width: 40px;
   height: 40px;
   border-radius: 12px;
-  background: linear-gradient(135deg, var(--primary), var(--accent));
+  background: transparent;
   color: white;
   display: flex;
   align-items: center;
@@ -763,7 +763,8 @@
   padding: 4px 0;
 }
 
-.loginBtn, .joinBtn {
+.loginBtn,
+.joinBtn {
   flex: 1;
   display: flex;
   align-items: center;
@@ -839,16 +840,19 @@
 
 .giftIconFloating {
   animation: giftFloat 2s ease-in-out infinite;
-  color: #FBBF24; /* Nice golden yellow color for the gift */
+  color: #FBBF24;
+  /* Nice golden yellow color for the gift */
 }
 
 @keyframes giftFloat {
   0% {
     transform: translateY(0);
   }
+
   50% {
     transform: translateY(-3px);
   }
+
   100% {
     transform: translateY(0);
   }
