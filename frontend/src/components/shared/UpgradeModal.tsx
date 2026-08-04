@@ -6,6 +6,7 @@ import { useAuthStore } from '../../store/auth.store';
 import { useUsageStore } from '../../store/usage.store';
 import { userService } from '../../lib/api';
 import toast from 'react-hot-toast';
+import { useNavigate } from 'react-router-dom';
 import styles from './UpgradeModal.module.css';
 
 export const UpgradeModal: React.FC = () => {
@@ -13,6 +14,7 @@ export const UpgradeModal: React.FC = () => {
   const { user, setUser } = useAuthStore();
   const { fetchStatus } = useUsageStore();
   const [loading, setLoading] = useState<'starter' | 'pro' | null>(null);
+  const navigate = useNavigate();
 
   const handleUpgrade = async (tier: 'starter' | 'pro') => {
     if (!user) {
@@ -20,44 +22,22 @@ export const UpgradeModal: React.FC = () => {
       return;
     }
 
-    setLoading(tier);
-    try {
-      const response = await userService.upgradeSubscription(tier);
-      if (response.success) {
-        // Update user tier in store
-        setUser({
-          ...user,
-          plan_type: tier,
-        });
-
-        // Fetch new limits and update usage store
-        await fetchStatus(false);
-
-        toast.success(`Success! Welcome to the ${tier.toUpperCase()} plan.`);
-        closeUpgradeModal();
-      } else {
-        toast.error(response.message || 'Upgrade failed. Please try again.');
-      }
-    } catch (error: any) {
-      console.error('Upgrade failed:', error);
-      toast.error(error.message || 'An error occurred during upgrade.');
-    } finally {
-      setLoading(null);
-    }
+    closeUpgradeModal();
+    navigate('/pricing');
   };
 
   return (
     <AnimatePresence>
       {upgradeModalOpen && (
-        <motion.div 
-          className={styles.overlay} 
+        <motion.div
+          className={styles.overlay}
           onClick={closeUpgradeModal}
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           transition={{ duration: 0.25 }}
         >
-          <motion.div 
+          <motion.div
             initial={{ opacity: 0, scale: 0.95, y: 15 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 15 }}
@@ -86,10 +66,11 @@ export const UpgradeModal: React.FC = () => {
                     <li className={styles.feature}><Check className={styles.checkIcon} size={16} /> 50 daily chat requests</li>
                     <li className={styles.feature}><Check className={styles.checkIcon} size={16} /> 60 daily voice synthesis</li>
                     <li className={styles.feature}><Check className={styles.checkIcon} size={16} /> 30 daily image gens</li>
+                    <li className={styles.feature}><Check className={styles.checkIcon} size={16} /> 10 daily video gens</li>
                     <li className={styles.feature}><Check className={styles.checkIcon} size={16} /> Chat, image & video storage (3mo auto-delete)</li>
                     <li className={styles.feature}><Check className={styles.checkIcon} size={16} /> Access to all tools (incl. 2D to 3D)</li>
                   </ul>
-                  <button 
+                  <button
                     className={`${styles.button} ${styles.buttonStarter} ${user?.plan_type === 'starter' ? styles.buttonCurrent : ''}`}
                     disabled={user?.plan_type === 'starter' || loading !== null}
                     onClick={() => handleUpgrade('starter')}
@@ -108,11 +89,12 @@ export const UpgradeModal: React.FC = () => {
                     <li className={styles.feature}><Zap className={styles.checkIcon} size={16} style={{ color: 'var(--accent)' }} /> 200 daily chat requests</li>
                     <li className={styles.feature}><Zap className={styles.checkIcon} size={16} style={{ color: 'var(--accent)' }} /> 100 daily voice synthesis</li>
                     <li className={styles.feature}><Zap className={styles.checkIcon} size={16} style={{ color: 'var(--accent)' }} /> 70 daily image gens</li>
+                    <li className={styles.feature}><Zap className={styles.checkIcon} size={16} style={{ color: 'var(--accent)' }} /> 30 daily video gens</li>
                     <li className={styles.feature}><Zap className={styles.checkIcon} size={16} style={{ color: 'var(--accent)' }} /> Chat, image & video storage (no expiration)</li>
                     <li className={styles.feature}><Zap className={styles.checkIcon} size={16} style={{ color: 'var(--accent)' }} /> Access to all tools (incl. 2D to 3D)</li>
                     <li className={styles.feature}><Zap className={styles.checkIcon} size={16} style={{ color: 'var(--accent)' }} /> Priority GPU queues</li>
                   </ul>
-                  <button 
+                  <button
                     className={`${styles.button} ${styles.buttonPro} ${user?.plan_type === 'pro' ? styles.buttonCurrent : ''}`}
                     disabled={user?.plan_type === 'pro' || loading !== null}
                     onClick={() => handleUpgrade('pro')}

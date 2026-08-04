@@ -232,6 +232,30 @@
   letter-spacing: -0.02em;
 }
 
+.priceOriginal {
+  text-decoration: line-through;
+  color: rgba(255, 255, 255, 0.35);
+  font-size: 0.55em;
+  margin-right: 12px;
+  font-weight: 600;
+}
+
+.priceDiscount {
+  margin-left: 12px;
+  background: rgba(251, 191, 36, 0.15);
+  color: #fbbf24;
+  padding: 4px 10px;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  border: 1px solid rgba(251, 191, 36, 0.3);
+  align-self: center;
+  white-space: nowrap;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  transform: translateY(-4px);
+}
+
 .pricePeriod {
   font-size: 1rem;
   color: var(--text-muted);
@@ -413,6 +437,34 @@
 
   .title {
     font-size: 2.2rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .priceDisplay {
+    flex-wrap: wrap;
+    align-items: center;
+  }
+
+  .priceAmount {
+    font-size: 2.4rem;
+  }
+
+  .priceOriginal {
+    margin-right: 6px;
+    font-size: 0.5em;
+    /* relative to 2.4rem is ~1.2rem */
+  }
+
+  .priceDiscount {
+    margin-left: 6px;
+    font-size: 0.75rem;
+    padding: 3px 8px;
+    transform: none;
+  }
+
+  .pricePeriod {
+    font-size: 0.9rem;
   }
 }
 

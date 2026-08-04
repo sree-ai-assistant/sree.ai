@@ -105,7 +105,7 @@ export const Navbar: React.FC = () => {
     if (usageLoading || !status) {
       if (isChatPage || isVoicePage || isImagesPage || isVideoPage) {
         return (
-          <div className={styles.usagePills} onClick={() => { navigate('/settings?tab=billing'); setIsUserMenuOpen(false); }}>
+          <div className={styles.usagePills} onClick={() => { navigate('/settings?tab=usage'); setIsUserMenuOpen(false); }}>
             <div className={styles.usageSkeletonPill}>
               <div className={styles.usageSkeletonHeader}>
                 <div className="skeleton" style={{ width: '40px', height: '10px', borderRadius: '3px' }} />
@@ -142,7 +142,7 @@ export const Navbar: React.FC = () => {
     if (isChatPage) {
       const chatData = status.profileUsage?.chat || status.usage?.chat;
       return (
-        <div className={styles.usagePills} onClick={() => { if (user) { navigate('/settings?tab=billing'); setIsUserMenuOpen(false); } }}>
+        <div className={styles.usagePills} onClick={() => { if (user) { navigate('/settings?tab=usage'); setIsUserMenuOpen(false); } }}>
           {buildPill('Chat', chatData, styles.chatFill)}
         </div>
       );
@@ -151,7 +151,7 @@ export const Navbar: React.FC = () => {
     if (isVoicePage) {
       const voiceData = status.profileUsage?.voice || status.usage?.voice;
       return (
-        <div className={styles.usagePills} onClick={() => { if (user) { navigate('/settings?tab=billing'); setIsUserMenuOpen(false); } }}>
+        <div className={styles.usagePills} onClick={() => { if (user) { navigate('/settings?tab=usage'); setIsUserMenuOpen(false); } }}>
           {buildPill('Voice', voiceData, styles.voiceFill)}
         </div>
       );
@@ -160,7 +160,7 @@ export const Navbar: React.FC = () => {
     if (isImagesPage) {
       const imageData = status.profileUsage?.image || status.usage?.image;
       return (
-        <div className={`${styles.usagePills} ${styles.imagePagePills}`} onClick={() => { if (user) { navigate('/settings?tab=billing'); setIsUserMenuOpen(false); } }}>
+        <div className={`${styles.usagePills} ${styles.imagePagePills}`} onClick={() => { if (user) { navigate('/settings?tab=usage'); setIsUserMenuOpen(false); } }}>
           {buildPill('Image', imageData, styles.imageFill)}
         </div>
       );
@@ -169,7 +169,7 @@ export const Navbar: React.FC = () => {
     if (isVideoPage) {
       const videoData = (status.profileUsage as any)?.video || (status.usage as any)?.video;
       return (
-        <div className={`${styles.usagePills} ${styles.videoPagePills}`} onClick={() => { if (user) { navigate('/settings?tab=billing'); setIsUserMenuOpen(false); } }}>
+        <div className={`${styles.usagePills} ${styles.videoPagePills}`} onClick={() => { if (user) { navigate('/settings?tab=usage'); setIsUserMenuOpen(false); } }}>
           {buildPill('Video', videoData, styles.videoFill)}
         </div>
       );
@@ -390,7 +390,7 @@ export const Navbar: React.FC = () => {
                 <OAuthBadge provider={user.provider} size={10} />
               </div>
             </button>
- 
+
             <AnimatePresence>
               {isUserMenuOpen && (
                 <motion.div
@@ -404,7 +404,7 @@ export const Navbar: React.FC = () => {
                     <div className={styles.menuAvatarRow}>
                       <div className={`${styles.menuAvatar} ${(!user.avatar_url || avatarError) ? styles.avatarPlaceholder : ''}`}>
                         {(user.avatar_url && !avatarError) ? (
-                           <img src={user.avatar_url} alt={displayName || 'User'} className={styles.avatarImg} onError={() => setAvatarError(true)} />
+                          <img src={user.avatar_url} alt={displayName || 'User'} className={styles.avatarImg} onError={() => setAvatarError(true)} />
                         ) : (
                           <User size={20} className={styles.avatarUserIcon} />
                         )}

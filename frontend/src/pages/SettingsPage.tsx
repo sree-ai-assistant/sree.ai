@@ -832,7 +832,7 @@ const SettingsPage: React.FC = () => {
   const { user, updateProfile, signOut } = useAuthStore();
   const { status: usageStatus, fetchStatus: fetchUsageStatus } = useUsageStore();
   const [searchParams] = useSearchParams();
-  const VALID_TABS = ['profile', 'keys', 'billing', 'security', 'notifications'];
+  const VALID_TABS = ['profile', 'keys', 'usage', 'billing', 'security', 'notifications'];
   const rawTab = searchParams.get('tab');
   const initialTab = rawTab === 'devices' ? 'security' : (VALID_TABS.includes(rawTab || '') ? rawTab! : 'profile');
   const [activeSection, setActiveSection] = useState(initialTab);

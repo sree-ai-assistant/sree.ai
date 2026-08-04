@@ -894,8 +894,21 @@ router.post('/video', authMiddleware, starterPlanMiddleware, videoModelValidatio
       return res.status(400).json({ success: false, message: 'Prompt is required' });
     }
 
-    const apiKey = req.apiKey;
+    // Tier-based model access: Omni Flash (pro-tier) requires Pro plan OR BYOK Google key for Starter users
+    // Veo models are starter-tier and accessible to all starter+ users
+    const userTier = (req as any).userTier || 'starter';
+    const isPremiumVideoModel = model === 'gemini-omni-flash-preview';
     const isByok = (req as any).isByok || false;
+
+    if (isPremiumVideoModel && userTier === 'starter' && !isByok) {
+      return res.status(403).json({
+        success: false,
+        code: 'PREMIUM_MODEL_RESTRICTED',
+        message: 'Omni Flash requires a Pro plan or a configured Google API key (BYOK). Please upgrade your plan or add your Google API key in Settings.'
+      });
+    }
+
+    const apiKey = req.apiKey;
 
     if (!apiKey) {
       return res.status(400).json({

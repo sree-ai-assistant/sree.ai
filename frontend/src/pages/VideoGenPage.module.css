@@ -1547,6 +1547,20 @@
   background: rgba(255, 255, 255, 0.1);
 }
 
+.customModelDropdownItemLocked {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.customModelDropdownItemLocked:hover {
+  background: rgba(245, 158, 11, 0.06);
+  opacity: 0.75;
+}
+
+.customModelDropdownItemLocked .modelItemName {
+  color: rgba(255, 255, 255, 0.5);
+}
+
 .modelItemDetails {
   display: flex;
   flex-direction: column;

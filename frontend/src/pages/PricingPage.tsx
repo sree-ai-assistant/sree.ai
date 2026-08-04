@@ -47,7 +47,7 @@ function cleanupRazorpay() {
 export const PricingPage: React.FC = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const { user, setUser } = useAuthStore();
+  const { user, setUser, fetchProfile } = useAuthStore();
   const { fetchStatus } = useUsageStore();
 
   const [billingPeriod, setBillingPeriod] = useState<'monthly' | 'annually'>('monthly');
@@ -59,6 +59,10 @@ export const PricingPage: React.FC = () => {
 
   // Dynamic currency display — INR for 12s, USD for 3s
   const [displayCurrency, setDisplayCurrency] = useState<'usd' | 'inr'>('inr');
+
+  useEffect(() => {
+    fetchProfile();
+  }, [fetchProfile]);
 
   useEffect(() => {
     let t1: ReturnType<typeof setTimeout>;
@@ -374,6 +378,7 @@ export const PricingPage: React.FC = () => {
         { label: 'Chat Requests', daily: '50/day', monthly: '600/month' },
         { label: 'Voice Requests', daily: '60/day', monthly: '500/month' },
         { label: 'Image Requests', daily: '30/day', monthly: '70/month' },
+        { label: 'Video Requests', daily: '10/day', monthly: '50/month' },
         { label: 'BYOK Support', supported: true },
       ],
       features: [
@@ -586,13 +591,7 @@ export const PricingPage: React.FC = () => {
                         transition={{ duration: 0.3 }}
                       >
                         {price.originalAmount && (
-                          <span style={{
-                            textDecoration: 'line-through',
-                            color: 'rgba(255, 255, 255, 0.35)',
-                            fontSize: '0.55em',
-                            marginRight: '12px',
-                            fontWeight: 600
-                          }}>
+                          <span className={styles.priceOriginal}>
                             {price.symbol}{price.originalAmount}
                           </span>
                         )}
@@ -601,21 +600,7 @@ export const PricingPage: React.FC = () => {
                     </AnimatePresence>
                     {plan.price > 0 && <span className={styles.pricePeriod}>{price.period}</span>}
                     {price.discountPercent && (
-                      <span style={{
-                        marginLeft: '12px',
-                        background: 'rgba(251, 191, 36, 0.15)',
-                        color: '#fbbf24',
-                        padding: '4px 10px',
-                        borderRadius: '8px',
-                        fontSize: '0.85rem',
-                        fontWeight: 700,
-                        border: '1px solid rgba(251, 191, 36, 0.3)',
-                        alignSelf: 'center',
-                        whiteSpace: 'nowrap',
-                        textTransform: 'uppercase',
-                        letterSpacing: '0.02em',
-                        transform: 'translateY(-4px)'
-                      }}>
+                      <span className={styles.priceDiscount}>
                         -{price.discountPercent}% OFF
                       </span>
                     )}
@@ -858,13 +843,13 @@ export const PricingPage: React.FC = () => {
                 <tr className={styles.tr}>
                   <td className={`${styles.td} ${styles.tdLabel}`}>Daily Video Generations</td>
                   <td className={`${styles.td} ${styles.tdCol}`}><span className={styles.dash}>—</span></td>
-                  <td className={`${styles.td} ${styles.tdCol}`}><span className={styles.dash}>—</span></td>
+                  <td className={`${styles.td} ${styles.tdCol}`}>10 / day</td>
                   <td className={`${styles.td} ${styles.tdCol}`}>30 / day</td>
                 </tr>
                 <tr className={styles.tr}>
                   <td className={`${styles.td} ${styles.tdLabel}`}>Monthly Video Generations</td>
                   <td className={`${styles.td} ${styles.tdCol}`}><span className={styles.dash}>—</span></td>
-                  <td className={`${styles.td} ${styles.tdCol}`}><span className={styles.dash}>—</span></td>
+                  <td className={`${styles.td} ${styles.tdCol}`}>50 / month</td>
                   <td className={`${styles.td} ${styles.tdCol}`}>200 / month</td>
                 </tr>
                 <tr className={styles.tr}>

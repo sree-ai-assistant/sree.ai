@@ -24,10 +24,10 @@ import { LimitModal } from '../components/modals/LimitModal';
 
 // Models configuration — only active, non-deprecated models
 const VEO_MODELS = [
-  { id: 'veo-3.1-generate-preview', name: 'Veo 3.1', desc: 'High-fidelity video with native audio support', basePrice: 0.40, requiresPremium: true },
-  { id: 'veo-3.1-fast-generate-preview', name: 'Veo 3.1 Fast', desc: 'Fast, lower-latency rendering', basePrice: 0.10, requiresPremium: true },
-  { id: 'veo-3.1-lite-generate-preview', name: 'Veo 3.1 Lite', desc: 'Efficient light model — no 4K support', basePrice: 0.05, requiresPremium: true },
-  { id: 'gemini-omni-flash-preview', name: 'Omni Flash', desc: 'Fast multimodal generation via Gemini Live', basePrice: 0.02, requiresPremium: false }
+  { id: 'veo-3.1-generate-preview', name: 'Veo 3.1', desc: 'High-fidelity video with native audio support', basePrice: 0.40, requiresPremium: false },
+  { id: 'veo-3.1-fast-generate-preview', name: 'Veo 3.1 Fast', desc: 'Fast, lower-latency rendering', basePrice: 0.10, requiresPremium: false },
+  { id: 'veo-3.1-lite-generate-preview', name: 'Veo 3.1 Lite', desc: 'Efficient light model — no 4K support', basePrice: 0.05, requiresPremium: false },
+  { id: 'gemini-omni-flash-preview', name: 'Omni Flash', desc: 'Fast multimodal generation via Gemini Live', basePrice: 0.02, requiresPremium: true }
 ];
 
 // Aspect ratios with sizes
@@ -394,6 +394,15 @@ const VideoGenPage: React.FC = () => {
 
   // Gate check: Free plan users cannot generate videos (minimum Starter requirement)
   const isFreePlan = !user || user.plan_type === 'free' || !user.plan_type;
+  const isStarterPlan = user?.plan_type === 'starter';
+  const isProPlan = user?.plan_type === 'pro';
+
+  // Check if any media is currently uploading
+  const isUploadingMedia = uploadedFiles.some(f => f.isUploading);
+
+  // Starter users can access premium (Veo) video models ONLY if they have a Google API key (BYOK)
+  // Pro users have unrestricted access to all models
+  const canAccessPremiumModel = isProPlan || (isStarterPlan && hasGoogleKey);
 
   // Selected Model Object
   const selectedModel = VEO_MODELS.find(m => m.id === settings.modelId) || VEO_MODELS[0];
@@ -421,6 +430,16 @@ const VideoGenPage: React.FC = () => {
   useEffect(() => {
     fetchUsage(false);
   }, [fetchUsage]);
+
+  // Auto-fallback: if current model is premium (Omni Flash) and user can't access it, switch to a Veo model
+  useEffect(() => {
+    if (selectedModel.requiresPremium && !canAccessPremiumModel && !isFreePlan) {
+      const fallbackModel = VEO_MODELS.find(m => !m.requiresPremium);
+      if (fallbackModel && settings.modelId !== fallbackModel.id) {
+        updateSettings({ modelId: fallbackModel.id });
+      }
+    }
+  }, [canAccessPremiumModel, isFreePlan, selectedModel, settings.modelId, updateSettings]);
 
   // Compute usage limits
   const usage = useMemo(() => {
@@ -638,6 +657,18 @@ const VideoGenPage: React.FC = () => {
       openUpgradeModal('starter');
       return;
     }
+
+    if (isUploadingMedia) {
+      toast.error('Please wait for your media file to finish uploading or cancel it before generating.');
+      return;
+    }
+
+    // Block starter users from using premium models without a Google key
+    if (selectedModel.requiresPremium && !canAccessPremiumModel) {
+      toast.error('Premium video models require a Pro plan or a Google API key. Please upgrade or add your API key.');
+      openUpgradeModal('pro');
+      return;
+    }
     if (!settings.prompt.trim()) {
       toast.error('Please enter a description for the video.');
       return;
@@ -650,6 +681,14 @@ const VideoGenPage: React.FC = () => {
       fetchUsage(false);
     } catch (err: any) {
       console.error(err);
+
+      // Handle premium model restriction from backend (starter user without BYOK)
+      if (err.response?.status === 403 && err.response?.data?.code === 'PREMIUM_MODEL_RESTRICTED') {
+        toast.error(err.response.data.message || 'This model requires a Pro plan or a Google API key.');
+        openUpgradeModal('pro');
+        return;
+      }
+
       if (err.response?.status === 429) {
         const errorData = err.response.data;
         const code = errorData?.code;
@@ -1031,7 +1070,7 @@ const VideoGenPage: React.FC = () => {
                             onChange={(e) => updateSettings({ prompt: e.target.value })}
                             placeholder={isFreePlan ? "Upgrade to generate videos..." : (inputMode === 'frames' ? "Describe the transition between frames..." : "What do you want to create?")}
                             className={styles.promptTextarea}
-                            disabled={isGenerating || isFreePlan}
+                            disabled={isGenerating || isFreePlan || isUploadingMedia}
                             rows={1}
                             onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleGenerate(); } }}
                             onInput={(e) => {
@@ -1181,35 +1220,56 @@ const VideoGenPage: React.FC = () => {
                                               onClick={() => setModelDropdownOpen(false)}
                                             />
                                             <div className={styles.customModelDropdownMenu}>
-                                              {VEO_MODELS.map((m) => (
-                                                <button
-                                                  key={m.id}
-                                                  type="button"
-                                                  className={`${styles.customModelDropdownItem} ${settings.modelId === m.id ? styles.customModelDropdownItemActive : ''
-                                                    }`}
-                                                  onClick={() => {
-                                                    updateSettings({ modelId: m.id });
-                                                    setModelDropdownOpen(false);
-                                                  }}
-                                                >
-                                                  <div className={styles.modelItemDetails}>
-                                                    <div className={styles.modelItemNameRow}>
-                                                      <span className={styles.modelItemName}>{m.name}</span>
-                                                      {m.requiresPremium && (
-                                                        <span className={styles.premiumBadge}>
-                                                          👑 VIP
-                                                        </span>
-                                                      )}
+                                              {VEO_MODELS.map((m) => {
+                                                const isPremiumLocked = m.requiresPremium && !canAccessPremiumModel;
+                                                return (
+                                                  <button
+                                                    key={m.id}
+                                                    type="button"
+                                                    className={`${styles.customModelDropdownItem} ${settings.modelId === m.id ? styles.customModelDropdownItemActive : ''} ${isPremiumLocked ? styles.customModelDropdownItemLocked : ''}`}
+                                                    onClick={() => {
+                                                      if (isPremiumLocked) {
+                                                        setModelDropdownOpen(false);
+                                                        setParamsOpen(false);
+                                                        if (!hasGoogleKey) {
+                                                          toast.error('This model requires a Pro plan or a Google API key.');
+                                                          openUpgradeModal('pro');
+                                                        } else {
+                                                          openUpgradeModal('pro');
+                                                        }
+                                                        return;
+                                                      }
+                                                      updateSettings({ modelId: m.id });
+                                                      setModelDropdownOpen(false);
+                                                    }}
+                                                  >
+                                                    <div className={styles.modelItemDetails}>
+                                                      <div className={styles.modelItemNameRow}>
+                                                        <span className={styles.modelItemName}>{m.name}</span>
+                                                        {m.requiresPremium && (
+                                                          <span className={styles.premiumBadge}>
+                                                            {isPremiumLocked ? <Lock size={10} /> : null} {isPremiumLocked ? 'PRO' : '👑 VIP'}
+                                                          </span>
+                                                        )}
+                                                      </div>
+                                                      <span className={styles.modelItemDesc}>
+                                                        {m.desc}
+                                                        {isPremiumLocked && !hasGoogleKey && (
+                                                          <span style={{ display: 'block', fontSize: '0.6rem', color: '#f59e0b', marginTop: '2px' }}>
+                                                            Requires Pro plan or Google API key
+                                                          </span>
+                                                        )}
+                                                      </span>
                                                     </div>
-                                                    <span className={styles.modelItemDesc}>
-                                                      {m.desc}
-                                                    </span>
-                                                  </div>
-                                                  {settings.modelId === m.id && (
-                                                    <Check size={14} className={styles.itemCheckIcon} />
-                                                  )}
-                                                </button>
-                                              ))}
+                                                    {settings.modelId === m.id && (
+                                                      <Check size={14} className={styles.itemCheckIcon} />
+                                                    )}
+                                                    {isPremiumLocked && (
+                                                      <Lock size={12} style={{ color: '#f59e0b', flexShrink: 0 }} />
+                                                    )}
+                                                  </button>
+                                                );
+                                              })}
                                             </div>
                                           </>
                                         )}
@@ -1289,7 +1349,7 @@ const VideoGenPage: React.FC = () => {
                           <button
                             className={`${styles.sendCircleBtn} ${isGenerating ? styles.sendCircleBtnGenerating : ''}`}
                             onClick={handleGenerate}
-                            disabled={isGenerating || !settings.prompt.trim()}
+                            disabled={isGenerating || isUploadingMedia || !settings.prompt.trim()}
                           >
                             {isGenerating ? (
                               <div className={styles.sendStopSquare} />

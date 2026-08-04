@@ -37,13 +37,23 @@
 }
 
 @keyframes float-glow-top {
-  0% { transform: translate(0, 0) scale(1); }
-  100% { transform: translate(50px, 30px) scale(1.1); }
+  0% {
+    transform: translate(0, 0) scale(1);
+  }
+
+  100% {
+    transform: translate(50px, 30px) scale(1.1);
+  }
 }
 
 @keyframes float-glow-bottom {
-  0% { transform: translate(0, 0) scale(1); }
-  100% { transform: translate(-50px, -30px) scale(1.1); }
+  0% {
+    transform: translate(0, 0) scale(1);
+  }
+
+  100% {
+    transform: translate(-50px, -30px) scale(1.1);
+  }
 }
 
 .auth-grid {
@@ -51,7 +61,7 @@
   inset: 0;
   opacity: 0.15;
   pointer-events: none;
-  background-image: 
+  background-image:
     linear-gradient(rgba(255, 255, 255, 0.05) 1px, transparent 1px),
     linear-gradient(90deg, rgba(255, 255, 255, 0.05) 1px, transparent 1px);
   background-size: 50px 50px;
@@ -69,8 +79,9 @@
   backdrop-filter: blur(24px) saturate(180%);
   -webkit-backdrop-filter: blur(24px) saturate(180%);
   border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 28px;
-  box-shadow: 
+  border-radius: 16px;
+  margin: 0 10px;
+  box-shadow:
     0 4px 30px rgba(0, 0, 0, 0.4),
     inset 0 1px 1px rgba(255, 255, 255, 0.05),
     0 12px 40px rgba(0, 0, 0, 0.6);
@@ -79,7 +90,7 @@
 
 .auth-card:hover {
   border-color: rgba(139, 92, 246, 0.25);
-  box-shadow: 
+  box-shadow:
     0 4px 30px rgba(0, 0, 0, 0.4),
     inset 0 1px 1px rgba(255, 255, 255, 0.1),
     0 15px 50px rgba(139, 92, 246, 0.1);
@@ -98,7 +109,7 @@
   font-size: 1.85rem;
   color: white;
   margin-bottom: 20px;
-  box-shadow: 
+  box-shadow:
     0 8px 30px rgba(59, 130, 246, 0.35),
     inset 0 1px 1px rgba(255, 255, 255, 0.2);
   position: relative;
@@ -112,13 +123,11 @@
   left: -50%;
   width: 200%;
   height: 200%;
-  background: linear-gradient(
-    to bottom right,
-    rgba(255, 255, 255, 0) 0%,
-    rgba(255, 255, 255, 0.13) 77%,
-    rgba(255, 255, 255, 0.5) 92%,
-    rgba(255, 255, 255, 0) 100%
-  );
+  background: linear-gradient(to bottom right,
+      rgba(255, 255, 255, 0) 0%,
+      rgba(255, 255, 255, 0.13) 77%,
+      rgba(255, 255, 255, 0.5) 92%,
+      rgba(255, 255, 255, 0) 100%);
   transform: rotate(30deg);
   transition: transform 0.5s ease;
 }
@@ -165,7 +174,7 @@
   padding: 12px 16px;
   background: rgba(255, 255, 255, 0.03);
   border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 14px;
+  border-radius: 8px;
   color: var(--text-primary);
   font-size: 0.9rem;
   font-weight: 600;
@@ -292,7 +301,7 @@
   padding: 14px 16px 14px 44px;
   background: rgba(15, 15, 15, 0.6);
   border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 14px;
+  border-radius: 8px;
   color: var(--text-primary);
   font-size: 0.95rem;
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
@@ -351,9 +360,17 @@
   transition: color 0.3s ease;
 }
 
-.password-strength-label.weak { color: #f87171; }
-.password-strength-label.medium { color: #fbbf24; }
-.password-strength-label.strong { color: #34d399; }
+.password-strength-label.weak {
+  color: #f87171;
+}
+
+.password-strength-label.medium {
+  color: #fbbf24;
+}
+
+.password-strength-label.strong {
+  color: #34d399;
+}
 
 .password-strength-track {
   height: 4px;
@@ -369,9 +386,20 @@
   transition: width 0.3s ease, background-color 0.3s ease;
 }
 
-.password-strength-bar.weak { width: 33%; background: #ef4444; }
-.password-strength-bar.medium { width: 66%; background: #f59e0b; }
-.password-strength-bar.strong { width: 100%; background: #10b981; }
+.password-strength-bar.weak {
+  width: 33%;
+  background: #ef4444;
+}
+
+.password-strength-bar.medium {
+  width: 66%;
+  background: #f59e0b;
+}
+
+.password-strength-bar.strong {
+  width: 100%;
+  background: #10b981;
+}
 
 /* Primary Button */
 .auth-button-submit {
@@ -381,7 +409,7 @@
   background: linear-gradient(135deg, var(--primary), var(--accent));
   color: white;
   border: none;
-  border-radius: 14px;
+  border-radius: 8px;
   font-weight: 700;
   font-size: 0.95rem;
   cursor: pointer;
@@ -418,12 +446,10 @@
   left: -100%;
   width: 100%;
   height: 100%;
-  background: linear-gradient(
-    90deg,
-    transparent,
-    rgba(255, 255, 255, 0.2),
-    transparent
-  );
+  background: linear-gradient(90deg,
+      transparent,
+      rgba(255, 255, 255, 0.2),
+      transparent);
   transition: 0.5s;
 }
 

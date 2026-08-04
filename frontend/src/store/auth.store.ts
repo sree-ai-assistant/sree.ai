@@ -33,6 +33,7 @@ interface AuthState {
   setLoading: (loading: boolean) => void;
   initialize: () => Promise<void>;
   updateProfile: (data: Partial<User>) => Promise<void>;
+  fetchProfile: () => Promise<void>;
   signOut: () => Promise<void>;
 }
 
@@ -63,7 +64,7 @@ export const useAuthStore = create<AuthState>((set) => ({
         } catch (e) {
           console.warn('Auth store init session fetch timeout');
         }
-        
+
         if (session?.user) {
           // Fetch additional user profile data from public.profiles
           const { data: profile } = await supabase
@@ -72,10 +73,10 @@ export const useAuthStore = create<AuthState>((set) => ({
             .eq('id', session.user.id)
             .single();
 
-          const provider = session.user.app_metadata?.provider || 
-                           session.user.identities?.[0]?.provider || 
-                           (session.user.app_metadata?.providers?.[0]) || 
-                           'email';
+          const provider = session.user.app_metadata?.provider ||
+            session.user.identities?.[0]?.provider ||
+            (session.user.app_metadata?.providers?.[0]) ||
+            'email';
 
           if (profile) {
             let avatarUrl = profile.avatar_url;
@@ -93,7 +94,7 @@ export const useAuthStore = create<AuthState>((set) => ({
               }
             }
 
-            set({ 
+            set({
               user: {
                 id: session.user.id,
                 email: session.user.email || profile.email,
@@ -110,21 +111,21 @@ export const useAuthStore = create<AuthState>((set) => ({
                 provider,
                 file_upload_agreed: profile.file_upload_agreed ?? false,
                 file_upload_agreed_at: profile.file_upload_agreed_at,
-              }, 
-              loading: false, 
-              initialized: true 
+              },
+              loading: false,
+              initialized: true
             });
           } else {
             // Fallback to base user data if profile isn't ready yet
-            set({ 
-              user: { 
-                id: session.user.id, 
+            set({
+              user: {
+                id: session.user.id,
                 email: session.user.email || '',
                 plan_type: 'free' as 'free',
                 provider,
-              }, 
-              loading: false, 
-              initialized: true 
+              },
+              loading: false,
+              initialized: true
             });
           }
         } else {
@@ -146,7 +147,7 @@ export const useAuthStore = create<AuthState>((set) => ({
               .select('display_name, avatar_url, plan_type, requests_remaining, onboarding_completed, nickname, occupation, custom_instructions, more_about_you, file_upload_agreed, file_upload_agreed_at')
               .eq('id', session.user.id)
               .single();
-            
+
             let avatarUrl = profile?.avatar_url;
             if (!avatarUrl && profile) {
               const oauthAvatar = session.user.user_metadata?.avatar_url || session.user.user_metadata?.picture;
@@ -162,12 +163,12 @@ export const useAuthStore = create<AuthState>((set) => ({
               }
             }
 
-            const provider = session.user.app_metadata?.provider || 
-                             session.user.identities?.[0]?.provider || 
-                             (session.user.app_metadata?.providers?.[0]) || 
-                             'email';
+            const provider = session.user.app_metadata?.provider ||
+              session.user.identities?.[0]?.provider ||
+              (session.user.app_metadata?.providers?.[0]) ||
+              'email';
 
-            set({ 
+            set({
               user: {
                 id: session.user.id,
                 email: session.user.email || '',
@@ -209,7 +210,7 @@ export const useAuthStore = create<AuthState>((set) => ({
             useImageStore.getState().clearStore();
             // Let model.store handle cached models based on 24-hour expiration
             useModelStore.getState().fetchModels(false).catch(err => console.error('Failed to fetch anonymous models on sign out:', err));
-            
+
             if (window.location.pathname !== '/chat' && window.location.pathname !== '/') {
               window.location.href = '/chat';
             }
@@ -241,6 +242,24 @@ export const useAuthStore = create<AuthState>((set) => ({
     } catch (error) {
       console.error('Update profile error:', error);
       throw error;
+    }
+  },
+  fetchProfile: async () => {
+    const { user } = useAuthStore.getState();
+    if (!user || user.provider === 'anonymous') return;
+
+    try {
+      const { data: profile, error } = await supabase
+        .from('profiles')
+        .select('plan_type, requests_remaining')
+        .eq('id', user.id)
+        .single();
+
+      if (!error && profile) {
+        set({ user: { ...user, plan_type: profile.plan_type as any, requests_remaining: profile.requests_remaining, credits: profile.requests_remaining } });
+      }
+    } catch (error) {
+      console.error('Fetch profile error:', error);
     }
   },
   signOut: async () => {
