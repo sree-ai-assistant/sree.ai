@@ -60,6 +60,22 @@ export const PricingPage: React.FC = () => {
   // Dynamic currency display — INR for 12s, USD for 3s
   const [displayCurrency, setDisplayCurrency] = useState<'usd' | 'inr'>('inr');
 
+  const [confirmModal, setConfirmModal] = useState<{
+    isOpen: boolean;
+    tier: 'free' | 'starter' | 'pro' | null;
+    title: string;
+    description: string;
+    actionText: string;
+    isDowngrade: boolean;
+  }>({
+    isOpen: false,
+    tier: null,
+    title: '',
+    description: '',
+    actionText: '',
+    isDowngrade: false,
+  });
+
   useEffect(() => {
     fetchProfile();
   }, [fetchProfile]);
@@ -208,24 +224,36 @@ export const PricingPage: React.FC = () => {
     let confirmMessage: string;
     if (tier === 'free') {
       confirmMessage =
-        `Are you sure you want to downgrade from ${currentLabel} to Free?\n\n` +
         `Your ${currentLabel} plan will remain active until the end of your current billing cycle. ` +
         `After that, you'll be on the Free plan with reduced limits.`;
     } else if (isDowngrade) {
       confirmMessage =
-        `Are you sure you want to downgrade from ${currentLabel} to ${tierLabel}?\n\n` +
         `Your ${currentLabel} plan will remain active until the end of your current billing cycle. ` +
         `The ${tierLabel} plan will automatically start after that.`;
     } else {
       confirmMessage =
-        `Are you sure you want to upgrade from ${currentLabel} to ${tierLabel}?\n\n` +
         `Your ${currentLabel} plan will remain active until the end of your current billing cycle. ` +
         `The ${tierLabel} plan will automatically start after that.`;
     }
 
-    const confirmed = window.confirm(confirmMessage);
-    if (!confirmed) return;
+    setConfirmModal({
+      isOpen: true,
+      tier,
+      title: isUpgrade
+        ? `Upgrade to ${tierLabel}`
+        : `Downgrade to ${tierLabel === 'Free' ? 'Free' : tierLabel}`,
+      description: confirmMessage,
+      actionText: isUpgrade ? `Confirm Upgrade` : `Confirm Downgrade`,
+      isDowngrade
+    });
+  };
 
+  const executePlanChange = async () => {
+    if (!confirmModal.tier) return;
+    const tier = confirmModal.tier;
+    const tierLabel = tier.charAt(0).toUpperCase() + tier.slice(1);
+
+    setConfirmModal(prev => ({ ...prev, isOpen: false }));
     setLoadingTier(tier);
     try {
       const response = await paymentService.scheduleChange(
@@ -909,6 +937,43 @@ export const PricingPage: React.FC = () => {
             </table>
           </div>
         </div>
+
+        <AnimatePresence>
+          {confirmModal.isOpen && (
+            <motion.div
+              className={styles.modalOverlay}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setConfirmModal(prev => ({ ...prev, isOpen: false }))}
+            >
+              <motion.div
+                className={styles.modalContent}
+                initial={{ scale: 0.95, opacity: 0, y: 20 }}
+                animate={{ scale: 1, opacity: 1, y: 0 }}
+                exit={{ scale: 0.95, opacity: 0, y: 20 }}
+                onClick={(e) => e.stopPropagation()}
+              >
+                <h3 className={styles.modalTitle}>{confirmModal.title}</h3>
+                <p className={styles.modalDesc}>{confirmModal.description}</p>
+                <div className={styles.modalActions}>
+                  <button
+                    className={styles.modalCancelBtn}
+                    onClick={() => setConfirmModal(prev => ({ ...prev, isOpen: false }))}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    className={`${styles.modalConfirmBtn} ${confirmModal.isDowngrade ? styles.modalConfirmDanger : styles.modalConfirmPrimary}`}
+                    onClick={executePlanChange}
+                  >
+                    {confirmModal.actionText}
+                  </button>
+                </div>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
     );
   };

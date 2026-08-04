@@ -406,7 +406,7 @@
   position: relative;
   width: 100%;
   padding: 15px;
-  background: linear-gradient(135deg, var(--primary), var(--accent));
+  background: #355ce9;
   color: white;
   border: none;
   border-radius: 8px;

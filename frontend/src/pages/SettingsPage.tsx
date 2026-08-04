@@ -325,38 +325,45 @@ const BillingSection: React.FC<{ user: any; navigate: any }> = ({ user, navigate
             exit={{ opacity: 0 }}
             style={{
               position: 'fixed', inset: 0, zIndex: 9998,
-              background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)',
+              background: 'rgba(0, 0, 0, 0.7)',
+              backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
+              padding: '24px'
             }}
             onClick={() => setConfirmModal(null)}
           >
             <motion.div
-              initial={{ scale: 0.9, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.9, opacity: 0 }}
+              initial={{ scale: 0.95, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.95, opacity: 0, y: 20 }}
               onClick={(e) => e.stopPropagation()}
               style={{
-                background: 'var(--bg-secondary, #1a1a2e)', borderRadius: 16, padding: '2rem',
-                width: '100%', maxWidth: 420, border: '1px solid rgba(255,255,255,0.08)',
-                boxShadow: '0 24px 48px rgba(0,0,0,0.4)',
+                background: 'rgba(20, 20, 25, 0.95)',
+                borderRadius: 16, padding: '32px',
+                width: '100%', maxWidth: 440,
+                border: '1px solid rgba(255, 255, 255, 0.1)',
+                boxShadow: '0 24px 48px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.05)',
+                textAlign: 'left'
               }}
             >
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: '1.25rem' }}>
-                <AlertCircle size={22} style={{ color: '#f59e0b' }} />
-                <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: '16px' }}>
+                <AlertCircle size={22} style={{ color: confirmModal.type === 'activate' ? '#3b82f6' : '#ef4444' }} />
+                <h3 style={{ margin: 0, fontSize: '1.5rem', fontWeight: 700, color: '#fff', letterSpacing: '-0.02em' }}>
                   {confirmModal.title}
                 </h3>
               </div>
-              <p style={{ color: 'var(--text-muted)', fontSize: '0.88rem', lineHeight: 1.6, marginBottom: '1.5rem' }}>
+              <p style={{ color: 'var(--text-secondary)', fontSize: '1rem', lineHeight: 1.6, marginBottom: '32px', whiteSpace: 'pre-line' }}>
                 {confirmModal.message}
               </p>
               <div style={{ display: 'flex', gap: 12, justifyContent: 'flex-end' }}>
                 <button
                   onClick={() => setConfirmModal(null)}
+                  onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(255, 255, 255, 0.1)')}
+                  onMouseLeave={(e) => (e.currentTarget.style.background = 'rgba(255, 255, 255, 0.05)')}
                   style={{
-                    padding: '0.6rem 1.2rem', borderRadius: 10, border: '1px solid rgba(255,255,255,0.1)',
-                    background: 'transparent', color: 'var(--text-secondary)', cursor: 'pointer',
-                    fontSize: '0.85rem', fontWeight: 600,
+                    padding: '10px 20px', borderRadius: 8, border: '1px solid rgba(255, 255, 255, 0.1)',
+                    background: 'rgba(255, 255, 255, 0.05)', color: '#fff', cursor: 'pointer',
+                    fontSize: '0.95rem', fontWeight: 500, transition: 'all 0.2s ease',
                   }}
                 >
                   Cancel
@@ -367,12 +374,15 @@ const BillingSection: React.FC<{ user: any; navigate: any }> = ({ user, navigate
                     else if (confirmModal.type === 'cancel-upcoming') handleCancelUpcoming();
                     else if (confirmModal.type === 'cancel-current') handleCancelCurrent();
                   }}
+                  onMouseEnter={(e) => (e.currentTarget.style.background = confirmModal.type === 'activate' ? '#2563eb' : '#dc2626')}
+                  onMouseLeave={(e) => (e.currentTarget.style.background = confirmModal.type === 'activate' ? '#3b82f6' : '#ef4444')}
                   style={{
-                    padding: '0.6rem 1.2rem', borderRadius: 10, border: 'none',
-                    background: confirmModal.type === 'activate'
-                      ? 'linear-gradient(135deg, #6366f1, #8b5cf6)'
-                      : 'linear-gradient(135deg, #ef4444, #f87171)',
-                    color: '#fff', cursor: 'pointer', fontSize: '0.85rem', fontWeight: 600,
+                    padding: '10px 20px', borderRadius: 8, border: 'none',
+                    background: confirmModal.type === 'activate' ? '#3b82f6' : '#ef4444',
+                    boxShadow: confirmModal.type === 'activate'
+                      ? '0 4px 12px rgba(59, 130, 246, 0.3)'
+                      : '0 4px 12px rgba(239, 68, 68, 0.3)',
+                    color: '#fff', cursor: 'pointer', fontSize: '0.95rem', fontWeight: 600, transition: 'all 0.2s ease',
                   }}
                 >
                   {confirmModal.type === 'activate' ? 'Activate Now' : 'Confirm'}
