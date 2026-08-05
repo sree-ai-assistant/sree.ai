@@ -76,6 +76,7 @@ const PROVIDER_MAP: Record<string, string> = {
   'stabilityai/stable-diffusion-3-5-large': 'nvidia',
   'stepfun-ai/step-3.5-flash': 'nvidia',
   'stockmark/stockmark-2-100b-instruct': 'nvidia',
+  'poolside/laguna-xs-2.1': 'nvidia',
 
   // Google Gemini (Direct API)
   'gemini-2.5-pro': 'google',
