@@ -30,6 +30,7 @@ import {
   Zap,
   Crown,
   Lock,
+  Plus,
 } from 'lucide-react';
 import { useAuthStore } from '../store/auth.store';
 import { useOnboardingStore } from '../store/onboarding.store';
@@ -224,6 +225,7 @@ const OnboardingPage: React.FC = () => {
     deepgram: 'idle',
   });
   const [keyMessages, setKeyMessages] = useState<Record<string, string>>({});
+  const [openProvider, setOpenProvider] = useState<string | null>(null);
   const abortControllers = useRef<Record<string, AbortController>>({});
 
   // Completion state
@@ -971,6 +973,7 @@ const OnboardingPage: React.FC = () => {
                     const message = keyMessages[provider.id] || '';
                     const providerColor =
                       PROVIDER_COLORS[provider.id] || '#6366f1';
+                    const isOpen = openProvider === provider.id || key.length > 0;
 
                     return (
                       <motion.div
@@ -981,7 +984,7 @@ const OnboardingPage: React.FC = () => {
                         initial="hidden"
                         animate="visible"
                       >
-                        <div className={styles.providerCardHeader}>
+                        <div className={styles.providerCardHeader} style={{ marginBottom: isOpen ? undefined : 0 }}>
                           <div
                             className={styles.providerLogo}
                             style={{
@@ -999,60 +1002,73 @@ const OnboardingPage: React.FC = () => {
                               {provider.description}
                             </p>
                           </div>
-                        </div>
 
-                        <div className={styles.keyInputWrapper}>
-                          <input
-                            type="password"
-                            className={`${styles.keyInput} ${status === 'valid'
-                              ? styles.keyInputValid
-                              : status === 'invalid'
-                                ? styles.keyInputInvalid
-                                : ''
-                              }`}
-                            value={key}
-                            onChange={(e) =>
-                              handleKeyChange(provider.id, e.target.value)
-                            }
-                            placeholder={provider.placeholder}
-                            autoComplete="off"
-                            aria-label={`${provider.name} API key`}
-                            aria-describedby={
-                              message
-                                ? `${provider.id}-validation`
-                                : undefined
-                            }
-                          />
-
-                          {/* Clear button */}
-                          {key.trim() && status !== 'validating' && (
+                          {!isOpen && (
                             <button
-                              className={styles.clearKeyBtn}
-                              onClick={() => handleClearKey(provider.id)}
-                              aria-label={`Clear ${provider.name} key`}
+                              className={styles.addKeyBtn}
+                              onClick={() => setOpenProvider(provider.id)}
+                              aria-label={`Add ${provider.name} API key`}
                               type="button"
                             >
-                              <X size={14} />
+                              <Plus size={20} />
                             </button>
                           )}
-
-                          {/* Status indicator */}
-                          {status === 'validating' && (
-                            <div className={styles.statusValidating}>
-                              <Loader2 size={18} color={providerColor} />
-                            </div>
-                          )}
-                          {status === 'valid' && (
-                            <div className={styles.statusValid}>
-                              <Check size={18} />
-                            </div>
-                          )}
-                          {status === 'invalid' && (
-                            <div className={styles.statusInvalid}>
-                              <AlertCircle size={18} />
-                            </div>
-                          )}
                         </div>
+
+                        {isOpen && (
+                          <div className={styles.keyInputWrapper}>
+                            <input
+                              type="password"
+                              className={`${styles.keyInput} ${status === 'valid'
+                                ? styles.keyInputValid
+                                : status === 'invalid'
+                                  ? styles.keyInputInvalid
+                                  : ''
+                                }`}
+                              value={key}
+                              onChange={(e) =>
+                                handleKeyChange(provider.id, e.target.value)
+                              }
+                              placeholder={provider.placeholder}
+                              autoComplete="off"
+                              aria-label={`${provider.name} API key`}
+                              aria-describedby={
+                                message
+                                  ? `${provider.id}-validation`
+                                  : undefined
+                              }
+                            />
+
+                            {/* Clear button */}
+                            {key.trim() && status !== 'validating' && (
+                              <button
+                                className={styles.clearKeyBtn}
+                                onClick={() => handleClearKey(provider.id)}
+                                aria-label={`Clear ${provider.name} key`}
+                                type="button"
+                              >
+                                <X size={14} />
+                              </button>
+                            )}
+
+                            {/* Status indicator */}
+                            {status === 'validating' && (
+                              <div className={styles.statusValidating}>
+                                <Loader2 size={18} color={providerColor} />
+                              </div>
+                            )}
+                            {status === 'valid' && (
+                              <div className={styles.statusValid}>
+                                <Check size={18} />
+                              </div>
+                            )}
+                            {status === 'invalid' && (
+                              <div className={styles.statusInvalid}>
+                                <AlertCircle size={18} />
+                              </div>
+                            )}
+                          </div>
+                        )}
 
                         {/* Validation message */}
                         {message && (

@@ -187,15 +187,16 @@
   position: absolute;
   top: 20px;
   right: 20px;
-  background: linear-gradient(90deg, var(--primary), var(--accent));
-  color: #fff;
+  background: rgba(139, 92, 246, 0.12);
+  border: 1px solid rgba(139, 92, 246, 0.3);
+  color: #c4b5fd;
   font-size: 0.72rem;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.05em;
   padding: 4px 12px;
   border-radius: 99px;
-  box-shadow: 0 4px 10px rgba(139, 92, 246, 0.2);
+  box-shadow: none;
 }
 
 .cardHeader {
@@ -307,12 +308,13 @@
 }
 
 .buttonPro {
-  background: linear-gradient(90deg, var(--primary), var(--accent));
+  background: var(--accent);
   border: none;
   color: #fff;
 }
 
 .buttonPro:hover {
+  background: #7c3aed;
   transform: translateY(-2px);
   box-shadow: 0 8px 24px rgba(139, 92, 246, 0.35);
 }
@@ -762,7 +764,7 @@
 }
 
 .signupBtn {
-  background: linear-gradient(135deg, var(--primary), var(--accent));
+  background: var(--primary);
   color: #fff;
   text-decoration: none;
   font-size: 0.9rem;
