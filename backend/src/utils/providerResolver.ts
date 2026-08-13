@@ -86,6 +86,7 @@ const PROVIDER_MAP: Record<string, string> = {
   'gemini-3.1-pro': 'google',
   'gemini-3.5-flash': 'google',
   'gemini-3.6-flash': 'google',
+  'gemini-3.7-flash': 'google',
   'gemini-flash-latest': 'google',
   'gemini-flash-lite-latest': 'google',
   'gemini-3-flash-preview': 'google',
