@@ -4,7 +4,8 @@
   min-height: 100vh;
   background-color: var(--bg-dark);
   color: var(--text-primary);
-  overflow: hidden;
+  overflow-x: hidden;
+  width: 100%;
 }
 
 .layoutBody {
@@ -12,6 +13,8 @@
   flex: 1;
   margin-top: 64px;
   /* Navbar height */
+  width: 100%;
+  overflow-x: hidden;
 }
 
 .mainContent {
@@ -19,6 +22,10 @@
   margin-left: var(--sidebar-width);
   height: calc(100vh - 64px);
   overflow-y: auto;
+  overflow-x: hidden;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
   padding: 0;
   position: relative;
   transition: margin-left var(--transition-normal);
@@ -30,6 +37,8 @@
 
 .mainContent.noSidebar {
   margin-left: 0 !important;
+  width: 100% !important;
+  max-width: 100% !important;
 }
 
 /* Custom Scrollbar for Main Content */

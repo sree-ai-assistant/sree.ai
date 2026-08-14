@@ -2,9 +2,12 @@
   min-height: 100vh;
   padding: 32px 24px 64px;
   max-width: 1240px;
+  width: 100%;
   margin: 0 auto;
   position: relative;
   z-index: 1;
+  box-sizing: border-box;
+  overflow-x: hidden;
 }
 
 .heroHeader {
@@ -13,6 +16,8 @@
   display: flex;
   flex-direction: column;
   align-items: center;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .heroBadge {
@@ -43,6 +48,7 @@
   color: var(--text-primary, #FFFFFF);
   margin: 0 0 12px 0;
   line-height: 1.15;
+  word-break: break-word;
 }
 
 .gradientText {
@@ -58,21 +64,17 @@
   max-width: 680px;
   line-height: 1.6;
   margin: 0 0 20px 0;
+  box-sizing: border-box;
 }
 
 .tabsNavContainer {
   display: flex;
   justify-content: center;
+  align-items: center;
   width: 100%;
   margin-top: 10px;
   max-width: 100%;
-  overflow-x: auto;
-  -webkit-overflow-scrolling: touch;
-  scrollbar-width: none;
-}
-
-.tabsNavContainer::-webkit-scrollbar {
-  display: none;
+  box-sizing: border-box;
 }
 
 .tabsNav {
@@ -80,13 +82,14 @@
   align-items: center;
   gap: 6px;
   padding: 5px;
-  background: rgba(20, 20, 26, 0.7);
+  background: rgba(20, 20, 26, 0.75);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 16px;
   box-shadow: 0 8px 30px rgba(0, 0, 0, 0.3);
   max-width: 100%;
+  box-sizing: border-box;
 }
 
 .tabBtn {
@@ -700,57 +703,86 @@
 
 @media (max-width: 640px) {
   .pageContainer {
-    padding: 16px 12px 48px;
+    padding: 14px 10px 48px;
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
   }
 
   .heroHeader {
-    margin-bottom: 20px;
+    margin-bottom: 18px;
+    width: 100%;
   }
 
   .heroBadge {
     padding: 4px 10px;
     font-size: 0.72rem;
-    margin-bottom: 10px;
-  }
-
-  .title {
-    font-size: 1.6rem;
-    line-height: 1.2;
     margin-bottom: 8px;
   }
 
+  .title {
+    font-size: clamp(1.4rem, 5.5vw, 1.75rem);
+    line-height: 1.2;
+    margin-bottom: 8px;
+    word-break: break-word;
+  }
+
   .subtitle {
-    font-size: 0.84rem;
+    font-size: 0.82rem;
     line-height: 1.45;
     margin-bottom: 14px;
     padding: 0 4px;
+    max-width: 100%;
+  }
+
+  .tabsNavContainer {
+    width: 100%;
+    padding: 0;
   }
 
   .tabsNav {
     width: 100%;
-    display: flex;
-    justify-content: space-between;
-    gap: 4px;
-    padding: 4px;
-    border-radius: 14px;
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 3px;
+    padding: 3px;
+    border-radius: 12px;
+    box-sizing: border-box;
   }
 
   .tabBtn {
-    flex: 1;
-    padding: 7px 6px;
-    font-size: 0.76rem;
-    gap: 4px;
+    width: 100%;
+    padding: 7px 2px;
+    font-size: 0.71rem;
+    gap: 3px;
+    justify-content: center;
+    border-radius: 9px;
+    min-width: 0;
+  }
+
+  .tabBtn span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   .tabBtn svg {
-    width: 13px;
-    height: 13px;
+    width: 12px;
+    height: 12px;
+    flex-shrink: 0;
+  }
+
+  .tabBadge {
+    font-size: 0.65rem;
+    padding: 1px 4px;
   }
 
   .formCard {
-    padding: 16px 12px;
+    padding: 14px 10px;
     border-radius: 16px;
-    gap: 16px;
+    gap: 14px;
+    width: 100%;
+    box-sizing: border-box;
   }
 
   .priorityGrid {
