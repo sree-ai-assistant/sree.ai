@@ -9,6 +9,7 @@ import ImageGenPage from './pages/ImageGenPage';
 import SettingsPage from './pages/SettingsPage';
 import OnboardingPage from './pages/OnboardingPage';
 import PricingPage from './pages/PricingPage';
+import ForgotPasswordPage from './pages/ForgotPasswordPage';
 import ProtectedRoute from './components/auth/ProtectedRoute';
 import LoadingScreen from './components/shared/LoadingScreen';
 import { supabase } from './lib/supabase';
@@ -63,6 +64,7 @@ function App() {
         {/* Auth Routes */}
         <Route path="/login" element={<LoginPage />} />
         <Route path="/signup" element={<SignupPage />} />
+        <Route path="/forgot-password" element={<ForgotPasswordPage />} />
 
         {/* Onboarding Route (protected — requires auth) */}
         <Route

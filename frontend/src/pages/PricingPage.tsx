@@ -522,7 +522,7 @@ export const PricingPage: React.FC = () => {
             <div className={styles.windLine} style={{ top: '76%', width: '160px', animationDelay: '1.75s' }}></div>
           </div>
           <div className={styles.logoWrapper}>
-            <img src="https://sreeai.qzz.io/Sree-ai-Primary-logo.png" alt="Sree AI Logo" className={styles.logoImg} />
+            <img src="https://app.sreeai.qzz.io/Sree-ai-Primary-logo.png" alt="Sree AI Logo" className={styles.logoImg} />
           </div>
           <div className={styles.statusTextContainer}>
             <p className={`${styles.statusText} ${isTextFading ? styles.fadeOut : ''}`}>
