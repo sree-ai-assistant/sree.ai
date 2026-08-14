@@ -6,7 +6,7 @@ import {
   Mic, Sparkles, Trash2, Plus, ChevronDown, Music, Lock,
   Info, Loader2, X, RefreshCcw, Sidebar, Eye, RotateCcw, AlertCircle, Check, Zap,
   Minus, ArrowRight, Monitor, Smartphone, Square as SquareIcon, Sliders,
-  ImagePlus, ArrowLeftRight, Layers, AudioLines
+  ImagePlus, ArrowLeftRight, Layers, AudioLines, KeyRound
 } from 'lucide-react';
 import { uploadFile } from '../api/storage';
 import toast from 'react-hot-toast';
@@ -16,7 +16,7 @@ import { useVideoStore } from '../store/video.store';
 import { useUIStore } from '../store/ui.store';
 import { useUsageStore } from '../store/usage.store';
 import { useUploadAgreementStore } from '../store/upload-agreement.store';
-import { aiService, apiKeyService } from '../lib/api';
+import api, { aiService, apiKeyService } from '../lib/api';
 import styles from './VideoGenPage.module.css';
 import { VideoSidebar } from '../components/video/VideoSidebar';
 import { ConfirmModal } from '../components/shared/ConfirmModal';
@@ -347,6 +347,25 @@ const VideoGenPage: React.FC = () => {
   const [paramsOpen, setParamsOpen] = useState(false);
   const [modelDropdownOpen, setModelDropdownOpen] = useState(false);
 
+  // BYOK-only banner state (controlled from app_config DB)
+  const [showByokBanner, setShowByokBanner] = useState(false);
+  const [byokBannerDismissed, setByokBannerDismissed] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await api.get('/config/public');
+        if (!cancelled && res.data?.success) {
+          setShowByokBanner(res.data.data?.video_byok_only_banner === 'true');
+        }
+      } catch {
+        // Silently fail — banner just won't show
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
   // Close inner dropdown if outer params panel is closed
   useEffect(() => {
     if (!paramsOpen) {
@@ -440,6 +459,13 @@ const VideoGenPage: React.FC = () => {
       }
     }
   }, [canAccessPremiumModel, isFreePlan, selectedModel, settings.modelId, updateSettings]);
+
+  // Auto-fallback: if Veo model is selected and duration is 10s (not supported), switch to 8s
+  useEffect(() => {
+    if (selectedModel.id.includes('veo') && settings.duration === 10) {
+      updateSettings({ duration: 8 });
+    }
+  }, [selectedModel.id, settings.duration, updateSettings]);
 
   // Compute usage limits
   const usage = useMemo(() => {
@@ -873,6 +899,40 @@ const VideoGenPage: React.FC = () => {
         <div className={styles.glowBlobRight} />
 
         <div className={styles.main}>
+          {/* BYOK-only video generation banner */}
+          <AnimatePresence>
+            {showByokBanner && !byokBannerDismissed && (
+              <motion.div
+                className={styles.byokBanner}
+                initial={{ opacity: 0, y: -20, height: 0 }}
+                animate={{ opacity: 1, y: 0, height: 'auto' }}
+                exit={{ opacity: 0, y: -20, height: 0 }}
+                transition={{ duration: 0.35, ease: [0.4, 0, 0.2, 1] }}
+              >
+                <div className={styles.byokBannerContent}>
+                  <div className={styles.byokBannerIcon}>
+                    <KeyRound size={18} />
+                  </div>
+                  <div className={styles.byokBannerText}>
+                    <span className={styles.byokBannerTitle}>Video generation is currently only available with{' '}
+                      <span className={styles.byokTooltipWrapper}>
+                        <span className={styles.byokHighlight}>BYOK</span>
+                        <span className={styles.byokTooltip}>Bring Your Own Key</span>
+                      </span>
+                      {' '}mode.</span>
+                    <span className={styles.byokBannerSubtext}>We're sorry for the inconvenience. Thank you for your understanding.</span>
+                  </div>
+                  <button
+                    className={styles.byokBannerDismiss}
+                    onClick={() => setByokBannerDismissed(true)}
+                    title="Dismiss"
+                  >
+                    <X size={16} />
+                  </button>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
           <div className={styles.headerContainer}>
             <div className={styles.tabHeader} style={{ justifyContent: 'space-between', alignItems: 'center' }}>
               <div style={{ display: 'flex', gap: '24px' }}>
@@ -1228,18 +1288,22 @@ const VideoGenPage: React.FC = () => {
                                                     type="button"
                                                     className={`${styles.customModelDropdownItem} ${settings.modelId === m.id ? styles.customModelDropdownItemActive : ''} ${isPremiumLocked ? styles.customModelDropdownItemLocked : ''}`}
                                                     onClick={() => {
-                                                      if (isPremiumLocked) {
-                                                        setModelDropdownOpen(false);
-                                                        setParamsOpen(false);
-                                                        if (!hasGoogleKey) {
-                                                          toast.error('This model requires a Pro plan or a Google API key.');
-                                                          openUpgradeModal('pro');
+                                                      if (m.requiresPremium && !canAccessPremiumModel) {
+                                                        if (!hasGoogleKey && isStarterPlan) {
+                                                          toast('You must bring your own Google API Key to use this model.', { icon: '🔑' });
+                                                          setTimeout(() => {
+                                                            navigate('/settings?tab=keys');
+                                                          }, 1500);
                                                         } else {
                                                           openUpgradeModal('pro');
                                                         }
                                                         return;
                                                       }
-                                                      updateSettings({ modelId: m.id });
+
+                                                      const isVeo = m.id.includes('veo');
+                                                      const newDuration = (isVeo && settings.duration === 10) ? 8 : settings.duration;
+
+                                                      updateSettings({ modelId: m.id, duration: newDuration });
                                                       setModelDropdownOpen(false);
                                                     }}
                                                   >
@@ -1280,16 +1344,18 @@ const VideoGenPage: React.FC = () => {
                                     <div className={styles.popupSection}>
                                       <span className={styles.popupLabel}>Duration</span>
                                       <div className={`${styles.popupGrid} ${styles.singleLineRow}`}>
-                                        {[4, 6, 8, 10].map((s) => (
-                                          <button
-                                            key={s}
-                                            type="button"
-                                            className={`${styles.popupPill} ${settings.duration === s ? styles.popupPillActive : ''}`}
-                                            onClick={() => updateSettings({ duration: s })}
-                                          >
-                                            {s}s
-                                          </button>
-                                        ))}
+                                        {[4, 6, 8, 10]
+                                          .filter((s) => s !== 10 || !selectedModel.id.includes('veo'))
+                                          .map((s) => (
+                                            <button
+                                              key={s}
+                                              type="button"
+                                              className={`${styles.popupPill} ${settings.duration === s ? styles.popupPillActive : ''}`}
+                                              onClick={() => updateSettings({ duration: s })}
+                                            >
+                                              {s}s
+                                            </button>
+                                          ))}
                                       </div>
                                     </div>
 
