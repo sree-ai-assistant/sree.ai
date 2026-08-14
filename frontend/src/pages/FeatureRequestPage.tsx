@@ -216,7 +216,7 @@ export const FeatureRequestPage: React.FC = () => {
   const activePriorityObj = PRIORITIES.find((p) => p.id === priority) || PRIORITIES[1];
 
   return (
-    <DashboardLayout>
+    <DashboardLayout noSidebar={true}>
       <div className={styles.pageContainer}>
         {/* Header */}
         <section className={styles.heroHeader}>

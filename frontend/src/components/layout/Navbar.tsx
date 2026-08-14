@@ -51,6 +51,7 @@ export const Navbar: React.FC = () => {
   const isVideoPage = location.pathname.startsWith('/video');
   const isSettingsPage = location.pathname.startsWith('/settings');
   const isPricingPage = location.pathname.startsWith('/pricing');
+  const isFeatureRequestPage = location.pathname.startsWith('/feature-request');
 
   useEffect(() => {
     fetchStatus();
@@ -363,7 +364,7 @@ export const Navbar: React.FC = () => {
 
         {/* User menu or Login/Signup */}
         {authLoading ? (
-          <div className={`${styles.userSkeletonButton} ${isImagesPage ? styles.showOnImagePage : ''} ${isSettingsPage ? styles.showOnSettingsPage : ''} ${isPricingPage ? styles.showOnPricingPage : ''}`}>
+          <div className={`${styles.userSkeletonButton} ${isImagesPage ? styles.showOnImagePage : ''} ${isSettingsPage ? styles.showOnSettingsPage : ''} ${isPricingPage ? styles.showOnPricingPage : ''} ${isFeatureRequestPage ? styles.showOnFeatureRequestPage : ''}`}>
             <div className={`${styles.userSkeletonInfo} ${isSettingsPage ? styles.showSkeletonInfo : ''}`}>
               <div className="skeleton" style={{ width: '60px', height: '10px', borderRadius: '3px' }} />
               <div className="skeleton" style={{ width: '45px', height: '8px', borderRadius: '3px', marginTop: '4px' }} />
@@ -371,7 +372,7 @@ export const Navbar: React.FC = () => {
             <div className="skeleton skeleton-circle" style={{ width: '32px', height: '32px' }} />
           </div>
         ) : user ? (
-          <div className={`${styles.userSection} ${isImagesPage ? styles.showOnImagePage : ''} ${isSettingsPage ? styles.showOnSettingsPage : ''} ${isPricingPage ? styles.showOnPricingPage : ''}`} ref={userMenuRef}>
+          <div className={`${styles.userSection} ${isImagesPage ? styles.showOnImagePage : ''} ${isSettingsPage ? styles.showOnSettingsPage : ''} ${isPricingPage ? styles.showOnPricingPage : ''} ${isFeatureRequestPage ? styles.showOnFeatureRequestPage : ''}`} ref={userMenuRef}>
             <button
               onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
               className={styles.userButton}
@@ -474,8 +475,8 @@ export const Navbar: React.FC = () => {
             </AnimatePresence>
           </div>
         ) : (
-          /* Not logged in: show Sign Up button only */
-          <div className={`${styles.authButtons} ${isImagesPage ? styles.showOnImagePage : ''}`}>
+          /* Not logged in: show Sign Up button */
+          <div className={`${styles.authButtons} ${isImagesPage ? styles.showOnImagePage : ''} ${isFeatureRequestPage ? styles.showOnFeatureRequestPage : ''}`}>
             <Link to="/signup" className={styles.signupBtn}>
               <UserPlus size={16} />
               <span>Sign Up</span>

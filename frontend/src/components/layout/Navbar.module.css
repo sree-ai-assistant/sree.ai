@@ -743,14 +743,17 @@
     display: none !important;
   }
 
-  /* Force show user section & buttons on images, settings, and pricing pages even under max-width 650px screen sizes */
+  /* Force show user section & buttons on images, settings, pricing, and feature request pages under max-width 650px screen sizes */
   .userSection.showOnImagePage,
   .userSection.showOnSettingsPage,
   .userSection.showOnPricingPage,
+  .userSection.showOnFeatureRequestPage,
   .userSkeletonButton.showOnImagePage,
   .userSkeletonButton.showOnSettingsPage,
   .userSkeletonButton.showOnPricingPage,
-  .authButtons.showOnImagePage {
+  .userSkeletonButton.showOnFeatureRequestPage,
+  .authButtons.showOnImagePage,
+  .authButtons.showOnFeatureRequestPage {
     display: flex !important;
   }
 
@@ -759,9 +762,16 @@
     display: none !important;
   }
 
-  .dropdownMenu {
+  .dropdownMenu:not(.right) {
     left: -300%;
     transform: translateX(-50%);
+  }
+
+  .dropdownMenu.right {
+    left: auto !important;
+    right: 0 !important;
+    transform: none !important;
+    max-width: calc(100vw - 20px) !important;
   }
 }
 

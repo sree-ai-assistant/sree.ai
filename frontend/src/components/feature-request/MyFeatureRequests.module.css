@@ -418,20 +418,81 @@
   .controlsBar {
     flex-direction: column;
     align-items: stretch;
-    padding: 12px 14px;
+    padding: 12px 10px;
+    gap: 12px;
+    border-radius: 14px;
+  }
+
+  .filterPills {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    padding-bottom: 2px;
+  }
+
+  .filterPills::-webkit-scrollbar {
+    display: none;
+  }
+
+  .filterPill {
+    flex-shrink: 0;
+    padding: 5px 10px;
+    font-size: 0.76rem;
   }
 
   .actionsRow {
-    flex-direction: column;
-    align-items: stretch;
+    flex-direction: row;
+    align-items: center;
+    gap: 8px;
   }
 
   .searchWrapper {
-    min-width: 100%;
+    min-width: 0;
+    flex: 1;
+  }
+
+  .searchInput {
+    padding: 7px 10px 7px 30px;
+    font-size: 0.78rem;
+  }
+
+  .refreshBtn {
+    padding: 7px 10px;
+    font-size: 0.78rem;
   }
 
   .requestCard {
-    padding: 16px;
+    padding: 14px 12px;
     border-radius: 14px;
+    gap: 10px;
+  }
+
+  .cardTop {
+    gap: 8px;
+  }
+
+  .ticketPill {
+    font-size: 0.7rem;
+    padding: 2px 6px;
+  }
+
+  .categoryBadge,
+  .priorityBadge,
+  .statusBadge {
+    font-size: 0.68rem;
+    padding: 2px 6px;
+  }
+
+  .cardTitle {
+    font-size: 0.96rem;
+  }
+
+  .cardDesc {
+    font-size: 0.8rem;
+  }
+
+  .cardFooter {
+    font-size: 0.72rem;
   }
 }

@@ -65,35 +65,46 @@
   justify-content: center;
   width: 100%;
   margin-top: 10px;
+  max-width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+
+.tabsNavContainer::-webkit-scrollbar {
+  display: none;
 }
 
 .tabsNav {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 6px;
+  padding: 5px;
   background: rgba(20, 20, 26, 0.7);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 16px;
   box-shadow: 0 8px 30px rgba(0, 0, 0, 0.3);
+  max-width: 100%;
 }
 
 .tabBtn {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  padding: 8px 18px;
+  justify-content: center;
+  gap: 7px;
+  padding: 8px 16px;
   border-radius: 12px;
   border: none;
   background: transparent;
   color: var(--text-secondary, #A3A3A3);
-  font-size: 0.88rem;
+  font-size: 0.84rem;
   font-weight: 500;
   cursor: pointer;
   outline: none;
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  white-space: nowrap;
 }
 
 .tabBtn:hover {
@@ -689,23 +700,101 @@
 
 @media (max-width: 640px) {
   .pageContainer {
-    padding: 20px 14px 48px;
+    padding: 16px 12px 48px;
+  }
+
+  .heroHeader {
+    margin-bottom: 20px;
+  }
+
+  .heroBadge {
+    padding: 4px 10px;
+    font-size: 0.72rem;
+    margin-bottom: 10px;
   }
 
   .title {
-    font-size: 1.85rem;
+    font-size: 1.6rem;
+    line-height: 1.2;
+    margin-bottom: 8px;
+  }
+
+  .subtitle {
+    font-size: 0.84rem;
+    line-height: 1.45;
+    margin-bottom: 14px;
+    padding: 0 4px;
+  }
+
+  .tabsNav {
+    width: 100%;
+    display: flex;
+    justify-content: space-between;
+    gap: 4px;
+    padding: 4px;
+    border-radius: 14px;
+  }
+
+  .tabBtn {
+    flex: 1;
+    padding: 7px 6px;
+    font-size: 0.76rem;
+    gap: 4px;
+  }
+
+  .tabBtn svg {
+    width: 13px;
+    height: 13px;
   }
 
   .formCard {
-    padding: 20px 16px;
-    border-radius: 18px;
+    padding: 16px 12px;
+    border-radius: 16px;
+    gap: 16px;
   }
 
   .priorityGrid {
     grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+
+  .priorityChip {
+    padding: 8px 10px;
+    font-size: 0.76rem;
   }
 
   .guestInputsGrid {
     grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .submitBtn {
+    padding: 12px 14px;
+    font-size: 0.86rem;
+  }
+
+  .submitFooterRow {
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    text-align: center;
+  }
+
+  .previewCard {
+    padding: 14px;
+    border-radius: 16px;
+  }
+
+  .mockTitle {
+    font-size: 0.95rem;
+  }
+
+  .mockDesc {
+    font-size: 0.8rem;
+  }
+
+  .infoBox {
+    padding: 16px;
+    border-radius: 16px;
   }
 }
