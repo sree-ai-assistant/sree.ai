@@ -38,3 +38,5 @@ node_modules
 
 
 .agent
+
+frontend/public/test-cycle.html

@@ -46,7 +46,7 @@ export const Navbar: React.FC = () => {
   const userMenuRef = useRef<HTMLDivElement>(null);
 
   const isChatPage = location.pathname.startsWith('/chat') || location.pathname === '/';
-  const isImagesPage = location.pathname.startsWith('/images');
+  const isImagesPage = location.pathname.startsWith('/image');
   const isVideoPage = location.pathname.startsWith('/video');
   const isSettingsPage = location.pathname.startsWith('/settings');
   const isPricingPage = location.pathname.startsWith('/pricing');
@@ -58,7 +58,7 @@ export const Navbar: React.FC = () => {
   const navLinks = [
     { to: '/chat', icon: <MessageSquare size={18} />, label: 'Chat' },
     { to: '/voice', icon: <Mic size={18} />, label: 'Voice' },
-    { to: '/images', icon: <ImageIcon size={18} />, label: 'Image' },
+    { to: '/image', icon: <ImageIcon size={18} />, label: 'Image' },
     { to: '/video', icon: <Video size={18} />, label: 'Video' },
   ];
 

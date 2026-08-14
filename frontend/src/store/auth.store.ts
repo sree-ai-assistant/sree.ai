@@ -1,7 +1,9 @@
 import { create } from 'zustand';
+import posthog from 'posthog-js';
 import { supabase } from '../lib/supabase';
 import { userService } from '../lib/api';
 import { getStoredAnonId, clearAnonId } from '../lib/fingerprint';
+import { getStoredConsent, getStoredConsentTimestamp } from '../components/shared/CookieConsent';
 import { useChatStore } from './chat.store';
 import { useUsageStore } from './usage.store';
 import { useImageStore } from './image.store';
@@ -191,6 +193,42 @@ export const useAuthStore = create<AuthState>((set) => ({
             // Let model.store handle cached models based on 24-hour expiration
             useModelStore.getState().fetchModels(false).catch(err => console.error('Failed to fetch models:', err));
 
+            // ── PostHog: Identify the logged-in user ──────────────────────
+            // Only runs if user accepted cookies (PostHog is initialized).
+            // Merges all anonymous activity (errors, sessions, pageviews)
+            // tracked under sreeai_anon_id into this user's PostHog profile.
+            if (posthog.__loaded) {
+              try {
+                posthog.identify(session.user.id, {
+                  email: session.user.email,
+                  name: profile?.display_name || profile?.nickname,
+                  plan_type: profile?.plan_type || 'free',
+                  occupation: profile?.occupation,
+                  provider: provider,
+                });
+              } catch (e) {
+                console.warn('[PostHog] identify failed:', e);
+              }
+            }
+
+            // ── Sync cookie consent to profiles table ──────────────────────
+            // Carries the anonymous user's cookie decision into their profile
+            // so it persists server-side and can be audited.
+            const consentStatus = getStoredConsent();
+            const consentTimestamp = getStoredConsentTimestamp();
+            if (consentStatus) {
+              supabase
+                .from('profiles')
+                .update({
+                  cookie_consent: consentStatus === 'accepted',
+                  cookie_consent_at: consentTimestamp,
+                })
+                .eq('id', session.user.id)
+                .then(({ error }) => {
+                  if (error) console.warn('[CookieConsent] Failed to sync consent to profile:', error);
+                });
+            }
+
             // Trigger data migration ONLY during explicit SIGNED_IN login/signup flow (MIG-04)
             const anonId = getStoredAnonId();
             if (event === 'SIGNED_IN' && anonId) {
@@ -204,6 +242,16 @@ export const useAuthStore = create<AuthState>((set) => ({
               }
             }
           } else if (event === 'SIGNED_OUT') {
+            // ── PostHog: Reset to anonymous state ─────────────────────
+            // Only runs if user accepted cookies (PostHog is initialized).
+            if (posthog.__loaded) {
+              try {
+                posthog.reset();
+              } catch (e) {
+                console.warn('[PostHog] reset failed:', e);
+              }
+            }
+
             set({ user: null });
             useChatStore.getState().clearStore();
             useUsageStore.getState().clearStore();

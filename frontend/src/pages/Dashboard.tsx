@@ -65,9 +65,9 @@ const Dashboard: React.FC = () => {
   const recentActivities = conversations.slice(0, 4).map(c => ({
     title: c.title,
     time: formatDate(c.updated_at || c.created_at),
-    icon: c.type === 'voice' ? <Mic size={18} /> : 
-          c.type === 'image' ? <ImageIcon size={18} /> : 
-          <MessageSquare size={18} />,
+    icon: c.type === 'voice' ? <Mic size={18} /> :
+      c.type === 'image' ? <ImageIcon size={18} /> :
+        <MessageSquare size={18} />,
     id: c.id,
     type: c.type
   }));
@@ -135,13 +135,13 @@ const Dashboard: React.FC = () => {
             <div className={styles.actionGrid}>
               {[
                 { title: 'AI Chat', icon: <MessageSquare />, path: '/chat', color: '#3B82F6' },
-                { title: 'Image Gen', icon: <ImageIcon />, path: '/images', color: '#8B5CF6' },
+                { title: 'Image Gen', icon: <ImageIcon />, path: '/image', color: '#8B5CF6' },
                 { title: 'Voice AI', icon: <Mic />, path: '/voice', color: '#F59E0B' },
               ].map((action) => (
-                <button 
-                   key={action.path}
-                   className={styles.actionCard}
-                   onClick={() => navigate(action.path)}
+                <button
+                  key={action.path}
+                  className={styles.actionCard}
+                  onClick={() => navigate(action.path)}
                 >
                   <div className={styles.actionIcon} style={{ background: `${action.color}15`, color: action.color }}>
                     {React.cloneElement(action.icon as React.ReactElement<{ size: number }>, { size: 24 })}

@@ -678,6 +678,23 @@ router.post('/chat', flexAuthMiddleware, abuseDetectionMiddleware(), queuePriori
     res.end();
   } catch (error: any) {
     console.error('AI Stream Error:', error);
+
+    // ── PostHog: Capture AI errors that would otherwise be invisible ──
+    // These errors are caught here (not in errorHandler), so we must
+    // explicitly send them to PostHog for Error Tracking visibility.
+    try {
+      const { posthog: posthogServer } = await import('../services/posthog.service');
+      if (posthogServer) {
+        const userId = req.user?.id || (req as any).anonId || 'anonymous-server';
+        posthogServer.captureException(error, userId, {
+          source: 'ai_stream',
+          model: req.body?.model,
+          endpoint: `${req.method} ${req.originalUrl}`,
+          status_code: error.status || 500,
+        });
+      }
+    } catch (_) { /* never let PostHog break the response */ }
+
     if (!res.headersSent) {
       res.status(500).json({ success: false, message: error.message });
     } else {
@@ -814,6 +831,20 @@ router.post('/image', flexAuthMiddleware, abuseDetectionMiddleware(), queuePrior
     res.json({ success: true, data: { images } });
   } catch (error: any) {
     console.error('Image Generation Error:', error.message);
+
+    try {
+      const { posthog: posthogServer } = await import('../services/posthog.service');
+      if (posthogServer) {
+        const userId = req.user?.id || (req as any).anonId || 'anonymous-server';
+        posthogServer.captureException(error, userId, {
+          source: 'image_generation',
+          model: req.body?.model,
+          endpoint: `${req.method} ${req.originalUrl}`,
+          status_code: error.status || 500,
+        });
+      }
+    } catch (_) { /* never let PostHog break the response */ }
+
     res.status(500).json({ success: false, message: error.message });
   }
 }));
@@ -984,6 +1015,24 @@ router.post('/video', authMiddleware, starterPlanMiddleware, videoModelValidatio
           };
         } catch (err: any) {
           console.error('[AI Route] Individual video generation failed:', err.message);
+
+          // ── PostHog: Capture individual video gen failures ──
+          try {
+            const { posthog: posthogServer } = await import('../services/posthog.service');
+            if (posthogServer) {
+              posthogServer.captureException(err, userId || 'anonymous-server', {
+                source: 'video_generation',
+                model: model,
+                endpoint: 'POST /api/ai/video',
+                status_code: err.status || err.code || 500,
+                prompt_length: prompt?.length || 0,
+                resolution: resolution || '720p',
+                aspect_ratio: aspectRatio || '16:9',
+                duration_seconds: durationSeconds || 5,
+              });
+            }
+          } catch (_) { /* never let PostHog break the response */ }
+
           return {
             success: false,
             error: err.message
@@ -1029,6 +1078,20 @@ router.post('/video', authMiddleware, starterPlanMiddleware, videoModelValidatio
     });
   } catch (error: any) {
     console.error('Video Generation Error:', error.message);
+
+    try {
+      const { posthog: posthogServer } = await import('../services/posthog.service');
+      if (posthogServer) {
+        const userId = req.user?.id || 'anonymous-server';
+        posthogServer.captureException(error, userId, {
+          source: 'video_generation',
+          model: req.body?.model,
+          endpoint: `${req.method} ${req.originalUrl}`,
+          status_code: error.status || 500,
+        });
+      }
+    } catch (_) { /* never let PostHog break the response */ }
+
     res.status(500).json({ success: false, message: error.message });
   }
 }));

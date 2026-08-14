@@ -46,7 +46,7 @@ function App() {
     };
 
     document.addEventListener('visibilitychange', handleVisibilityChange);
-    
+
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
@@ -103,7 +103,7 @@ function App() {
 
         {/* Protected Routes */}
         <Route
-          path="/images/:id?"
+          path="/image/:id?"
           element={
             <ProtectedRoute>
               <ImageGenPage />

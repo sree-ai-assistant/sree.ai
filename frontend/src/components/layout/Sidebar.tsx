@@ -141,7 +141,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, setIsCollapsed })
     setActiveConversation(id);
     setMenuOpenId(null); // Close any open menu when switching conversations
     const conv = conversations.find(c => c.id === id);
-    if (conv?.type === 'image') navigate('/images');
+    if (conv?.type === 'image') navigate('/image');
     else navigate(`/chat/${id}`);
     if (window.innerWidth <= 768) {
       setIsCollapsed(true);
