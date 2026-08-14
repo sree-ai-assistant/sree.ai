@@ -14,6 +14,7 @@ import LoadingScreen from './components/shared/LoadingScreen';
 import { supabase } from './lib/supabase';
 
 import VideoGenPage from './pages/VideoGenPage';
+import FeatureRequestPage from './pages/FeatureRequestPage';
 
 import { Toaster } from 'react-hot-toast';
 import { UpgradeModal } from './components/shared/UpgradeModal';
@@ -128,6 +129,14 @@ function App() {
         />
         <Route path="/pricing" element={<PricingPage />} />
         <Route path="/upgrade" element={<Navigate to="/pricing" replace />} />
+        <Route
+          path="/feature-request"
+          element={
+            <HybridOnboardingGuard>
+              <FeatureRequestPage />
+            </HybridOnboardingGuard>
+          }
+        />
 
         {/* Redirects */}
         <Route path="*" element={<Navigate to="/" replace />} />

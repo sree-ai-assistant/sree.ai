@@ -164,7 +164,7 @@ export const SettingsSidebar: React.FC<SettingsSidebarProps> = ({
             <button
               className={styles.navItem}
               onClick={() => {
-                window.open('https://github.com/your-repo/issues', '_blank');
+                navigate('/feature-request');
                 if (window.innerWidth <= 768) {
                   setIsCollapsed(true);
                 }

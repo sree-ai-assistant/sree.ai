@@ -183,7 +183,7 @@ export const VideoSidebar: React.FC<VideoSidebarProps> = ({
               <button className={styles.miniIconBtn} onClick={() => navigate('/settings')} title="Settings">
                 <Settings size={18} />
               </button>
-              <button className={styles.miniIconBtn} onClick={() => window.open('https://github.com/your-repo/issues', '_blank')} title="Feature Request">
+              <button className={styles.miniIconBtn} onClick={() => navigate('/feature-request')} title="Feature Request">
                 <Lightbulb size={18} />
               </button>
               <button className={styles.miniIconBtn} onClick={() => window.open('/help', '_blank')} title="Help & Support">
@@ -196,7 +196,7 @@ export const VideoSidebar: React.FC<VideoSidebarProps> = ({
                 <Settings size={18} />
                 <span>Settings</span>
               </button>
-              <button className={styles.utilityItem} onClick={() => window.open('https://github.com/your-repo/issues', '_blank')}>
+              <button className={styles.utilityItem} onClick={() => navigate('/feature-request')}>
                 <Lightbulb size={18} />
                 <span>Feature Request</span>
               </button>
@@ -215,7 +215,7 @@ export const VideoSidebar: React.FC<VideoSidebarProps> = ({
                 <button className={styles.miniIconBtn} onClick={() => navigate('/settings')} title="Settings">
                   <Settings size={16} />
                 </button>
-                <button className={styles.miniIconBtn} onClick={() => window.open('https://github.com/your-repo/issues', '_blank')} title="Feature Request">
+                <button className={styles.miniIconBtn} onClick={() => navigate('/feature-request')} title="Feature Request">
                   <Lightbulb size={16} />
                 </button>
                 <button className={styles.miniIconBtn} onClick={() => window.open('/help', '_blank')} title="Help & Support">

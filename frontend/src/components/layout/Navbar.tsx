@@ -20,7 +20,8 @@ import {
   LogIn,
   UserPlus,
   Box,
-  Lock
+  Lock,
+  Lightbulb
 } from 'lucide-react';
 import { useAuthStore } from '../../store/auth.store';
 import { useUsageStore } from '../../store/usage.store';
@@ -442,6 +443,17 @@ export const Navbar: React.FC = () => {
                     <div className={styles.itemContent}>
                       <Settings size={18} />
                       <span>Settings</span>
+                    </div>
+                    <ChevronRight size={14} className={styles.itemArrow} />
+                  </button>
+
+                  <button
+                    className={styles.dropdownItem}
+                    onClick={() => { navigate('/feature-request'); setIsUserMenuOpen(false); }}
+                  >
+                    <div className={styles.itemContent}>
+                      <Lightbulb size={18} />
+                      <span>Feature Request</span>
                     </div>
                     <ChevronRight size={14} className={styles.itemArrow} />
                   </button>
