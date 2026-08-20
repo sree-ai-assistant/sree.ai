@@ -127,36 +127,36 @@ The platform enforces quota boundaries across three time windows (**1-minute bur
 
 ```mermaid
 flowchart TD
-    Req[Incoming API Request] --> MW[rateLimitEnforcement Middleware]
-    MW --> CheckID{Identify Caller}
+    Req["Incoming API Request"] --> MW["rateLimitEnforcement Middleware"]
+    MW --> CheckID{"Identify Caller"}
     
-    CheckID -->|Bearer JWT| AuthUser[Extract auth.uid\nLookup profiles.plan_type]
-    CheckID -->|x-anon-id Header| AnonUser[Extract anon_id\nHash IP & Fingerprint]
+    CheckID -->|Bearer JWT| AuthUser["Extract auth.uid<br/>Lookup profiles.plan_type"]
+    CheckID -->|x-anon-id Header| AnonUser["Extract anon_id<br/>Hash IP & Fingerprint"]
     
-    AuthUser --> TierLookup[Determine Tier Limits:\nFree / Starter / Pro]
+    AuthUser --> TierLookup["Determine Tier Limits:<br/>Free / Starter / Pro"]
     AnonUser --> TierLookup
     
-    TierLookup --> BYOKCheck{Using BYOK Key?}
-    BYOKCheck -->|Yes| Multiplier[Apply 0.2x Quota Multiplier]
-    BYOKCheck -->|No| StdQuota[Apply 1.0x Full Quota]
+    TierLookup --> BYOKCheck{"Using BYOK Key?"}
+    BYOKCheck -->|Yes| Multiplier["Apply 0.2x Quota Multiplier"]
+    BYOKCheck -->|No| StdQuota["Apply 1.0x Full Quota"]
     
-    Multiplier --> RPC[Call PostgreSQL RPC:\nincrement_multi_usage]
+    Multiplier --> RPC["Call PostgreSQL RPC:<br/>increment_multi_usage"]
     StdQuota --> RPC
     
     subgraph Postgres_RPC ["PostgreSQL Atomic Transaction"]
-        RPC --> RowLock[SELECT ... FOR UPDATE on usage_tracking]
-        RowLock --> WindowReset{Has Window Expired?}
-        WindowReset -->|1-min passed| ResetMin[minute_count = 0]
-        WindowReset -->|24h passed| ResetDay[daily_count = 0]
-        WindowReset -->|30d passed| ResetMonth[monthly_count = 0]
+        RPC --> RowLock["SELECT ... FOR UPDATE on usage_tracking"]
+        RowLock --> WindowReset{"Has Window Expired?"}
+        WindowReset -->|1-min passed| ResetMin["minute_count = 0"]
+        WindowReset -->|24h passed| ResetDay["daily_count = 0"]
+        WindowReset -->|30d passed| ResetMonth["monthly_count = 0"]
         
-        ResetMin & ResetDay & ResetMonth --> LimitCheck{Any Limit Exceeded?}
-        LimitCheck -->|Yes| Rollback[Return { allowed: false, reason: 'minute|daily|monthly' }]
-        LimitCheck -->|No| Commit[Increment counters + Sync profile columns\nReturn { allowed: true }]
+        ResetMin & ResetDay & ResetMonth --> LimitCheck{"Any Limit Exceeded?"}
+        LimitCheck -->|Yes| Rollback["Return allowed = false<br/>(Exceeded burst or quota)"]
+        LimitCheck -->|No| Commit["Increment counters + Sync profile<br/>Return allowed = true"]
     end
     
-    Rollback -->|HTTP 429| Reject[Reject Request with Retry-After Header]
-    Commit --> ExecuteAI[Forward to AI Router]
+    Rollback -->|HTTP 429| Reject["Reject Request with Retry-After Header"]
+    Commit --> ExecuteAI["Forward to AI Router"]
 ```
 
 ---
@@ -233,7 +233,7 @@ stateDiagram-v2
     state "Payment Failure & Retry" as FailureHandler {
         Active_Pro --> Retry_Pending: payment.failed Webhook
         Retry_Pending --> Active_Pro: Retry Succeeded
-        Retry_Pending --> Rollback_Free: Retries Exhausted (> 3 Attempts)
+        Retry_Pending --> Rollback_Free: Retries Exhausted (Max 3 Attempts)
     }
 
     Rollback_Free --> Free: Restore Previous Tier + Trigger n8n Alert
