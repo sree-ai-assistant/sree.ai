@@ -418,7 +418,7 @@ export const VoiceOverlay: React.FC<VoiceOverlayProps> = ({ onClose, initialConv
             },
             body: JSON.stringify({
               messages: [...messagesRef.current.map(m => ({ role: m.role, content: m.content })), { role: 'user', content: userText }],
-              model: 'mistralai/mistral-small-4-119b-2603',   //---->voice model change here
+              model: 'gemini-flash-lite-latest',   //---->voice model change here
               mode: 'voice',
             }),
           });
@@ -534,7 +534,7 @@ export const VoiceOverlay: React.FC<VoiceOverlayProps> = ({ onClose, initialConv
               // Play audio and show text simultaneously
               if (audioRef.current) {
                 const audio = audioRef.current;
-                
+
                 // Set the source and load it explicitly to reset the media pipeline
                 audio.src = item.url;
                 audio.load();
