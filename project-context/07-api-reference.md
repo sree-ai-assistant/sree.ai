@@ -209,12 +209,42 @@ data: [DONE]                                    // Stream complete
 
 ## Feature Request Routes (`/api/feature-requests`)
 
-| Method | Endpoint | Auth | Description |
-|--------|----------|------|-------------|
-| `POST` | `/feature-requests` | Flex | Submit a new feature request |
-| `GET` | `/feature-requests/my` | Flex | Get current user's feature requests |
-| `GET` | `/feature-requests/public` | None | Get public roadmap (limit param, default 50) |
-| `PATCH` | `/feature-requests/:ticketId/status` | Webhook Secret | Update request status (admin/n8n) |
+| Method | Endpoint | Auth | Middleware | Description |
+|--------|----------|------|-----------|-------------|
+| `POST` | `/feature-requests` | Flex | featureRequestRateLimiter | Submit a new feature request or bug report |
+| `POST` | `/feature-requests/upload-screenshot` | Flex | multer (10MB, image/*), featureRequestScreenshotRateLimiter | Upload bug report screenshot to R2 `feature-request` bucket |
+| `GET` | `/feature-requests/my` | Flex | — | Get current user's feature requests |
+| `GET` | `/feature-requests/public` | None | — | Get public roadmap (limit param, default 50) |
+| `PATCH` | `/feature-requests/:ticketId/status` | Webhook Secret | — | Update request status (admin/n8n) |
+
+**POST `/feature-requests` — Request Body:**
+```json
+{
+  "title": "Bug: Chat stream cuts off",
+  "category": "bug_report",
+  "categoryLabel": "Bug / Glitch",
+  "priority": "high_impact",
+  "description": "The chat stream stops mid-sentence...",
+  "stepsToReproduce": "1. Open chat\n2. Send a long prompt\n3. Observe stream cutoff",
+  "screenshotUrl": "https://frss.sreeai.qzz.io/1234567890-abc.png",
+  "referenceUrl": "https://github.com/...",
+  "useCase": null
+}
+```
+
+**POST `/feature-requests/upload-screenshot` — Request:**
+- Content-Type: `multipart/form-data`
+- Field: `screenshot` (single file, max 10 MB)
+- Accepted MIME types: `image/png`, `image/jpeg`, `image/webp`, `image/gif`, `image/avif`
+- Rate limits: 1 upload per 5 min, 10 per hour, 10 per day
+
+**Response:**
+```json
+{
+  "success": true,
+  "url": "https://frss.sreeai.qzz.io/1725000000000-abc123def456.png"
+}
+```
 
 ---
 

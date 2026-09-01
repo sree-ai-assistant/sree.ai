@@ -1,6 +1,13 @@
 import { Router, type Request, type Response, type NextFunction } from 'express';
+import multer from 'multer';
+import fs from 'fs';
+import path from 'path';
 import { flexAuthMiddleware } from '../middleware/anonymousIdentity';
-import { featureRequestRateLimiter } from '../middleware/featureRequestRateLimit';
+import {
+  featureRequestRateLimiter,
+  featureRequestScreenshotRateLimiter,
+} from '../middleware/featureRequestRateLimit';
+import { r2Service } from '../services/r2.service';
 import {
   FeatureRequestService,
   FEATURE_REQUEST_WEBHOOK_SECRET,
@@ -9,9 +16,81 @@ import {
 
 const router = Router();
 
+// Ensure screenshot temporary upload directory exists
+const screenshotUploadDir = path.join(process.cwd(), 'uploads', 'screenshots');
+if (!fs.existsSync(screenshotUploadDir)) {
+  fs.mkdirSync(screenshotUploadDir, { recursive: true });
+}
+
+// Multer configuration for screenshot attachments (Images only, max 10MB)
+const screenshotUpload = multer({
+  dest: screenshotUploadDir,
+  limits: {
+    fileSize: 10 * 1024 * 1024, // 10MB
+  },
+  fileFilter: (_req, file, cb) => {
+    const allowedMimes = ['image/png', 'image/jpeg', 'image/jpg', 'image/webp', 'image/gif', 'image/avif'];
+    if (allowedMimes.includes(file.mimetype.toLowerCase())) {
+      cb(null, true);
+    } else {
+      cb(new Error('Invalid image format. Only PNG, JPEG, WebP, GIF, and AVIF files are supported.'));
+    }
+  },
+});
+
+/**
+ * POST /api/feature-requests/upload-screenshot
+ * Uploads a bug report screenshot to Cloudflare R2 bucket 'feature-request'
+ * Protected by: 1 upload / 5 min cooldown, 10 / hr, 10 / day
+ */
+router.post(
+  '/upload-screenshot',
+  flexAuthMiddleware,
+  featureRequestScreenshotRateLimiter,
+  screenshotUpload.single('screenshot'),
+  async (req: Request, res: Response, next: NextFunction) => {
+    const file = req.file;
+    if (!file) {
+      return res.status(400).json({
+        success: false,
+        code: 'NO_FILE_UPLOADED',
+        message: 'No screenshot file provided in the request.',
+      });
+    }
+
+    try {
+      const bucketName = process.env.FEATURE_REQUEST_R2_BUCKET_NAME || 'feature-request';
+      const url = await r2Service.uploadFile(file.path, file.originalname, file.mimetype, bucketName);
+
+      // Clean up local temp file
+      if (fs.existsSync(file.path)) {
+        fs.unlinkSync(file.path);
+      }
+
+      return res.json({
+        success: true,
+        url,
+        filename: file.originalname,
+        mimeType: file.mimetype,
+        size: file.size,
+        message: 'Screenshot uploaded successfully to Cloudflare R2.',
+      });
+    } catch (uploadError: any) {
+      if (file && fs.existsSync(file.path)) {
+        fs.unlinkSync(file.path);
+      }
+      return res.status(500).json({
+        success: false,
+        code: 'R2_UPLOAD_ERROR',
+        message: uploadError.message || 'Failed to upload screenshot to storage.',
+      });
+    }
+  }
+);
+
 /**
  * POST /api/feature-requests
- * Submit a new feature request with rate limiting and database persistence
+ * Submit a new feature request or bug report with rate limiting and database persistence
  */
 router.post(
   '/',
@@ -26,6 +105,8 @@ router.post(
         priority,
         description,
         useCase,
+        stepsToReproduce,
+        screenshotUrl,
         referenceUrl,
         userName,
         userEmail,
@@ -64,6 +145,8 @@ router.post(
         priority: priority || 'helpful',
         description,
         useCase,
+        stepsToReproduce,
+        screenshotUrl,
         referenceUrl,
         userId: user?.id,
         anonId,
@@ -79,7 +162,7 @@ router.post(
         ticketId: result.ticketId,
         request: result.request,
         webhookDelivered: result.webhookDelivered,
-        message: 'Feature request submitted successfully and logged to roadmap.',
+        message: category === 'bug_report' ? 'Bug report submitted successfully.' : 'Feature request submitted successfully and logged to roadmap.',
       });
     } catch (error) {
       next(error);

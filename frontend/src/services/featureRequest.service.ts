@@ -25,6 +25,8 @@ export interface FeatureRequestPayload {
   priority: 'nice_to_have' | 'helpful' | 'high_impact' | 'critical';
   description: string;
   useCase?: string;
+  stepsToReproduce?: string;
+  screenshotUrl?: string;
   referenceUrl?: string;
   user?: {
     id?: string;
@@ -47,6 +49,8 @@ export interface FeatureRequestItem {
   priority: string;
   description: string;
   use_case?: string | null;
+  steps_to_reproduce?: string | null;
+  screenshot_url?: string | null;
   reference_url?: string | null;
   user_name?: string | null;
   user_email?: string | null;
@@ -54,6 +58,7 @@ export interface FeatureRequestItem {
   status: FeatureStatus;
   admin_notes?: string | null;
   notify_on_update?: boolean;
+  client_metadata?: Record<string, any>;
   created_at: string;
   updated_at: string;
 }
@@ -169,6 +174,34 @@ function getClientMetadata() {
 }
 
 /**
+ * Uploads a screenshot to Cloudflare R2 bucket 'feature-request' via backend endpoint
+ */
+export async function uploadFeatureScreenshot(file: File): Promise<string> {
+  const formData = new FormData();
+  formData.append('screenshot', file);
+
+  try {
+    const response = await api.post('/feature-requests/upload-screenshot', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+
+    if (!response.data?.url) {
+      throw new Error(response.data?.message || 'Screenshot upload failed to return a valid URL.');
+    }
+
+    return response.data.url;
+  } catch (error: any) {
+    if (error.response?.status === 429) {
+      throw new Error(error.response?.data?.message || 'Screenshot upload rate limit reached. Please wait before uploading again.');
+    }
+    const message = error.response?.data?.message || error.message || 'Failed to upload screenshot.';
+    throw new Error(message);
+  }
+}
+
+/**
  * Submits the feature request through the backend API.
  * Backend handles: database persistence, rate limiting enforcement, and n8n webhook delivery.
  */
@@ -198,6 +231,8 @@ export async function submitFeatureRequest(
       priority: data.priority,
       description: data.description.trim(),
       useCase: data.useCase?.trim() || null,
+      stepsToReproduce: data.stepsToReproduce?.trim() || null,
+      screenshotUrl: data.screenshotUrl?.trim() || null,
       referenceUrl: data.referenceUrl?.trim() || null,
       userName: data.user?.name,
       userEmail: data.user?.email,

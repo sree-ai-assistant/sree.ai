@@ -269,6 +269,39 @@ export const MyFeatureRequests: React.FC<MyFeatureRequestsProps> = ({
                         </div>
                       )}
 
+                      {/* Steps to Reproduce */}
+                      {(req.steps_to_reproduce || req.client_metadata?.steps_to_reproduce) && (
+                        <div className={styles.detailBlock}>
+                          <span className={styles.detailLabel}>Steps to Reproduce:</span>
+                          <p className={`${styles.detailText} ${styles.preWrap}`}>
+                            {req.steps_to_reproduce || req.client_metadata?.steps_to_reproduce}
+                          </p>
+                        </div>
+                      )}
+
+                      {/* Screenshot Attachment */}
+                      {(req.screenshot_url || req.client_metadata?.screenshot_url) && (
+                        <div className={styles.detailBlock}>
+                          <span className={styles.detailLabel}>Attached Screenshot:</span>
+                          <a
+                            href={req.screenshot_url || req.client_metadata?.screenshot_url}
+                            target="_blank"
+                            rel="noreferrer"
+                            className={styles.screenshotLink}
+                          >
+                            <img
+                              src={req.screenshot_url || req.client_metadata?.screenshot_url}
+                              alt="Bug screenshot"
+                              className={styles.screenshotThumbnail}
+                            />
+                            <span className={styles.screenshotLinkText}>
+                              <ExternalLink size={12} />
+                              <span>View Full Image</span>
+                            </span>
+                          </a>
+                        </div>
+                      )}
+
                       {req.reference_url && (
                         <div className={styles.detailBlock}>
                           <span className={styles.detailLabel}>Reference Link:</span>

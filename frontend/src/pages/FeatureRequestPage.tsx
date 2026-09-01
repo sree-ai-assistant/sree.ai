@@ -17,7 +17,11 @@ import {
   Compass,
   ListTodo,
   Layers,
-  Check
+  Check,
+  UploadCloud,
+  X,
+  FileImage,
+  Paperclip
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { DashboardLayout } from '../features/dashboard/DashboardLayout';
@@ -34,6 +38,7 @@ import {
   getUserFeatureRequests,
   getPublicFeatureRequests,
   getFeatureRequestRateLimitStatus,
+  uploadFeatureScreenshot,
   type WebhookSubmissionResult,
   type RateLimitStatus,
   type FeatureRequestItem
@@ -62,7 +67,14 @@ export const FeatureRequestPage: React.FC = () => {
   const [priority, setPriority] = useState<PriorityType>('helpful');
   const [description, setDescription] = useState('');
   const [useCase, setUseCase] = useState('');
+  const [stepsToReproduce, setStepsToReproduce] = useState('');
   const [referenceUrl, setReferenceUrl] = useState('');
+
+  // Screenshot Upload State (for Bug Reports)
+  const [screenshotFile, setScreenshotFile] = useState<File | null>(null);
+  const [screenshotPreview, setScreenshotPreview] = useState<string | null>(null);
+  const [screenshotUrl, setScreenshotUrl] = useState<string | null>(null);
+  const [isUploadingScreenshot, setIsUploadingScreenshot] = useState(false);
 
   // Guest State
   const [guestName, setGuestName] = useState('');
@@ -139,10 +151,56 @@ export const FeatureRequestPage: React.FC = () => {
     setSelectedCategory(cat);
   };
 
+  const handleScreenshotSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const allowedTypes = ['image/png', 'image/jpeg', 'image/jpg', 'image/webp', 'image/gif', 'image/avif'];
+    if (!allowedTypes.includes(file.type.toLowerCase())) {
+      toast.error('Invalid image type. Please upload PNG, JPG, WebP, GIF, or AVIF.');
+      return;
+    }
+
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error('Screenshot exceeds 10 MB limit.');
+      return;
+    }
+
+    setScreenshotFile(file);
+    const localUrl = URL.createObjectURL(file);
+    setScreenshotPreview(localUrl);
+    setIsUploadingScreenshot(true);
+
+    try {
+      const uploadedR2Url = await uploadFeatureScreenshot(file);
+      setScreenshotUrl(uploadedR2Url);
+      toast.success('Screenshot uploaded to Cloudflare R2!');
+    } catch (err: any) {
+      console.error('Screenshot upload error:', err);
+      toast.error(err.message || 'Failed to upload screenshot to R2.');
+      setScreenshotFile(null);
+      setScreenshotPreview(null);
+      setScreenshotUrl(null);
+    } finally {
+      setIsUploadingScreenshot(false);
+    }
+  };
+
+  const handleRemoveScreenshot = () => {
+    if (screenshotPreview) {
+      URL.revokeObjectURL(screenshotPreview);
+    }
+    setScreenshotFile(null);
+    setScreenshotPreview(null);
+    setScreenshotUrl(null);
+  };
+
   const handleReset = () => {
     setTitle('');
     setDescription('');
     setUseCase('');
+    setStepsToReproduce('');
+    handleRemoveScreenshot();
     setReferenceUrl('');
     setPriority('helpful');
     setSelectedCategory(FEATURE_CATEGORIES[0]);
@@ -150,16 +208,23 @@ export const FeatureRequestPage: React.FC = () => {
     setRateLimitStatus(getFeatureRequestRateLimitStatus());
   };
 
+  const isBugReport = selectedCategory.id === 'bug_report';
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (!title.trim() || title.trim().length < 4) {
-      toast.error('Please enter a descriptive feature title (min 4 characters)');
+      toast.error(isBugReport ? 'Please enter a descriptive bug summary (min 4 characters)' : 'Please enter a descriptive feature title (min 4 characters)');
       return;
     }
 
     if (!description.trim() || description.trim().length < 10) {
       toast.error('Please provide a detailed description (min 10 characters)');
+      return;
+    }
+
+    if (isUploadingScreenshot) {
+      toast.error('Please wait for the screenshot to finish uploading to R2.');
       return;
     }
 
@@ -187,7 +252,9 @@ export const FeatureRequestPage: React.FC = () => {
         categoryLabel: selectedCategory.label,
         priority,
         description: description.trim(),
-        useCase: useCase.trim() || undefined,
+        useCase: isBugReport ? undefined : (useCase.trim() || undefined),
+        stepsToReproduce: isBugReport ? (stepsToReproduce.trim() || undefined) : undefined,
+        screenshotUrl: isBugReport ? (screenshotUrl || undefined) : undefined,
         referenceUrl: referenceUrl.trim() || undefined,
         user: {
           id: user?.id,
@@ -203,10 +270,10 @@ export const FeatureRequestPage: React.FC = () => {
       if (result.request) {
         setMyRequests((prev) => [result.request!, ...prev]);
       }
-      toast.success('Feature request raised and logged to roadmap!');
+      toast.success(isBugReport ? 'Bug report raised and fast-tracked!' : 'Feature request raised and logged to roadmap!');
     } catch (error: any) {
       console.error('Failed to submit feature request:', error);
-      toast.error(error.message || 'Failed to submit feature request. Please try again.');
+      toast.error(error.message || 'Failed to submit request. Please try again.');
     } finally {
       setIsSubmitting(false);
     }
@@ -331,11 +398,11 @@ export const FeatureRequestPage: React.FC = () => {
                   onSelect={handleCategorySelect}
                 />
 
-                {/* Feature Title */}
+                {/* Feature / Bug Title */}
                 <div className={styles.fieldGroup}>
                   <div className={styles.labelRow}>
                     <label htmlFor="feature-title" className={styles.fieldLabel}>
-                      Feature Title <span className={styles.required}>*</span>
+                      {isBugReport ? 'Bug Summary / Title' : 'Feature Title'} <span className={styles.required}>*</span>
                     </label>
                     <span className={`${styles.charCount} ${title.length > 70 ? styles.limitNear : ''}`}>
                       {title.length}/80
@@ -347,14 +414,16 @@ export const FeatureRequestPage: React.FC = () => {
                       type="text"
                       maxLength={80}
                       className={styles.textInput}
-                      placeholder="e.g., DeepSeek R1 live reasoning step visualization"
+                      placeholder={isBugReport ? 'e.g., Video generator stream cuts off at 90%' : 'e.g., DeepSeek R1 live reasoning step visualization'}
                       value={title}
                       onChange={(e) => setTitle(e.target.value)}
                       required
                     />
                   </div>
                   <p className={styles.fieldHint}>
-                    A short, catchy summary of the tool, model, or enhancement you want.
+                    {isBugReport
+                      ? 'A concise summary of the issue, error code, or broken interaction.'
+                      : 'A short, catchy summary of the tool, model, or enhancement you want.'}
                   </p>
                 </div>
 
@@ -395,40 +464,141 @@ export const FeatureRequestPage: React.FC = () => {
                 <div className={styles.fieldGroup}>
                   <div className={styles.labelRow}>
                     <label htmlFor="feature-desc" className={styles.fieldLabel}>
-                      Description & Expected Behavior <span className={styles.required}>*</span>
+                      {isBugReport ? 'Bug Description & Observed Behavior' : 'Description & Expected Behavior'}{' '}
+                      <span className={styles.required}>*</span>
                     </label>
                     <span className={styles.charCount}>{description.length} chars</span>
                   </div>
                   <textarea
                     id="feature-desc"
                     className={styles.textarea}
-                    placeholder="Describe how this feature should work, why it is useful, and how it solves your problem..."
+                    placeholder={
+                      isBugReport
+                        ? 'Describe what went wrong, any error messages shown, and what you expected to happen...'
+                        : 'Describe how this feature should work, why it is useful, and how it solves your problem...'
+                    }
                     value={description}
                     onChange={(e) => setDescription(e.target.value)}
                     rows={4}
                     required
                   />
                   <p className={styles.fieldHint}>
-                    Include specific workflows, parameter options, or model expectations.
+                    {isBugReport
+                      ? 'Include specific browsers, devices, error text, or model parameters.'
+                      : 'Include specific workflows, parameter options, or model expectations.'}
                   </p>
                 </div>
 
-                {/* Use Case (Optional) */}
-                <div className={styles.fieldGroup}>
-                  <div className={styles.labelRow}>
-                    <label htmlFor="feature-usecase" className={styles.fieldLabel}>
-                      Real-World Use Case (Optional)
-                    </label>
+                {/* Conditional: For Bug Reports, show Steps to Reproduce and Screenshot Upload. For others, show Real-World Use Case */}
+                {isBugReport ? (
+                  <>
+                    {/* Steps to Reproduce */}
+                    <div className={styles.fieldGroup}>
+                      <div className={styles.labelRow}>
+                        <label htmlFor="feature-steps" className={styles.fieldLabel}>
+                          Steps to Reproduce
+                        </label>
+                      </div>
+                      <textarea
+                        id="feature-steps"
+                        className={styles.textarea}
+                        placeholder={"1. Go to...\n2. Click on...\n3. Observe the bug..."}
+                        value={stepsToReproduce}
+                        onChange={(e) => setStepsToReproduce(e.target.value)}
+                        rows={3}
+                      />
+                      <p className={styles.fieldHint}>
+                        Sequential steps so our team can quickly reproduce and fix the glitch.
+                      </p>
+                    </div>
+
+                    {/* Screenshot Upload (Optional) */}
+                    <div className={styles.fieldGroup}>
+                      <div className={styles.labelRow}>
+                        <label className={styles.fieldLabel}>
+                          Attach a Screenshot (Optional)
+                        </label>
+                      </div>
+
+                      {isUploadingScreenshot ? (
+                        <div className={styles.uploadingContainer}>
+                          <Loader2 size={18} className={styles.spinner} />
+                          <span>Uploading screenshot to Cloudflare R2 bucket...</span>
+                        </div>
+                      ) : screenshotPreview ? (
+                        <div className={styles.screenshotPreviewCard}>
+                          <div className={styles.screenshotLeft}>
+                            <img
+                              src={screenshotPreview}
+                              alt="Screenshot preview"
+                              className={styles.screenshotThumb}
+                            />
+                            <div className={styles.screenshotInfo}>
+                              <span className={styles.screenshotName} title={screenshotFile?.name}>
+                                {screenshotFile?.name || 'screenshot.png'}
+                              </span>
+                              <div className={styles.screenshotMeta}>
+                                <span className={styles.r2Badge}>
+                                  <Check size={11} strokeWidth={3} /> Uploaded
+                                </span>
+                                {screenshotFile?.size && (
+                                  <span className={styles.screenshotSize}>
+                                    {(screenshotFile.size / (1024 * 1024)).toFixed(2)} MB
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                          <button
+                            type="button"
+                            className={styles.removeScreenshotBtn}
+                            onClick={handleRemoveScreenshot}
+                            title="Remove screenshot"
+                          >
+                            <X size={16} />
+                          </button>
+                        </div>
+                      ) : (
+                        <label className={styles.uploadDropzone}>
+                          <input
+                            type="file"
+                            accept="image/png,image/jpeg,image/jpg,image/webp,image/gif,image/avif"
+                            className={styles.uploadFileInput}
+                            onChange={handleScreenshotSelect}
+                          />
+                          <div className={styles.uploadIconWrap}>
+                            <UploadCloud size={20} />
+                          </div>
+                          <div className={styles.uploadTextGroup}>
+                            <span className={styles.uploadTitle}>
+                              Click or drag & drop screenshot here
+                            </span>
+                            <span className={styles.uploadSubtitle}>
+                              PNG, JPG, WebP, GIF, AVIF up to 10 MB &bull; Uploads Your Screenshot
+                            </span>
+                          </div>
+                        </label>
+                      )}
+                    </div>
+                  </>
+                ) : (
+                  /* Use Case (Optional) for standard feature requests */
+                  <div className={styles.fieldGroup}>
+                    <div className={styles.labelRow}>
+                      <label htmlFor="feature-usecase" className={styles.fieldLabel}>
+                        Real-World Use Case (Optional)
+                      </label>
+                    </div>
+                    <textarea
+                      id="feature-usecase"
+                      className={styles.textarea}
+                      placeholder="e.g. As a developer writing Python scripts, I need to copy code blocks with single-click diff comparison..."
+                      value={useCase}
+                      onChange={(e) => setUseCase(e.target.value)}
+                      rows={2}
+                    />
                   </div>
-                  <textarea
-                    id="feature-usecase"
-                    className={styles.textarea}
-                    placeholder="e.g. As a developer writing Python scripts, I need to copy code blocks with single-click diff comparison..."
-                    value={useCase}
-                    onChange={(e) => setUseCase(e.target.value)}
-                    rows={2}
-                  />
-                </div>
+                )}
 
                 {/* Reference Link (Optional) */}
                 <div className={styles.fieldGroup}>

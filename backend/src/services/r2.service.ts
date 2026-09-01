@@ -51,16 +51,18 @@ class R2Service {
         ? process.env.IMAGE_GENERATION_PUBLIC_URL
         : targetBucket === 'video-generations'
           ? process.env.VIDEO_GENERATION_PUBLIC_URL
-          : this.publicUrl;
+          : (targetBucket === 'feature-request' || targetBucket === process.env.FEATURE_REQUEST_R2_BUCKET_NAME)
+            ? (process.env.FEATURE_REQUEST_R2_PUBLIC_URL || 'https://frss.sreeai.qzz.io')
+            : this.publicUrl;
 
       if (bucketPublicUrl) {
         return `${bucketPublicUrl.replace(/\/$/, '')}/${fileName}`;
       }
       
       return fileName; 
-    } catch (error) {
+    } catch (error: any) {
       console.error('R2 Upload Error:', error);
-      throw new Error('Failed to upload file to storage');
+      throw new Error(error?.message || 'Failed to upload file to storage');
     }
   }
 
@@ -87,7 +89,9 @@ class R2Service {
         ? process.env.IMAGE_GENERATION_PUBLIC_URL
         : targetBucket === 'video-generations'
           ? process.env.VIDEO_GENERATION_PUBLIC_URL
-          : this.publicUrl;
+          : (targetBucket === 'feature-request' || targetBucket === process.env.FEATURE_REQUEST_R2_BUCKET_NAME)
+            ? (process.env.FEATURE_REQUEST_R2_PUBLIC_URL || 'https://frss.sreeai.qzz.io')
+            : this.publicUrl;
 
       if (bucketPublicUrl) {
         return `${bucketPublicUrl.replace(/\/$/, '')}/${fileName}`;

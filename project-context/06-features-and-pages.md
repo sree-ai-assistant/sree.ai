@@ -113,10 +113,15 @@ graph TD
 | Aspect | Detail |
 |--------|--------|
 | **Auth** | Hybrid |
-| **Features** | Submit feature requests (title, category, priority, description, use case, reference URL), view own requests, public roadmap, voting |
-| **Categories** | 9 categories (New AI Model, Performance, UI/UX, Chat, Image, Video, Integration, Mobile App, General Idea) |
-| **Webhook** | Submissions forwarded to n8n webhook for roadmap automation |
+| **Features** | Submit feature requests & bug reports, category-aware dynamic form, screenshot upload, view own requests, public roadmap, status tracking |
+| **Categories** | 10 categories: New AI Model, Performance, UI/UX, Chat, Image & Video Gen, Voice & Audio, Speed & Latency, Integration / API, Mobile App, Other Vision. Plus **Bug / Glitch** (triggers special form fields) |
+| **Bug Report Mode** | When category `bug_report` is selected: hides "Real-World Use Case", shows "Steps to Reproduce" textarea and "Attach a Screenshot (Optional)" dropzone |
+| **Screenshot Upload** | Drag-and-drop / file picker → `POST /api/feature-requests/upload-screenshot` → Cloudflare R2 bucket `feature-request` → public URL `https://frss.sreeai.qzz.io/<file>`. Accepted: PNG, JPG, WebP, GIF, AVIF up to 10 MB |
+| **Screenshot Rate Limit** | In-memory sliding window: 1 upload per 5 min, 10 per hour, 10 per day (keyed on user ID / anon ID / IP) |
+| **Storage** | Bug report data (`steps_to_reproduce`, `screenshot_url`) stored in `client_metadata` JSONB column. Extracted at query time by `getUserRequests()` and `getPublicRoadmap()` |
+| **Webhook** | Submissions forwarded to n8n webhook with `request_type: "BugReport"` or `"FeatureRequest"` and event `bug_report_submitted` or `feature_request_submitted` |
 | **Status Tracking** | Raised → In Progress → Resolved → Rejected |
+| **R2 Bucket** | `feature-request` with custom domain `frss.sreeai.qzz.io` |
 
 ### 9. Login (`/login`) & Signup (`/signup`)
 

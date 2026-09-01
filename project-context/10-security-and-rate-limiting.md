@@ -293,6 +293,28 @@ In-memory sliding window limiter on payment endpoints:
 
 Cleanup runs every 2 minutes to remove expired entries.
 
+### Feature Request Screenshot Rate Limits
+
+In-memory sliding window limiter on screenshot uploads (`featureRequestScreenshotRateLimiter` in `middleware/featureRequestRateLimit.ts`):
+
+| Rule | Limit | Window | Description |
+|------|-------|--------|-------------|
+| **Cooldown** | 1 upload | 5 minutes | Prevents rapid-fire screenshot uploads |
+| **Hourly Cap** | 10 uploads | 60 minutes | Hourly abuse prevention |
+| **Daily Cap** | 10 uploads | 24 hours | Daily abuse prevention |
+
+**Identity Resolution (key):** `user.id` → `anon_id` (from header) → client IP (fallback)
+
+**429 Response:**
+```json
+{
+  "success": false,
+  "code": "SCREENSHOT_RATE_LIMIT",
+  "message": "Screenshot upload cooldown. Please wait 4m 30s before uploading again.",
+  "retryAfterSeconds": 270
+}
+```
+
 ---
 
 ## Data Privacy

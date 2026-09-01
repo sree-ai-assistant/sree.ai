@@ -10,6 +10,8 @@ CREATE TABLE IF NOT EXISTS feature_requests (
   priority TEXT NOT NULL DEFAULT 'helpful',
   description TEXT NOT NULL,
   use_case TEXT,
+  steps_to_reproduce TEXT,
+  screenshot_url TEXT,
   reference_url TEXT,
   user_name TEXT,
   user_email TEXT,

@@ -320,18 +320,22 @@ CREATE TRIGGER on_auth_user_created
 
 ### `feature_requests`
 
+> Supports both feature requests and bug reports. Bug-specific data (`steps_to_reproduce`, `screenshot_url`) may live in dedicated columns **or** inside `client_metadata` JSONB depending on whether the migration has been applied to the live database.
+
 | Column | Type | Default | Description |
 |--------|------|---------|-------------|
 | `id` | UUID | `gen_random_uuid()` | PK |
-| `ticket_id` | TEXT | — | UNIQUE, human-readable ID (e.g., `FR-12345`) |
+| `ticket_id` | TEXT | — | UNIQUE, human-readable ID (e.g., `SREE-REQ-YOAML`) |
 | `user_id` | UUID | — | FK → auth.users (nullable) |
 | `anon_id` | TEXT | — | Anonymous submitter |
 | `title` | TEXT | — | Request title (min 4 chars) |
-| `category` | TEXT | — | Category code |
-| `category_label` | TEXT | — | Human-readable category |
-| `priority` | TEXT | `'helpful'` | User-set priority |
+| `category` | TEXT | — | Category code (e.g., `bug_report`, `ai_model`, `image_video`) |
+| `category_label` | TEXT | — | Human-readable category (e.g., "Bug / Glitch") |
+| `priority` | TEXT | `'helpful'` | User-set priority (`nice_to_have`, `helpful`, `high_impact`, `critical`) |
 | `description` | TEXT | — | Full description (min 10 chars) |
-| `use_case` | TEXT | — | Use case explanation |
+| `use_case` | TEXT | — | Use case explanation (feature requests) |
+| `steps_to_reproduce` | TEXT | — | Sequential reproduction steps (bug reports) |
+| `screenshot_url` | TEXT | — | R2 URL of attached screenshot (bug reports, e.g., `https://frss.sreeai.qzz.io/<file>`) |
 | `reference_url` | TEXT | — | Reference link |
 | `user_name` | TEXT | — | Submitter name |
 | `user_email` | TEXT | — | Submitter email |
@@ -339,9 +343,28 @@ CREATE TRIGGER on_auth_user_created
 | `status` | TEXT | `'Raised'` | CHECK: `Raised`, `In Progress`, `Resolved`, `Rejected` |
 | `admin_notes` | TEXT | — | Admin/internal notes |
 | `notify_on_update` | BOOLEAN | `true` | Email on status change |
-| `client_metadata` | JSONB | `'{}'` | Additional client data |
+| `client_metadata` | JSONB | `'{}'` | Additional client data; also contains `steps_to_reproduce` and `screenshot_url` as fallback fields |
 | `created_at` | TIMESTAMPTZ | `now()` | Submission time |
 | `updated_at` | TIMESTAMPTZ | `now()` | Last update |
+
+**RLS Policies:**
+- Authenticated users can view their own requests (`auth.uid() = user_id`)
+- Anyone can insert feature requests (`WITH CHECK (true)`)
+- Service role has full access
+
+**Indexes:** `user_id`, `anon_id`, `ticket_id`, `status`, `created_at DESC`
+
+**Data Resolution Pattern:**
+The `featureRequest.service.ts` always stores `steps_to_reproduce` and `screenshot_url` inside `client_metadata` JSONB. When reading, the service maps them out:
+```typescript
+// getUserRequests() and getPublicRoadmap() both apply this mapping:
+return rows.map(row => ({
+  ...row,
+  steps_to_reproduce: row.steps_to_reproduce || row.client_metadata?.steps_to_reproduce || null,
+  screenshot_url: row.screenshot_url || row.client_metadata?.screenshot_url || null,
+}));
+```
+This ensures backwards compatibility whether or not the dedicated columns exist in the live schema.
 
 ---
 

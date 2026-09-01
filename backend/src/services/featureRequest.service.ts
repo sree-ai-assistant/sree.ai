@@ -20,6 +20,8 @@ export interface CreateFeatureRequestInput {
   priority: 'nice_to_have' | 'helpful' | 'high_impact' | 'critical';
   description: string;
   useCase?: string;
+  stepsToReproduce?: string;
+  screenshotUrl?: string;
   referenceUrl?: string;
   userId?: string;
   anonId?: string;
@@ -41,6 +43,8 @@ export interface FeatureRequestRecord {
   priority: string;
   description: string;
   use_case: string | null;
+  steps_to_reproduce: string | null;
+  screenshot_url: string | null;
   reference_url: string | null;
   user_name: string | null;
   user_email: string | null;
@@ -73,7 +77,7 @@ export class FeatureRequestService {
     const ticketId = this.generateTicketId();
     const now = new Date().toISOString();
 
-    const insertPayload = {
+    const insertPayload: any = {
       ticket_id: ticketId,
       user_id: input.userId || null,
       anon_id: input.anonId || null,
@@ -83,6 +87,8 @@ export class FeatureRequestService {
       priority: input.priority,
       description: input.description.trim(),
       use_case: input.useCase?.trim() || null,
+      steps_to_reproduce: input.stepsToReproduce?.trim() || null,
+      screenshot_url: input.screenshotUrl?.trim() || null,
       reference_url: input.referenceUrl?.trim() || null,
       user_name: input.userName?.trim() || 'Guest Explorer',
       user_email: input.userEmail?.trim() || 'guest@sree.ai',
@@ -109,7 +115,7 @@ export class FeatureRequestService {
         .single();
 
       if (error) {
-        console.error('[FeatureRequest] Supabase insert warning/error:', error.message);
+        console.error('[FeatureRequest] Supabase insert error:', error.message);
       } else if (data) {
         savedRecord = data as FeatureRequestRecord;
       }
@@ -124,9 +130,9 @@ export class FeatureRequestService {
     } else {
       try {
         const n8nPayload = {
-          request_type: "FeatureRequest",
-          source: "SREE_APP_feature-request_form",
-          event: 'feature_request_submitted',
+          request_type: input.category === 'bug_report' ? 'BugReport' : 'FeatureRequest',
+          source: 'SREE_APP_feature-request_form',
+          event: input.category === 'bug_report' ? 'bug_report_submitted' : 'feature_request_submitted',
           ticket_id: ticketId,
           id: savedRecord.id,
           timestamp: now,
@@ -139,6 +145,8 @@ export class FeatureRequestService {
             priority: insertPayload.priority,
             description: insertPayload.description,
             use_case: insertPayload.use_case,
+            steps_to_reproduce: input.stepsToReproduce?.trim() || null,
+            screenshot_url: input.screenshotUrl?.trim() || null,
             reference_url: insertPayload.reference_url,
             status: 'Raised',
           },
@@ -223,7 +231,7 @@ export class FeatureRequestService {
     try {
       const { data, error } = await supabaseAdmin
         .from('feature_requests')
-        .select('id, ticket_id, title, category, category_label, priority, status, admin_notes, created_at')
+        .select('id, ticket_id, title, category, category_label, priority, status, admin_notes, description, use_case, steps_to_reproduce, screenshot_url, client_metadata, created_at')
         .order('created_at', { ascending: false })
         .limit(limit);
 
