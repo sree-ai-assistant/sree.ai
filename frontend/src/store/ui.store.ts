@@ -7,6 +7,7 @@ interface UIState {
   limitReached: boolean;
   remainingRequests: number | null;
   sidebarCollapsed: boolean;
+  legalMenuOpen: boolean;
   
   // Actions
   openUpgradeModal: (tier?: 'starter' | 'pro') => void;
@@ -17,6 +18,8 @@ interface UIState {
   setRemainingRequests: (count: number | null) => void;
   setSidebarCollapsed: (collapsed: boolean) => void;
   toggleSidebar: () => void;
+  toggleLegalMenu: () => void;
+  setLegalMenuOpen: (open: boolean) => void;
 }
 
 export const useUIStore = create<UIState>((set) => ({
@@ -26,6 +29,7 @@ export const useUIStore = create<UIState>((set) => ({
   limitReached: false,
   remainingRequests: null,
   sidebarCollapsed: localStorage.getItem('sidebar-collapsed') === null ? true : localStorage.getItem('sidebar-collapsed') === 'true',
+  legalMenuOpen: false,
 
   openUpgradeModal: (tier) => set({ upgradeModalOpen: true, targetTier: tier || null }),
   closeUpgradeModal: () => set({ upgradeModalOpen: false, targetTier: null }),
@@ -42,4 +46,6 @@ export const useUIStore = create<UIState>((set) => ({
     localStorage.setItem('sidebar-collapsed', String(newState));
     return { sidebarCollapsed: newState };
   }),
+  toggleLegalMenu: () => set((state) => ({ legalMenuOpen: !state.legalMenuOpen })),
+  setLegalMenuOpen: (open) => set({ legalMenuOpen: open }),
 }));

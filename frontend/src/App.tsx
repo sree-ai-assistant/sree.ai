@@ -150,6 +150,8 @@ function App() {
         />
 
         {/* Public Legal & Compliance Routes */}
+        <Route path="/legal" element={<TermsPage />} />
+        <Route path="/legal-center" element={<TermsPage />} />
         <Route path="/terms" element={<TermsPage />} />
         <Route path="/privacy" element={<PrivacyPage />} />
         <Route path="/security" element={<SecurityPage />} />

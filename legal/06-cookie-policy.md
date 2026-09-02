@@ -36,10 +36,16 @@ These preferences ensure a seamless and personalized user experience across page
 | `sree_sidebar_collapsed` | Sree AI | LocalStorage | Remembers whether your navigation sidebar is open or minimized. |
 | `sree_selected_model` | Sree AI | LocalStorage | Remembers your preferred default AI model for chat sessions. |
 
-### 2.3 Analytics & Diagnostics (Sanitized)
-- **Provider:** PostHog Inc.
-- **Purpose:** Monitors application error rates, page load performance, and server latencies.
-- **Privacy Standard:** Telemetry data is stripped of cleartext IP addresses and personal identifiers.
+### 2.2 Analytics & Diagnostics Storage (Sanitized)
+
+We utilize **PostHog Inc.** for privacy-conscious application performance monitoring, UI latency tracking, and error diagnostics:
+
+| Key / Cookie Name | Provider | Storage Type | Expiration | Purpose |
+|---|---|---|---|---|
+| `ph_<project_token>_posthog` | PostHog | Cookie / LocalStorage | 1 Year | Stores anonymous session telemetry, active feature flags, and UI interaction timestamps without PII. |
+| `ph_distinct_id` | PostHog | Cookie / LocalStorage | 1 Year | Unique random UUID to deduplicate client crash reports and measure page load performance. |
+
+> **Privacy Guarantee:** PostHog telemetry is configured to strip cleartext IP addresses, personal identifiers, chat message bodies, and uploaded file contents. Telemetry is utilized solely for platform reliability and speed optimization.
 
 ---
 

@@ -33,7 +33,7 @@ import styles from './Navbar.module.css';
 export const Navbar: React.FC = () => {
   const { user, signOut, loading: authLoading } = useAuthStore();
   const { status, fetchStatus, loading: usageLoading } = useUsageStore();
-  const { toggleSidebar } = useUIStore();
+  const { toggleSidebar, toggleLegalMenu } = useUIStore();
   const location = useLocation();
   const navigate = useNavigate();
   const [isToolsOpen, setIsToolsOpen] = useState(false);
@@ -52,6 +52,7 @@ export const Navbar: React.FC = () => {
   const isSettingsPage = location.pathname.startsWith('/settings');
   const isPricingPage = location.pathname.startsWith('/pricing');
   const isFeatureRequestPage = location.pathname.startsWith('/feature-request');
+  const isLegalPage = ['/terms', '/privacy', '/security', '/refund-policy', '/acceptable-use', '/cookies'].some(p => location.pathname.startsWith(p));
 
   useEffect(() => {
     fetchStatus();
@@ -247,12 +248,19 @@ export const Navbar: React.FC = () => {
   return (
     <nav className={styles.navbar}>
       {/* Left: Logo */}
-      <Link to="/" className={styles.logoGroup} onClick={(e) => {
-        if (window.innerWidth <= 768) {
-          e.preventDefault();
-          toggleSidebar();
-        }
-      }}>
+      <Link
+        to={isLegalPage ? location.pathname : "/"}
+        className={styles.logoGroup}
+        onClick={(e) => {
+          if (isLegalPage) {
+            e.preventDefault();
+            toggleLegalMenu();
+          } else if (window.innerWidth <= 768) {
+            e.preventDefault();
+            toggleSidebar();
+          }
+        }}
+      >
         <img
           src="/Sree-ai-Primary-logo.png"
           alt="Sree AI"
@@ -364,7 +372,7 @@ export const Navbar: React.FC = () => {
 
         {/* User menu or Login/Signup */}
         {authLoading ? (
-          <div className={`${styles.userSkeletonButton} ${isImagesPage ? styles.showOnImagePage : ''} ${isSettingsPage ? styles.showOnSettingsPage : ''} ${isPricingPage ? styles.showOnPricingPage : ''} ${isFeatureRequestPage ? styles.showOnFeatureRequestPage : ''}`}>
+          <div className={`${styles.userSkeletonButton} ${isImagesPage ? styles.showOnImagePage : ''} ${isSettingsPage ? styles.showOnSettingsPage : ''} ${isPricingPage ? styles.showOnPricingPage : ''} ${isFeatureRequestPage ? styles.showOnFeatureRequestPage : ''} ${isLegalPage ? styles.showOnLegalPage : ''}`}>
             <div className={`${styles.userSkeletonInfo} ${isSettingsPage ? styles.showSkeletonInfo : ''}`}>
               <div className="skeleton" style={{ width: '60px', height: '10px', borderRadius: '3px' }} />
               <div className="skeleton" style={{ width: '45px', height: '8px', borderRadius: '3px', marginTop: '4px' }} />
@@ -372,7 +380,7 @@ export const Navbar: React.FC = () => {
             <div className="skeleton skeleton-circle" style={{ width: '32px', height: '32px' }} />
           </div>
         ) : user ? (
-          <div className={`${styles.userSection} ${isImagesPage ? styles.showOnImagePage : ''} ${isSettingsPage ? styles.showOnSettingsPage : ''} ${isPricingPage ? styles.showOnPricingPage : ''} ${isFeatureRequestPage ? styles.showOnFeatureRequestPage : ''}`} ref={userMenuRef}>
+          <div className={`${styles.userSection} ${isImagesPage ? styles.showOnImagePage : ''} ${isSettingsPage ? styles.showOnSettingsPage : ''} ${isPricingPage ? styles.showOnPricingPage : ''} ${isFeatureRequestPage ? styles.showOnFeatureRequestPage : ''} ${isLegalPage ? styles.showOnLegalPage : ''}`} ref={userMenuRef}>
             <button
               onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
               className={styles.userButton}
@@ -476,7 +484,7 @@ export const Navbar: React.FC = () => {
           </div>
         ) : (
           /* Not logged in: show Sign Up button */
-          <div className={`${styles.authButtons} ${isImagesPage ? styles.showOnImagePage : ''} ${isFeatureRequestPage ? styles.showOnFeatureRequestPage : ''}`}>
+          <div className={`${styles.authButtons} ${isImagesPage ? styles.showOnImagePage : ''} ${isFeatureRequestPage ? styles.showOnFeatureRequestPage : ''} ${isLegalPage ? styles.showOnLegalPage : ''}`}>
             <Link to="/signup" className={styles.signupBtn}>
               <UserPlus size={16} />
               <span>Sign Up</span>
