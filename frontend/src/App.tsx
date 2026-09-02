@@ -17,6 +17,15 @@ import { supabase } from './lib/supabase';
 import VideoGenPage from './pages/VideoGenPage';
 import FeatureRequestPage from './pages/FeatureRequestPage';
 
+import {
+  TermsPage,
+  PrivacyPage,
+  SecurityPage,
+  RefundPolicyPage,
+  AcceptableUsePage,
+  CookiePolicyPage
+} from './pages-legal';
+
 import { Toaster } from 'react-hot-toast';
 import { UpgradeModal } from './components/shared/UpgradeModal';
 import { LimitExceededModal } from './components/shared/LimitExceededModal';
@@ -139,6 +148,14 @@ function App() {
             </HybridOnboardingGuard>
           }
         />
+
+        {/* Public Legal & Compliance Routes */}
+        <Route path="/terms" element={<TermsPage />} />
+        <Route path="/privacy" element={<PrivacyPage />} />
+        <Route path="/security" element={<SecurityPage />} />
+        <Route path="/refund-policy" element={<RefundPolicyPage />} />
+        <Route path="/acceptable-use" element={<AcceptableUsePage />} />
+        <Route path="/cookies" element={<CookiePolicyPage />} />
 
         {/* Redirects */}
         <Route path="*" element={<Navigate to="/" replace />} />
