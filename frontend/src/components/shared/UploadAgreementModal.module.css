@@ -282,7 +282,19 @@
 .checkboxLabel {
   font-size: 13px;
   color: rgba(255, 255, 255, 0.85);
-  line-height: 1.4;
+  line-height: 1.45;
+}
+
+.legalLink {
+  color: #c084fc;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  font-weight: 600;
+  transition: color 0.15s ease;
+}
+
+.legalLink:hover {
+  color: #e9d5ff;
 }
 
 .actions {

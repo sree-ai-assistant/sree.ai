@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, ShieldAlert, Check, FileText } from 'lucide-react';
+import { X, ShieldAlert, Check, ExternalLink } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import { useUploadAgreementStore } from '../../store/upload-agreement.store';
 import styles from './UploadAgreementModal.module.css';
 import toast from 'react-hot-toast';
@@ -86,25 +87,25 @@ export const UploadAgreementModal: React.FC = () => {
                   <li>
                     <span className={styles.termBullet}>1</span>
                     <span className={styles.termText}>
-                      <strong>Ownership:</strong> You confirm that you own or have all necessary licenses and rights for the uploaded files.
+                      <strong>Ownership & Rights:</strong> You confirm that you own or have all necessary licenses and authorization for the uploaded files.
                     </span>
                   </li>
                   <li>
                     <span className={styles.termBullet}>2</span>
                     <span className={styles.termText}>
-                      <strong>AI Processing:</strong> Uploaded media is processed via AI engines (e.g. Gemini, Veo) and is subject to standard safety filtering.
+                      <strong>AI Model Processing & Training Notice:</strong> Uploaded documents and images are transmitted to external AI providers (e.g. Google, NVIDIA, Groq) to execute inference and may be processed under their developer terms.
                     </span>
                   </li>
                   <li>
                     <span className={styles.termBullet}>3</span>
                     <span className={styles.termText}>
-                      <strong>Content Restrictions:</strong> No copyrighted materials without permission, sensitive personal data, or illegal files.
+                      <strong>Sole Liability & Restrictions:</strong> You bear 100% sole liability for all content. Strictly no confidential trade secrets, copyright infringements, or illegal files.
                     </span>
                   </li>
                 </ul>
               </div>
 
-              {/* Checkbox Acknowledge */}
+              {/* Checkbox Acknowledge with Legal Links */}
               <label className={styles.checkboxContainer}>
                 <input 
                   type="checkbox"
@@ -117,7 +118,37 @@ export const UploadAgreementModal: React.FC = () => {
                   {isChecked && <Check size={12} strokeWidth={3} />}
                 </span>
                 <span className={styles.checkboxLabel}>
-                  I certify that I have read and agree to the Content Upload Terms.
+                  I certify that I have read and agree to the{' '}
+                  <Link 
+                    to="/terms" 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className={styles.legalLink}
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    Terms of Service
+                  </Link>
+                  ,{' '}
+                  <Link 
+                    to="/privacy" 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className={styles.legalLink}
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    Privacy Policy
+                  </Link>
+                  , and{' '}
+                  <Link 
+                    to="/acceptable-use" 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className={styles.legalLink}
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    Acceptable Use Policy
+                  </Link>
+                  .
                 </span>
               </label>
 
