@@ -14,9 +14,7 @@
 ![Razorpay](https://img.shields.io/badge/Razorpay-0C2340?style=for-the-badge&logo=razorpay&logoColor=white)
 ![Cloudflare R2](https://img.shields.io/badge/Cloudflare_R2-F38020?style=for-the-badge&logo=cloudflare&logoColor=white)
 
-**An enterprise-grade, multi-modal AI platform combining text reasoning, real-time voice, image/video generation, BYOK key pooling, and recurring subscription billing.**
-
-[Features](#key-features) • [Architecture](#-system-architecture--engineering-deep-dive) • [Tech Stack](#-tech-stack) • [Quickstart](#-getting-started) • [Database Setup](#️-database--rls-setup) • [API Overview](#-api-endpoints-overview) • [Security](#-security--privacy)
+[Features](#key-features) • [Architecture](#-system-architecture--engineering-deep-dive) • [Tech Stack](#-tech-stack) • [Quickstart](#-getting-started) • [Database Setup](#️-database--rls-setup) • [API Overview](#-api-endpoints-overview) • [Security](#-security--privacy) • [Legal & Compliance](#-legal--compliance-documentation)
 
 </div>
 
@@ -271,11 +269,20 @@ stateDiagram-v2
 ├── frontend/                 # React 19 single-page application
 │   ├── src/
 │   │   ├── components/       # UI components, layout, modals, chat, voice, studio
+│   │   ├── pages-legal/      # Legal Center pages (Terms, Privacy, Security, etc.)
 │   │   ├── hooks/            # Custom React hooks (voice recording, payments, SSE)
 │   │   ├── stores/           # Zustand state management (auth, chat, voice, models, UI)
 │   │   ├── services/         # Frontend API integration layer
 │   │   └── styles/           # Global styles and design system variables
 │   └── package.json
+│
+├── legal/                    # Watertight legal policies & statutory compliance suite
+│   ├── 01-privacy-policy.md
+│   ├── 02-terms-of-service.md
+│   ├── 03-security-and-byok-policy.md
+│   ├── 04-refund-and-cancellation-policy.md
+│   ├── 05-acceptable-use-policy.md
+│   └── 06-cookie-policy.md
 │
 ├── project-context/          # Complete architectural & technical documentation
 │   ├── 01-project-overview.md
@@ -430,6 +437,23 @@ The database utilizes Supabase PostgreSQL with strict Row Level Security (RLS) o
 2. **Payment Webhook Verification**: Razorpay webhooks require strict `HMAC-SHA256` signature verification; unverified payloads are discarded immediately.
 3. **No Plaintext IP Storage**: Anonymous visitors are tracked using salted SHA-256 hashes of client fingerprints and IPs to comply with GDPR & CCPA.
 4. **Row Level Security (RLS)**: Enforced across 100% of exposed tables to isolate tenant data.
+
+---
+
+## ⚖️ Legal & Compliance Documentation
+
+Sree AI operates under a comprehensive legal, statutory compliance, and zero-liability framework designed in strict accordance with the **Digital Personal Data Protection (DPDP) Act, 2023**, the **Information Technology Act, 2000 (Section 79 Intermediary Safe Harbor)**, **GDPR**, and **CCPA/CPRA**.
+
+All policies are maintained as markdown source files in [`legal/`](file:///p:/antygravity-projects/Ai-Sass-3/legal) and are served through responsive, accessible web pages in the frontend:
+
+| Policy | Markdown Document | Public App Route | Core Coverage & Statutory Protections |
+|---|---|---|---|
+| **Privacy Policy** | [`legal/01-privacy-policy.md`](file:///p:/antygravity-projects/Ai-Sass-3/legal/01-privacy-policy.md) | [`/privacy`](https://app.sreeai.qzz.io/privacy) | DPDP Act 2023 data rights, 9 sub-processors, zero raw IP storage, AI provider transmission disclosures, and designated Grievance Officer. |
+| **Terms of Service** | [`legal/02-terms-of-service.md`](file:///p:/antygravity-projects/Ai-Sass-3/legal/02-terms-of-service.md) | [`/terms`](https://app.sreeai.qzz.io/terms) | Section 79 IT Act safe harbor, Zero-Liability shield for cloud/database breaches, 100% user sole liability for uploaded files/BYOK, and Indian arbitration. |
+| **Security & BYOK Policy** | [`legal/03-security-and-byok-policy.md`](file:///p:/antygravity-projects/Ai-Sass-3/legal/03-security-and-byok-policy.md) | [`/security`](https://app.sreeai.qzz.io/security) | AES-256-GCM encryption architecture, 16-byte random IVs, 100% table RLS matrix, and Shared Responsibility Framework (Supabase, Cloudflare, Razorpay, AI providers). |
+| **Refund & Cancellation Policy** | [`legal/04-refund-and-cancellation-policy.md`](file:///p:/antygravity-projects/Ai-Sass-3/legal/04-refund-and-cancellation-policy.md) | [`/refund-policy`](https://app.sreeai.qzz.io/refund-policy) | Consumable digital service rules, in-app self-service cancellations, 3 exception categories, and 5–7 business days Razorpay refund SLA. |
+| **Acceptable Use Policy (AUP)** | [`legal/05-acceptable-use-policy.md`](file:///p:/antygravity-projects/Ai-Sass-3/legal/05-acceptable-use-policy.md) | [`/acceptable-use`](https://app.sreeai.qzz.io/acceptable-use) | Zero-tolerance for CSAM (NCMEC referral), bans on deepfakes/malware/DDoS/proxy circumvention, and prohibitions on certified high-risk decisions. |
+| **Cookie Policy** | [`legal/06-cookie-policy.md`](file:///p:/antygravity-projects/Ai-Sass-3/legal/06-cookie-policy.md) | [`/cookies`](https://app.sreeai.qzz.io/cookies) | Complete transparency for Supabase Auth JWTs, anonymous guest tokens, PostHog telemetry cookies (zero PII), and local UI preferences. |
 
 ---
 
