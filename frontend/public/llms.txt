@@ -1,0 +1,59 @@
+# Sree AI
+
+> Sree AI is a production-grade multi-modal generative AI SaaS platform that unifies high-throughput conversational LLM chat, real-time bidirectional voice assistant agents, creative studio-grade image and video generation, a Bring-Your-Own-Key (BYOK) cryptographic vault, and flexible subscription tiers.
+
+## Overview
+
+- **Platform Name**: Sree AI
+- **Web Application**: https://app.sreeai.qzz.io
+- **Official Website**: https://sreeai.qzz.io
+- **Primary Modalities**: Conversational Chat, Multi-Modal File Analysis (PDF, DOCX, XLSX, Images), Voice Assistant (STT/TTS), AI Image Studio, AI Video Studio.
+- **Access Architecture**: Dual-identity support. Anonymous guest visitors can immediately explore multi-turn chat and trials without registration; registered users unlock persistent history, custom instructions, image/video generation, and BYOK.
+
+## Key Capabilities & Modalities
+
+- **Multi-Model LLM Chat**: Real-time streaming SSE completions with markdown formatting, LaTeX math rendering, syntax-highlighted code execution blocks, and customizable system instructions (`more_about_you` and `custom_instructions`).
+- **Multi-Modal Document Parsing**: Instant OCR and analysis of uploaded files (PDF, Word DOCX, Excel XLSX, plain text, and high-resolution images) with transmission to specialized vision/reasoning models.
+- **Real-Time Voice Assistant**: Low-latency spoken conversations featuring cascading Speech-To-Text (Deepgram Nova-2 primary with automated failover to Groq Whisper Large V3) and high-fidelity text-to-speech audio synthesis.
+- **Creative Studio (Images & Videos)**: Fast text-to-image synthesis powered by FLUX.1 (Dev / Schnell), SDXL, and SD 3.5 Large; automated text-to-video generation powered by Google Veo & Omni models.
+- **Bring Your Own Key (BYOK)**: User-provided API keys encrypted at rest using AES-256-GCM with randomized 16-byte initialization vectors (`iv`), granting a 0.2x quota usage multiplier.
+- **Atomic Multi-Window Quotas**: Atomic rate-limiting enforced in single PostgreSQL RPC transactions (`increment_multi_usage`) across 1-minute burst, 24-hour daily, and 30-day monthly windows.
+
+## Supported AI Models & Providers
+
+- **Google DeepMind**: Gemini 2.0 Flash, Gemini 1.5 Pro, Gemini 1.5 Flash, Veo Video Generation.
+- **Meta / Open-Source (via NVIDIA NIM & Groq)**: LLaMA 3.3 70B Instruct, LLaMA 3.1 8B/70B, Gemma 2 9B/27B, Mistral Large, Qwen 2.5 72B.
+- **NVIDIA Corporation**: NVIDIA Nemotron Ultra/Fast reasoning models via high-throughput NIM endpoints.
+- **Deepgram & Groq**: Deepgram Nova-2 STT stream processor; Groq Whisper Large V3 high-speed inference.
+- **Black Forest Labs / Stability**: FLUX.1 Schnell, FLUX.1 Dev, Stable Diffusion 3.5 Large.
+
+## Pricing & Subscription Plans
+
+- **Free Tier**: ₹0 / $0 per month. Standard access to 18+ models, 10 chats/day, 20 voice requests/day, 5 images/day, 30-day storage auto-delete, and anonymous guest trial access.
+- **Starter Tier**: ₹399/month (or $8/month; ₹319/mo billed annually). Enhanced quotas with 70+ models, 50 chats/day, 60 voice requests/day, 30 images/day, 10 videos/day, 3-month storage, and access to all AI productivity tools.
+- **Pro Tier**: ₹899/month (or $29/month; ₹719/mo billed annually). Maximum compute allocation with 75+ flagship models (Nemotron, Gemini Pro, FLUX.1 Dev), 200 chats/day, 100 voice/day, 70 images/day, 30 videos/day, permanent storage (no expiration), and highest-priority GPU queues.
+- **Pricing URL**: https://app.sreeai.qzz.io/pricing
+
+## Legal, Privacy & Compliance Architecture
+
+Sree AI operates in strict compliance with the Indian **Digital Personal Data Protection (DPDP) Act, 2023**, the Indian **Information Technology Act, 2000 (Section 79 Intermediary Safe Harbor)**, **GDPR** (EU), and **CCPA/CPRA** (California):
+
+- **Zero-Liability Safe Harbor**: As an intermediary, Sree AI provides technical routing and storage without assuming liability for upstream AI provider processing, server accidents, or third-party infrastructure breaches.
+- **AI Model Training Notice**: Uploaded files and media are transmitted to external AI providers (Google, NVIDIA, Groq, Deepgram) solely to execute inference; upstream providers process data under their enterprise API terms.
+- **Privacy by Design**: Client IP addresses are never stored in plaintext; salted SHA-256 cryptographic hashes are used for abuse mitigation.
+- **Cookie Transparency**: No third-party ad trackers. Operational tokens include Supabase Auth JWTs, anonymous guest tokens (`sree_anon_id`), and PostHog performance telemetry (strictly stripped of PII, chat bodies, and file data).
+
+## Canonical Documentation Links
+
+- [Terms of Service](https://app.sreeai.qzz.io/terms): Binding contract, Section 79 IT Act safe harbor, user content liability, and Indian arbitration.
+- [Privacy Policy](https://app.sreeai.qzz.io/privacy): DPDP Act 2023 compliance, 9 sub-processors, zero raw IP storage, and Grievance Officer details.
+- [Security & BYOK Policy](https://app.sreeai.qzz.io/security): Cryptographic AES-256-GCM vaulting, Row Level Security (RLS) matrix, and Shared Responsibility Framework.
+- [Refund & Cancellation Policy](https://app.sreeai.qzz.io/refund-policy): Consumable digital service rules, in-app cancellation, Razorpay 5-7 business days refund timeline.
+- [Acceptable Use Policy](https://app.sreeai.qzz.io/acceptable-use): Zero-tolerance CSAM rules, prohibitions on malware/DDoS/deepfakes, and high-risk decision boundaries.
+- [Cookie Policy](https://app.sreeai.qzz.io/cookies): Full disclosure of essential tokens, PostHog performance cookies, and local UI preferences.
+- [Feature Requests & Bug Reporting](https://app.sreeai.qzz.io/feature-request): Interactive feedback and community issue tracker.
+
+## Full Context for AI Agents
+
+For an exhaustive, comprehensive technical context, architectural breakdown, and complete policy text in one document, fetch:
+https://app.sreeai.qzz.io/llms-full.txt

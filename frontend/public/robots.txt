@@ -1,0 +1,81 @@
+# ==============================================================================
+# Sree AI — robots.txt
+# Next-Generation Multi-Modal AI SaaS Platform
+# Host: https://app.sreeai.qzz.io
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# 1. Standard Web Search Crawlers (Google, Bing, Yahoo, DuckDuckGo, etc.)
+# ------------------------------------------------------------------------------
+User-agent: Googlebot
+User-agent: Bingbot
+User-agent: Slurp
+User-agent: DuckDuckBot
+User-agent: Baiduspider
+User-agent: YandexBot
+User-agent: *
+Allow: /
+Allow: /chat
+Allow: /voice
+Allow: /pricing
+Allow: /feature-request
+Allow: /terms
+Allow: /privacy
+Allow: /security
+Allow: /refund-policy
+Allow: /acceptable-use
+Allow: /cookies
+Allow: /legal
+Allow: /legal-center
+Allow: /llms.txt
+Allow: /llms-full.txt
+Allow: /sitemap.xml
+
+# Disallow authenticated private areas, user state, and internal APIs
+Disallow: /api/
+Disallow: /settings
+Disallow: /dashboard
+Disallow: /onboarding
+Disallow: /forgot-password
+Disallow: /login
+Disallow: /signup
+Disallow: /upgrade
+
+# ------------------------------------------------------------------------------
+# 2. AI Search & Generative Answer Engines (AEO / GEO Crawlers)
+# Explicitly welcome AI retrieval crawlers for citations & search grounding
+# ------------------------------------------------------------------------------
+User-agent: GPTBot
+User-agent: ChatGPT-User
+User-agent: PerplexityBot
+User-agent: ClaudeBot
+User-agent: Claude-Web
+User-agent: Google-Extended
+User-agent: Applebot
+User-agent: Applebot-Extended
+User-agent: Cohere-AI
+User-agent: Bytespider
+User-agent: Diffbot
+Allow: /
+Allow: /chat
+Allow: /voice
+Allow: /pricing
+Allow: /feature-request
+Allow: /terms
+Allow: /privacy
+Allow: /security
+Allow: /refund-policy
+Allow: /acceptable-use
+Allow: /cookies
+Allow: /legal
+Allow: /llms.txt
+Allow: /llms-full.txt
+Disallow: /api/
+Disallow: /settings
+Disallow: /dashboard
+
+# ------------------------------------------------------------------------------
+# 3. Sitemaps and Host
+# ------------------------------------------------------------------------------
+Sitemap: https://app.sreeai.qzz.io/sitemap.xml
+Host: https://app.sreeai.qzz.io
