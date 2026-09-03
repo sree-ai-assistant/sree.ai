@@ -21,7 +21,8 @@ import {
   UserPlus,
   Box,
   Lock,
-  Lightbulb
+  Lightbulb,
+  PanelLeft
 } from 'lucide-react';
 import { useAuthStore } from '../../store/auth.store';
 import { useUsageStore } from '../../store/usage.store';
@@ -261,16 +262,21 @@ export const Navbar: React.FC = () => {
           }
         }}
       >
-        <img
-          src="/Sree-ai-Primary-logo.png"
-          alt="Sree AI"
-          className={styles.primaryLogo}
-        />
-        <img
-          src="/Sree-Ai-icon-only-Sree-AI-brandmark.png"
-          alt="Sree AI logo"
-          className={styles.mobileLogo}
-        />
+        <div className={styles.logoAnimContainer}>
+          <img
+            src="/Sree-ai-Primary-logo.png"
+            alt="Sree AI"
+            className={styles.primaryLogo}
+          />
+          <img
+            src="/Sree-Ai-icon-only-Sree-AI-brandmark.png"
+            alt="Sree AI logo"
+            className={styles.mobileLogo}
+          />
+        </div>
+        <div className={styles.toggleIconContainer}>
+          <PanelLeft size={24} />
+        </div>
       </Link>
 
       {/* Center: Nav Links */}

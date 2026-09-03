@@ -23,6 +23,16 @@
   text-decoration: none;
   flex: 1 1 0%;
   min-width: max-content;
+  position: relative;
+}
+
+.toggleIconContainer {
+  display: none;
+}
+
+.logoAnimContainer {
+  display: flex;
+  align-items: center;
 }
 
 .primaryLogo {
@@ -692,6 +702,90 @@
 @media (max-width: 920px) {
   .navLink span {
     display: none;
+  }
+}
+
+@media (max-width: 768px) {
+  .logoAnimContainer {
+    animation: logoVisibility 8s infinite;
+  }
+
+  .toggleIconContainer {
+    display: flex;
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    align-items: center;
+    justify-content: flex-start;
+    color: var(--text-primary);
+    opacity: 0;
+    animation: iconVisibilitySwap 8s ease-in-out infinite;
+    pointer-events: none;
+  }
+}
+
+@keyframes logoVisibility {
+
+  0%,
+  60% {
+    opacity: 1;
+    transform: scale(1);
+    pointer-events: auto;
+  }
+
+  64%,
+  96% {
+    opacity: 0;
+    transform: scale(0.95);
+    pointer-events: none;
+  }
+
+  100% {
+    opacity: 1;
+    transform: scale(1);
+    pointer-events: auto;
+  }
+}
+
+@keyframes iconVisibilitySwap {
+
+  0%,
+  60% {
+    opacity: 0;
+    transform: translateX(0px);
+  }
+
+  64% {
+    opacity: 1;
+    transform: translateX(0px);
+  }
+
+  69% {
+    opacity: 1;
+    transform: translateX(6px);
+  }
+
+  75% {
+    opacity: 1;
+    transform: translateX(0px);
+  }
+
+  81% {
+    opacity: 1;
+    transform: translateX(6px);
+  }
+
+  87.5%,
+  96% {
+    opacity: 1;
+    transform: translateX(3px);
+  }
+
+  100% {
+    opacity: 0;
+    transform: translateX(3px);
   }
 }
 
