@@ -13,7 +13,7 @@ class AiService {
   private snapToBestFluxDimensions(targetW: number, targetH: number, supportedDims: number[]): { width: number, height: number } {
     const targetRatio = targetW / targetH;
     const targetArea = targetW * targetH;
-    
+
     let bestW = supportedDims[0] || 1024;
     let bestH = supportedDims[0] || 1024;
     let minRatioDiff = Infinity;
@@ -312,7 +312,7 @@ class AiService {
 
         const finalVerificationTotal = promptTokens + reservedTokens;
         console.log(`[AiService] Final allocation: Prompt=${promptTokens}, Reserved=${reservedTokens}, Total=${finalVerificationTotal}, Limit=${currentLimit}`);
-        
+
         // Enforce image count limit based on model's img_no_can_process setting
         const imgLimit = modelInfo?.img_no_can_process; // NULL = no limit
         if (imgLimit != null && imgLimit > 0) {
@@ -369,11 +369,13 @@ class AiService {
                 .map((part: any) => part.text)
                 .join('\n\n');
             } else {
-              // Image delivery strategy based on model capacity:
-              // 1. Single-image models (limit === 1): Always send base64 for best compatibility.
-              // 2. Multi-image models (limit > 1 or none): Always send URLs to keep payload size low (critical for video frames).
+              // Image delivery strategy based on provider and model capacity:
+              // 1. Google Gemini models: ALWAYS send base64 — Gemini's OpenAI-compatible endpoint
+              //    cannot fetch external URLs (returns 400). This applies to ALL Google vision models.
+              // 2. Single-image models (limit === 1): Also send base64 for best compatibility.
+              // 3. Multi-image non-Google models (e.g. NVIDIA): Send URLs to keep payload size low.
               const imgLimit = modelInfo?.img_no_can_process;
-              const forceBase64 = imgLimit === 1;
+              const forceBase64 = provider === 'google' || imgLimit === 1;
 
               content = await Promise.all(content.map(async (part: any) => {
                 if (part.type === 'image_url' && part.image_url?.url && part.image_url.url.startsWith('http')) {
@@ -381,7 +383,7 @@ class AiService {
 
                   if (forceBase64) {
                     try {
-                      console.log(`[AiService] Single-image model detected (${model}). Converting to base64 for compatibility...`);
+                      console.log(`[AiService] Converting image to base64 for ${model} (provider=${provider}): ${url.substring(0, 60)}...`);
                       const base64 = await this.urlToBase64(url);
                       return {
                         type: 'image_url',
@@ -429,9 +431,9 @@ class AiService {
           const isMultimodal = Array.isArray(lastMsg.content);
           console.log(`[AiService] Last message role: ${lastMsg.role} | Content type: ${typeof lastMsg.content} | Multimodal: ${isMultimodal}`);
         }
-        
+
         console.log(`[AiService] Sending request to model ${model} with ${sanitized.length} messages. Provider: ${provider}`);
-        
+
         // Build provider-aware request params
         // Google's OpenAI-compatible endpoint requires max_completion_tokens (rejects max_tokens with 400)
         const requestParams: any = {
@@ -463,7 +465,7 @@ class AiService {
         const errorResponse = error.response?.data || error.error || error.body || error.data || error;
         const errorMsg = (error.message || '').toLowerCase();
         const detailMsg = typeof errorResponse === 'object' ? JSON.stringify(errorResponse) : String(errorResponse);
-        
+
         console.error(`[AiService] AI Provider Error: ${errorMsg} | Status: ${error.status || 'N/A'} | Details: ${detailMsg.substring(0, 500)}`);
 
         // ── Rate limit detection — throw immediately to key rotation layer ──
@@ -537,8 +539,8 @@ class AiService {
 
 
   async generateImage(
-    apiKey: string, 
-    prompt: string, 
+    apiKey: string,
+    prompt: string,
     model: string = 'black-forest-labs/flux-1-schnell',
     options: {
       negative_prompt?: string;
@@ -564,7 +566,7 @@ class AiService {
 
     // NVIDIA NIM endpoints are model-specific.
     let modelPath = model;
-    
+
     // Mapping for known models that have different internal paths on NVIDIA API
     const modelMapping: Record<string, string> = {
       'stabilityai/stable-diffusion-xl-base-1.0': 'stabilityai/stable-diffusion-xl',
@@ -617,7 +619,7 @@ class AiService {
     // SDXL and some older models require 'text_prompts' instead of 'prompt'
     const isSDXL = modelPath.includes('stable-diffusion-xl');
     const isSD35 = modelPath.includes('stable-diffusion-3.5');
-    
+
     if (isSDXL) {
       payload.width = finalWidth;
       payload.height = finalHeight;
@@ -629,7 +631,7 @@ class AiService {
       payload.sampler = 'K_EULER_ANCESTRAL';
     } else {
       payload.prompt = prompt;
-      
+
       if (isFlux) {
         if (modelPath.includes('schnell')) {
           payload.steps = Math.min(steps, 4);
@@ -664,7 +666,7 @@ class AiService {
       });
 
       let artifacts = response.data?.artifacts;
-      
+
       if (!artifacts && response.data?.data) {
         artifacts = response.data.data.map((item: any) => ({
           base64: item.b64_json || item.url,
@@ -688,7 +690,7 @@ class AiService {
     } catch (error: any) {
       let errMsg = error.message;
       const errorData = error.response?.data;
-      
+
       if (errorData) {
         // Handle cases where detail might be an object or array (common in NVIDIA NIM)
         const detail = errorData.detail || errorData.message;
@@ -1036,7 +1038,7 @@ class AiService {
         const fileRes = await axios.get(fileUrl, { responseType: 'arraybuffer', timeout: 30000 });
         const bytesBase64Encoded = Buffer.from(fileRes.data).toString('base64');
         const mimeType = String(fileRes.headers['content-type'] || (fileUrl.endsWith('.mp4') ? 'video/mp4' : 'image/png'));
-        
+
         if (mimeType.startsWith('image/')) {
           instance.image = {
             bytesBase64Encoded,
@@ -1061,7 +1063,7 @@ class AiService {
         const lastFrameRes = await axios.get(lastFrameUrl, { responseType: 'arraybuffer', timeout: 30000 });
         const lastFrameBytes = Buffer.from(lastFrameRes.data).toString('base64');
         const lastFrameMime = lastFrameRes.headers['content-type'] || 'image/png';
-        
+
         instance.lastFrame = {
           bytesBase64Encoded: lastFrameBytes,
           mimeType: lastFrameMime
@@ -1113,7 +1115,7 @@ class AiService {
       while (!done && attempts < maxAttempts) {
         attempts++;
         await new Promise(resolve => setTimeout(resolve, 5000));
-        
+
         console.log(`[AiService] Polling video operation: attempt ${attempts}/${maxAttempts}`);
         const pollRes = await axios.get(pollUrl, { timeout: 30000 });
         operationStatus = pollRes.data;
@@ -1136,7 +1138,7 @@ class AiService {
 
       const responseData = operationStatus.response;
       let videoUri = responseData?.generateVideoResponse?.generatedSamples?.[0]?.video?.uri ||
-                     responseData?.generatedVideos?.[0]?.video?.uri;
+        responseData?.generatedVideos?.[0]?.video?.uri;
 
       if (!videoUri) {
         console.error(`[AiService] Completed operation data missing video uri:`, JSON.stringify(operationStatus).substring(0, 1000));
@@ -1200,7 +1202,7 @@ class AiService {
     }
   }
 
-   async transcribeAudio(apiKey: string, filePath: string, model: string = 'nova-2') {
+  async transcribeAudio(apiKey: string, filePath: string, model: string = 'nova-2') {
     const deepgram = new DeepgramClient({ apiKey });
 
     try {
