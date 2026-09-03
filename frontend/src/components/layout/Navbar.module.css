@@ -737,32 +737,95 @@
 
 @media (max-width: 650px) {
 
-  .userSection,
-  .userSkeletonButton,
-  .authButtons {
+  /* ── Usage pills: switch to compact inline form (no progress bar) ── */
+  .usagePill {
+    flex-direction: row !important;
+    align-items: center !important;
+    padding: 4px 8px !important;
+    min-width: unset !important;
+    gap: 4px !important;
+    background: rgba(255, 255, 255, 0.03) !important;
+    border-radius: 8px !important;
+    min-height: unset;
+  }
+
+  .pillBar {
     display: none !important;
   }
 
-  /* Force show user section & buttons on images, settings, pricing, feature request, and legal pages under max-width 650px screen sizes */
-  .userSection.showOnImagePage,
-  .userSection.showOnSettingsPage,
-  .userSection.showOnPricingPage,
-  .userSection.showOnFeatureRequestPage,
-  .userSection.showOnLegalPage,
-  .userSkeletonButton.showOnImagePage,
-  .userSkeletonButton.showOnSettingsPage,
-  .userSkeletonButton.showOnPricingPage,
-  .userSkeletonButton.showOnFeatureRequestPage,
-  .userSkeletonButton.showOnLegalPage,
-  .authButtons.showOnImagePage,
-  .authButtons.showOnFeatureRequestPage,
-  .authButtons.showOnLegalPage {
-    display: flex !important;
+  .usagePillHeader {
+    gap: 4px !important;
+    margin-bottom: 0;
+    flex-direction: column;
+  }
+
+  .pillLabel {
+    font-size: 0.6rem !important;
+  }
+
+  .pillCount {
+    font-size: 0.6rem !important;
+  }
+
+  .usageSkeletonPill {
+    flex-direction: row !important;
+    align-items: center !important;
+    padding: 4px 8px !important;
+    min-width: unset !important;
+    width: auto !important;
+    height: auto !important;
+    gap: 4px !important;
+    background: rgba(255, 255, 255, 0.03) !important;
+    border-radius: 8px !important;
+  }
+
+  .usageSkeletonPill>div:last-child {
+    display: none !important;
+  }
+
+  .usageSkeletonHeader {
+    width: auto !important;
+    gap: 4px !important;
+  }
+
+  .usageSkeletonHeader>div:first-child {
+    width: 25px !important;
+    height: 8px !important;
+  }
+
+  .usageSkeletonHeader>div:last-child {
+    width: 20px !important;
+    height: 8px !important;
   }
 
   /* Hide image page usage pills on small screens to prevent navbar crowding */
   .imagePagePills {
     display: none !important;
+  }
+
+  /* ── User section: always show avatar, hide name/plan text ── */
+  .userInfo {
+    display: none !important;
+  }
+
+  .userSkeletonInfo {
+    display: none !important;
+  }
+
+  .userButton {
+    padding: 5px;
+  }
+
+  .userSection .userButton {
+    padding: 5px;
+    border-radius: 50%;
+  }
+
+  .userSkeletonButton {
+    padding: 6px;
+    border-radius: 50%;
+    min-width: unset;
+    width: 44px;
   }
 
   .dropdownMenu:not(.right) {
@@ -805,86 +868,22 @@
     border-radius: 12px !important;
   }
 
-  .usagePill {
-    flex-direction: row !important;
-    align-items: center !important;
-    padding: 4px 8px !important;
-    min-width: unset !important;
-    gap: 4px !important;
-    background: rgba(255, 255, 255, 0.03) !important;
-    border-radius: 8px !important;
-    min-height: unset;
-  }
-
-  .pillBar {
+  /* ── Hide usage pills completely at this breakpoint ── */
+  /* .usagePills {
     display: none !important;
-  }
-
-  .usagePillHeader {
-    gap: 4px !important;
-    margin-bottom: 0;
-  }
-
-  .pillLabel {
-    font-size: 0.6rem !important;
-  }
-
-  .pillCount {
-    font-size: 0.6rem !important;
-  }
-
-  .usageSkeletonPill {
-    flex-direction: row !important;
-    align-items: center !important;
-    padding: 4px 8px !important;
-    min-width: unset !important;
-    width: auto !important;
-    height: auto !important;
-    gap: 4px !important;
-    background: rgba(255, 255, 255, 0.03) !important;
-    border-radius: 8px !important;
-  }
-
-  .usageSkeletonPill>div:last-child {
-    display: none !important;
-  }
-
-  .usageSkeletonHeader {
-    width: auto !important;
-    gap: 4px !important;
-  }
-
-  .usageSkeletonHeader>div:first-child {
-    width: 25px !important;
-    height: 8px !important;
-  }
-
-  .usageSkeletonHeader>div:last-child {
-    width: 20px !important;
-    height: 8px !important;
-  }
+  } */
 
   .navGroup {
     left: 55%;
   }
-
-  .userInfo {
-    display: none !important;
-  }
-
-  .userSkeletonInfo {
-    display: none !important;
-  }
-
-  .userButton {
-    padding: 5px;
-  }
-
-  .usagePillHeader {
-    flex-direction: column;
-  }
 }
 
+/* ── Hide usage pills completely at this breakpoint ── */
+@media (max-width: 500px) {
+  .usagePills {
+    display: none !important;
+  }
+}
 
 @media (max-width: 400px) {
   .dropdownMenu {
