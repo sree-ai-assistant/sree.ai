@@ -436,6 +436,24 @@ export const ChatInput: React.FC<ChatInputProps> = ({
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
+
+    if (attachments.length + files.length > 10) {
+      toast.error('You can only upload up to 10 files per prompt.', {
+        style: {
+          background: '#ff4757',
+          color: '#fff',
+          fontWeight: 'bold',
+        },
+        iconTheme: {
+          primary: '#fff',
+          secondary: '#ff4757',
+        },
+      });
+      if (fileInputRef.current) fileInputRef.current.value = '';
+      if (imageInputRef.current) imageInputRef.current.value = '';
+      return;
+    }
+
     // Block anonymous users from uploading files
     if (!user) {
       onAuthRequired?.();
