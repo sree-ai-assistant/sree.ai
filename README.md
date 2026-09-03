@@ -340,15 +340,18 @@ stateDiagram-v2
    NODE_ENV=development
    FRONTEND_URL=http://localhost:5173
 
-   # Supabase
+   # Supabase Configuration
    SUPABASE_URL=https://your-project.supabase.co
    SUPABASE_ANON_KEY=your_supabase_anon_key
    SUPABASE_SERVICE_ROLE_KEY=your_supabase_service_role_key
 
    # AI Provider Keys (supports single or comma-separated keys for pool rotation)
    NVIDIA_API_KEY=your_nvidia_api_key
+   # NVIDIA_API_KEYS=nvapi-key1,nvapi-key2
    GOOGLE_API_KEY=your_google_gemini_key
+   # GOOGLE_API_KEYS=key1,key2
    GROQ_API_KEY=your_groq_api_key
+   # GROQ_API_KEYS=gsk-key1,gsk-key2
    DEEPGRAM_API_KEY=your_deepgram_api_key
 
    # BYOK Key Encryption (32-character hex key)
@@ -359,12 +362,28 @@ stateDiagram-v2
    RAZORPAY_KEY_SECRET=your_razorpay_key_secret
    RAZORPAY_WEBHOOK_SECRET=your_razorpay_webhook_secret
 
-   # Cloudflare R2 Storage (Optional for file uploads)
+   # Cloudflare R2 Storage (File Uploads & Media Assets)
    CLOUDFLARE_R2_ACCESS_KEY_ID=your_r2_access_key
    CLOUDFLARE_R2_SECRET_ACCESS_KEY=your_r2_secret_key
-   CLOUDFLARE_R2_BUCKET_NAME=your_bucket_name
+   CLOUDFLARE_R2_BUCKET_NAME=chat-files
    CLOUDFLARE_R2_ENDPOINT=https://your_account_id.r2.cloudflarestorage.com
-   CLOUDFLARE_R2_PUBLIC_URL=https://your_public_r2_domain.dev
+   CLOUDFLARE_R2_PUBLIC_URL=https://pub-your-r2-dev-url.r2.dev
+   IMAGE_GENERATION_PUBLIC_URL=https://imggen.yourdomain.com
+   VIDEO_GENERATION_PUBLIC_URL=https://videogen.yourdomain.com
+   FEATURE_REQUEST_R2_BUCKET_NAME=feature-request
+   FEATURE_REQUEST_R2_PUBLIC_URL=https://frss.yourdomain.com
+
+   # Feature Request & Bug Report Webhook (backend only)
+   FEATURE_REQUEST_WEBHOOK_URL=https://your.webhook.url/webhook/uuid
+   FEATURE_REQUEST_WEBHOOK_SECRET=your_webhook_secret
+
+   # n8n Webhook for Payment Failure Email Notifications
+   N8N_WEBHOOK_SECRET=your_n8n_webhook_secret
+   N8N_PAYMENT_FAILURE_WEBHOOK_URL=https://your.webhook.url/webhook/uuid
+
+   # PostHog Analytics & Error Tracking (Backend)
+   POSTHOG_PROJECT_TOKEN=your_posthog_project_token
+   POSTHOG_HOST=https://us.i.posthog.com
    ```
 
    Create `.env` in `frontend/`:
@@ -372,6 +391,10 @@ stateDiagram-v2
    VITE_SUPABASE_URL=https://your-project.supabase.co
    VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
    VITE_API_BASE_URL=http://localhost:5000/api
+
+   # PostHog Analytics & Error Tracking (Frontend)
+   VITE_POSTHOG_PROJECT_TOKEN=your_posthog_project_token
+   VITE_POSTHOG_HOST=https://us.i.posthog.com
    ```
 
 4. **Initialize Database:**
@@ -449,11 +472,11 @@ All policies are maintained as markdown source files in [`legal/`](file:///p:/an
 | Policy | Markdown Document | Public App Route | Core Coverage & Statutory Protections |
 |---|---|---|---|
 | **Privacy Policy** | [`legal/01-privacy-policy.md`](legal/01-privacy-policy.md) | [`/privacy`](https://app.sreeai.qzz.io/privacy) | DPDP Act 2023 data rights, 9 sub-processors, zero raw IP storage, AI provider transmission disclosures, and designated Grievance Officer. |
-| **Terms of Service** | [`legal/02-terms-of-service.md`](https://github.com/sree-ai-assistant/sree.ai/blob/master/legal/02-terms-of-service.md) | [`/terms`](https://app.sreeai.qzz.io/terms) | Section 79 IT Act safe harbor, Zero-Liability shield for cloud/database breaches, 100% user sole liability for uploaded files/BYOK, and Indian arbitration. |
-| **Security & BYOK Policy** | [`legal/03-security-and-byok-policy.md`](file:///p:/antygravity-projects/Ai-Sass-3/legal/03-security-and-byok-policy.md) | [`/security`](https://app.sreeai.qzz.io/security) | AES-256-GCM encryption architecture, 16-byte random IVs, 100% table RLS matrix, and Shared Responsibility Framework (Supabase, Cloudflare, Razorpay, AI providers). |
-| **Refund & Cancellation Policy** | [`legal/04-refund-and-cancellation-policy.md`](file:///p:/antygravity-projects/Ai-Sass-3/legal/04-refund-and-cancellation-policy.md) | [`/refund-policy`](https://app.sreeai.qzz.io/refund-policy) | Consumable digital service rules, in-app self-service cancellations, 3 exception categories, and 5–7 business days Razorpay refund SLA. |
-| **Acceptable Use Policy (AUP)** | [`legal/05-acceptable-use-policy.md`](file:///p:/antygravity-projects/Ai-Sass-3/legal/05-acceptable-use-policy.md) | [`/acceptable-use`](https://app.sreeai.qzz.io/acceptable-use) | Zero-tolerance for CSAM (NCMEC referral), bans on deepfakes/malware/DDoS/proxy circumvention, and prohibitions on certified high-risk decisions. |
-| **Cookie Policy** | [`legal/06-cookie-policy.md`](file:///p:/antygravity-projects/Ai-Sass-3/legal/06-cookie-policy.md) | [`/cookies`](https://app.sreeai.qzz.io/cookies) | Complete transparency for Supabase Auth JWTs, anonymous guest tokens, PostHog telemetry cookies (zero PII), and local UI preferences. |
+| **Terms of Service** | [`legal/02-terms-of-service.md`](legal/02-terms-of-service.md) | [`/terms`](https://app.sreeai.qzz.io/terms) | Section 79 IT Act safe harbor, Zero-Liability shield for cloud/database breaches, 100% user sole liability for uploaded files/BYOK, and Indian arbitration. |
+| **Security & BYOK Policy** | [`legal/03-security-and-byok-policy.md`](legal/03-security-and-byok-policy.md) | [`/security`](https://app.sreeai.qzz.io/security) | AES-256-GCM encryption architecture, 16-byte random IVs, 100% table RLS matrix, and Shared Responsibility Framework (Supabase, Cloudflare, Razorpay, AI providers). |
+| **Refund & Cancellation Policy** | [`legal/04-refund-and-cancellation-policy.md`](legal/04-refund-and-cancellation-policy.md) | [`/refund-policy`](https://app.sreeai.qzz.io/refund-policy) | Consumable digital service rules, in-app self-service cancellations, 3 exception categories, and 5–7 business days Razorpay refund SLA. |
+| **Acceptable Use Policy (AUP)** | [`legal/05-acceptable-use-policy.md`](legal/05-acceptable-use-policy.md) | [`/acceptable-use`](https://app.sreeai.qzz.io/acceptable-use) | Zero-tolerance for CSAM (NCMEC referral), bans on deepfakes/malware/DDoS/proxy circumvention, and prohibitions on certified high-risk decisions. |
+| **Cookie Policy** | [`legal/06-cookie-policy.md`](legal/06-cookie-policy.md) | [`/cookies`](https://app.sreeai.qzz.io/cookies) | Complete transparency for Supabase Auth JWTs, anonymous guest tokens, PostHog telemetry cookies (zero PII), and local UI preferences. |
 
 ---
 
