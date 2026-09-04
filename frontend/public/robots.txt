@@ -16,6 +16,9 @@ User-agent: YandexBot
 User-agent: *
 Allow: /
 Allow: /chat
+Allow: /dashboard
+Allow: /image
+Allow: /video
 Allow: /voice
 Allow: /pricing
 Allow: /feature-request
@@ -34,7 +37,6 @@ Allow: /sitemap.xml
 # Disallow authenticated private areas, user state, and internal APIs
 Disallow: /api/
 Disallow: /settings
-Disallow: /dashboard
 Disallow: /onboarding
 Disallow: /forgot-password
 Disallow: /login
@@ -58,6 +60,9 @@ User-agent: Bytespider
 User-agent: Diffbot
 Allow: /
 Allow: /chat
+Allow: /dashboard
+Allow: /image
+Allow: /video
 Allow: /voice
 Allow: /pricing
 Allow: /feature-request
@@ -72,7 +77,6 @@ Allow: /llms.txt
 Allow: /llms-full.txt
 Disallow: /api/
 Disallow: /settings
-Disallow: /dashboard
 
 # ------------------------------------------------------------------------------
 # 3. Sitemaps and Host
