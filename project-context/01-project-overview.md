@@ -21,7 +21,9 @@ Ai-Sass-3/
 ├── frontend/          # React 19 + Vite 8 SPA
 ├── backend/           # Express 5 REST API
 ├── shared/            # Shared types & constants (@sree/shared)
-├── supabase/          # Database migrations (25 migration files)
+├── legal/             # Watertight statutory policies (DPDP Act, IT Act Sec 79)
+├── project-context/   # Architectural documentation & full-schema.sql
+├── supabase/          # Database migrations (26 migration files)
 ├── design-system/     # Design system documentation
 ├── docs/              # Legacy .docx documentation (PRD, TRD, etc.)
 ├── package.json       # Root workspace config
@@ -49,14 +51,15 @@ Ai-Sass-3/
 
 | Metric | Count |
 |--------|-------|
-| **Frontend Pages** | 10 (Chat, Image, Video, Dashboard, Settings, Pricing, Onboarding, Feature Request, Login, Signup) |
-| **Backend Route Files** | 8 (AI, Payment, User, Models, Health, Config, Feature Requests, STT) |
-| **Backend Services** | 16 (AI, Razorpay, Usage, Subscription, Anonymous, Abuse, API Key, API Key Pool, File, PostHog, Queue, R2, Video, Feature Request, Provider Validation, Encryption) |
+| **Frontend Pages** | 18 (Chat, Image, Video, Dashboard, Settings, Pricing, Onboarding, Feature Request, Login, Signup, Forgot Password, plus 7 Legal Suite pages) |
+| **Backend Route Files** | 7 (AI, Payment, User, Models, Health, Config, Feature Requests) + STT delegated to AI routes |
+| **Backend Services** | 15 (AI, Razorpay, Usage, Subscription, Anonymous, Abuse, API Key, API Key Pool, File, PostHog, Queue, R2, Video, Feature Request, Provider Validation) |
 | **Zustand Stores** | 9 (auth, chat, image, video, model, usage, ui, onboarding, upload-agreement) |
-| **Database Migrations** | 25 SQL files |
-| **Middleware** | 9 (auth, anonymousIdentity, rateLimit, abuseDetection, errorHandler, uploadEnforcement, featureRequestRateLimit) |
+| **Database Migrations** | 26 SQL files |
+| **Middleware** | 9 (auth, anonymousIdentity, rateLimit, abuseDetection, errorHandler, uploadEnforcement, featureRequestRateLimit, queuePriority, starterPlan) |
 | **AI Providers** | 4 (NVIDIA NIM, Google Gemini, Groq, Deepgram) |
-| **AI Models** | 80+ models registered in `ai_models` table |
+| **AI Models** | 85+ models registered in `ai_models` table |
+| **SEO & AEO Engine** | `robots.txt`, dynamic `sitemap.xml`, `llms.txt`, `llms-full.txt`, Schema.org JSON-LD |
 
 ---
 

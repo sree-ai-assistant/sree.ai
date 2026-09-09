@@ -39,13 +39,15 @@ graph TD
         Navbar["Navbar"]
         Sidebar["Sidebar"]
         SettingsSidebar["SettingsSidebar"]
+        LegalLayout["LegalLayout (with Animated Top Drawer)"]
+        DashboardLayout["DashboardLayout"]
     end
 
-    subgraph "Page Components"
+    subgraph "Application Pages"
         ChatPage["ChatPage"]
-        ImagePage["ImagePage"]
-        VideoPage["VideoPage"]
-        DashboardPage["DashboardPage"]
+        ImagePage["ImageGenPage"]
+        VideoPage["VideoGenPage"]
+        DashboardPage["Dashboard (Overhauled)"]
         SettingsPage["SettingsPage"]
         PricingPage["PricingPage"]
         OnboardingPage["OnboardingPage"]
@@ -54,29 +56,26 @@ graph TD
         SignupPage["SignupPage"]
     end
 
-    subgraph "Chat Components"
-        ChatInput["ChatInput"]
-        ChatMessage["ChatMessage"]
-        CodeBlock["CodeBlock"]
-        ModelSelector["ModelSelector"]
-        ThinkingAnimation["ThinkingAnimation"]
-        MessageAttachment["MessageAttachment"]
-        VoiceMode["VoiceMode"]
-        ConversationList["ConversationList"]
+    subgraph "Legal Center Suite"
+        TermsPage["TermsPage"]
+        PrivacyPage["PrivacyPage"]
+        SecurityPage["SecurityPage"]
+        RefundPolicyPage["RefundPolicyPage"]
+        AcceptableUsePage["AcceptableUsePage"]
+        CookiePolicyPage["CookiePolicyPage"]
     end
 
-    subgraph "Image Components"
-        ImageSidebar["ImageSidebar"]
-        ImageLightbox["ImageLightbox"]
-        ImageGallery["ImageGallery"]
+    subgraph "Atomic UI Primitives (components/ui/)"
+        Avatar["Avatar"]
+        Badge["Badge"]
+        Button["Button"]
+        Card["Card"]
+        Progress["Progress"]
+        Skeleton["Skeleton"]
+        Tabs["Tabs"]
     end
 
-    subgraph "Video Components"
-        VideoSidebar["VideoSidebar"]
-        VideoGallery["VideoGallery"]
-    end
-
-    subgraph "Shared Components"
+    subgraph "Shared Components & Modals"
         UpgradeModal["UpgradeModal"]
         LimitExceededModal["LimitExceededModal"]
         UploadAgreementModal["UploadAgreementModal"]
@@ -92,19 +91,9 @@ graph TD
     App --> DashboardPage
     App --> SettingsPage
     App --> PricingPage
-
-    ChatPage --> Sidebar
-    ChatPage --> ChatInput
-    ChatPage --> ChatMessage
-    ChatPage --> ModelSelector
-    ChatPage --> VoiceMode
-
-    ImagePage --> ImageSidebar
-    ImagePage --> ImageLightbox
-
-    VideoPage --> VideoSidebar
-
-    SettingsPage --> SettingsSidebar
+    App --> LegalLayout
+    LegalLayout --> TermsPage
+    LegalLayout --> PrivacyPage
 ```
 
 ---
@@ -276,11 +265,15 @@ export const useStore = create<StoreState>((set, get) => ({
 
 ---
 
-## Responsive Design
+## Responsive Design & Mobile Overhaul
 
 - **Desktop:** Full sidebar + content layout (≥1024px)
 - **Tablet:** Collapsible sidebar, stacked controls (768px-1023px)
-- **Mobile:** Bottom navigation, slide-out menu, full-width content (< 768px)
+- **Mobile (< 768px):**
+  - **Top Navigation Bar:** Displays User avatar & profile badge directly on the top navbar instead of an overflowing usage pill.
+  - **Sidebar Toggle Indicator:** Includes a 5-second loop animation logo indicator and a dynamic moving toggle icon to make sidebar drawer discovery effortless.
+  - **2-Tier Mobile Action Bar on Dashboard:** Two stacked action rows offering instant one-tap entry to Chat, Voice, Image, and Video studios with a compact daily usage status bar.
+  - **Studio Feature Cards:** Glassmorphic cards with responsive micro-tool tags and prompt truncation preventing horizontal layout breakage on small viewports.
 - **Breakpoints:** Tailwind CSS 4 defaults (`sm`, `md`, `lg`, `xl`, `2xl`)
 
 ---

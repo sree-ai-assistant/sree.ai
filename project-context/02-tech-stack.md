@@ -28,6 +28,9 @@
 | **@supabase/supabase-js** | 2.103.x | Supabase client (auth + DB queries) |
 | **posthog-js** | 1.413.x | Analytics & error tracking |
 | **@posthog/react** | 1.10.x | React PostHog provider |
+| **canvas-confetti** | 1.9.x | Celebration animations on plan checkout & milestones |
+| **Custom UI Library** | Internal | Shadcn-style accessible primitives (`components/ui/`: Avatar, Badge, Button, Card, Progress, Skeleton, Tabs) |
+| **Schema.org / JSON-LD** | W3C Standard | Rich search snippets & Knowledge Graph metadata (`index.html`) |
 
 ---
 
@@ -97,10 +100,11 @@
 
 | Provider | Models | Use Case |
 |----------|--------|----------|
-| **NVIDIA NIM** | 80+ models (DeepSeek, Llama, Mistral, Qwen, Gemma, Phi, FLUX, Stable Diffusion) | Chat, Image Generation |
-| **Google Gemini** | Gemini 2.5/3.x/3.5+, Veo 3.1 | Chat, Image Gen, Video Gen |
-| **Groq** | Compound, Compound-mini | Fast inference chat |
-| **Deepgram** | Nova models | Speech-to-text transcription |
+| **NVIDIA NIM** | 85+ models (DeepSeek V3.2 / V4 Pro, Llama 3.3/3.1, Nemotron 3.5 Lightning, Meta Muse Glimmer, Mistral Large, Qwen 2.5, Gemma 2, Phi, FLUX.2 klein, FLUX.1 dev/schnell, SDXL, SD 3.5) | Chat, Image Generation (FLUX.2 klein default) |
+| **Google Gemini** | Gemini 3.8 Flash, 2.5/3.x/3.5+, Veo 3.1 | Chat, Image Gen, Video Gen |
+| **Groq** | Compound, Compound-mini, LLaMA 3.3 70B, Whisper Large V3 | Ultra-fast inference chat, primary STT fallback |
+| **Deepgram** | Nova-2 models | Low-latency speech-to-text & TTS voice audio |
+| **Moonshot AI** | Kimi K3 | Long-context conversational reasoning |
 
 ---
 
@@ -108,8 +112,10 @@
 
 | Technology | Purpose |
 |-----------|---------|
-| **Vercel** | Frontend hosting (SPA) |
-| **Cloudflare R2** | S3-compatible object storage for files |
-| **n8n** | Webhook automation (feature requests, payment failure emails) |
+| **Vercel** | Frontend hosting (SPA with catch-all rewrites) |
+| **Cloudflare R2** | S3-compatible object storage for chat attachments & feature request screenshots |
+| **Cloudflare CDN/DNS** | Edge routing, SSL/TLS, verified search crawler delivery |
+| **AEO / GEO Engine** | `llms.txt`, `llms-full.txt`, and standard `robots.txt` + `sitemap.xml` |
+| **n8n** | Webhook automation (feature requests, payment failure notifications) |
 | **PostHog** | Product analytics, error tracking, session replay |
 | **npm Workspaces** | Monorepo management |

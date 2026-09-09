@@ -1176,6 +1176,29 @@ $$;
 
 
 -- =============================================
+-- F8. UPDATE ANONYMOUS COOKIE CONSENT
+-- =============================================
+CREATE OR REPLACE FUNCTION public.update_anonymous_cookie_consent(
+  p_anon_id TEXT,
+  p_cookie_consent BOOLEAN,
+  p_cookie_consent_at TIMESTAMPTZ
+)
+RETURNS VOID
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = 'public'
+AS $$
+BEGIN
+  UPDATE public.anonymous_users
+  SET cookie_consent = p_cookie_consent,
+      cookie_consent_at = p_cookie_consent_at
+  WHERE anon_id = p_anon_id
+    AND migrated_to_user_id IS NULL;
+END;
+$$;
+
+
+-- =============================================
 -- GRANTS
 -- =============================================
 GRANT EXECUTE ON FUNCTION public.migrate_anonymous_data(TEXT, UUID) TO authenticated;

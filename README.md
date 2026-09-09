@@ -32,16 +32,20 @@ Designed with a **dual-identity architecture**, users can start chatting immedia
 
 ### 💬 Multi-Model Conversational Chat
 - **Multi-turn Contextual Chat**: Streaming completions with real-time markdown rendering, LaTeX math support, and syntax-highlighted code blocks.
-- **Dynamic Model Selector**: Seamlessly switch between LLaMA 3.3/3.1, DeepSeek V3.2, Gemma 2, Nemotron, Mistral Large, Qwen, and Gemini 2.0/1.5 Flash models based on subscription tier.
-- **Multi-Modal File Analysis**: Upload and analyze PDFs, Word documents (`.docx`), Excel spreadsheets (`.xlsx`), images, and text files.
+- **Dynamic Model Selector**: Seamlessly switch between 85+ cutting-edge models (LLaMA 3.3/3.1, DeepSeek V3.2 & V4 Pro, Gemini 3.8/2.0/1.5 Flash, Moonshot Kimi K3, Nemotron 3.5 Lightning, Meta Muse Glimmer, Qwen 2.5, Mistral Large).
+- **Multi-Modal File Analysis**: Upload and analyze PDFs, Word documents (`.docx`), Excel spreadsheets (`.xlsx`), images, and text files (with hard 10-file upload safety cap).
 
 ### 🎙️ Real-Time Voice Assistant
 - **Bi-Directional Voice Mode**: Natural voice interaction with low-latency Speech-To-Text (STT) and dynamic Text-To-Speech (TTS).
 - **Cascading STT Engine**: Zero-downtime voice input with automatic fallback from Deepgram Nova-2 to Groq Whisper Large V3.
 
 ### 🎨 Creative Studio (Images & Videos)
-- **AI Image Generation**: Powered by FLUX.1 (Dev/Schnell), SDXL, and SD 3.5 Large with custom prompt expansion, aspect ratios, and instant downloads.
-- **AI Video Generation**: Text-to-video capabilities powered by Google Veo & Omni Flash models with automated Cloudflare R2 asset storage.
+- **AI Image Generation**: Prioritizes **FLUX.2 klein** as the default high-speed studio model, alongside FLUX.1 (Dev/Schnell), SDXL, and SD 3.5 Large with local settings persistence, aspect ratios, and instant downloads.
+- **AI Video Generation**: Text-to-video capabilities powered by Google Veo 3.1 & Omni Flash models with automated Cloudflare R2 asset storage.
+
+### 🌐 SEO & AEO (Answer Engine Optimization) Engine
+- **Search & AI Discoverability**: Built-in `robots.txt` granting verified search crawlers and welcoming AI answer engines (`GPTBot`, `PerplexityBot`, `ClaudeBot`, `Applebot`).
+- **Dynamic Sitemaps & Agent Context**: 15 canonical URLs mapped in `sitemap.xml`, plus lightweight `llms.txt` and exhaustive `llms-full.txt` for AI agent consumption and Schema.org JSON-LD structured data.
 
 ### 🔑 Bring Your Own Key (BYOK) & Key Pooling
 - **Encrypted User Keys**: Users can supply their own API keys (encrypted via AES-256-GCM) to unlock extended quotas with a **0.2x rate multiplier**.
@@ -267,11 +271,14 @@ stateDiagram-v2
 │   └── package.json
 │
 ├── frontend/                 # React 19 single-page application
+│   ├── public/               # Static assets & SEO/AEO files (robots.txt, sitemap.xml, llms.txt)
 │   ├── src/
-│   │   ├── components/       # UI components, layout, modals, chat, voice, studio
+│   │   ├── components/       # Layout, modals, chat, voice, studio, and ui/ primitives
+│   │   ├── features/         # Feature modules (auth, dashboard, feature-requests)
+│   │   ├── pages/            # Core pages (Chat, Image, Video, Dashboard, Settings, Pricing, etc.)
 │   │   ├── pages-legal/      # Legal Center pages (Terms, Privacy, Security, etc.)
 │   │   ├── hooks/            # Custom React hooks (voice recording, payments, SSE)
-│   │   ├── stores/           # Zustand state management (auth, chat, voice, models, UI)
+│   │   ├── store/            # Zustand state management (auth, chat, image, video, models, UI)
 │   │   ├── services/         # Frontend API integration layer
 │   │   └── styles/           # Global styles and design system variables
 │   └── package.json
@@ -437,8 +444,8 @@ The database utilizes Supabase PostgreSQL with strict Row Level Security (RLS) o
 | Scope | Method | Endpoint | Description |
 |---|---|---|---|
 | **AI** | `POST` | `/api/ai/chat` | Streaming SSE multi-turn chat completion |
-| **AI** | `POST` | `/api/ai/generate-image` | Text-to-image generation |
-| **AI** | `POST` | `/api/ai/generate-video` | Text-to-video generation |
+| **AI** | `POST` | `/api/ai/image` | Text-to-image studio generation (FLUX.2 klein default) |
+| **AI** | `POST` | `/api/ai/video` | Text-to-video studio generation (Veo 3.1 / Omni Flash) |
 | **AI** | `POST` | `/api/ai/stt` | Cascading speech-to-text audio transcription |
 | **AI** | `POST` | `/api/ai/tts` | Text-to-speech voice synthesis |
 | **Billing** | `POST` | `/api/payment/create-subscription` | Initiates Razorpay checkout session |
@@ -446,9 +453,10 @@ The database utilizes Supabase PostgreSQL with strict Row Level Security (RLS) o
 | **Billing** | `POST` | `/api/payment/webhook` | Handles recurring charges, failures, & cancellations |
 | **Billing** | `POST` | `/api/payment/cancel` | Schedules downgrade at end of current cycle |
 | **User** | `GET` | `/api/user/profile` | Retrieves profile, active plan, and real-time quotas |
-| **User** | `PUT` | `/api/user/profile` | Updates system prompts & personal preferences |
-| **Keys** | `POST` | `/api/user/api-keys` | Saves user BYOK API key (encrypted) |
+| **User** | `PATCH` | `/api/user/profile` | Updates system prompts & personal preferences |
+| **Keys** | `POST` | `/api/user/settings/keys` | Saves user BYOK API key (encrypted) |
 | **Feature** | `POST` | `/api/feature-requests` | Submits feature requests / bug reports |
+| **Config** | `GET` | `/api/config/public` | Retrieves whitelisted public runtime configuration |
 
 *Detailed request/response contracts available in [`project-context/07-api-reference.md`](file:///p:/antygravity-projects/Ai-Sass-3/project-context/07-api-reference.md).*
 

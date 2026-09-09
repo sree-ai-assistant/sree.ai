@@ -9,13 +9,17 @@
 ## Route Registration (`routes/index.ts`)
 
 ```typescript
-app.use('/api/health',            healthRoutes);
-app.use('/api/user',              userRoutes);
-app.use('/api/ai',                aiRoutes);
-app.use('/api/models',            modelsRoutes);
-app.use('/api/payment',           paymentRoutes);
-app.use('/api/feature-requests',  featureRequestRoutes);
-app.use('/api/config',            configRoutes);
+router.use('/health',            healthRoutes);
+router.use('/user',              userRoutes);
+router.use('/ai',                aiRoutes);
+router.use('/models',            modelsRoutes);
+router.use('/payment',           paymentRoutes);
+router.use('/feature-requests',  featureRequestRoutes);
+router.use('/config',            configRoutes);
+router.use('/stt', (req, res, next) => {
+  req.url = '/stt' + req.url;
+  aiRoutes(req, res, next);
+});
 ```
 
 ---

@@ -124,21 +124,35 @@ When a user signs up, a database trigger `handle_new_user()` automatically creat
 | `email` | TEXT | From auth provider |
 | `avatar_url` | TEXT | Supabase Storage URL |
 | `occupation` | TEXT | User's role (set during onboarding) |
+| `description` | TEXT | Self-description (max 500 chars) |
+| `date_of_birth` | DATE | Minimum 13 years old |
 | `custom_instructions` | TEXT | System prompt preferences |
 | `more_about_you` | TEXT | Additional personalization context |
-| `plan_type` | TEXT | `free` / `starter` / `pro` |
-| `has_completed_onboarding` | BOOLEAN | Gate for onboarding guard |
-| `onboarding_step` | INTEGER | Current onboarding step (0-4) |
-| `chat_limit_daily` | INTEGER | Denormalized daily chat limit |
+| `plan_type` | TEXT | `free` / `starter` / `pro` / `elite` / `business` |
+| `requests_remaining` | INTEGER | Legacy request counter |
+| `onboarding_completed` | BOOLEAN | Gate for onboarding guard |
+| `onboarding_step` | INTEGER | Current onboarding step (0=not started, 1=profile, 2=api keys) |
+| `chat_limit_daily` | INTEGER | Denormalized daily chat limit (default: 0) |
 | `chat_limit_monthly` | INTEGER | Denormalized monthly chat limit |
 | `voice_limit_daily` | INTEGER | Denormalized daily voice limit |
 | `voice_limit_monthly` | INTEGER | Denormalized monthly voice limit |
 | `image_limit_daily` | INTEGER | Denormalized daily image limit |
 | `image_limit_monthly` | INTEGER | Denormalized monthly image limit |
 | `upload_limit_mb` | INTEGER | Max file size per plan |
+| `download_limit_hourly` | INTEGER | Hourly download limit |
+| `download_limit_daily` | INTEGER | Daily download limit |
+| `chat/voice/image_count_daily/monthly` | NUMERIC | Usage counters |
+| `download_count_hourly` | INTEGER | Hourly download counter |
+| `download_count_daily` | INTEGER | Daily download counter |
+| `last_download_at` | TIMESTAMPTZ | Last download timestamp |
 | `file_upload_agreed` | BOOLEAN | User accepted upload policy |
 | `file_upload_agreed_at` | TIMESTAMPTZ | When policy was accepted |
-| `cookie_consent` | BOOLEAN | GDPR consent status |
+| `cookie_consent` | BOOLEAN | GDPR & DPDP consent status |
+| `cookie_consent_at` | TIMESTAMPTZ | When cookie consent was given/revoked |
+| `tos_accepted` | BOOLEAN | Terms of Service acceptance |
+| `tos_accepted_at` | TIMESTAMPTZ | When ToS was accepted |
+| `privacy_accepted` | BOOLEAN | Privacy Policy acceptance |
+| `privacy_accepted_at` | TIMESTAMPTZ | When Privacy Policy was accepted |
 | `created_at` | TIMESTAMPTZ | Account creation time |
 | `updated_at` | TIMESTAMPTZ | Last profile update |
 
@@ -148,7 +162,7 @@ When a user signs up, a database trigger `handle_new_user()` automatically creat
 
 ```mermaid
 graph LR
-    A["Signup / Login"] --> B{"has_completed_onboarding?"}
+    A["Signup / Login"] --> B{"onboarding_completed?"}
     B -->|"No"| C["OnboardingGuard → /onboarding"]
     B -->|"Yes"| D["HybridOnboardingGuard → Normal App"]
 
@@ -164,7 +178,7 @@ graph LR
 
 | Guard | Location | Behavior |
 |-------|----------|----------|
-| `OnboardingGuard` | Wraps protected routes | If `has_completed_onboarding = false` → redirect to `/onboarding` |
+| `OnboardingGuard` | Wraps protected routes | If `onboarding_completed = false` → redirect to `/onboarding` |
 | `HybridOnboardingGuard` | Wraps hybrid routes (chat) | If authenticated + not onboarded → redirect to `/onboarding`. Anonymous users pass through. |
 
 ---
@@ -199,9 +213,27 @@ The app tracks active sessions per user device:
 - **Upsert strategy** — Uses unique index on `(user_id, device_id)` to prevent duplicates
 - **Revoke others** — User can terminate all other sessions from Settings
 
-### Cookie Consent (GDPR)
+### Cookie Consent & Statutory Transparency (GDPR & DPDP Act 2023)
 
-- Tracked via `profiles.cookie_consent` boolean
-- `CookieConsent` component shown on first visit
+- Tracked via `profiles.cookie_consent` boolean and local storage token (`sree_cookie_consent`)
+- `CookieConsent` banner shown on first visit with explicit links to [`/cookies`](file:///p:/antygravity-projects/Ai-Sass-3/legal/06-cookie-policy.md) and [`/privacy`](file:///p:/antygravity-projects/Ai-Sass-3/legal/01-privacy-policy.md)
 - Consent synced to profile via `PATCH /api/user/profile`
-- PostHog only initialized after consent
+- PostHog telemetry initializes strictly in compliance with cookie choices
+
+---
+
+## Terms of Service & Privacy Policy Consent Architecture
+
+To comply with the Indian **DPDP Act 2023** and **IT Act Section 79** safe harbor rules:
+
+1. **Mandatory Acceptance Checkbox**:
+   - Both email/password signup and OAuth flows mandate checking the agreement to Terms of Service and Privacy Policy.
+2. **Database Tracking**:
+   - Recorded on the user profile:
+     - `profiles.tos_accepted` (`BOOLEAN DEFAULT false`)
+     - `profiles.tos_accepted_at` (`TIMESTAMPTZ`)
+3. **Resilient OAuth & Email Confirmation Persistence**:
+   - On OAuth initiation or pending email verification, `pending_tos_accepted: 'true'` and `pending_tos_accepted_at: ISO timestamp` are buffered in `localStorage`.
+   - When the user returns from Google OAuth or email confirmation, `auth.store.ts` automatically commits the timestamp to Supabase `profiles` if not already set, eliminating race conditions or timestamp overwrites.
+4. **Anonymous User Experience**:
+   - Anonymous visitors receive a personalized conversational greeting (`"Bro !"` / friendly guest salutation) instead of blank greetings across the header and chat input.

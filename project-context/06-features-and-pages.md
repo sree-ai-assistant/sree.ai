@@ -4,17 +4,28 @@
 
 ```mermaid
 graph TD
-    subgraph "Public Pages"
+    subgraph "Public Application Pages"
         Login["/login — Login"]
         Signup["/signup — Signup"]
         Pricing["/pricing — Pricing"]
         ForgotPW["/forgot-password — Password Reset"]
     end
 
-    subgraph "Hybrid Pages (Auth Optional)"
+    subgraph "Public Legal Suite"
+        Terms["/terms — Terms of Service"]
+        Privacy["/privacy — Privacy Policy"]
+        Security["/security — Security & BYOK"]
+        Refund["/refund-policy — Refund Policy"]
+        AUP["/acceptable-use — Acceptable Use"]
+        Cookies["/cookies — Cookie Policy"]
+        Legal["/legal — Legal Center Hub"]
+    end
+
+    subgraph "Hybrid Pages (Auth Optional / Guest Trial)"
         Chat["/chat/:id? — AI Chat"]
-        Dashboard["/dashboard — Usage Dashboard"]
-        FeatureReq["/feature-request — Feature Requests"]
+        Dashboard["/dashboard — Studio & Metrics Dashboard"]
+        Voice["/voice — Voice Assistant Redirect"]
+        FeatureReq["/feature-request — Feedback & Bug Tracker"]
     end
 
     subgraph "Protected Pages (Auth Required)"
@@ -40,9 +51,10 @@ graph TD
 | **Auth** | Hybrid — works for anonymous + authenticated users |
 | **Route Guard** | `HybridOnboardingGuard` |
 | **Middleware** | `flexAuth → abuseDetection → queuePriority → featureGate('basicChat') → rateLimit('chat')` |
-| **Features** | Multi-model AI chat, SSE streaming, file upload (docs, images, audio, video), voice mode (STT → Chat → TTS), code highlighting, markdown rendering, conversation history, model selector, thinking animation |
-| **Models** | 80+ models from NVIDIA NIM, Google Gemini, Groq |
-| **Attachments** | Documents (PDF, DOCX, XLSX, CSV, TXT), Images (PNG, JPG, GIF), Audio (WebM, MP3, WAV), Video (MP4, WebM) |
+| **Features** | Multi-model AI chat, SSE streaming, file upload (max 10 attachments per prompt), voice mode (STT → Chat → TTS), code highlighting, markdown rendering, conversation history, model selector, thinking animation |
+| **Models** | 85+ models from NVIDIA NIM, Google Gemini, Groq (default: `groq/compound-mini` for instant latency) |
+| **Attachments** | Documents (PDF, DOCX, XLSX, CSV, TXT), Images (PNG, JPG, GIF), Audio (WebM, MP3, WAV), Video (MP4, WebM) — max 10 files per prompt enforced in UI & client validation |
+| **Upload Agreement** | Mandatory policy modal (`UploadAgreementModal`) detailing external AI model inference transmission and Indian IT Act Sec 79 compliance |
 | **Multimodal** | Document text extraction, audio transcription, video frame extraction (FFmpeg → R2 → vision content) |
 | **Video Recall** | References to previously uploaded videos are automatically re-processed |
 | **Store** | `chat.store.ts` (conversations, messages, active model, streaming state) |
@@ -53,11 +65,12 @@ graph TD
 |--------|--------|
 | **Auth** | Required (authMiddleware) |
 | **Middleware** | `flexAuth → abuseDetection → queuePriority → featureGate('imageGeneration') → rateLimit('image')` |
-| **Features** | Text-to-image generation, image-to-image editing (Kontext), prompt input, negative prompt, seed control, resolution/dimension selection, image gallery (history), lightbox preview, download |
-| **Models** | NVIDIA: FLUX-1-dev, FLUX-1-schnell, FLUX-1-kontext-dev, FLUX-2-klein-4b, Stable Diffusion XL, SD 3.5 Large. Google: Gemini Image models |
+| **Features** | Text-to-image generation, image-to-image editing (Kontext), prompt input, negative prompt, seed control, resolution presets, gallery history, lightbox preview, download |
+| **Default Model** | Prioritizes **FLUX.2 klein** (`flux-2-klein-4b` / `FLUX.2-klein`) as default high-speed studio model |
+| **State Persistence** | Complete generator state (selected model, prompt, aspect ratio, steps, seed) persists in `localStorage` across page reloads |
+| **Models** | NVIDIA: FLUX.2 klein, FLUX.1 dev/schnell/kontext, SDXL, SD 3.5 Large. Google: Gemini Image models |
 | **Image Storage** | Generated images → Base64 → R2 upload → `user_images` table |
-| **Kontext Mode** | Image editing: user uploads reference image + prompt → model edits the image |
-| **Store** | `image.store.ts` (gallery, active image, generation params) |
+| **Store** | `image.store.ts` (gallery, active image, generation params, localStorage sync) |
 
 ### 3. Video Generation (`/video/:id?`)
 
@@ -75,8 +88,9 @@ graph TD
 
 | Aspect | Detail |
 |--------|--------|
-| **Auth** | Hybrid |
-| **Features** | Usage overview (chat, voice, image, video credits used/remaining), daily/monthly counters, plan info, upgrade prompts |
+| **Auth** | Hybrid (`HybridOnboardingGuard` allows anonymous guest usage overview) |
+| **Overhaul Features** | Complete responsive redesign with 2-tier mobile quick actions (Chat, Voice, Image, Video), compact status bar, studio feature cards, glassmorphism micro-tool badges, and smart prompt truncation |
+| **Metrics Overview** | Usage overview (chat, voice, image, video credits used/remaining), daily/monthly counters, plan tier info, upgrade prompts |
 | **Data Source** | `GET /api/ai/usage` → comprehensive usage status from `usage_tracking` table |
 
 ### 5. Settings (`/settings`)
@@ -106,7 +120,7 @@ graph TD
 | **Auth** | Required (pre-onboarding gate) |
 | **Steps** | 0: Welcome → 1: Nickname → 2: Occupation → 3: Custom Instructions → 4: Complete |
 | **Store** | `onboarding.store.ts` |
-| **Completion** | Sets `has_completed_onboarding = true`, redirects to `/chat` |
+| **Completion** | Sets `onboarding_completed = true`, redirects to `/chat` |
 
 ### 8. Feature Request (`/feature-request`)
 
@@ -138,6 +152,25 @@ graph TD
 |--------|--------|
 | **Auth** | Public |
 | **Flow** | Email → Supabase reset link → Password update |
+
+### 11. Legal & Statutory Compliance Suite (`/terms`, `/privacy`, etc.)
+
+| Aspect | Detail |
+|--------|--------|
+| **Auth** | Public (accessible to guest visitors, logged-in users, and search crawlers) |
+| **Architecture** | Wrapped in unified `LegalLayout` with animated top drawer triggered on Sree AI brand logo click, responsive breadcrumbs, and next/prev doc cards |
+| **Routes** | `/terms` (Terms of Service), `/privacy` (Privacy Policy), `/security` (Security & BYOK Policy), `/refund-policy` (Refund & Cancellation Policy), `/acceptable-use` (Acceptable Use Policy), `/cookies` (Cookie Policy), `/legal` & `/legal-center` (Legal Hub) |
+| **Statutory Standards** | Compliant with the Indian **DPDP Act 2023**, **IT Act 2000 (Section 79 Intermediary Safe Harbor)**, **GDPR**, and **CCPA/CPRA** |
+
+### 12. SEO & AEO (Answer Engine Optimization) Engine
+
+| File / Component | Purpose | Details |
+|------------------|---------|---------|
+| **`/robots.txt`** | Crawler Access Rules | Allows standard search crawlers (`Googlebot`, `Bingbot`, etc.) and explicitly welcomes AI answer engines (`GPTBot`, `PerplexityBot`, `ClaudeBot`, `Applebot`) while disallowing private routes (`/api/`, `/settings`, `/onboarding`) |
+| **`/sitemap.xml`** | Search Index Mapping | 15 dynamic canonical URLs covering public AI modalities, pricing, community feature requests, and the complete statutory legal suite |
+| **`/llms.txt`** | AI Agent Concise Spec | Markdown specification providing LLM agents (ChatGPT Search, Perplexity, Claude Web) with core architecture, models, pricing tiers, and legal links |
+| **`/llms-full.txt`** | Comprehensive LLM Context | Exhaustive architectural breakdown, quota rules, and policy text in a single agent-readable context file |
+| **Schema.org / JSON-LD** | Rich Snippets | Embedded in `index.html` as `SoftwareApplication` and `Organization` entities with feature list, operating system, and pricing offers |
 
 ---
 

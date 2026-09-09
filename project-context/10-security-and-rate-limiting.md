@@ -331,12 +331,19 @@ In-memory sliding window limiter on screenshot uploads (`featureRequestScreensho
 - Only the hash is stored, original components are discarded
 - Used solely for anonymous identity restoration (cookie-lost scenario)
 
-### Cookie Consent (GDPR)
+### Cookie Consent & DPDP Act 2023 Compliance
 
-- `CookieConsent` component shown on first visit
+- `CookieConsent` component shown on first visit with direct navigation to Cookie Policy and Privacy Policy
 - Consent stored in `profiles.cookie_consent`
-- PostHog analytics only initialized after consent
-- Essential cookies (auth, anon_id) work without consent
+- PostHog analytics strictly respect consent state (no PII, chat content, or uploaded file data is ever tracked)
+- Essential operational tokens (Supabase Auth JWTs, `sree_anon_id`) work without non-essential tracking
+
+### Statutory Legal Consent & Upload Guardrails
+
+- **Mandatory Terms of Service & Privacy Acceptance**: Verified prior to account creation and persisted in `profiles.tos_accepted` and `profiles.tos_accepted_at`.
+- **Upload Agreement Modal (`UploadAgreementModal`)**: Enforces explicit acknowledgement that uploaded documents/media are routed to external AI model providers (Google, NVIDIA, Groq, Deepgram) strictly for ephemeral inference execution under enterprise API privacy boundaries.
+- **File Upload Cap**: Hard client-side and server-side limit of **10 attachments per prompt** in Chat to prevent request buffer exhaustion and denial-of-service vectors.
+- **Crawler & Scraping Control (`robots.txt`)**: Allows search engine indexing while explicitly gating training bots and disallowing private user routes (`/api/`, `/settings`, `/onboarding`).
 
 ---
 
