@@ -138,25 +138,74 @@
   <!-- PWA Install Prompt Handler for Sree AI -->
   <script>
     window.deferredPrompt = null;
+
+    try {
+      const urlParams = new URLSearchParams(window.location.search);
+      if (urlParams.get('install') === 'true') {
+        sessionStorage.setItem('sree_pwa_install', 'true');
+      }
+    } catch (e) {}
+
     window.addEventListener('beforeinstallprompt', (e) => {
       e.preventDefault();
       window.deferredPrompt = e;
       window.dispatchEvent(new CustomEvent('pwa-installable'));
 
-      // If user arrived from landing page with ?install=true
-      const params = new URLSearchParams(window.location.search);
-      if (params.get('install') === 'true') {
-        setTimeout(() => {
-          if (window.deferredPrompt) {
-            window.deferredPrompt.prompt();
-          }
-        }, 500);
+      if (sessionStorage.getItem('sree_pwa_install') === 'true') {
+        showPwaBanner();
       }
     });
+
+    function showPwaBanner() {
+      if (document.getElementById('sree-pwa-banner')) return;
+      const banner = document.createElement('div');
+      banner.id = 'sree-pwa-banner';
+      banner.style.cssText = 'position:fixed; top:20px; left:50%; transform:translateX(-50%); z-index:9999999; background:linear-gradient(135deg, #0a1815, #070e17); border:1px solid rgba(16,185,129,0.5); box-shadow:0 10px 40px rgba(0,0,0,0.8), 0 0 30px rgba(16,185,129,0.3); border-radius:16px; padding:12px 18px; display:flex; align-items:center; gap:14px; font-family:system-ui, -apple-system, sans-serif; color:#fff;';
+      banner.innerHTML = `
+        <div style="display:flex; align-items:center; gap:10px;">
+          <img src="/Sree-Ai-Fav-icon.png" style="width:28px; height:28px; border-radius:8px;" alt="Sree AI" />
+          <div>
+            <div style="font-weight:700; font-size:13px; color:#fff;">Install Sree AI App</div>
+            <div style="font-size:11px; color:#a1a1aa;">Add to your Desktop or Phone window</div>
+          </div>
+        </div>
+        <button id="sree-pwa-install-action" style="background:linear-gradient(to right, #10b981, #06b6d4); color:#000; font-weight:700; font-size:12px; border:none; border-radius:10px; padding:8px 16px; cursor:pointer; box-shadow:0 0 15px rgba(16,185,129,0.4);">Install Now</button>
+        <button id="sree-pwa-close-action" style="background:none; border:none; color:#71717a; font-size:18px; cursor:pointer; padding:0 4px; line-height:1;">&times;</button>
+      `;
+      document.body.appendChild(banner);
+
+      document.getElementById('sree-pwa-install-action').addEventListener('click', () => {
+        if (window.deferredPrompt) {
+          window.deferredPrompt.prompt();
+          banner.remove();
+          sessionStorage.removeItem('sree_pwa_install');
+        }
+      });
+
+      document.getElementById('sree-pwa-close-action').addEventListener('click', () => {
+        banner.remove();
+        sessionStorage.removeItem('sree_pwa_install');
+      });
+
+      const firstClick = () => {
+        if (window.deferredPrompt && sessionStorage.getItem('sree_pwa_install') === 'true') {
+          window.deferredPrompt.prompt();
+          sessionStorage.removeItem('sree_pwa_install');
+          banner.remove();
+        }
+        document.removeEventListener('click', firstClick);
+      };
+      setTimeout(() => {
+        document.addEventListener('click', firstClick, { once: true });
+      }, 400);
+    }
 
     window.addEventListener('appinstalled', () => {
       console.log('Sree AI was successfully installed as an app');
       window.deferredPrompt = null;
+      const b = document.getElementById('sree-pwa-banner');
+      if (b) b.remove();
+      sessionStorage.removeItem('sree_pwa_install');
     });
   </script>
 
