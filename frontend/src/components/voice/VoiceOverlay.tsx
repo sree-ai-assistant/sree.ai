@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, AlertTriangle, Clock, ArrowRight, Sparkles } from 'lucide-react';
+import { X, AlertTriangle, Clock, ArrowRight, Sparkles, Zap } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { useChatStore } from '../../store/chat.store';
@@ -10,6 +10,7 @@ import { supabase } from '../../lib/supabase';
 import { useNavigate } from 'react-router-dom';
 import { VoiceVisualizer } from './VoiceVisualizer';
 import { aiService } from '../../lib/api';
+import { LiveAudioManager } from '../../lib/liveAudio';
 import styles from './VoiceOverlay.module.css';
 
 interface VoiceOverlayProps {
@@ -123,6 +124,15 @@ export const VoiceOverlay: React.FC<VoiceOverlayProps> = ({ onClose, initialConv
   const [stream, setStream] = useState<MediaStream | null>(null);
   const [status, setStatus] = useState<'idle' | 'listening' | 'transcribing' | 'thinking' | 'speaking'>('idle');
 
+  // ─── Live Mode State ───────────────────────────────────────────────
+  const [voiceMode, setVoiceMode] = useState<'connecting' | 'live' | 'legacy'>('connecting');
+  const [liveModel, setLiveModel] = useState<string>('');
+  const liveWsRef = useRef<WebSocket | null>(null);
+  const liveAudioRef = useRef<LiveAudioManager | null>(null);
+  const liveSessionIdRef = useRef<string | null>(null);
+  const liveStartTimeRef = useRef<number>(0);
+  const liveTranscriptRef = useRef<{ role: 'user' | 'assistant'; text: string }[]>([]);
+
   // Content State
   const [transcript, setTranscript] = useState('');
   const [displayedAiResponse, setDisplayedAiResponse] = useState('');
@@ -219,6 +229,264 @@ export const VoiceOverlay: React.FC<VoiceOverlayProps> = ({ onClose, initialConv
     }
     setLoadingMessage('');
   };
+
+  // ─── Live Mode: WebSocket Connection ─────────────────────────────
+  const tryConnectLive = useCallback(async () => {
+    if (!isSessionActive) {
+      setVoiceMode('legacy');
+      return;
+    }
+
+    setVoiceMode('connecting');
+    setStatus('idle');
+
+    try {
+      // Get auth token for WebSocket
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token || '';
+      const anonId = !token ? (localStorage.getItem('sreeai_anon_id') || '') : '';
+
+      // Build WebSocket URL
+      const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+      const wsBase = apiBase.replace(/^http/, 'ws').replace(/\/api$/, '');
+      const wsUrl = `${wsBase}/api/live/voice?token=${encodeURIComponent(token)}&anonId=${encodeURIComponent(anonId)}`;
+
+      const ws = new WebSocket(wsUrl);
+      liveWsRef.current = ws;
+
+      // Connection timeout
+      const connectTimeout = setTimeout(() => {
+        if (ws.readyState !== WebSocket.OPEN) {
+          console.warn('[Voice Live] Connection timeout, falling back to legacy');
+          ws.close();
+          setVoiceMode('legacy');
+          setTimeout(startRecording, 500);
+        }
+      }, 8000);
+
+      ws.onopen = () => {
+        console.log('[Voice Live] WebSocket connected, waiting for session setup...');
+      };
+
+      ws.onmessage = async (event) => {
+        // Handle binary audio data from Gemini (via backend proxy)
+        if (event.data instanceof Blob) {
+          const arrayBuffer = await event.data.arrayBuffer();
+          if (liveAudioRef.current) {
+            liveAudioRef.current.enqueuePcm(arrayBuffer);
+          }
+          return;
+        }
+
+        if (event.data instanceof ArrayBuffer) {
+          if (liveAudioRef.current) {
+            liveAudioRef.current.enqueuePcm(event.data);
+          }
+          return;
+        }
+
+        // Handle JSON control messages
+        try {
+          const msg = JSON.parse(event.data as string);
+
+          switch (msg.type) {
+            case 'session-start': {
+              clearTimeout(connectTimeout);
+              setVoiceMode('live');
+              setLiveModel(msg.model || '');
+              liveSessionIdRef.current = msg.sessionId;
+              liveStartTimeRef.current = Date.now();
+              liveTranscriptRef.current = [];
+              console.log(`[Voice Live] ✅ Session started: model=${msg.model}`);
+
+              // Initialize audio capture and playback
+              try {
+                const audioManager = new LiveAudioManager({
+                  onPcmData: (pcmBuffer) => {
+                    // Send PCM audio to backend via WebSocket
+                    if (liveWsRef.current?.readyState === WebSocket.OPEN) {
+                      liveWsRef.current.send(pcmBuffer);
+                    }
+                  },
+                  onAmplitude: () => {
+                    // Amplitude data for visualizer (handled by VoiceVisualizer via stream)
+                  },
+                  onPlaybackEnded: () => {
+                    setStatus('listening');
+                  },
+                });
+
+                await audioManager.initialize();
+                const micStream = await audioManager.startCapture();
+                audioManager.startPlayback();
+
+                liveAudioRef.current = audioManager;
+                setStream(micStream);
+                setStatus('listening');
+              } catch (audioErr) {
+                console.error('[Voice Live] Audio setup failed:', audioErr);
+                cleanupLive();
+                setVoiceMode('legacy');
+                setTimeout(startRecording, 500);
+              }
+              break;
+            }
+
+            case 'fallback': {
+              clearTimeout(connectTimeout);
+              console.log(`[Voice Live] Fallback to legacy: ${msg.reason}`);
+              setVoiceMode('legacy');
+              setTimeout(startRecording, 500);
+              break;
+            }
+
+            case 'transcript': {
+              if (msg.role === 'assistant') {
+                setDisplayedAiResponse((prev) => prev + msg.text);
+                setStatus('speaking');
+                liveTranscriptRef.current.push({ role: 'assistant', text: msg.text });
+              }
+              break;
+            }
+
+            case 'turn-complete': {
+              // AI finished speaking — back to listening
+              // Don't reset displayedAiResponse — keep it visible until user speaks next
+              break;
+            }
+
+            case 'interrupted': {
+              // User barged in — clear playback
+              if (liveAudioRef.current) {
+                liveAudioRef.current.clearPlayback();
+              }
+              setStatus('listening');
+              setDisplayedAiResponse('');
+              break;
+            }
+
+            case 'error': {
+              clearTimeout(connectTimeout);
+              if (msg.code === 'RATE_LIMIT_EXCEEDED') {
+                const resetsIn = msg.resetsIn || 30;
+                const lockoutTime = Date.now() + (resetsIn * 1000);
+                localStorage.setItem('voice_lockout', lockoutTime.toString());
+
+                setIsSessionActive(false);
+                cleanupLive();
+                setRateLimitInfo({
+                  message: msg.message || 'Voice limit reached.',
+                  resetsIn,
+                  upgradeUrl: msg.upgradeUrl || '/pricing',
+                });
+                setCountdown(resetsIn);
+                setStatus('idle');
+              } else {
+                console.error('[Voice Live] Error:', msg.message);
+                cleanupLive();
+                setVoiceMode('legacy');
+                setTimeout(startRecording, 500);
+              }
+              break;
+            }
+
+            case 'session-end': {
+              console.log('[Voice Live] Session ended by server');
+              cleanupLive();
+              setStatus('idle');
+              break;
+            }
+          }
+        } catch (e) {
+          // Non-JSON message — might be binary that came as string
+        }
+      };
+
+      ws.onerror = (err) => {
+        clearTimeout(connectTimeout);
+        console.error('[Voice Live] WebSocket error:', err);
+        setVoiceMode('legacy');
+        setTimeout(startRecording, 500);
+      };
+
+      ws.onclose = (event) => {
+        clearTimeout(connectTimeout);
+        console.log(`[Voice Live] WebSocket closed: ${event.code}`);
+
+        // Save conversation transcript if we had a live session
+        if (liveTranscriptRef.current.length > 0 && user?.id) {
+          saveLiveTranscript();
+        }
+
+        // Clean up audio resources
+        if (liveAudioRef.current) {
+          liveAudioRef.current.destroy();
+          liveAudioRef.current = null;
+        }
+        setStream(null);
+        liveWsRef.current = null;
+      };
+
+    } catch (err) {
+      console.error('[Voice Live] Connection setup failed:', err);
+      setVoiceMode('legacy');
+      setTimeout(startRecording, 500);
+    }
+  }, [isSessionActive]);
+
+  const cleanupLive = useCallback(() => {
+    if (liveWsRef.current) {
+      if (liveWsRef.current.readyState === WebSocket.OPEN ||
+          liveWsRef.current.readyState === WebSocket.CONNECTING) {
+        liveWsRef.current.close(1000, 'User closed session');
+      }
+      liveWsRef.current = null;
+    }
+
+    if (liveAudioRef.current) {
+      liveAudioRef.current.destroy();
+      liveAudioRef.current = null;
+    }
+    setStream(null);
+  }, []);
+
+  const saveLiveTranscript = useCallback(async () => {
+    if (!user?.id || liveTranscriptRef.current.length === 0) return;
+
+    try {
+      // Merge consecutive same-role transcripts
+      const merged: { role: 'user' | 'assistant'; text: string }[] = [];
+      for (const entry of liveTranscriptRef.current) {
+        const last = merged[merged.length - 1];
+        if (last && last.role === entry.role) {
+          last.text += entry.text;
+        } else {
+          merged.push({ ...entry });
+        }
+      }
+
+      let currentConvId = conversationIdRef.current;
+      if (!currentConvId) {
+        const firstText = merged[0]?.text?.slice(0, 30) || 'Voice Chat';
+        const conv = await createConversation(user.id, firstText, 'voice');
+        if (conv) {
+          currentConvId = conv.id;
+          setConversationId(conv.id);
+        }
+      }
+
+      if (currentConvId) {
+        for (const msg of merged) {
+          await addMessage(currentConvId, msg.role, msg.text, { mode: 'voice-live' });
+        }
+        if (!initialConversationId && currentConvId) {
+          navigate(`/voice/chat/${currentConvId}`, { replace: true });
+        }
+      }
+    } catch (err) {
+      console.error('[Voice Live] Failed to save transcript:', err);
+    }
+  }, [user, createConversation, addMessage, initialConversationId, navigate]);
 
   const startRecording = useCallback(async () => {
     if (!isSessionActive) return;
@@ -841,6 +1109,13 @@ export const VoiceOverlay: React.FC<VoiceOverlayProps> = ({ onClose, initialConv
 
   const handleManualClose = () => {
     setIsSessionActive(false);
+
+    // Clean up Live Mode if active
+    if (voiceMode === 'live') {
+      cleanupLive();
+    }
+
+    // Clean up Legacy Mode
     stopRecording(false);
     if (audioRef.current) {
       audioRef.current.pause();
@@ -849,12 +1124,15 @@ export const VoiceOverlay: React.FC<VoiceOverlayProps> = ({ onClose, initialConv
     onClose();
   };
 
+  // On mount: Try Live Mode first, falls back to Legacy if unavailable
   useEffect(() => {
-    const timer = setTimeout(startRecording, 1000);
+    const timer = setTimeout(() => {
+      tryConnectLive();
+    }, 1000);
     return () => {
       clearTimeout(timer);
     };
-  }, [startRecording]);
+  }, [tryConnectLive]);
 
   useEffect(() => {
     return () => {
@@ -862,7 +1140,17 @@ export const VoiceOverlay: React.FC<VoiceOverlayProps> = ({ onClose, initialConv
       shouldProcessRef.current = false;
       if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
 
-      // Forcefully release the mic when component unmounts or changes pages
+      // Clean up Live Mode resources
+      if (liveWsRef.current) {
+        liveWsRef.current.close(1000, 'Component unmounted');
+        liveWsRef.current = null;
+      }
+      if (liveAudioRef.current) {
+        liveAudioRef.current.destroy();
+        liveAudioRef.current = null;
+      }
+
+      // Forcefully release the mic when component unmounts or changes pages (Legacy Mode)
       if (streamRef.current) {
         streamRef.current.getTracks().forEach(track => {
           track.stop();
@@ -960,21 +1248,28 @@ export const VoiceOverlay: React.FC<VoiceOverlayProps> = ({ onClose, initialConv
       ) : (
         <>
           <div
-            className={`${styles.visualizerWrapper} ${status === 'idle' ? styles.clickable : ''}`}
-            onClick={status === 'idle' ? startRecording : undefined}
+            className={`${styles.visualizerWrapper} ${(status === 'idle' && voiceMode === 'legacy') ? styles.clickable : ''}`}
+            onClick={(status === 'idle' && voiceMode === 'legacy') ? startRecording : undefined}
           >
             <VoiceVisualizer
               stream={stream}
-              audioElement={audioRef.current}
+              audioElement={voiceMode === 'legacy' ? audioRef.current : null}
               isActive={true}
-              isGray={status === 'idle' || status === 'transcribing' || status === 'thinking'}
+              isGray={status === 'idle' || status === 'transcribing' || status === 'thinking' || voiceMode === 'connecting'}
             />
           </div>
 
           <div onClick={repeat} className={styles.statusIndicator}>
+            {voiceMode === 'live' && (
+              <div className={styles.liveBadge}>
+                <Zap size={10} />
+                <span>Live</span>
+              </div>
+            )}
             <div className={`${styles.statusDot} ${styles[status]}`} />
             <span>
-              {status === 'listening' ? 'AI is Listening' :
+              {voiceMode === 'connecting' ? 'Connecting...' :
+                status === 'listening' ? 'AI is Listening' :
                 status === 'speaking' ? 'AI is Speaking' :
                   status === 'thinking' ? 'AI is Thinking' : 'Ready'}
             </span>

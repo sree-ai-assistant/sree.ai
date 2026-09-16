@@ -578,3 +578,36 @@
     padding: 4px 14px;
   }
 }
+
+/* ─── Live Mode Badge ─────────────────────────────────────────────── */
+
+.liveBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 10px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.25), rgba(5, 150, 105, 0.3));
+  border: 1px solid rgba(16, 185, 129, 0.4);
+  color: #34d399;
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  animation: livePulse 2s ease-in-out infinite;
+  box-shadow: 0 0 12px rgba(16, 185, 129, 0.2);
+  margin-right: 6px;
+}
+
+.liveBadge span {
+  line-height: 1;
+}
+
+@keyframes livePulse {
+  0%, 100% {
+    box-shadow: 0 0 12px rgba(16, 185, 129, 0.2);
+  }
+  50% {
+    box-shadow: 0 0 20px rgba(16, 185, 129, 0.4);
+  }
+}
