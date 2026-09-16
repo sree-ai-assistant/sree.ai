@@ -50,3 +50,23 @@ INSERT INTO public.ai_models (
   16384, 1000000, FALSE, TRUE, 0, TRUE, FALSE
 ) ON CONFLICT (model_id) DO UPDATE SET
   name = EXCLUDED.name, provider = EXCLUDED.provider, tier_required = EXCLUDED.tier_required, is_vision = EXCLUDED.is_vision, description = EXCLUDED.description, max_tokens = EXCLUDED.max_tokens, context_window = EXCLUDED.context_window, in_maintenance = EXCLUDED.in_maintenance, is_fast = EXCLUDED.is_fast, img_no_can_process = EXCLUDED.img_no_can_process, is_new = EXCLUDED.is_new, is_image = EXCLUDED.is_image;
+
+-- 6. Muse Glimmer 30B
+INSERT INTO public.ai_models (
+  model_id, name, provider, tier_required, is_vision, description, max_tokens, context_window, in_maintenance, is_fast, img_no_can_process, is_new, is_image
+) VALUES (
+  'meta/muse-glimmer-30b', 'Muse Glimmer 30B', 'nvidia', 'starter', TRUE,
+  'A multimodal reasoning model accepting text and images, with native tool-calling and separate reasoning output.',
+  8192, 131072, FALSE, FALSE, 10, TRUE, FALSE
+) ON CONFLICT (model_id) DO UPDATE SET
+  name = EXCLUDED.name, provider = EXCLUDED.provider, tier_required = EXCLUDED.tier_required, is_vision = EXCLUDED.is_vision, description = EXCLUDED.description, max_tokens = EXCLUDED.max_tokens, context_window = EXCLUDED.context_window, in_maintenance = EXCLUDED.in_maintenance, is_fast = EXCLUDED.is_fast, img_no_can_process = EXCLUDED.img_no_can_process, is_new = EXCLUDED.is_new, is_image = EXCLUDED.is_image;
+
+-- 7. GLM-5.3
+INSERT INTO public.ai_models (
+  model_id, name, provider, tier_required, is_vision, description, max_tokens, context_window, in_maintenance, is_fast, img_no_can_process, is_new, is_image
+) VALUES (
+  'z-ai/glm-5.3', 'GLM-5.3', 'nvidia', 'starter', FALSE,
+  '753B-parameter text MoE with DeepSeek-style sparse attention, native FP8 weights, reasoning and tool calling.',
+  1024, 1048576, FALSE, FALSE, 0, TRUE, FALSE
+) ON CONFLICT (model_id) DO UPDATE SET
+  name = EXCLUDED.name, provider = EXCLUDED.provider, tier_required = EXCLUDED.tier_required, is_vision = EXCLUDED.is_vision, description = EXCLUDED.description, max_tokens = EXCLUDED.max_tokens, context_window = EXCLUDED.context_window, in_maintenance = EXCLUDED.in_maintenance, is_fast = EXCLUDED.is_fast, img_no_can_process = EXCLUDED.img_no_can_process, is_new = EXCLUDED.is_new, is_image = EXCLUDED.is_image;
