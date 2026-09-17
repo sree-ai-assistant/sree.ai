@@ -74,7 +74,7 @@ export async function handleLiveVoiceConnection(
 
   // 1. Authenticate
   const { userId, tier, anonId } = await authenticateWs(req);
-  console.log(`[LiveVoice] Auth: userId=${userId || 'anon'}, tier=${tier}`);
+  console.log(`[LiveVoice] Auth: userId=${userId || `[anon] ${anonId}` || 'anon'}, tier=${tier}`);
 
   const identity: RateLimitIdentity = userId
     ? { type: 'authenticated', userId, tier: tier as any }

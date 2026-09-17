@@ -1,4 +1,10 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
+
+vi.hoisted(() => {
+  process.env.SUPABASE_URL = 'https://mock.supabase.co';
+  process.env.SUPABASE_SERVICE_ROLE_KEY = 'mock-key';
+});
+
 import { classifyApiError } from './apiKeyPool.service';
 
 describe('classifyApiError', () => {
@@ -99,5 +105,67 @@ describe('classifyApiError', () => {
 
     expect(classifyApiError(error1)).toBe('other');
     expect(classifyApiError(error2)).toBe('other');
+  });
+
+  it('should classify Live API WebSocket auth errors as auth failures', () => {
+    const error1 = new Error('API key not valid. Please pass a valid API key.');
+    const error2 = new Error('Request had invalid authentication credentials. Expected OAuth 2 access token, login cookie or other valid authentication');
+    expect(classifyApiError(error1)).toBe('auth');
+    expect(classifyApiError(error2)).toBe('auth');
+  });
+});
+
+import { classifyWsClose } from './liveVoice.service';
+
+describe('classifyWsClose', () => {
+  it('should classify 1007 with invalid API key as key_error (not model_error)', () => {
+    expect(
+      classifyWsClose(1007, 'API key not valid. Please pass a valid API key.')
+    ).toBe('key_error');
+  });
+
+  it('should classify 1008 with invalid credentials as key_error', () => {
+    expect(
+      classifyWsClose(
+        1008,
+        'Request had invalid authentication credentials. Expected OAuth 2 access token, login cookie or other valid authentication'
+      )
+    ).toBe('key_error');
+  });
+
+  it('should classify 1008 with model not found as model_error (not key_error)', () => {
+    expect(
+      classifyWsClose(
+        1008,
+        'models/gemini-3.8-live- is not found for API version v1beta, or is not supported for bidiGenerateContent. Call ModelService'
+      )
+    ).toBe('model_error');
+  });
+
+  it('should classify 1007 with invalid config payload as model_error', () => {
+    expect(
+      classifyWsClose(
+        1007,
+        "Invalid value at 'setup.realtime_input_config.automatic_activity_detection.start_of_speech_sensitivity'"
+      )
+    ).toBe('model_error');
+  });
+
+  it('should classify 1008 with quota exhaustion as key_error', () => {
+    expect(
+      classifyWsClose(1008, 'Resource has been exhausted (e.g. check quota)')
+    ).toBe('key_error');
+  });
+
+  it('should fall back to model_error for uninformative 1007 close', () => {
+    expect(classifyWsClose(1007, '')).toBe('model_error');
+  });
+
+  it('should fall back to key_error for uninformative 1008 close', () => {
+    expect(classifyWsClose(1008, '')).toBe('key_error');
+  });
+
+  it('should classify 1011 server error as model_error', () => {
+    expect(classifyWsClose(1011, 'Internal server error')).toBe('model_error');
   });
 });

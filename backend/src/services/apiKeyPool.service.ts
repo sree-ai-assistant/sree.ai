@@ -35,9 +35,12 @@ export function classifyApiError(error: any): ErrorType {
   if (
     status === 401 || status === 403 ||
     (msg.includes('invalid') && msg.includes('key')) ||
+    (msg.includes('not valid') && msg.includes('key')) ||
     msg.includes('unauthorized') ||
     msg.includes('forbidden') ||
     msg.includes('authentication') ||
+    msg.includes('credential') ||
+    msg.includes('oauth') ||
     msg.includes('api_key_service_blocked') ||
     msg.includes('permission_denied') ||
     msg.includes('permission denied') ||
