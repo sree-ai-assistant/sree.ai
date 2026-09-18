@@ -397,7 +397,9 @@ export function calculateLiveCredits(
 ): LiveCreditResult {
   let creditsToCharge: number;
 
-  if (durationSeconds <= 30) {
+  if (durationSeconds <= 5) {
+    creditsToCharge = 0;
+  } else if (durationSeconds <= 30) {
     creditsToCharge = 1;
   } else if (durationSeconds <= 120) {
     creditsToCharge = 2;

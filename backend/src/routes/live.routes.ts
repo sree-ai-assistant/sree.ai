@@ -258,7 +258,7 @@ export async function handleLiveVoiceConnection(
         if (msg.type === 'init-context' && Array.isArray(msg.messages) && msg.messages.length > 0) {
           // Seed prior conversation context from chat history
           const validTurns = msg.messages
-            .slice(-30)
+            .slice(-50)
             .filter((m: any) => m && m.content && String(m.content).trim().length > 0 && (m.role === 'user' || m.role === 'assistant' || m.role === 'model'))
             .map((m: any) => ({
               role: (m.role === 'assistant' || m.role === 'model') ? 'model' : 'user',
@@ -358,8 +358,8 @@ export async function handleLiveVoiceConnection(
       // Close the upstream WebSocket
       closeSession(geminiSession);
 
-      // Charge credits (only if session lasted > 3 seconds — prevents accidental charges)
-      if (durationSeconds > 3) {
+      // Charge credits (only if session lasted > 5 seconds — prevents accidental charges)
+      if (durationSeconds > 5) {
         try {
           // Prevent duplicate charges
           const chargeKey = `live_${sessionId}`;

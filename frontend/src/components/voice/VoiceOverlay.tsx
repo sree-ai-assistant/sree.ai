@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, AlertTriangle, Clock, ArrowRight, Sparkles, Zap, RotateCcw, Volume2, Hourglass } from 'lucide-react';
+import { X, AlertTriangle, Clock, ArrowRight, Sparkles, Zap, RotateCcw, Volume2, Hourglass, Eye, EyeOff } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { useChatStore } from '../../store/chat.store';
@@ -164,6 +164,7 @@ export const VoiceOverlay: React.FC<VoiceOverlayProps> = ({ onClose, initialConv
   // Content State
   const [transcript, setTranscript] = useState('');
   const [displayedAiResponse, setDisplayedAiResponse] = useState('');
+  const [showAiResponses, setShowAiResponses] = useState<boolean>(true);
   const [showFlyingTranscript, setShowFlyingTranscript] = useState(false);
   const [loadingMessage, setLoadingMessage] = useState('');
 
@@ -410,7 +411,7 @@ export const VoiceOverlay: React.FC<VoiceOverlayProps> = ({ onClose, initialConv
               // Seed prior conversation context into the Live session if entering from a chat
               if (messagesRef.current && messagesRef.current.length > 0) {
                 const priorMessages = messagesRef.current
-                  .slice(-30)
+                  .slice(-50)
                   .map(m => ({ role: m.role, content: m.content }));
 
                 if (priorMessages.length > 0 && ws.readyState === WebSocket.OPEN) {
@@ -418,7 +419,7 @@ export const VoiceOverlay: React.FC<VoiceOverlayProps> = ({ onClose, initialConv
                     type: 'init-context',
                     messages: priorMessages,
                   }));
-                  console.log(`[Voice Live] Sent ${priorMessages.length} prior conversation messages for context`);
+                  console.log(`[Voice Live] Sent ${priorMessages.length} prior conversation messages for context (limit: 50)`);
                 }
               }
 
@@ -1352,6 +1353,17 @@ export const VoiceOverlay: React.FC<VoiceOverlayProps> = ({ onClose, initialConv
   return (
     <div className={styles.overlayContainer}>
       <div className={styles.topBar}>
+        <button
+          onClick={() => setShowAiResponses((prev) => !prev)}
+          className={`${styles.toggleResponseBtn} ${!showAiResponses ? styles.toggleResponseBtnHidden : ''}`}
+          title={showAiResponses ? 'Hide responses' : 'Show responses'}
+          aria-label={showAiResponses ? 'Hide responses' : 'Show responses'}
+        >
+          {showAiResponses ? <EyeOff size={18} /> : <Eye size={18} />}
+          <span className={styles.toggleResponseText}>
+            {showAiResponses ? 'Hide Text' : 'Show Text'}
+          </span>
+        </button>
         <button onClick={handleManualClose} className={styles.closeButton}>
           <X size={24} />
         </button>
@@ -1625,11 +1637,31 @@ export const VoiceOverlay: React.FC<VoiceOverlayProps> = ({ onClose, initialConv
               )}
             </AnimatePresence>
             <AnimatePresence>
-              {displayedAiResponse && (
+              {displayedAiResponse && showAiResponses && (
                 <motion.div
-                  initial={{ opacity: 0, scale: 0.95 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 0.9 }}
+                  initial={{
+                    opacity: 0,
+                    scaleY: 0,
+                    scaleX: 0.96,
+                    clipPath: 'inset(50% 0% 50% 0% round 24px)',
+                  }}
+                  animate={{
+                    opacity: 1,
+                    scaleY: 1,
+                    scaleX: 1,
+                    clipPath: 'inset(0% 0% 0% 0% round 24px)',
+                  }}
+                  exit={{
+                    opacity: 0,
+                    scaleY: 0,
+                    scaleX: 0.96,
+                    clipPath: 'inset(50% 0% 50% 0% round 24px)',
+                  }}
+                  transition={{
+                    duration: 0.38,
+                    ease: [0.16, 1, 0.3, 1],
+                  }}
+                  style={{ transformOrigin: 'center center' }}
                   className={styles.aiResponseArea}
                 >
                   <div ref={aiResponseScrollRef} className={styles.aiResponseScroll}>

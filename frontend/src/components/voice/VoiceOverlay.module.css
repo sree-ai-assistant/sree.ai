@@ -38,12 +38,59 @@
 }
 
 .topBar {
-  z-index: 9;
+  z-index: 99;
   position: absolute;
   top: 1.5rem;
   right: 1.5rem;
   display: flex;
-  gap: 1rem;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.toggleResponseBtn {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  color: rgba(255, 255, 255, 0.85);
+  height: 3rem;
+  padding: 0 1.1rem;
+  border-radius: 9999px;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  cursor: pointer;
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  font-family: inherit;
+  font-size: 0.82rem;
+  font-weight: 600;
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
+  user-select: none;
+}
+
+.toggleResponseBtn:hover {
+  background: rgba(255, 255, 255, 0.14);
+  border-color: rgba(255, 255, 255, 0.28);
+  color: #ffffff;
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.35);
+}
+
+.toggleResponseBtnHidden {
+  background: linear-gradient(135deg, rgba(168, 85, 247, 0.18), rgba(99, 102, 241, 0.14));
+  border-color: rgba(168, 85, 247, 0.45);
+  color: #d8b4fe;
+  box-shadow: 0 0 16px rgba(168, 85, 247, 0.2);
+}
+
+.toggleResponseBtnHidden:hover {
+  background: linear-gradient(135deg, rgba(168, 85, 247, 0.28), rgba(99, 102, 241, 0.22));
+  border-color: rgba(168, 85, 247, 0.7);
+  color: #ffffff;
+}
+
+.toggleResponseText {
+  white-space: nowrap;
 }
 
 .closeButton {
@@ -967,6 +1014,46 @@
   }
 }
 
+/* ─── Mobile / Tablet (Sidebar hidden <= 768px) ────────────────────── */
+
+@media (max-width: 768px) {
+  .topBar {
+    top: 1rem;
+    left: 1rem;
+    right: 1rem;
+    justify-content: space-between;
+    pointer-events: none;
+  }
+
+  .toggleResponseBtn,
+  .closeButton {
+    pointer-events: auto;
+  }
+
+  .toggleResponseBtn {
+    width: 2.75rem;
+    height: 2.75rem;
+    padding: 0;
+    justify-content: center;
+    border-radius: 50%;
+  }
+
+  .toggleResponseText {
+    display: none;
+  }
+
+  .closeButton {
+    width: 2.75rem;
+    height: 2.75rem;
+  }
+
+  .upperNoticeWrapper {
+    top: 4.25rem;
+    left: 1rem;
+    right: 1rem;
+  }
+}
+
 @media (max-height: 640px) {
   .limitModalCard {
     padding: 1rem 1.25rem;
@@ -1098,11 +1185,11 @@
   border-color: rgba(255, 255, 255, 0.15);
 }
 
-@media (max-width: 600px) {
+@media (max-width: 768px) {
   .upperNoticeWrapper {
     left: 0.75rem;
-    right: 4.5rem;
-    top: 0.85rem;
+    right: 0.75rem;
+    top: 4.25rem;
   }
 
   .latencyNoticeBanner {
