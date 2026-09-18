@@ -37,14 +37,43 @@
   cursor: pointer;
 }
 
-.topBar {
+.topHeaderBar {
   z-index: 99;
   position: absolute;
-  top: 1.5rem;
-  right: 1.5rem;
+  top: 1.25rem;
+  left: 1.25rem;
+  right: 1.25rem;
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 0.75rem;
+  pointer-events: none;
+}
+
+.topBarLeft {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  pointer-events: auto;
+}
+
+.topBarCenter {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.topBarRight {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-shrink: 0;
+  pointer-events: auto;
+  z-index: 2;
 }
 
 .toggleResponseBtn {
@@ -66,6 +95,20 @@
   transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
   user-select: none;
+  flex-shrink: 0;
+}
+
+@media (max-width: 960px) {
+  .toggleResponseText {
+    display: none;
+  }
+  .toggleResponseBtn {
+    width: 3rem;
+    height: 3rem;
+    padding: 0;
+    justify-content: center;
+    border-radius: 50%;
+  }
 }
 
 .toggleResponseBtn:hover {
@@ -1017,17 +1060,16 @@
 /* ─── Mobile / Tablet (Sidebar hidden <= 768px) ────────────────────── */
 
 @media (max-width: 768px) {
-  .topBar {
-    top: 1rem;
-    left: 1rem;
-    right: 1rem;
-    justify-content: space-between;
-    pointer-events: none;
+  .topHeaderBar {
+    top: 0.75rem;
+    left: 0.75rem;
+    right: 0.75rem;
+    height: 2.75rem;
+    gap: 0.5rem;
   }
 
-  .toggleResponseBtn,
-  .closeButton {
-    pointer-events: auto;
+  .topBarLeft {
+    display: flex;
   }
 
   .toggleResponseBtn {
@@ -1045,12 +1087,6 @@
   .closeButton {
     width: 2.75rem;
     height: 2.75rem;
-  }
-
-  .upperNoticeWrapper {
-    top: 4.25rem;
-    left: 1rem;
-    right: 1rem;
   }
 }
 
@@ -1091,22 +1127,11 @@
   }
 }
 
-/* ─── Upper High Traffic Latency Notice ───────────────────────────── */
-
-.upperNoticeWrapper {
-  position: absolute;
-  top: 1.25rem;
-  left: 1.5rem;
-  right: 5.5rem;
-  z-index: 100;
-  display: flex;
-  justify-content: center;
-  pointer-events: none;
-}
+/* ─── Upper High Traffic Latency Notice (Exact Original Card Style) ─── */
 
 .latencyNoticeBanner {
   pointer-events: auto;
-  width: 100%;
+  width: auto;
   max-width: 620px;
   display: flex;
   align-items: center;
@@ -1118,6 +1143,8 @@
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5), 0 0 24px rgba(245, 158, 11, 0.1);
+  box-sizing: border-box;
+  min-width: 0;
 }
 
 .latencyNoticeIcon {
@@ -1139,6 +1166,7 @@
   flex-direction: column;
   gap: 2px;
   min-width: 0;
+  overflow: hidden;
 }
 
 .latencyNoticeTitle {
@@ -1146,6 +1174,9 @@
   font-weight: 700;
   color: #fcd34d;
   line-height: 1.4;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .noticeHighlight {
@@ -1162,6 +1193,9 @@
   font-size: 0.74rem;
   color: #d6d3d1;
   line-height: 1.35;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .latencyNoticeDismiss {
@@ -1186,12 +1220,6 @@
 }
 
 @media (max-width: 768px) {
-  .upperNoticeWrapper {
-    left: 0.75rem;
-    right: 0.75rem;
-    top: 4.25rem;
-  }
-
   .latencyNoticeBanner {
     padding: 9px 12px;
     gap: 10px;
@@ -1215,5 +1243,47 @@
   .latencyNoticeDismiss {
     width: 26px;
     height: 26px;
+  }
+}
+
+@media (max-width: 520px) {
+  .topHeaderBar {
+    top: 0.5rem;
+    left: 0.5rem;
+    right: 0.5rem;
+    gap: 0.35rem;
+  }
+
+  .toggleResponseBtn {
+    width: 2.35rem;
+    height: 2.35rem;
+  }
+
+  .closeButton {
+    width: 2.35rem;
+    height: 2.35rem;
+  }
+
+  .latencyNoticeBanner {
+    padding: 6px 8px;
+    gap: 6px;
+    border-radius: 10px;
+  }
+
+  .latencyNoticeIcon {
+    display: none;
+  }
+
+  .latencyNoticeTitle {
+    font-size: 0.70rem;
+  }
+
+  .latencyNoticeSubtext {
+    font-size: 0.60rem;
+  }
+
+  .latencyNoticeDismiss {
+    width: 22px;
+    height: 22px;
   }
 }

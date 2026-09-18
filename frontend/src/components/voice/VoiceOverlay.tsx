@@ -914,7 +914,8 @@ export const VoiceOverlay: React.FC<VoiceOverlayProps> = ({ onClose, initialConv
 
               // If url is empty string, TTS failed or text was empty — show text but skip audio
               if (item.url === '') {
-                cumulativeText += item.text;
+                const sep = (cumulativeText && !cumulativeText.endsWith(' ') && !cumulativeText.endsWith('\n')) ? ' ' : '';
+                cumulativeText += sep + item.text;
                 setDisplayedAiResponse(filterThinkingTags(cumulativeText));
                 playedIndex++;
                 continue;
@@ -949,34 +950,39 @@ export const VoiceOverlay: React.FC<VoiceOverlayProps> = ({ onClose, initialConv
                   const onCanPlay = () => {
                     if (!resolved) {
                       resolved = true;
-                      audio.removeEventListener('canplay', onCanPlay);
-                      audio.removeEventListener('error', onError);
+                      audio.removeEventListener('canplaythrough', onCanPlay);
+                      audio.removeEventListener('loadeddata', onCanPlay);
                       resolveReady();
                     }
                   };
-                  const onError = () => {
+                  audio.addEventListener('canplaythrough', onCanPlay);
+                  audio.addEventListener('loadeddata', onCanPlay);
+                  // Safety timeout in case events don't fire
+                  setTimeout(() => {
                     if (!resolved) {
                       resolved = true;
-                      audio.removeEventListener('canplay', onCanPlay);
-                      audio.removeEventListener('error', onError);
-                      resolveReady(); // Proceed even on error so it attempts play or fails cleanly
+                      audio.removeEventListener('canplaythrough', onCanPlay);
+                      audio.removeEventListener('loadeddata', onCanPlay);
+                      resolveReady();
                     }
-                  };
-                  audio.addEventListener('canplay', onCanPlay);
-                  audio.addEventListener('error', onError);
-                  // 1.5s fallback timeout
-                  setTimeout(onCanPlay, 1500);
+                  }, 2000);
                 });
 
-                const audioPromise = new Promise<void>((resolve) => {
-                  let resolved = false;
-                  const done = () => { if (!resolved) { resolved = true; resolve(); } };
+                // Create promise that resolves when this audio chunk finishes playing
+                const audioPromise = new Promise<void>((resolveAudio) => {
+                  let doneCalled = false;
+                  const done = () => {
+                    if (!doneCalled) {
+                      doneCalled = true;
+                      resolveAudio();
+                    }
+                  };
                   audio.onended = done;
-                  audio.onerror = () => {
-                    console.warn(`[Voice] Audio playback error on chunk ${playedIndex}, skipping`);
+                  audio.onerror = (e) => {
+                    console.warn(`[Voice] Audio playback error on chunk ${playedIndex}, skipping`, e);
                     done();
                   };
-                  // Safety timeout: 15s max per audio segment (reduced from 30s for faster recovery)
+                  // Safety timeout: if onended doesn't fire within 15s, continue anyway
                   setTimeout(done, 15000);
                 });
 
@@ -984,16 +990,18 @@ export const VoiceOverlay: React.FC<VoiceOverlayProps> = ({ onClose, initialConv
                   await audio.play();
                 } catch (playErr) {
                   console.warn('[Voice] Audio play() rejected, skipping segment:', playErr);
-                  cumulativeText += item.text;
+                  const sep = (cumulativeText && !cumulativeText.endsWith(' ') && !cumulativeText.endsWith('\n')) ? ' ' : '';
+                  cumulativeText += sep + item.text;
                   setDisplayedAiResponse(filterThinkingTags(cumulativeText));
                   playedIndex++;
                   continue;
                 }
 
                 // Typewrite this chunk while audio plays
-                setDisplayedAiResponse(filterThinkingTags(cumulativeText));
-                await typewriter(filterThinkingTags(item.text), (val) => setDisplayedAiResponse(filterThinkingTags(cumulativeText) + val), 20);
-                cumulativeText += item.text;
+                const sep = (cumulativeText && !cumulativeText.endsWith(' ') && !cumulativeText.endsWith('\n')) ? ' ' : '';
+                setDisplayedAiResponse(filterThinkingTags(cumulativeText + sep));
+                await typewriter(filterThinkingTags(item.text), (val) => setDisplayedAiResponse(filterThinkingTags(cumulativeText + sep) + val), 20);
+                cumulativeText += sep + item.text;
 
                 // Wait for audio to finish before moving to the next chunk (sequential)
                 await audioPromise;
@@ -1007,7 +1015,8 @@ export const VoiceOverlay: React.FC<VoiceOverlayProps> = ({ onClose, initialConv
                   URL.revokeObjectURL(item.url);
                 }
               } else {
-                cumulativeText += item.text;
+                const sep = (cumulativeText && !cumulativeText.endsWith(' ') && !cumulativeText.endsWith('\n')) ? ' ' : '';
+                cumulativeText += sep + item.text;
                 setDisplayedAiResponse(filterThinkingTags(cumulativeText));
               }
 
@@ -1079,22 +1088,101 @@ export const VoiceOverlay: React.FC<VoiceOverlayProps> = ({ onClose, initialConv
           runNextTtsTask();
         };
 
-        // Batching: accumulate text into chunks of ~200 chars or 3+ sentence boundaries
-        let currentChunk = '';
-        let sentenceCount = 0;
-        const MIN_CHUNK_CHARS = 150;
-        const MAX_CHUNK_SENTENCES = 3;
+        // ── Robust Streaming Sentence Partitioner for TTS ──
+        // Ensures chunks are ONLY split at true sentence boundaries,
+        // never mid-word and never mid-sentence.
+        const ABBREVIATIONS = new Set(['mr', 'mrs', 'ms', 'dr', 'prof', 'sr', 'jr', 'vs', 'etc', 'eg', 'ie', 'al']);
 
-        const flushChunk = () => {
-          const s = currentChunk.trim();
+        const findSentenceBoundary = (text: string): number => {
+          const regex = /([.!?]+[\"')\]]*|\n+)(\s+|$)/g;
+          let match: RegExpExecArray | null;
+
+          while ((match = regex.exec(text)) !== null) {
+            const punct = match[1];
+
+            // Newline break (paragraph or list item) is always a natural pause
+            if (punct.includes('\n')) {
+              return match.index + match[0].length;
+            }
+
+            // Skip numeric decimals: e.g. '3.14', 'v1.0'
+            const charBefore = text[match.index - 1];
+            const charAfter = text[match.index + punct.length];
+            if (punct.startsWith('.') && charBefore >= '0' && charBefore <= '9' && charAfter >= '0' && charAfter <= '9') {
+              continue;
+            }
+
+            // Skip common abbreviations (e.g., 'Mr.', 'Dr.', 'vs.')
+            const precedingText = text.substring(0, match.index);
+            const lastWordMatch = precedingText.match(/([a-zA-Z]+)$/);
+            if (lastWordMatch && punct.startsWith('.')) {
+              const lastWord = lastWordMatch[1].toLowerCase();
+              if (ABBREVIATIONS.has(lastWord)) {
+                continue;
+              }
+            }
+
+            // Valid terminal punctuation found
+            return match.index + match[0].length;
+          }
+          return -1;
+        };
+
+        // Fallback for unusually long run-on sentences (>220 chars) without terminal punctuation
+        const findClauseBoundary = (text: string, maxChars: number = 220): number => {
+          if (text.length < maxChars) return -1;
+          const slice = text.substring(0, maxChars);
+          const clauseRegex = /([,;:\-–—])\s+/g;
+          let match: RegExpExecArray | null;
+          let lastClauseIdx = -1;
+          while ((match = clauseRegex.exec(slice)) !== null) {
+            lastClauseIdx = match.index + match[0].length;
+          }
+          if (lastClauseIdx > 50) return lastClauseIdx;
+
+          const lastSpaceIdx = slice.lastIndexOf(' ');
+          if (lastSpaceIdx > 50) return lastSpaceIdx + 1;
+
+          return -1;
+        };
+
+        let streamBuffer = '';
+        let pendingSentences: string[] = [];
+        let isFirstTtsChunk = true;
+
+        const emitChunk = (text: string) => {
+          const s = text.trim();
           if (!s) return;
           const chunkIdx = audioQueue.length;
           audioQueue.push({ text: s, url: null, blob: null });
           fetchChunkAudio(s, chunkIdx);
-          // Start the playback queue only once — subsequent flushes are picked up by the loop
           if (!isProcessingQueue) processPlaybackQueue();
-          currentChunk = '';
-          sentenceCount = 0;
+          isFirstTtsChunk = false;
+        };
+
+        const tryFlushSentences = (forceAll: boolean = false) => {
+          if (forceAll) {
+            if (streamBuffer.trim()) {
+              pendingSentences.push(streamBuffer.trim());
+              streamBuffer = '';
+            }
+            if (pendingSentences.length > 0) {
+              emitChunk(pendingSentences.join(' '));
+              pendingSentences = [];
+            }
+            return;
+          }
+
+          if (pendingSentences.length === 0) return;
+
+          const totalChars = pendingSentences.join(' ').length;
+          // For the 1st chunk, wait for at least ~70 chars OR 2 sentences so short replies stay in a single chunk.
+          // Subsequent chunks target ~140 chars or 2-3 sentences.
+          const minRequired = isFirstTtsChunk ? 70 : 140;
+          if (totalChars >= minRequired || pendingSentences.length >= 3) {
+            emitChunk(pendingSentences.join(' '));
+            pendingSentences = [];
+          }
         };
 
         let buffer = '';
@@ -1128,16 +1216,35 @@ export const VoiceOverlay: React.FC<VoiceOverlayProps> = ({ onClose, initialConv
                     if (parsed.content) {
                       const content = parsed.content;
                       fullAiText += content;
-                      currentChunk += content;
+                      streamBuffer += content;
 
-                      // Detect sentence boundaries
-                      if (/[.!?\n]/.test(content)) {
-                        sentenceCount++;
-                        // Flush when chunk is large enough OR has enough sentences
-                        if (currentChunk.length >= MIN_CHUNK_CHARS || sentenceCount >= MAX_CHUNK_SENTENCES) {
-                          flushChunk();
+                      // Extract any completed sentences from streamBuffer
+                      while (true) {
+                        const boundaryIdx = findSentenceBoundary(streamBuffer);
+                        if (boundaryIdx !== -1) {
+                          const sentence = streamBuffer.substring(0, boundaryIdx).trim();
+                          streamBuffer = streamBuffer.substring(boundaryIdx);
+                          if (sentence) {
+                            pendingSentences.push(sentence);
+                          }
+                          continue;
                         }
+
+                        // Check clause fallback if buffer is huge (>240 chars without sentence end)
+                        const clauseIdx = findClauseBoundary(streamBuffer, 220);
+                        if (clauseIdx !== -1) {
+                          const clause = streamBuffer.substring(0, clauseIdx).trim();
+                          streamBuffer = streamBuffer.substring(clauseIdx);
+                          if (clause) {
+                            pendingSentences.push(clause);
+                          }
+                          continue;
+                        }
+
+                        break;
                       }
+
+                      tryFlushSentences(false);
                     }
                   } catch (e) { }
                 }
@@ -1145,14 +1252,14 @@ export const VoiceOverlay: React.FC<VoiceOverlayProps> = ({ onClose, initialConv
 
               if (done) {
                 // Flush remaining text as the final chunk BEFORE setting readerDone
-                flushChunk();
+                tryFlushSentences(true);
                 readerDone = true;
                 break;
               }
             }
           } catch (err) {
             console.error('Stream read error:', err);
-            flushChunk();
+            tryFlushSentences(true);
             readerDone = true;
           }
         };
@@ -1352,56 +1459,64 @@ export const VoiceOverlay: React.FC<VoiceOverlayProps> = ({ onClose, initialConv
   }
   return (
     <div className={styles.overlayContainer}>
-      <div className={styles.topBar}>
-        <button
-          onClick={() => setShowAiResponses((prev) => !prev)}
-          className={`${styles.toggleResponseBtn} ${!showAiResponses ? styles.toggleResponseBtnHidden : ''}`}
-          title={showAiResponses ? 'Hide responses' : 'Show responses'}
-          aria-label={showAiResponses ? 'Hide responses' : 'Show responses'}
-        >
-          {showAiResponses ? <EyeOff size={18} /> : <Eye size={18} />}
-          <span className={styles.toggleResponseText}>
-            {showAiResponses ? 'Hide Text' : 'Show Text'}
-          </span>
-        </button>
-        <button onClick={handleManualClose} className={styles.closeButton}>
-          <X size={24} />
-        </button>
-      </div>
+      {/* Unified Top Header Bar: All controls & banner aligned on the exact same axis */}
+      <div className={styles.topHeaderBar}>
+        {/* Left Slot: Toggle Responses (Eye/EyeOff) */}
+        <div className={styles.topBarLeft}>
+          <button
+            onClick={() => setShowAiResponses((prev) => !prev)}
+            className={`${styles.toggleResponseBtn} ${!showAiResponses ? styles.toggleResponseBtnHidden : ''}`}
+            title={showAiResponses ? 'Hide responses' : 'Show responses'}
+            aria-label={showAiResponses ? 'Hide responses' : 'Show responses'}
+          >
+            {showAiResponses ? <EyeOff size={18} /> : <Eye size={18} />}
+            <span className={styles.toggleResponseText}>
+              {showAiResponses ? 'Hide Text' : 'Show Text'}
+            </span>
+          </button>
+        </div>
 
-      {/* Upper High Traffic Latency Notice */}
-      <div className={styles.upperNoticeWrapper}>
-        <AnimatePresence>
-          {showLatencyNotice && (
-            <motion.div
-              initial={{ opacity: 0, y: -20, scale: 0.96 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: -16, scale: 0.96 }}
-              transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
-              className={styles.latencyNoticeBanner}
-            >
-              <div className={styles.latencyNoticeIcon}>
-                <Hourglass size={18} />
-              </div>
-              <div className={styles.latencyNoticeContent}>
-                <div className={styles.latencyNoticeTitle}>
-                  Switched to <span className={styles.noticeHighlight}>Standard Voice</span> due to high demand.
-                </div>
-                <div className={styles.latencyNoticeSubtext}>
-                  You may experience a 2~3 second response latency. Thank you for your patience.
-                </div>
-              </div>
-              <button
-                onClick={() => setShowLatencyNotice(false)}
-                className={styles.latencyNoticeDismiss}
-                title="Dismiss"
-                aria-label="Dismiss notice"
+        {/* Center Slot: High Traffic Latency Notice */}
+        <div className={styles.topBarCenter}>
+          <AnimatePresence>
+            {showLatencyNotice && (
+              <motion.div
+                initial={{ opacity: 0, y: -14, scale: 0.96 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: -10, scale: 0.96 }}
+                transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
+                className={styles.latencyNoticeBanner}
               >
-                <X size={15} />
-              </button>
-            </motion.div>
-          )}
-        </AnimatePresence>
+                <div className={styles.latencyNoticeIcon}>
+                  <Hourglass size={18} />
+                </div>
+                <div className={styles.latencyNoticeContent}>
+                  <div className={styles.latencyNoticeTitle}>
+                    Switched to <span className={styles.noticeHighlight}>Standard Voice</span> due to high demand.
+                  </div>
+                  <div className={styles.latencyNoticeSubtext}>
+                    You may experience a 2~3 second response latency. Thank you for your patience.
+                  </div>
+                </div>
+                <button
+                  onClick={() => setShowLatencyNotice(false)}
+                  className={styles.latencyNoticeDismiss}
+                  title="Dismiss"
+                  aria-label="Dismiss notice"
+                >
+                  <X size={16} />
+                </button>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+
+        {/* Right Slot: Close Button */}
+        <div className={styles.topBarRight}>
+          <button onClick={handleManualClose} className={styles.closeButton} title="Close voice overlay" aria-label="Close voice overlay">
+            <X size={22} />
+          </button>
+        </div>
       </div>
 
       {sessionLimitInfo ? (
