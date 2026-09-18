@@ -148,6 +148,14 @@ export const PLAN_CONFIGS: Readonly<Record<PlanTier, PlanConfig>> = Object.freez
   },
 });
 
+/** Continuous Live Voice session duration limits in minutes per session */
+export const LIVE_VOICE_SESSION_LIMITS_MINUTES: Record<PlanTier, number> = {
+  anonymous: 3,
+  free: 5,
+  starter: 10,
+  pro: 20,
+};
+
 /** BYOK quota multiplier — using own API key reduces quota consumption */
 export const BYOK_QUOTA_MULTIPLIER = 0.2;
 

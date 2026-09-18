@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, AlertTriangle, Clock, ArrowRight, Sparkles, Zap } from 'lucide-react';
+import { X, AlertTriangle, Clock, ArrowRight, Sparkles, Zap, RotateCcw, Volume2, Hourglass } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { useChatStore } from '../../store/chat.store';
@@ -137,6 +137,29 @@ export const VoiceOverlay: React.FC<VoiceOverlayProps> = ({ onClose, initialConv
   const currentTurnUserTextRef = useRef<string>('');
   const currentTurnAiTextRef = useRef<string>('');
   const isSavingTurnRef = useRef<boolean>(false);
+
+  // Continuous Session Duration Limit State
+  const [sessionLimitInfo, setSessionLimitInfo] = useState<{
+    tier: string;
+    maxMinutes: number;
+    message?: string;
+  } | null>(null);
+  const sessionLimitTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // High Traffic / Latency Notice State (when falling back to standard voice mode)
+  const [showLatencyNotice, setShowLatencyNotice] = useState<boolean>(false);
+  const latencyNoticeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const triggerLatencyNotice = useCallback(() => {
+    setShowLatencyNotice(true);
+    if (latencyNoticeTimerRef.current) {
+      clearTimeout(latencyNoticeTimerRef.current);
+    }
+    latencyNoticeTimerRef.current = setTimeout(() => {
+      setShowLatencyNotice(false);
+      latencyNoticeTimerRef.current = null;
+    }, 18000);
+  }, []);
 
   // Content State
   const [transcript, setTranscript] = useState('');
@@ -363,6 +386,27 @@ export const VoiceOverlay: React.FC<VoiceOverlayProps> = ({ onClose, initialConv
               currentTurnAiTextRef.current = '';
               console.log(`[Voice Live] ✅ Session started: model=${msg.model}`);
 
+              // Tier-based continuous session duration limit tracking
+              const userTier = msg.tier || (user ? 'free' : 'anonymous');
+              const maxMinutes = msg.maxDurationMinutes || (userTier === 'anonymous' ? 3 : userTier === 'free' ? 5 : userTier === 'starter' ? 10 : 20);
+              const maxSeconds = msg.maxDurationSeconds || (maxMinutes * 60);
+
+              if (sessionLimitTimerRef.current) {
+                clearTimeout(sessionLimitTimerRef.current);
+              }
+
+              sessionLimitTimerRef.current = setTimeout(() => {
+                console.log(`[Voice Live] Continuous session limit reached (${maxMinutes}m for ${userTier})`);
+                saveCompletedTurn();
+                cleanupLive();
+                setStatus('idle');
+                setSessionLimitInfo({
+                  tier: userTier,
+                  maxMinutes,
+                  message: `For ${userTier} plan, the continuous live session limit is ${maxMinutes} minutes.`,
+                });
+              }, maxSeconds * 1000);
+
               // Seed prior conversation context into the Live session if entering from a chat
               if (messagesRef.current && messagesRef.current.length > 0) {
                 const priorMessages = messagesRef.current
@@ -406,6 +450,7 @@ export const VoiceOverlay: React.FC<VoiceOverlayProps> = ({ onClose, initialConv
                 console.error('[Voice Live] Audio setup failed:', audioErr);
                 cleanupLive();
                 setVoiceMode('legacy');
+                triggerLatencyNotice();
                 setTimeout(startRecording, 500);
               }
               break;
@@ -414,7 +459,9 @@ export const VoiceOverlay: React.FC<VoiceOverlayProps> = ({ onClose, initialConv
             case 'fallback': {
               clearTimeout(connectTimeout);
               console.log(`[Voice Live] Fallback to legacy: ${msg.reason}`);
+              cleanupLive();
               setVoiceMode('legacy');
+              triggerLatencyNotice();
               setTimeout(startRecording, 500);
               break;
             }
@@ -486,15 +533,31 @@ export const VoiceOverlay: React.FC<VoiceOverlayProps> = ({ onClose, initialConv
                 console.error('[Voice Live] Error:', msg.message);
                 cleanupLive();
                 setVoiceMode('legacy');
+                triggerLatencyNotice();
                 setTimeout(startRecording, 500);
               }
               break;
             }
 
             case 'session-end': {
-              console.log('[Voice Live] Session ended by server');
-              cleanupLive();
-              setStatus('idle');
+              console.log('[Voice Live] Session ended by server:', msg);
+              if (sessionLimitTimerRef.current) {
+                clearTimeout(sessionLimitTimerRef.current);
+                sessionLimitTimerRef.current = null;
+              }
+              if (msg.reason === 'duration_limit_reached') {
+                saveCompletedTurn();
+                cleanupLive();
+                setStatus('idle');
+                setSessionLimitInfo({
+                  tier: msg.tier || (user ? 'free' : 'anonymous'),
+                  maxMinutes: msg.maxMinutes || (msg.tier === 'anonymous' ? 3 : 5),
+                  message: msg.message,
+                });
+              } else {
+                cleanupLive();
+                setStatus('idle');
+              }
               break;
             }
           }
@@ -506,7 +569,9 @@ export const VoiceOverlay: React.FC<VoiceOverlayProps> = ({ onClose, initialConv
       ws.onerror = (err) => {
         clearTimeout(connectTimeout);
         console.error('[Voice Live] WebSocket error:', err);
+        cleanupLive();
         setVoiceMode('legacy');
+        triggerLatencyNotice();
         setTimeout(startRecording, 500);
       };
 
@@ -530,15 +595,22 @@ export const VoiceOverlay: React.FC<VoiceOverlayProps> = ({ onClose, initialConv
 
     } catch (err) {
       console.error('[Voice Live] Connection setup failed:', err);
+      cleanupLive();
       setVoiceMode('legacy');
+      triggerLatencyNotice();
       setTimeout(startRecording, 500);
     }
-  }, [isSessionActive, saveCompletedTurn]);
+  }, [isSessionActive, saveCompletedTurn, triggerLatencyNotice]);
 
   const cleanupLive = useCallback(() => {
+    if (sessionLimitTimerRef.current) {
+      clearTimeout(sessionLimitTimerRef.current);
+      sessionLimitTimerRef.current = null;
+    }
+
     if (liveWsRef.current) {
       if (liveWsRef.current.readyState === WebSocket.OPEN ||
-          liveWsRef.current.readyState === WebSocket.CONNECTING) {
+        liveWsRef.current.readyState === WebSocket.CONNECTING) {
         liveWsRef.current.close(1000, 'User closed session');
       }
       liveWsRef.current = null;
@@ -1192,6 +1264,28 @@ export const VoiceOverlay: React.FC<VoiceOverlayProps> = ({ onClose, initialConv
     onClose();
   };
 
+  const handleContinueWithLatency = () => {
+    setSessionLimitInfo(null);
+    setVoiceMode('legacy');
+    triggerLatencyNotice();
+    setTimeout(() => {
+      startRecording();
+    }, 300);
+  };
+
+  const handleRestartLive = () => {
+    setSessionLimitInfo(null);
+    setVoiceMode('connecting');
+    setTimeout(() => {
+      tryConnectLive();
+    }, 200);
+  };
+
+  const handleUpgradeFromLimit = () => {
+    handleManualClose();
+    navigate('/pricing');
+  };
+
   // On mount: Try Live Mode first, falls back to Legacy if unavailable
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -1207,6 +1301,16 @@ export const VoiceOverlay: React.FC<VoiceOverlayProps> = ({ onClose, initialConv
       isUnmountedRef.current = true;
       shouldProcessRef.current = false;
       if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
+
+      if (sessionLimitTimerRef.current) {
+        clearTimeout(sessionLimitTimerRef.current);
+        sessionLimitTimerRef.current = null;
+      }
+
+      if (latencyNoticeTimerRef.current) {
+        clearTimeout(latencyNoticeTimerRef.current);
+        latencyNoticeTimerRef.current = null;
+      }
 
       // Flush any pending turn before unmounting
       if (voiceMode === 'live' && (currentTurnAiTextRef.current.trim() || currentTurnUserTextRef.current.trim())) {
@@ -1253,7 +1357,127 @@ export const VoiceOverlay: React.FC<VoiceOverlayProps> = ({ onClose, initialConv
         </button>
       </div>
 
-      {rateLimitInfo ? (
+      {/* Upper High Traffic Latency Notice */}
+      <div className={styles.upperNoticeWrapper}>
+        <AnimatePresence>
+          {showLatencyNotice && (
+            <motion.div
+              initial={{ opacity: 0, y: -20, scale: 0.96 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: -16, scale: 0.96 }}
+              transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
+              className={styles.latencyNoticeBanner}
+            >
+              <div className={styles.latencyNoticeIcon}>
+                <Hourglass size={18} />
+              </div>
+              <div className={styles.latencyNoticeContent}>
+                <div className={styles.latencyNoticeTitle}>
+                  Switched to <span className={styles.noticeHighlight}>Standard Voice</span> due to high demand.
+                </div>
+                <div className={styles.latencyNoticeSubtext}>
+                  You may experience a 2~3 second response latency. Thank you for your patience.
+                </div>
+              </div>
+              <button
+                onClick={() => setShowLatencyNotice(false)}
+                className={styles.latencyNoticeDismiss}
+                title="Dismiss"
+                aria-label="Dismiss notice"
+              >
+                <X size={15} />
+              </button>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+
+      {sessionLimitInfo ? (
+        <motion.div
+          initial={{ opacity: 0, scale: 0.94, y: 16 }}
+          animate={{ opacity: 1, scale: 1, y: 0 }}
+          exit={{ opacity: 0, scale: 0.94, y: 16 }}
+          className={styles.limitModalCard}
+        >
+          <div className={styles.limitModalHeader}>
+            <div className={styles.limitIconBadge}>
+              <Clock size={28} />
+            </div>
+            <h2 className={styles.limitModalTitle}>Live Session Limit Reached</h2>
+            <p className={styles.limitModalSubtitle}>
+              Continuous live voice sessions are capped at <strong className={styles.highlightLimit}>{sessionLimitInfo.maxMinutes} minutes</strong> on the <span className={styles.highlightTier}>{sessionLimitInfo.tier.toUpperCase()}</span> plan.
+            </p>
+          </div>
+
+          <div className={styles.tierLimitsSection}>
+            <div className={styles.tierLimitsTitle}>Continuous Session Duration Limits</div>
+            <div className={styles.tierGrid}>
+              {[
+                { name: 'Anonymous', limit: '3 min', tierKey: 'anonymous', price: 'Free', isUpgrade: false },
+                { name: 'Free', limit: '5 min', tierKey: 'free', price: 'Logged in', isUpgrade: sessionLimitInfo.tier.toLowerCase() === 'anonymous' },
+                { name: 'Starter', limit: '10 min', tierKey: 'starter', price: '$8/mo', isUpgrade: true },
+                { name: 'Pro', limit: '20 min', tierKey: 'pro', price: '$29/mo', isUpgrade: true },
+              ].map((t) => {
+                const isCurrent = sessionLimitInfo.tier.toLowerCase() === t.tierKey;
+                const canUpgrade = t.isUpgrade && !isCurrent;
+                return (
+                  <div
+                    key={t.tierKey}
+                    role={canUpgrade ? "button" : undefined}
+                    tabIndex={canUpgrade ? 0 : undefined}
+                    onClick={canUpgrade ? handleUpgradeFromLimit : undefined}
+                    title={canUpgrade ? `Click to upgrade to ${t.name} on Pricing page` : undefined}
+                    className={`${styles.tierCard} ${isCurrent ? styles.tierCardActive : ''} ${canUpgrade ? styles.tierCardUpgrade : ''}`}
+                  >
+                    <div className={styles.tierCardTop}>
+                      <span className={styles.tierCardName}>{t.name}</span>
+                      {isCurrent ? (
+                        <span className={styles.tierCurrentBadge}>Current</span>
+                      ) : canUpgrade ? (
+                        <span className={styles.tierUpgradeBadge}>Upgrade ↗</span>
+                      ) : null}
+                    </div>
+                    <div className={styles.tierCardLimit}>{t.limit}</div>
+                    <div className={styles.tierCardPrice}>{t.price}</div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          <p className={styles.limitNotice}>
+            You can continue this session with latency without losing conversation context, restart a fresh live session, or upgrade your plan to increase limits.
+          </p>
+
+          <div className={styles.limitActions}>
+            <button
+              onClick={handleContinueWithLatency}
+              className={`${styles.limitBtn} ${styles.limitContinueBtn}`}
+            >
+              <Volume2 size={16} />
+              <span>Continue with Latency</span>
+              <span className={styles.contextBadge}>Preserves Context</span>
+            </button>
+
+            <button
+              onClick={handleRestartLive}
+              className={`${styles.limitBtn} ${styles.limitRestartBtn}`}
+            >
+              <RotateCcw size={16} />
+              <span>Restart Live Session</span>
+            </button>
+
+            <button
+              onClick={handleUpgradeFromLimit}
+              className={`${styles.limitBtn} ${styles.limitUpgradeBtn}`}
+            >
+              <Sparkles size={16} />
+              <span>Upgrade Plan</span>
+              <ArrowRight size={14} />
+            </button>
+          </div>
+        </motion.div>
+      ) : rateLimitInfo ? (
         <div className={styles.rateLimitCard}>
           <div className={styles.rateLimitIcon}>
             <AlertTriangle size={36} />
@@ -1343,8 +1567,8 @@ export const VoiceOverlay: React.FC<VoiceOverlayProps> = ({ onClose, initialConv
             <span>
               {voiceMode === 'connecting' ? 'Connecting...' :
                 status === 'listening' ? 'AI is Listening' :
-                status === 'speaking' ? 'AI is Speaking' :
-                  status === 'thinking' ? 'AI is Thinking' : 'Ready'}
+                  status === 'speaking' ? 'AI is Speaking' :
+                    status === 'thinking' ? 'AI is Thinking' : 'Ready'}
             </span>
           </div>
 

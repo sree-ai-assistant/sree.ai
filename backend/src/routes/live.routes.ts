@@ -18,6 +18,7 @@ import { supabaseAdmin } from '../lib/supabase';
 import { checkRateLimit, checkAndIncrementMultiUsage, type RateLimitIdentity } from '../services/usage.service';
 import { createLiveSession, calculateLiveCredits, closeSession, type GeminiLiveSession } from '../services/liveVoice.service';
 import { voiceSessionCache } from '../middleware/rateLimit';
+import { LIVE_VOICE_SESSION_LIMITS_MINUTES, type PlanTier } from '../config/plans';
 
 // ─── Types ───────────────────────────────────────────────────────────
 
@@ -125,13 +126,34 @@ export async function handleLiveVoiceConnection(
     return;
   }
 
-  // 4. Session started — inform client
+  // 4. Session started — inform client with tier-based session duration limits
+  const maxDurationMinutes = LIVE_VOICE_SESSION_LIMITS_MINUTES[tier as PlanTier] || 5;
+  const maxDurationSeconds = maxDurationMinutes * 60;
+
   sendControl(clientWs, {
     type: 'session-start',
     mode: 'live',
     model: geminiSession.model,
     sessionId,
+    tier,
+    maxDurationMinutes,
+    maxDurationSeconds,
   });
+
+  // Server-side safety timer: cleanly end session if client exceeds continuous limit
+  const sessionLimitTimer = setTimeout(() => {
+    if (clientWs.readyState === WebSocket.OPEN) {
+      console.log(`[LiveVoice] Session ${sessionId} reached continuous limit of ${maxDurationMinutes}m for ${tier}`);
+      sendControl(clientWs, {
+        type: 'session-end',
+        reason: 'duration_limit_reached',
+        tier,
+        maxMinutes: maxDurationMinutes,
+        message: `For ${tier} plan, the continuous live session limit is ${maxDurationMinutes} minutes.`,
+      });
+      clientWs.close(1000, 'Session duration limit reached');
+    }
+  }, (maxDurationSeconds + 5) * 1000);
 
   // 5. Proxy: Gemini → Client
   geminiSession.ws.on('message', (data: Buffer | string) => {
@@ -301,6 +323,7 @@ export async function handleLiveVoiceConnection(
 
   // 7. Handle upstream Gemini close
   geminiSession.ws.on('close', (code: number, reason: Buffer) => {
+    clearTimeout(sessionLimitTimer);
     console.log(`[LiveVoice] Gemini upstream closed: ${code} ${reason?.toString()}`);
     if (clientWs.readyState === WebSocket.OPEN) {
       sendControl(clientWs, {
@@ -325,6 +348,7 @@ export async function handleLiveVoiceConnection(
 
   // 8. Handle client disconnect — charge credits and cleanup
   clientWs.on('close', async (code: number) => {
+    clearTimeout(sessionLimitTimer);
     console.log(`[LiveVoice] Client disconnected: ${sessionId} (code: ${code})`);
 
     // Close upstream Gemini connection
