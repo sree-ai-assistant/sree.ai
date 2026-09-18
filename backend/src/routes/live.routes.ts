@@ -153,29 +153,39 @@ export async function handleLiveVoiceConnection(
             // Send as binary frame to client
             clientWs.send(audioBuffer, { binary: true });
           }
-
-          if (part.text) {
-            sendControl(clientWs, {
-              type: 'transcript',
-              role: 'assistant',
-              text: part.text,
-            });
-          }
         }
 
         // Forward output transcription (Gemini's text version of its spoken response)
-        if (msg.serverContent.outputTranscription?.text) {
+        const outputText = msg.serverContent.outputTranscription?.text;
+        if (outputText) {
           sendControl(clientWs, {
             type: 'transcript',
             role: 'assistant',
-            text: msg.serverContent.outputTranscription.text,
+            text: outputText,
           });
+        } else {
+          // Fallback to text parts if outputTranscription is absent
+          for (const part of parts) {
+            if (part.text) {
+              sendControl(clientWs, {
+                type: 'transcript',
+                role: 'assistant',
+                text: part.text,
+              });
+            }
+          }
         }
 
         // Forward input transcription (Gemini's transcription of user's speech)
         if (msg.serverContent.inputTranscription?.text) {
           sendControl(clientWs, {
+            type: 'transcript',
+            role: 'user',
+            text: msg.serverContent.inputTranscription.text,
+          });
+          sendControl(clientWs, {
             type: 'input-transcript',
+            role: 'user',
             text: msg.serverContent.inputTranscription.text,
           });
         }
@@ -201,16 +211,50 @@ export async function handleLiveVoiceConnection(
   });
 
   // 6. Proxy: Client → Gemini
-  clientWs.on('message', (data: Buffer | ArrayBuffer | string) => {
+  clientWs.on('message', (data: Buffer | ArrayBuffer | string, isBinary: boolean) => {
     if (!geminiSession || geminiSession.ws.readyState !== WebSocket.OPEN) return;
 
+    // Check if message is a JSON control message
+    let jsonText: string | null = null;
     if (typeof data === 'string') {
+      jsonText = data;
+    } else if (!isBinary && Buffer.isBuffer(data)) {
+      jsonText = data.toString('utf8');
+    } else if (Buffer.isBuffer(data)) {
+      // Even if flagged as binary, inspect if it's actually a JSON string
+      const str = data.toString('utf8').trim();
+      if (str.startsWith('{') && str.endsWith('}')) {
+        jsonText = str;
+      }
+    }
+
+    if (jsonText) {
       // JSON control messages from client
       try {
-        const msg = JSON.parse(data);
+        const msg = JSON.parse(jsonText);
 
-        if (msg.type === 'audio') {
-          // Client sends base64 PCM audio
+        if (msg.type === 'init-context' && Array.isArray(msg.messages) && msg.messages.length > 0) {
+          // Seed prior conversation context from chat history
+          const validTurns = msg.messages
+            .slice(-30)
+            .filter((m: any) => m && m.content && String(m.content).trim().length > 0 && (m.role === 'user' || m.role === 'assistant' || m.role === 'model'))
+            .map((m: any) => ({
+              role: (m.role === 'assistant' || m.role === 'model') ? 'model' : 'user',
+              parts: [{ text: String(m.content).trim() }],
+            }));
+
+          if (validTurns.length > 0) {
+            const contextMessage = {
+              clientContent: {
+                turns: validTurns,
+                turnComplete: false, // Seed memory without triggering immediate audio generation
+              },
+            };
+            geminiSession.ws.send(JSON.stringify(contextMessage));
+            console.log(`[LiveVoice] 🧠 Seeded ${validTurns.length} conversation messages into Live session context`);
+          }
+        } else if (msg.type === 'audio') {
+          // Client sends base64 PCM audio in JSON
           const audioMessage = {
             realtimeInput: {
               audio: {
@@ -235,11 +279,11 @@ export async function handleLiveVoiceConnection(
           geminiSession.turnCount++;
         }
       } catch (e) {
-        console.warn('[LiveVoice] Failed to parse client message:', e);
+        console.warn('[LiveVoice] Failed to parse client JSON message:', e);
       }
     } else {
       // Binary PCM audio from client — wrap in realtimeInput
-      const buffer = Buffer.isBuffer(data) ? data : Buffer.from(data);
+      const buffer = Buffer.isBuffer(data) ? data : Buffer.from(data as ArrayBuffer);
       const base64Audio = buffer.toString('base64');
 
       const audioMessage = {

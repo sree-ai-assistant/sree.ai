@@ -112,7 +112,9 @@ export const VoiceOverlay: React.FC<VoiceOverlayProps> = ({ onClose, initialConv
   });
 
   // Sync state with props (important for "New Chat" navigation)
+  const initialConversationIdRef = useRef(initialConversationId);
   useEffect(() => {
+    initialConversationIdRef.current = initialConversationId;
     setConversationId(initialConversationId || null);
   }, [initialConversationId]);
 
@@ -132,6 +134,9 @@ export const VoiceOverlay: React.FC<VoiceOverlayProps> = ({ onClose, initialConv
   const liveSessionIdRef = useRef<string | null>(null);
   const liveStartTimeRef = useRef<number>(0);
   const liveTranscriptRef = useRef<{ role: 'user' | 'assistant'; text: string }[]>([]);
+  const currentTurnUserTextRef = useRef<string>('');
+  const currentTurnAiTextRef = useRef<string>('');
+  const isSavingTurnRef = useRef<boolean>(false);
 
   // Content State
   const [transcript, setTranscript] = useState('');
@@ -230,10 +235,68 @@ export const VoiceOverlay: React.FC<VoiceOverlayProps> = ({ onClose, initialConv
     setLoadingMessage('');
   };
 
+  // ─── Save Completed Live Turn ────────────────────────────────────
+  const saveCompletedTurn = useCallback(async (forcedUserText?: string, forcedAiText?: string) => {
+    if (isSavingTurnRef.current) return;
+
+    const userText = (forcedUserText !== undefined ? forcedUserText : currentTurnUserTextRef.current).trim();
+    const aiText = (forcedAiText !== undefined ? forcedAiText : currentTurnAiTextRef.current).trim();
+
+    // Reset turn buffers immediately to avoid double saving
+    if (forcedUserText === undefined) currentTurnUserTextRef.current = '';
+    if (forcedAiText === undefined) currentTurnAiTextRef.current = '';
+
+    // If there is no AI response and no user text, nothing to save
+    if (!aiText && !userText) return;
+
+    isSavingTurnRef.current = true;
+
+    try {
+      let currentConvId = conversationIdRef.current;
+      const anonId = localStorage.getItem('sreeai_anon_id') || undefined;
+
+      if (!currentConvId) {
+        const title = (userText || aiText).slice(0, 30);
+        const conv = await createConversation(user?.id, title, 'voice', anonId);
+        if (conv) {
+          currentConvId = conv.id;
+          setConversationId(conv.id);
+          conversationIdRef.current = conv.id;
+          if (!initialConversationIdRef.current) {
+            navigate(`/voice/chat/${conv.id}`, { replace: true });
+          }
+        }
+      }
+
+      if (currentConvId) {
+        // Fallback for user text if Gemini didn't transcribe speech but generated a reply
+        const finalUserText = userText || '🎙️ (Voice prompt)';
+
+        // 1. Save user prompt first
+        await addMessage(currentConvId, 'user', finalUserText, { mode: 'voice-live' });
+
+        // 2. Save assistant response second
+        if (aiText) {
+          await addMessage(currentConvId, 'assistant', aiText, { mode: 'voice-live' });
+        }
+      }
+    } catch (err) {
+      console.error('[Voice Live] Failed to save completed turn:', err);
+    } finally {
+      isSavingTurnRef.current = false;
+    }
+  }, [user, createConversation, addMessage, navigate]);
+
   // ─── Live Mode: WebSocket Connection ─────────────────────────────
   const tryConnectLive = useCallback(async () => {
     if (!isSessionActive) {
       setVoiceMode('legacy');
+      return;
+    }
+
+    // Do not reconnect if already open or connecting
+    if (liveWsRef.current && (liveWsRef.current.readyState === WebSocket.OPEN || liveWsRef.current.readyState === WebSocket.CONNECTING)) {
+      console.log('[Voice Live] WebSocket is already active, skipping duplicate connect');
       return;
     }
 
@@ -296,8 +359,24 @@ export const VoiceOverlay: React.FC<VoiceOverlayProps> = ({ onClose, initialConv
               setLiveModel(msg.model || '');
               liveSessionIdRef.current = msg.sessionId;
               liveStartTimeRef.current = Date.now();
-              liveTranscriptRef.current = [];
+              currentTurnUserTextRef.current = '';
+              currentTurnAiTextRef.current = '';
               console.log(`[Voice Live] ✅ Session started: model=${msg.model}`);
+
+              // Seed prior conversation context into the Live session if entering from a chat
+              if (messagesRef.current && messagesRef.current.length > 0) {
+                const priorMessages = messagesRef.current
+                  .slice(-30)
+                  .map(m => ({ role: m.role, content: m.content }));
+
+                if (priorMessages.length > 0 && ws.readyState === WebSocket.OPEN) {
+                  ws.send(JSON.stringify({
+                    type: 'init-context',
+                    messages: priorMessages,
+                  }));
+                  console.log(`[Voice Live] Sent ${priorMessages.length} prior conversation messages for context`);
+                }
+              }
 
               // Initialize audio capture and playback
               try {
@@ -340,18 +419,35 @@ export const VoiceOverlay: React.FC<VoiceOverlayProps> = ({ onClose, initialConv
               break;
             }
 
-            case 'transcript': {
-              if (msg.role === 'assistant') {
-                setDisplayedAiResponse((prev) => prev + msg.text);
+            case 'transcript':
+            case 'input-transcript': {
+              if (msg.role === 'user' || msg.type === 'input-transcript') {
+                // If assistant was speaking from an earlier turn that hasn't saved yet, flush it
+                if (currentTurnAiTextRef.current.trim()) {
+                  saveCompletedTurn();
+                }
+                currentTurnUserTextRef.current += msg.text;
+                // User requested NOT to show user transcript on overlay.
+                // It is kept in currentTurnUserTextRef for saving to chat store & DB.
+              } else if (msg.role === 'assistant') {
+                currentTurnAiTextRef.current += msg.text;
+                setDisplayedAiResponse((prev) => {
+                  if (prev && !prev.endsWith(' ') && !prev.endsWith('\n') && !msg.text.startsWith(' ') && !msg.text.startsWith('\n')) {
+                    return prev + '  ' + msg.text;
+                  }
+                  return prev + msg.text;
+                });
                 setStatus('speaking');
-                liveTranscriptRef.current.push({ role: 'assistant', text: msg.text });
               }
               break;
             }
 
             case 'turn-complete': {
-              // AI finished speaking — back to listening
-              // Don't reset displayedAiResponse — keep it visible until user speaks next
+              // Gemini finished speaking this turn — save user query + AI response to chat store & DB
+              saveCompletedTurn();
+              setStatus('listening');
+              // Ensure clean spacing at the end of each completed response
+              setDisplayedAiResponse((prev) => prev ? prev.trimEnd() + '  \n\n' : '');
               break;
             }
 
@@ -360,8 +456,13 @@ export const VoiceOverlay: React.FC<VoiceOverlayProps> = ({ onClose, initialConv
               if (liveAudioRef.current) {
                 liveAudioRef.current.clearPlayback();
               }
+              // Save partial AI turn generated so far
+              if (currentTurnAiTextRef.current.trim()) {
+                saveCompletedTurn();
+              }
               setStatus('listening');
-              setDisplayedAiResponse('');
+              // Ensure spacing after interruption
+              setDisplayedAiResponse((prev) => prev ? prev.trimEnd() + '  \n\n' : '');
               break;
             }
 
@@ -413,9 +514,9 @@ export const VoiceOverlay: React.FC<VoiceOverlayProps> = ({ onClose, initialConv
         clearTimeout(connectTimeout);
         console.log(`[Voice Live] WebSocket closed: ${event.code}`);
 
-        // Save conversation transcript if we had a live session
-        if (liveTranscriptRef.current.length > 0 && user?.id) {
-          saveLiveTranscript();
+        // Save any pending turn if not yet saved
+        if (currentTurnAiTextRef.current.trim() || currentTurnUserTextRef.current.trim()) {
+          saveCompletedTurn();
         }
 
         // Clean up audio resources
@@ -432,7 +533,7 @@ export const VoiceOverlay: React.FC<VoiceOverlayProps> = ({ onClose, initialConv
       setVoiceMode('legacy');
       setTimeout(startRecording, 500);
     }
-  }, [isSessionActive]);
+  }, [isSessionActive, saveCompletedTurn]);
 
   const cleanupLive = useCallback(() => {
     if (liveWsRef.current) {
@@ -449,44 +550,6 @@ export const VoiceOverlay: React.FC<VoiceOverlayProps> = ({ onClose, initialConv
     }
     setStream(null);
   }, []);
-
-  const saveLiveTranscript = useCallback(async () => {
-    if (!user?.id || liveTranscriptRef.current.length === 0) return;
-
-    try {
-      // Merge consecutive same-role transcripts
-      const merged: { role: 'user' | 'assistant'; text: string }[] = [];
-      for (const entry of liveTranscriptRef.current) {
-        const last = merged[merged.length - 1];
-        if (last && last.role === entry.role) {
-          last.text += entry.text;
-        } else {
-          merged.push({ ...entry });
-        }
-      }
-
-      let currentConvId = conversationIdRef.current;
-      if (!currentConvId) {
-        const firstText = merged[0]?.text?.slice(0, 30) || 'Voice Chat';
-        const conv = await createConversation(user.id, firstText, 'voice');
-        if (conv) {
-          currentConvId = conv.id;
-          setConversationId(conv.id);
-        }
-      }
-
-      if (currentConvId) {
-        for (const msg of merged) {
-          await addMessage(currentConvId, msg.role, msg.text, { mode: 'voice-live' });
-        }
-        if (!initialConversationId && currentConvId) {
-          navigate(`/voice/chat/${currentConvId}`, { replace: true });
-        }
-      }
-    } catch (err) {
-      console.error('[Voice Live] Failed to save transcript:', err);
-    }
-  }, [user, createConversation, addMessage, initialConversationId, navigate]);
 
   const startRecording = useCallback(async () => {
     if (!isSessionActive) return;
@@ -1110,6 +1173,11 @@ export const VoiceOverlay: React.FC<VoiceOverlayProps> = ({ onClose, initialConv
   const handleManualClose = () => {
     setIsSessionActive(false);
 
+    // Save any pending unsaved turn before closing
+    if (voiceMode === 'live' && (currentTurnAiTextRef.current.trim() || currentTurnUserTextRef.current.trim())) {
+      saveCompletedTurn();
+    }
+
     // Clean up Live Mode if active
     if (voiceMode === 'live') {
       cleanupLive();
@@ -1128,7 +1196,7 @@ export const VoiceOverlay: React.FC<VoiceOverlayProps> = ({ onClose, initialConv
   useEffect(() => {
     const timer = setTimeout(() => {
       tryConnectLive();
-    }, 1000);
+    }, 50);
     return () => {
       clearTimeout(timer);
     };
@@ -1139,6 +1207,11 @@ export const VoiceOverlay: React.FC<VoiceOverlayProps> = ({ onClose, initialConv
       isUnmountedRef.current = true;
       shouldProcessRef.current = false;
       if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
+
+      // Flush any pending turn before unmounting
+      if (voiceMode === 'live' && (currentTurnAiTextRef.current.trim() || currentTurnUserTextRef.current.trim())) {
+        saveCompletedTurn();
+      }
 
       // Clean up Live Mode resources
       if (liveWsRef.current) {
@@ -1277,7 +1350,7 @@ export const VoiceOverlay: React.FC<VoiceOverlayProps> = ({ onClose, initialConv
 
           <div className={styles.contentOverlay}>
             <AnimatePresence>
-              {transcript && (
+              {transcript && voiceMode === 'legacy' && (
                 <motion.div
                   initial={{ opacity: 0, y: 180, scale: 0.95, filter: 'blur(4px)' }}
                   animate={showFlyingTranscript ? {

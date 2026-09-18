@@ -301,6 +301,8 @@ async function tryConnectModel(
               silenceDurationMs: 1000,
             },
           },
+          inputAudioTranscription: {},
+          outputAudioTranscription: {},
         },
       };
 
