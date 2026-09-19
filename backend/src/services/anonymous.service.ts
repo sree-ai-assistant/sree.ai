@@ -91,24 +91,27 @@ export async function getByAnonId(anonId: string): Promise<AnonymousUser | null>
 export async function createAnonymousUser(input: CreateAnonymousInput): Promise<AnonymousUser> {
   const ipHash = hashIp(input.rawIp);
 
+  // Use upsert to handle concurrent requests atomically.
+  // - First insert: creates the row, RETURNING gives us the new record.
+  // - Race condition (same anon_id already exists): Postgres does
+  //   ON CONFLICT (anon_id) DO UPDATE SET last_seen_at = now(),
+  //   and RETURNING still gives us the existing record.
+  // This eliminates the 23505 duplicate-key errors that occurred when
+  // multiple anonymous requests (voice + tts + voice-complete) fired
+  // concurrently and all tried to INSERT the same anon_id.
   const { data, error } = await supabaseAdmin
     .from('anonymous_users')
-    .insert({
+    .upsert({
       anon_id: input.anonId,
       fingerprint_hash: input.fingerprintHash,
       ip_hash: ipHash,
       user_agent: input.userAgent || null,
       country: input.country || null,
-    })
+    }, { onConflict: 'anon_id' })
     .select('*')
     .single();
 
   if (error) {
-    // If duplicate anon_id, fetch the existing one
-    if (error.code === '23505') {
-      const existing = await getByAnonId(input.anonId);
-      if (existing) return existing;
-    }
     throw new Error(`Failed to create anonymous user: ${error.message}`);
   }
 

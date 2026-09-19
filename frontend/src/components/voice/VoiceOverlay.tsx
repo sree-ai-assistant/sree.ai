@@ -12,6 +12,7 @@ import { VoiceVisualizer } from './VoiceVisualizer';
 import { aiService } from '../../lib/api';
 import { LiveAudioManager } from '../../lib/liveAudio';
 import styles from './VoiceOverlay.module.css';
+import { getStoredAnonId, generateFingerprintHash } from '../../lib/fingerprint';
 
 interface VoiceOverlayProps {
   onClose: () => void;
@@ -204,7 +205,8 @@ export const VoiceOverlay: React.FC<VoiceOverlayProps> = ({ onClose, initialConv
     processed = processed.replace(/<(think|thinking)>[\s\S]*/gi, '');
     // Remove system instructions
     processed = processed.replace(/\[SYSTEM INSTRUCTION: [\s\S]*?\]/gi, '');
-    return processed.trim();
+    // Trim leading whitespace (e.g. from stripped thinking blocks), but preserve intentional trailing spaces
+    return processed.replace(/^\s+/, '');
   };
 
   const formatCountdown = (totalSeconds: number) => {
@@ -818,7 +820,9 @@ export const VoiceOverlay: React.FC<VoiceOverlayProps> = ({ onClose, initialConv
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
-              'Authorization': `Bearer ${session?.access_token}`,
+              'Authorization': session?.access_token ? `Bearer ${session.access_token}` : '',
+              'X-Anon-Id': !session?.access_token ? (getStoredAnonId() || '') : '',
+              'X-Fingerprint': !session?.access_token ? (await generateFingerprintHash()) : '',
             },
             body: JSON.stringify({
               messages: [...messagesRef.current.map(m => ({ role: m.role, content: m.content })), { role: 'user', content: userText }],
@@ -914,9 +918,13 @@ export const VoiceOverlay: React.FC<VoiceOverlayProps> = ({ onClose, initialConv
 
               // If url is empty string, TTS failed or text was empty — show text but skip audio
               if (item.url === '') {
-                const sep = (cumulativeText && !cumulativeText.endsWith(' ') && !cumulativeText.endsWith('\n')) ? ' ' : '';
-                cumulativeText += sep + item.text;
-                setDisplayedAiResponse(filterThinkingTags(cumulativeText));
+                const needsSpace = cumulativeText && !cumulativeText.endsWith(' ') && !cumulativeText.endsWith('\n');
+                const prefix = cumulativeText ? (needsSpace ? cumulativeText + ' ' : cumulativeText) : '';
+                const chunkText = filterThinkingTags(item.text).trim();
+                if (chunkText) {
+                  cumulativeText = prefix + chunkText;
+                  setDisplayedAiResponse(cumulativeText + ' ');
+                }
                 playedIndex++;
                 continue;
               }
@@ -990,18 +998,30 @@ export const VoiceOverlay: React.FC<VoiceOverlayProps> = ({ onClose, initialConv
                   await audio.play();
                 } catch (playErr) {
                   console.warn('[Voice] Audio play() rejected, skipping segment:', playErr);
-                  const sep = (cumulativeText && !cumulativeText.endsWith(' ') && !cumulativeText.endsWith('\n')) ? ' ' : '';
-                  cumulativeText += sep + item.text;
-                  setDisplayedAiResponse(filterThinkingTags(cumulativeText));
+                  const needsSpace = cumulativeText && !cumulativeText.endsWith(' ') && !cumulativeText.endsWith('\n');
+                  const prefix = cumulativeText ? (needsSpace ? cumulativeText + ' ' : cumulativeText) : '';
+                  const chunkText = filterThinkingTags(item.text).trim();
+                  if (chunkText) {
+                    cumulativeText = prefix + chunkText;
+                    setDisplayedAiResponse(cumulativeText + ' ');
+                  }
                   playedIndex++;
                   continue;
                 }
 
                 // Typewrite this chunk while audio plays
-                const sep = (cumulativeText && !cumulativeText.endsWith(' ') && !cumulativeText.endsWith('\n')) ? ' ' : '';
-                setDisplayedAiResponse(filterThinkingTags(cumulativeText + sep));
-                await typewriter(filterThinkingTags(item.text), (val) => setDisplayedAiResponse(filterThinkingTags(cumulativeText + sep) + val), 20);
-                cumulativeText += sep + item.text;
+                const needsSpace = cumulativeText && !cumulativeText.endsWith(' ') && !cumulativeText.endsWith('\n');
+                const prefix = cumulativeText ? (needsSpace ? cumulativeText + ' ' : cumulativeText) : '';
+                const chunkText = filterThinkingTags(item.text).trim();
+
+                if (chunkText) {
+                  // Display prefix with space at the end of prior sentence before typing begins
+                  setDisplayedAiResponse(prefix);
+                  await typewriter(chunkText, (val) => setDisplayedAiResponse(prefix + val), 20);
+                  cumulativeText = prefix + chunkText;
+                  // Ensure extra space at the end of the sentence for the next sentence
+                  setDisplayedAiResponse(cumulativeText + ' ');
+                }
 
                 // Wait for audio to finish before moving to the next chunk (sequential)
                 await audioPromise;
@@ -1015,9 +1035,13 @@ export const VoiceOverlay: React.FC<VoiceOverlayProps> = ({ onClose, initialConv
                   URL.revokeObjectURL(item.url);
                 }
               } else {
-                const sep = (cumulativeText && !cumulativeText.endsWith(' ') && !cumulativeText.endsWith('\n')) ? ' ' : '';
-                cumulativeText += sep + item.text;
-                setDisplayedAiResponse(filterThinkingTags(cumulativeText));
+                const needsSpace = cumulativeText && !cumulativeText.endsWith(' ') && !cumulativeText.endsWith('\n');
+                const prefix = cumulativeText ? (needsSpace ? cumulativeText + ' ' : cumulativeText) : '';
+                const chunkText = filterThinkingTags(item.text).trim();
+                if (chunkText) {
+                  cumulativeText = prefix + chunkText;
+                  setDisplayedAiResponse(cumulativeText + ' ');
+                }
               }
 
               playedIndex++;
@@ -1027,8 +1051,9 @@ export const VoiceOverlay: React.FC<VoiceOverlayProps> = ({ onClose, initialConv
             }
           }
 
-          // Ensure full response is displayed
-          setDisplayedAiResponse(filterThinkingTags(fullAiText));
+          // Ensure full response is displayed cleanly without trailing whitespace
+          const finalClean = filterThinkingTags(cumulativeText || fullAiText).trim();
+          setDisplayedAiResponse(finalClean);
           isProcessingQueue = false;
           if (playbackResolve) playbackResolve();
         };

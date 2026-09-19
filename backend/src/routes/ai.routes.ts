@@ -671,7 +671,7 @@ router.post('/chat', flexAuthMiddleware, abuseDetectionMiddleware(), queuePriori
         console.error('[AI Route] Failed to charge credit post-stream:', chargeErr);
       }
     } else {
-      console.log(`[AI Route] Skipping chat credit charge for voice-mode request (user: ${userId || req.anonId})`);
+      console.log(`[AI Route] Skipping chat credit charge for voice-mode request (user: ${userId || `[anon] ${req.anonId}`})`);
     }
 
     writeSSE('[DONE]');
