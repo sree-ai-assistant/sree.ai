@@ -1749,3 +1749,169 @@
     min-width: unset;
   }
 }
+
+/* Voice Selection Dropdown (Google AI Studio Minimal Style) */
+.voiceDropdownContainer {
+  position: relative;
+  width: 100%;
+}
+
+.voiceDropdownTrigger {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #1e1f20;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 8px;
+  padding: 8px 14px;
+  color: #e3e3e3;
+  font-size: 0.92rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-family: inherit;
+  user-select: none;
+  min-height: 40px;
+}
+
+.voiceDropdownTrigger:hover {
+  background: #25272a;
+  border-color: rgba(255, 255, 255, 0.25);
+}
+
+.voiceDropdownTriggerOpen {
+  border-color: rgba(255, 255, 255, 0.35);
+  background: #25272a;
+}
+
+.voiceTriggerLeft {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.voiceTriggerIcon {
+  color: #c4c7c5;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.voiceTriggerName {
+  font-weight: 500;
+  color: #f1f3f4;
+  font-size: 0.92rem;
+  letter-spacing: 0.01em;
+}
+
+.voiceDropdownChevron {
+  color: #9aa0a6;
+  transition: transform 0.2s ease;
+}
+
+.voiceDropdownChevronOpen {
+  transform: rotate(180deg);
+}
+
+.voiceDropdownMenu {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  z-index: 999;
+  background: #1e1f20;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6);
+  max-height: 280px;
+  overflow-y: auto;
+  padding: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+/* Minimal Scrollbar for Voice Menu */
+.voiceDropdownMenu::-webkit-scrollbar {
+  width: 6px;
+}
+.voiceDropdownMenu::-webkit-scrollbar-track {
+  background: transparent;
+}
+.voiceDropdownMenu::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 3px;
+}
+.voiceDropdownMenu::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.25);
+}
+
+.voiceOptionItem {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.15s ease;
+  user-select: none;
+  background: transparent;
+}
+
+.voiceOptionItem:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.voiceOptionItemActive {
+  background: #2d2f31 !important;
+}
+
+.voicePreviewBtn {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  border: 1.5px solid #8e918f;
+  background: transparent;
+  color: #e3e3e3;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: all 0.15s ease;
+  padding: 0;
+}
+
+.voicePreviewBtn:hover {
+  border-color: #ffffff;
+  background: rgba(255, 255, 255, 0.1);
+  color: #ffffff;
+  transform: scale(1.05);
+}
+
+.voicePreviewBtnPlaying {
+  border-color: #ffffff !important;
+  background: rgba(255, 255, 255, 0.18) !important;
+  color: #ffffff !important;
+}
+
+.voiceOptionDetails {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.voiceOptionName {
+  font-weight: 500;
+  font-size: 0.9rem;
+  color: #f1f3f4;
+  line-height: 1.2;
+}
+
+.voiceOptionTone {
+  font-size: 0.78rem;
+  color: #8e918f;
+  line-height: 1.2;
+}

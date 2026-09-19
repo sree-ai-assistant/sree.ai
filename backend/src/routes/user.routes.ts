@@ -33,7 +33,7 @@ router.get('/profile', authMiddleware, async (req: any, res) => {
 // Update profile (display name & personalization details)
 router.patch('/profile', authMiddleware, async (req: any, res) => {
   try {
-    const { display_name, nickname, occupation, custom_instructions, more_about_you } = req.body;
+    const { display_name, nickname, occupation, custom_instructions, more_about_you, live_voice } = req.body;
     const userId = req.user.id;
 
     const updates: any = { updated_at: new Date().toISOString() };
@@ -71,6 +71,13 @@ router.patch('/profile', authMiddleware, async (req: any, res) => {
         return res.status(400).json({ success: false, message: 'Invalid info' });
       }
       updates.more_about_you = more_about_you;
+    }
+
+    if (live_voice !== undefined) {
+      if (typeof live_voice !== 'string' || live_voice.length > 50) {
+        return res.status(400).json({ success: false, message: 'Invalid voice selection' });
+      }
+      updates.live_voice = live_voice;
     }
 
     const { error } = await supabaseAdmin

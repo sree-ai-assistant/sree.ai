@@ -334,11 +334,12 @@ export const VoiceOverlay: React.FC<VoiceOverlayProps> = ({ onClose, initialConv
       const { data: { session } } = await supabase.auth.getSession();
       const token = session?.access_token || '';
       const anonId = !token ? (localStorage.getItem('sreeai_anon_id') || '') : '';
+      const selectedVoice = user?.live_voice || localStorage.getItem('sreeai_live_voice') || 'Zephyr';
 
       // Build WebSocket URL
       const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
       const wsBase = apiBase.replace(/^http/, 'ws').replace(/\/api$/, '');
-      const wsUrl = `${wsBase}/api/live/voice?token=${encodeURIComponent(token)}&anonId=${encodeURIComponent(anonId)}`;
+      const wsUrl = `${wsBase}/api/live/voice?token=${encodeURIComponent(token)}&anonId=${encodeURIComponent(anonId)}&voice=${encodeURIComponent(selectedVoice)}`;
 
       const ws = new WebSocket(wsUrl);
       liveWsRef.current = ws;

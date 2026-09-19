@@ -102,6 +102,7 @@
   .toggleResponseText {
     display: none;
   }
+
   .toggleResponseBtn {
     width: 3rem;
     height: 3rem;
@@ -639,7 +640,7 @@
 }
 
 .rateLimitPrimaryBtn {
-  background: linear-gradient(135deg, #a855f7, #6366f1);
+  background: #2071f5;
   color: white;
   border: none;
   box-shadow: 0 8px 24px rgba(99, 102, 241, 0.25);
@@ -694,9 +695,12 @@
 }
 
 @keyframes livePulse {
-  0%, 100% {
+
+  0%,
+  100% {
     box-shadow: 0 0 12px rgba(16, 185, 129, 0.2);
   }
+
   50% {
     box-shadow: 0 0 20px rgba(16, 185, 129, 0.4);
   }
@@ -773,7 +777,7 @@
 }
 
 .highlightTier {
-  color: #a855f7;
+  color: #38bdf8;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.04em;
@@ -826,21 +830,21 @@
 }
 
 .tierCardActive {
-  background: linear-gradient(135deg, rgba(168, 85, 247, 0.18), rgba(99, 102, 241, 0.12));
-  border-color: rgba(168, 85, 247, 0.55);
-  box-shadow: 0 0 16px rgba(168, 85, 247, 0.22);
+  background: rgba(16, 185, 129, 0.06);
+  border-color: rgba(16, 185, 129, 0.4);
+  box-shadow: 0 0 16px rgba(16, 185, 129, 0.12);
 }
 
 .tierCardUpgrade {
   cursor: pointer;
-  border-color: rgba(168, 85, 247, 0.28);
+  border-color: rgba(255, 255, 255, 0.08);
 }
 
 .tierCardUpgrade:hover {
-  background: linear-gradient(135deg, rgba(168, 85, 247, 0.15), rgba(99, 102, 241, 0.12));
-  border-color: rgba(168, 85, 247, 0.65);
+  background: rgba(37, 99, 235, 0.08);
+  border-color: rgba(59, 130, 246, 0.5);
   transform: translateY(-2px);
-  box-shadow: 0 6px 18px rgba(168, 85, 247, 0.25);
+  box-shadow: 0 6px 18px rgba(37, 99, 235, 0.18);
 }
 
 .tierCardUpgrade:active {
@@ -865,26 +869,31 @@
   font-size: 0.52rem;
   font-weight: 700;
   text-transform: uppercase;
-  background: #a855f7;
-  color: white;
-  padding: 1px 5px;
+  background: rgba(16, 185, 129, 0.18);
+  color: #34d399;
+  border: 1px solid rgba(16, 185, 129, 0.35);
+  padding: 1px 6px;
   border-radius: 9999px;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.05em;
 }
 
 .tierUpgradeBadge {
   font-size: 0.52rem;
   font-weight: 700;
   text-transform: uppercase;
-  background: linear-gradient(135deg, #a855f7, #6366f1);
-  color: white;
-  padding: 1px 5px;
+  background: rgba(59, 130, 246, 0.18);
+  color: #93c5fd;
+  border: 1px solid rgba(59, 130, 246, 0.38);
+  padding: 1px 6px;
   border-radius: 9999px;
-  letter-spacing: 0.03em;
-  transition: transform 0.2s ease;
+  letter-spacing: 0.04em;
+  transition: all 0.2s ease;
 }
 
 .tierCardUpgrade:hover .tierUpgradeBadge {
+  background: #2563eb;
+  color: #ffffff;
+  border-color: #2563eb;
   transform: scale(1.05);
 }
 
@@ -976,16 +985,21 @@
 }
 
 .limitUpgradeBtn {
-  background: linear-gradient(135deg, #a855f7, #6366f1);
+  background: linear-gradient(135deg, #2563eb, #1d4ed8);
   color: white;
-  border: none;
-  box-shadow: 0 8px 24px rgba(99, 102, 241, 0.28);
+  border: 1px solid rgba(96, 165, 250, 0.35);
+  box-shadow: 0 6px 20px rgba(37, 99, 235, 0.32);
 }
 
 .limitUpgradeBtn:hover {
+  background: linear-gradient(135deg, #1d4ed8, #1e40af);
+  border-color: rgba(96, 165, 250, 0.6);
   transform: translateY(-2px);
-  box-shadow: 0 12px 32px rgba(99, 102, 241, 0.45);
-  filter: brightness(1.08);
+  box-shadow: 0 10px 28px rgba(37, 99, 235, 0.45);
+}
+
+.limitUpgradeBtn:active {
+  transform: translateY(0);
 }
 
 /* ─── Mobile Responsiveness ────────────────────────────────────────── */

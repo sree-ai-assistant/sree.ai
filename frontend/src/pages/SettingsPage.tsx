@@ -31,6 +31,11 @@ import {
   Clock,
   XCircle,
   Loader2,
+  Volume2,
+  Play,
+  Pause,
+  ChevronDown,
+  Check,
 } from 'lucide-react';
 import { DashboardLayout } from '../features/dashboard/DashboardLayout';
 import { SettingsSidebar } from '../components/layout/SettingsSidebar';
@@ -43,6 +48,8 @@ import { OAuthBadge } from '../components/layout/OAuthBadge';
 import styles from './SettingsPage.module.css';
 import { useUIStore } from '../store/ui.store';
 import { useUploadAgreementStore } from '../store/upload-agreement.store';
+import { GEMINI_LIVE_VOICES, DEFAULT_LIVE_VOICE, type GeminiVoice } from '../constants/voices';
+import { VoiceIcon } from '../components/icons/VoiceIcon';
 
 interface SavedApiKey {
   id: string;
@@ -864,7 +871,8 @@ const SettingsPage: React.FC = () => {
     nickname: user?.nickname || '',
     occupation: user?.occupation || '',
     custom_instructions: user?.custom_instructions || '',
-    more_about_you: user?.more_about_you || ''
+    more_about_you: user?.more_about_you || '',
+    live_voice: user?.live_voice || localStorage.getItem('sreeai_live_voice') || DEFAULT_LIVE_VOICE
   });
 
   useEffect(() => {
@@ -875,10 +883,71 @@ const SettingsPage: React.FC = () => {
         nickname: user.nickname || '',
         occupation: user.occupation || '',
         custom_instructions: user.custom_instructions || '',
-        more_about_you: user.more_about_you || ''
+        more_about_you: user.more_about_you || '',
+        live_voice: user.live_voice || localStorage.getItem('sreeai_live_voice') || DEFAULT_LIVE_VOICE
       });
     }
   }, [user]);
+
+  // Voice selection states (Gemini Live API)
+  const [voiceDropdownOpen, setVoiceDropdownOpen] = useState(false);
+  const [playingVoice, setPlayingVoice] = useState<string | null>(null);
+  const voiceAudioRef = useRef<HTMLAudioElement | null>(null);
+  const voiceDropdownRef = useRef<HTMLDivElement | null>(null);
+  const voiceMenuRef = useRef<HTMLDivElement | null>(null);
+  const selectedVoiceRef = useRef<HTMLDivElement | null>(null);
+
+  // Close voice dropdown on outside click
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (voiceDropdownRef.current && !voiceDropdownRef.current.contains(event.target as Node)) {
+        setVoiceDropdownOpen(false);
+      }
+    };
+    if (voiceDropdownOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [voiceDropdownOpen]);
+
+  // Scroll to selected voice inside the dropdown when opened
+  useEffect(() => {
+    if (voiceDropdownOpen) {
+      requestAnimationFrame(() => {
+        if (voiceMenuRef.current && selectedVoiceRef.current) {
+          const menu = voiceMenuRef.current;
+          const item = selectedVoiceRef.current;
+          const itemOffset = item.offsetTop - (menu.clientHeight / 2) + (item.clientHeight / 2);
+          menu.scrollTop = Math.max(0, itemOffset);
+        }
+      });
+    }
+  }, [voiceDropdownOpen]);
+
+  // Stop and completely disarm any playing voice preview audio
+  const stopVoicePreview = useCallback(() => {
+    if (voiceAudioRef.current) {
+      const audio = voiceAudioRef.current;
+      audio.onended = null;
+      audio.onerror = null;
+      audio.onplay = null;
+      audio.pause();
+      audio.currentTime = 0;
+      audio.removeAttribute('src');
+      audio.load();
+      voiceAudioRef.current = null;
+    }
+    setPlayingVoice(null);
+  }, []);
+
+  // Cleanup voice preview audio on unmount
+  useEffect(() => {
+    return () => {
+      stopVoicePreview();
+    };
+  }, [stopVoicePreview]);
 
   const [avatarError, setAvatarError] = useState(false);
 
@@ -1200,6 +1269,91 @@ const SettingsPage: React.FC = () => {
     }
   };
 
+  const handleToggleVoicePreview = (voice: GeminiVoice, e: React.MouseEvent) => {
+    e.stopPropagation();
+
+    // If currently playing this exact voice, toggle off and stop
+    if (playingVoice === voice.id) {
+      stopVoicePreview();
+      return;
+    }
+
+    // Stop and cleanly unload any previous audio immediately
+    stopVoicePreview();
+
+    const audio = new Audio();
+    voiceAudioRef.current = audio;
+
+    audio.onended = () => {
+      if (voiceAudioRef.current === audio) {
+        stopVoicePreview();
+      }
+    };
+
+    audio.onerror = () => {
+      // Guard against stale audio instances
+      if (voiceAudioRef.current !== audio) return;
+
+      // If local audio fails and hasn't tried CDN yet, fallback to Google CDN once
+      if (audio.src !== voice.cdnUrl) {
+        audio.src = voice.cdnUrl;
+        audio.play().then(() => {
+          if (voiceAudioRef.current === audio) {
+            setPlayingVoice(voice.id);
+          } else {
+            audio.pause();
+          }
+        }).catch(err => {
+          console.warn('[VoicePreview] CDN fallback failed:', err);
+          if (voiceAudioRef.current === audio) {
+            stopVoicePreview();
+          }
+        });
+      } else {
+        stopVoicePreview();
+      }
+    };
+
+    audio.src = voice.previewUrl;
+    audio.play()
+      .then(() => {
+        if (voiceAudioRef.current === audio) {
+          setPlayingVoice(voice.id);
+        } else {
+          // If a new audio instance became current while play was pending, abort this one
+          audio.pause();
+        }
+      })
+      .catch((err) => {
+        // If aborted because another preview was clicked, do nothing
+        if (voiceAudioRef.current !== audio) return;
+
+        // Try CDN fallback once if local play failed
+        audio.src = voice.cdnUrl;
+        audio.play()
+          .then(() => {
+            if (voiceAudioRef.current === audio) {
+              setPlayingVoice(voice.id);
+            } else {
+              audio.pause();
+            }
+          })
+          .catch((cdnErr) => {
+            console.warn('[VoicePreview] Play failed:', cdnErr);
+            if (voiceAudioRef.current === audio) {
+              stopVoicePreview();
+            }
+          });
+      });
+  };
+
+  const handleSelectVoice = (voiceId: string) => {
+    setProfileData(prev => ({ ...prev, live_voice: voiceId }));
+    localStorage.setItem('sreeai_live_voice', voiceId);
+    setVoiceDropdownOpen(false);
+    stopVoicePreview();
+  };
+
   const handleUpdateProfile = async () => {
     try {
       setStatus('saving');
@@ -1209,15 +1363,18 @@ const SettingsPage: React.FC = () => {
         nickname: profileData.nickname,
         occupation: profileData.occupation,
         custom_instructions: profileData.custom_instructions,
-        more_about_you: profileData.more_about_you
+        more_about_you: profileData.more_about_you,
+        live_voice: profileData.live_voice
       });
       await updateProfile({
         display_name: profileData.display_name,
         nickname: profileData.nickname,
         occupation: profileData.occupation,
         custom_instructions: profileData.custom_instructions,
-        more_about_you: profileData.more_about_you
+        more_about_you: profileData.more_about_you,
+        live_voice: profileData.live_voice
       });
+      localStorage.setItem('sreeai_live_voice', profileData.live_voice);
       setStatus('success');
       setTimeout(() => setStatus('idle'), 2000);
     } catch (error) {
@@ -1278,6 +1435,8 @@ const SettingsPage: React.FC = () => {
       return updated;
     });
   };
+
+  const currentVoice = GEMINI_LIVE_VOICES.find(v => v.id === (profileData.live_voice || DEFAULT_LIVE_VOICE)) || GEMINI_LIVE_VOICES[0];
 
   const renderProfileSection = () => (
     <motion.div
@@ -1399,6 +1558,67 @@ const SettingsPage: React.FC = () => {
           </div>
           <div className={styles.cardBody}>
             <div className={styles.formSection}>
+              {/* Voice Selection (Google AI Studio Minimal Style) */}
+              <div className={styles.fieldGroup} style={{ marginBottom: '24px' }}>
+                <label>Voice</label>
+                <div className={styles.voiceDropdownContainer} ref={voiceDropdownRef}>
+                  <div
+                    role="button"
+                    tabIndex={0}
+                    className={`${styles.voiceDropdownTrigger} ${voiceDropdownOpen ? styles.voiceDropdownTriggerOpen : ''}`}
+                    onClick={() => setVoiceDropdownOpen(!voiceDropdownOpen)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        setVoiceDropdownOpen(!voiceDropdownOpen);
+                      }
+                    }}
+                  >
+                    <div className={styles.voiceTriggerLeft}>
+                      <span className={styles.voiceTriggerIcon}>
+                        <VoiceIcon size={18} />
+                      </span>
+                      <span className={styles.voiceTriggerName}>{currentVoice.name}</span>
+                    </div>
+                    <ChevronDown
+                      size={16}
+                      className={`${styles.voiceDropdownChevron} ${voiceDropdownOpen ? styles.voiceDropdownChevronOpen : ''}`}
+                    />
+                  </div>
+
+                  {voiceDropdownOpen && (
+                    <div className={styles.voiceDropdownMenu} ref={voiceMenuRef}>
+                      {GEMINI_LIVE_VOICES.map((voice) => {
+                        const isSelected = (profileData.live_voice || DEFAULT_LIVE_VOICE) === voice.id;
+                        const isPlaying = playingVoice === voice.id;
+                        return (
+                          <div
+                            key={voice.id}
+                            ref={isSelected ? selectedVoiceRef : null}
+                            className={`${styles.voiceOptionItem} ${isSelected ? styles.voiceOptionItemActive : ''}`}
+                            onClick={() => handleSelectVoice(voice.id)}
+                          >
+                            <button
+                              type="button"
+                              className={`${styles.voicePreviewBtn} ${isPlaying ? styles.voicePreviewBtnPlaying : ''}`}
+                              onClick={(e) => handleToggleVoicePreview(voice, e)}
+                              title={isPlaying ? 'Pause Preview' : 'Play Preview'}
+                              aria-label={`Preview ${voice.name} voice`}
+                            >
+                              {isPlaying ? <Pause size={11} /> : <Play size={11} />}
+                            </button>
+                            <div className={styles.voiceOptionDetails}>
+                              <span className={styles.voiceOptionName}>{voice.name}</span>
+                              <span className={styles.voiceOptionTone}>{voice.tone}</span>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              </div>
+
               <div className={styles.fieldGroup} style={{ marginBottom: '24px' }}>
                 <label>Custom Instructions</label>
                 <textarea

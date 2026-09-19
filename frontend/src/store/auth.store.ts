@@ -22,6 +22,7 @@ export interface User {
   occupation?: string;
   custom_instructions?: string;
   more_about_you?: string;
+  live_voice?: string;
   provider?: string;
   file_upload_agreed?: boolean;
   file_upload_agreed_at?: string;
@@ -190,7 +191,7 @@ export const useAuthStore = create<AuthState>((set) => ({
           // Fetch additional user profile data from public.profiles
           const { data: profile } = await supabase
             .from('profiles')
-            .select('id, email, display_name, avatar_url, plan_type, requests_remaining, onboarding_completed, nickname, occupation, custom_instructions, more_about_you, file_upload_agreed, file_upload_agreed_at')
+            .select('id, email, display_name, avatar_url, plan_type, requests_remaining, onboarding_completed, nickname, occupation, custom_instructions, more_about_you, live_voice, file_upload_agreed, file_upload_agreed_at')
             .eq('id', session.user.id)
             .single();
 
@@ -229,6 +230,7 @@ export const useAuthStore = create<AuthState>((set) => ({
                 occupation: profile.occupation,
                 custom_instructions: profile.custom_instructions,
                 more_about_you: profile.more_about_you,
+                live_voice: profile.live_voice || 'Zephyr',
                 provider,
                 file_upload_agreed: profile.file_upload_agreed ?? false,
                 file_upload_agreed_at: profile.file_upload_agreed_at,
@@ -276,7 +278,7 @@ export const useAuthStore = create<AuthState>((set) => ({
             if (!alreadyLoaded) {
               const { data: profile } = await supabase
                 .from('profiles')
-                .select('display_name, avatar_url, plan_type, requests_remaining, onboarding_completed, nickname, occupation, custom_instructions, more_about_you, file_upload_agreed, file_upload_agreed_at')
+                .select('display_name, avatar_url, plan_type, requests_remaining, onboarding_completed, nickname, occupation, custom_instructions, more_about_you, live_voice, file_upload_agreed, file_upload_agreed_at')
                 .eq('id', session.user.id)
                 .single();
 
@@ -314,6 +316,7 @@ export const useAuthStore = create<AuthState>((set) => ({
                   occupation: profile?.occupation,
                   custom_instructions: profile?.custom_instructions,
                   more_about_you: profile?.more_about_you,
+                  live_voice: profile?.live_voice || 'Zephyr',
                   provider,
                   file_upload_agreed: profile?.file_upload_agreed ?? false,
                   file_upload_agreed_at: profile?.file_upload_agreed_at,

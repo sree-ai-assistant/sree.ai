@@ -29,10 +29,75 @@ interface ControlMessage {
 
 // ─── Auth Helper ─────────────────────────────────────────────────────
 
+interface UserPersonalizationProfile {
+  nickname?: string | null;
+  occupation?: string | null;
+  custom_instructions?: string | null;
+  more_about_you?: string | null;
+}
+
+export function buildLiveSystemPrompt(
+  profile?: UserPersonalizationProfile | null,
+  clientOverride?: string
+): string {
+  if (clientOverride && clientOverride.trim()) {
+    return clientOverride.trim();
+  }
+
+  const basePrompt = `You are Sree AI, a sophisticated, helpful, and natural real-time voice assistant developed by NilStudio.
+You are interacting with the user in a live, bidirectional spoken conversation.
+
+CORE IDENTITY & TONE:
+- Professional, warm, engaging, and articulate. Speak with human-like conversational flow and natural pacing.
+- Brevity & Flow: Keep responses concise and focused (typically 1 to 3 spoken sentences per turn) unless the user asks for detailed explanation. Invite natural back-and-forth dialogue.
+- Safe, ethical, and trustworthy at all times.
+
+VOICE DELIVERY RULES (CRITICAL):
+- Strictly Plain Spoken Language: NEVER output markdown formatting (no asterisks, bolding, italics, bullet points, numbered lists, hash symbols, or markdown tables). Your text is synthesized directly into audio and spoken aloud.
+- No Raw URLs or File Paths: Never read out raw web links or filesystem paths. Refer to sources or websites conversationally.
+- Technical & Code Queries: Do not recite raw code syntax, curly braces, or boilerplate aloud. Instead, explain the underlying logic, architecture, and step-by-step approach conversationally in plain spoken terms.
+- Punctuation for Speech: Use standard commas, periods, and question marks to create natural pauses and rhythm in speech.
+
+SAFETY & ACADEMIC INTEGRITY:
+- Uphold strict academic honesty. Never solve exam questions, write complete essays, or complete homework assignments for the user on demand.
+- Adopt a supportive tutor approach: explain underlying concepts, break down complex problems step-by-step, guide the user's reasoning, and help them arrive at the solution themselves.
+- When declining a request that violates academic integrity, do so politely and immediately offer an alternative, academically appropriate way to assist (e.g. brainstorming an outline or explaining the concept).
+
+INTERACTION DYNAMICS:
+- If a user's speech is unclear, brief, or inaudible, politely ask for clarification (e.g., "Sorry, I didn't quite catch that. Could you say that again?").
+- Seamlessly adapt to the user's spoken language and conversational tone while maintaining your helpful, courteous persona.`;
+
+  if (!profile) {
+    return basePrompt;
+  }
+
+  const parts: string[] = [];
+  if (profile.nickname?.trim()) {
+    parts.push(`- Nickname / Preferred Name: "${profile.nickname.trim()}". Address the user by this name when appropriate.`);
+  }
+  if (profile.occupation?.trim()) {
+    parts.push(`- Occupation / Background: "${profile.occupation.trim()}". Tailor domain context and examples to this profession when relevant.`);
+  }
+  if (profile.more_about_you?.trim()) {
+    parts.push(`- About the user: "${profile.more_about_you.trim()}". Keep this background and interests in mind.`);
+  }
+  if (profile.custom_instructions?.trim()) {
+    parts.push(`- Custom behavior, style, and tone instructions: "${profile.custom_instructions.trim()}". You MUST strictly adhere to these instructions.`);
+  }
+
+  if (parts.length > 0) {
+    return `${basePrompt}\n\n### USER PERSONALIZATION CONTEXT & INSTRUCTIONS\n${parts.join('\n')}`;
+  }
+
+  return basePrompt;
+}
+
 async function authenticateWs(req: IncomingMessage): Promise<{
   userId: string | null;
   tier: string;
   anonId: string | null;
+  userVoice: string | null;
+  userProfile?: UserPersonalizationProfile | null;
 }> {
   const url = new URL(req.url || '', `http://${req.headers.host}`);
   const token = url.searchParams.get('token');
@@ -41,10 +106,10 @@ async function authenticateWs(req: IncomingMessage): Promise<{
     try {
       const { data: { user }, error } = await supabaseAdmin.auth.getUser(token);
       if (user && !error) {
-        // Get user tier
+        // Get user tier, voice preference, and personalization settings
         const { data: profile } = await supabaseAdmin
           .from('profiles')
-          .select('plan_type')
+          .select('plan_type, live_voice, nickname, occupation, custom_instructions, more_about_you')
           .eq('id', user.id)
           .single();
 
@@ -52,6 +117,13 @@ async function authenticateWs(req: IncomingMessage): Promise<{
           userId: user.id,
           tier: (profile?.plan_type || 'free').toLowerCase(),
           anonId: null,
+          userVoice: profile?.live_voice || null,
+          userProfile: profile ? {
+            nickname: profile.nickname,
+            occupation: profile.occupation,
+            custom_instructions: profile.custom_instructions,
+            more_about_you: profile.more_about_you,
+          } : null,
         };
       }
     } catch (e) {
@@ -61,7 +133,7 @@ async function authenticateWs(req: IncomingMessage): Promise<{
 
   // Anonymous user — extract anon ID from query
   const anonId = url.searchParams.get('anonId') || null;
-  return { userId: null, tier: 'anonymous', anonId };
+  return { userId: null, tier: 'anonymous', anonId, userVoice: null, userProfile: null };
 }
 
 // ─── WebSocket Connection Handler ────────────────────────────────────
@@ -74,8 +146,8 @@ export async function handleLiveVoiceConnection(
   console.log(`[LiveVoice] New connection: ${sessionId}`);
 
   // 1. Authenticate
-  const { userId, tier, anonId } = await authenticateWs(req);
-  console.log(`[LiveVoice] Auth: userId=${userId || `[anon] ${anonId}` || 'anon'}, tier=${tier}`);
+  const { userId, tier, anonId, userVoice, userProfile } = await authenticateWs(req);
+  console.log(`[LiveVoice] Auth: userId=${userId || `[anon] ${anonId}` || 'anon'}, tier=${tier}, voice=${userVoice || 'default'}, customInstructions=${Boolean(userProfile?.custom_instructions)}`);
 
   const identity: RateLimitIdentity = userId
     ? { type: 'authenticated', userId, tier: tier as any }
@@ -106,11 +178,17 @@ export async function handleLiveVoiceConnection(
   let geminiSession: GeminiLiveSession | null = null;
 
   try {
-    // Parse system instruction from query param if provided
+    // Parse client system instruction & voice from query param if provided
     const url = new URL(req.url || '', `http://${req.headers.host}`);
-    const systemInstruction = url.searchParams.get('systemInstruction') || undefined;
+    const clientSystemInstruction = url.searchParams.get('systemInstruction') || undefined;
+    const requestedVoice = url.searchParams.get('voice') || userVoice || undefined;
 
-    geminiSession = await createLiveSession(userId, systemInstruction ? { systemInstruction } : {});
+    const systemInstruction = buildLiveSystemPrompt(userProfile, clientSystemInstruction);
+
+    geminiSession = await createLiveSession(userId, {
+      systemInstruction,
+      voiceName: requestedVoice,
+    });
   } catch (err: any) {
     console.error('[LiveVoice] Failed to create Gemini session:', err.message);
   }

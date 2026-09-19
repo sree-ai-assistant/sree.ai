@@ -15,8 +15,8 @@ import { ApiKeyService } from './apiKey.service';
 // ─── Types ───────────────────────────────────────────────────────────
 
 export interface LiveSessionConfig {
-  systemInstruction?: string;
-  voiceName?: string;
+  systemInstruction?: string | undefined;
+  voiceName?: string | undefined;
 }
 
 export interface GeminiLiveSession {
@@ -276,7 +276,7 @@ async function tryConnectModel(
     ws.on('open', () => {
       // Send BidiGenerateContentSetup
       const systemText = config.systemInstruction ||
-        'You are Sree AI, a helpful, concise, and friendly voice assistant. Keep responses brief and conversational. Do not use markdown formatting in your responses since they will be spoken aloud.';
+        'You are Sree AI, a sophisticated, helpful, and natural real-time voice assistant developed by NilStudio. Keep responses concise, warm, and conversational. Do not use markdown formatting in your responses since they will be spoken aloud.';
 
       const setupMessage = {
         setup: {
