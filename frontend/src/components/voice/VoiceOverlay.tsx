@@ -792,20 +792,42 @@ export const VoiceOverlay: React.FC<VoiceOverlayProps> = ({ onClose, initialConv
 
         if (!userText) {
           const fallbackText = "Can You Say it Again? If You Are Asking Me Anything, Because, I Can't Hear Anything !!!";
-          setDisplayedAiResponse(fallbackText);
           setStatus('speaking');
 
-          const audioBlob = await aiService.generateSpeech(fallbackText);
-          const url = URL.createObjectURL(audioBlob);
+          const audioPath = '/cant-hear-anything.wav';
 
           if (audioRef.current) {
-            audioRef.current.src = url;
-            audioRef.current.onended = () => {
+            const audio = audioRef.current;
+            audio.src = audioPath;
+            audio.load();
+
+            const cleanup = () => {
+              audio.onended = null;
+              audio.onerror = null;
               setStatus('listening');
               setDisplayedAiResponse('');
               setTimeout(startRecording, 500);
             };
-            audioRef.current.play();
+
+            audio.onended = cleanup;
+            audio.onerror = cleanup;
+
+            try {
+              await audio.play();
+              // Animate text as audio speaks (audio duration is ~5.2s, 88 chars @ 45ms = ~4.0s)
+              typewriter(fallbackText, setDisplayedAiResponse, 45);
+            } catch (playErr) {
+              console.warn('[Voice] Fallback audio playback failed:', playErr);
+              setDisplayedAiResponse(fallbackText);
+              setTimeout(cleanup, 4000);
+            }
+          } else {
+            setDisplayedAiResponse(fallbackText);
+            setTimeout(() => {
+              setStatus('listening');
+              setDisplayedAiResponse('');
+              setTimeout(startRecording, 500);
+            }, 4000);
           }
           return;
         }
