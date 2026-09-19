@@ -70,3 +70,13 @@ INSERT INTO public.ai_models (
   1024, 1048576, FALSE, FALSE, 0, TRUE, FALSE
 ) ON CONFLICT (model_id) DO UPDATE SET
   name = EXCLUDED.name, provider = EXCLUDED.provider, tier_required = EXCLUDED.tier_required, is_vision = EXCLUDED.is_vision, description = EXCLUDED.description, max_tokens = EXCLUDED.max_tokens, context_window = EXCLUDED.context_window, in_maintenance = EXCLUDED.in_maintenance, is_fast = EXCLUDED.is_fast, img_no_can_process = EXCLUDED.img_no_can_process, is_new = EXCLUDED.is_new, is_image = EXCLUDED.is_image;
+
+-- 8. Gemini 3.5 Flash Lite
+INSERT INTO public.ai_models (
+  model_id, name, provider, tier_required, is_vision, description, max_tokens, context_window, in_maintenance, is_fast, img_no_can_process, is_new, is_image
+) VALUES (
+  'gemini-3.5-flash-lite', 'Gemini 3.5 Flash Lite', 'google', 'starter', TRUE,
+  'Fast and efficient multimodal model supporting text, image, video, audio, and PDF.',
+  65536, 1048576, FALSE, TRUE, 10, TRUE, FALSE
+) ON CONFLICT (model_id) DO UPDATE SET
+  name = EXCLUDED.name, provider = EXCLUDED.provider, tier_required = EXCLUDED.tier_required, is_vision = EXCLUDED.is_vision, description = EXCLUDED.description, max_tokens = EXCLUDED.max_tokens, context_window = EXCLUDED.context_window, in_maintenance = EXCLUDED.in_maintenance, is_fast = EXCLUDED.is_fast, img_no_can_process = EXCLUDED.img_no_can_process, is_new = EXCLUDED.is_new, is_image = EXCLUDED.is_image;
