@@ -1268,22 +1268,27 @@ export const VoiceOverlay: React.FC<VoiceOverlayProps> = ({ onClose, initialConv
         await processStream();
 
         // === STEP 2: Save to chat store FIRST (before TTS finishes) ===
-        if (user?.id) {
-          let currentConvId = conversationIdRef.current;
-          if (!currentConvId) {
-            const conv = await createConversation(user.id, userText.slice(0, 30), 'voice');
-            if (conv) {
-              currentConvId = conv.id;
-              setConversationId(conv.id);
+        // Handles both logged-in users and anonymous sessions
+        {
+          const anonId = !user?.id ? (localStorage.getItem('sreeai_anon_id') || undefined) : undefined;
+          if (user?.id || anonId) {
+            let currentConvId = conversationIdRef.current;
+            if (!currentConvId) {
+              const conv = await createConversation(user?.id, userText.slice(0, 30), 'voice', anonId);
+              if (conv) {
+                currentConvId = conv.id;
+                setConversationId(conv.id);
+                conversationIdRef.current = conv.id;
+              }
             }
-          }
 
-          if (currentConvId) {
-            await addMessage(currentConvId, 'user', userText, { mode: 'voice' });
-            await addMessage(currentConvId, 'assistant', fullAiText, { mode: 'voice' });
+            if (currentConvId) {
+              await addMessage(currentConvId, 'user', userText, { mode: 'voice' });
+              await addMessage(currentConvId, 'assistant', fullAiText, { mode: 'voice' });
 
-            if (!initialConversationId && currentConvId) {
-              navigate(`/voice/chat/${currentConvId}`, { replace: true });
+              if (!initialConversationId && currentConvId) {
+                navigate(`/voice/chat/${currentConvId}`, { replace: true });
+              }
             }
           }
         }
@@ -1394,7 +1399,11 @@ export const VoiceOverlay: React.FC<VoiceOverlayProps> = ({ onClose, initialConv
     navigate('/pricing');
   };
 
-  // On mount: Try Live Mode first, falls back to Legacy if unavailable
+  // On mount: Try Live Mode first, falls back to Legacy if unavailable.
+  // Intentionally empty deps — this must fire exactly once on mount.
+  // tryConnectLive is a useCallback whose ref changes with its closure deps;
+  // using it here would cause a second connect attempt after URL navigation.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     const timer = setTimeout(() => {
       tryConnectLive();
@@ -1402,7 +1411,7 @@ export const VoiceOverlay: React.FC<VoiceOverlayProps> = ({ onClose, initialConv
     return () => {
       clearTimeout(timer);
     };
-  }, [tryConnectLive]);
+  }, []);
 
   useEffect(() => {
     return () => {
