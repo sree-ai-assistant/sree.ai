@@ -17,6 +17,7 @@ import { useModelStore } from '../store/model.store';
 import { useLocation } from 'react-router-dom';
 import { useUIStore } from '../store/ui.store';
 import { CodeBlock } from '../components/chat/CodeBlock';
+import { TableBlock } from '../components/chat/TableBlock';
 import { ChatMessage } from '../components/chat/ChatMessage';
 import { LimitModal } from '../components/modals/LimitModal';
 import { aiService } from '../lib/api';
@@ -575,9 +576,9 @@ const ChatPage: React.FC = () => {
     },
     table({ children }: any) {
       return (
-        <div className={styles.tableWrapper}>
-          <table>{children}</table>
-        </div>
+        <TableBlock>
+          {children}
+        </TableBlock>
       );
     },
   }), []);
@@ -1440,71 +1441,73 @@ const ChatPage: React.FC = () => {
             <div ref={messagesEndRef} />
           </div>
 
-          <AnimatePresence>
-            {showScrollButton && (
-              <div className={`${styles.scrollButtonWrapper} ${isGenerating ? styles.loadingBtnWrapper : styles.arrowBtnWrapper}`}>
-                <motion.button
-                  key={isGenerating ? 'loading-btn' : 'arrow-btn'}
-                  initial={{ opacity: 0, y: 10, scale: 0.9 }}
-                  animate={{ opacity: 1, y: 0, scale: 1 }}
-                  exit={{ opacity: 0, y: 10, scale: 0.9 }}
-                  whileHover={{ y: -2 }}
-                  whileTap={{ scale: 0.92 }}
-                  transition={{ duration: 0.2, ease: "easeOut" }}
-                  onClick={forceScrollToBottom}
-                  className={`${styles.scrollButton} ${isGenerating ? styles.loadingBtn : styles.arrowBtn}`}
-                  title={isGenerating ? "AI is writing... click to scroll to bottom" : "Scroll to bottom"}
-                  type="button"
-                >
-                  {isGenerating ? (
-                    <>
-                      <span className={styles.dot}></span>
-                      <span className={styles.dot}></span>
-                      <span className={styles.dot}></span>
-                    </>
-                  ) : (
-                    <ArrowDown size={18} strokeWidth={2.5} />
-                  )}
-                </motion.button>
-              </div>
-            )}
-          </AnimatePresence>
+          <div className={styles.inputAreaWrapper}>
+            <AnimatePresence>
+              {showScrollButton && (
+                <div className={`${styles.scrollButtonWrapper} ${isGenerating ? styles.loadingBtnWrapper : styles.arrowBtnWrapper}`}>
+                  <motion.button
+                    key={isGenerating ? 'loading-btn' : 'arrow-btn'}
+                    initial={{ opacity: 0, y: 10, scale: 0.9 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: 10, scale: 0.9 }}
+                    whileHover={{ y: -2 }}
+                    whileTap={{ scale: 0.92 }}
+                    transition={{ duration: 0.2, ease: "easeOut" }}
+                    onClick={forceScrollToBottom}
+                    className={`${styles.scrollButton} ${isGenerating ? styles.loadingBtn : styles.arrowBtn}`}
+                    title={isGenerating ? "AI is writing... click to scroll to bottom" : "Scroll to bottom"}
+                    type="button"
+                  >
+                    {isGenerating ? (
+                      <>
+                        <span className={styles.dot}></span>
+                        <span className={styles.dot}></span>
+                        <span className={styles.dot}></span>
+                      </>
+                    ) : (
+                      <ArrowDown size={18} strokeWidth={2.5} />
+                    )}
+                  </motion.button>
+                </div>
+              )}
+            </AnimatePresence>
 
-          <AnimatePresence>
-            {lockTimeRemaining > 0 && (
-              <motion.div
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: 10 }}
-                className={styles.lockBanner}
-              >
-                <Lock size={14} />
-                <span>Account Locked for {formatTime(lockTimeRemaining * 1000)}</span>
-                <Clock size={14} style={{ marginLeft: '4px', opacity: 0.7 }} />
-                <button
-                  type="button"
-                  className={styles.unlockRetryBtn}
-                  onClick={handleClearLock}
-                  title="Clear lockout limit"
+            <AnimatePresence>
+              {lockTimeRemaining > 0 && (
+                <motion.div
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: 10 }}
+                  className={styles.lockBanner}
                 >
-                  <RotateCcw size={12} />
-                </button>
-              </motion.div>
-            )}
-          </AnimatePresence>
+                  <Lock size={14} />
+                  <span>Account Locked for {formatTime(lockTimeRemaining * 1000)}</span>
+                  <Clock size={14} style={{ marginLeft: '4px', opacity: 0.7 }} />
+                  <button
+                    type="button"
+                    className={styles.unlockRetryBtn}
+                    onClick={handleClearLock}
+                    title="Clear lockout limit"
+                  >
+                    <RotateCcw size={12} />
+                  </button>
+                </motion.div>
+              )}
+            </AnimatePresence>
 
-          <ChatInput
-            onSend={(text) => handleSend(text, false)}
-            onStop={handleStop}
-            isGenerating={isGenerating}
-            hasMessages={messages.length > 0}
-            onVoiceLaunch={() => navigate(id ? `/voice/chat/${id}` : '/voice')}
-            attachments={attachments}
-            onAttachmentsChange={setAttachments}
-            disabled={lockTimeRemaining > 0}
-            placeholderText={lockTimeRemaining > 0 ? `Try After ${formatTime(lockTimeRemaining * 1000)}...` : undefined}
-            onAuthRequired={() => setLimitModal({ isOpen: true, type: 'anonymous-upload' })}
-          />
+            <ChatInput
+              onSend={(text) => handleSend(text, false)}
+              onStop={handleStop}
+              isGenerating={isGenerating}
+              hasMessages={messages.length > 0}
+              onVoiceLaunch={() => navigate(id ? `/voice/chat/${id}` : '/voice')}
+              attachments={attachments}
+              onAttachmentsChange={setAttachments}
+              disabled={lockTimeRemaining > 0}
+              placeholderText={lockTimeRemaining > 0 ? `Try After ${formatTime(lockTimeRemaining * 1000)}...` : undefined}
+              onAuthRequired={() => setLimitModal({ isOpen: true, type: 'anonymous-upload' })}
+            />
+          </div>
 
         </div>
 

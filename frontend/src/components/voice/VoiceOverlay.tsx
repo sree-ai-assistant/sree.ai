@@ -12,6 +12,7 @@ import { VoiceVisualizer } from './VoiceVisualizer';
 import { aiService } from '../../lib/api';
 import { LiveAudioManager } from '../../lib/liveAudio';
 import { CodeBlock } from '../chat/CodeBlock';
+import { TableBlock } from '../chat/TableBlock';
 import styles from './VoiceOverlay.module.css';
 import { getStoredAnonId, generateFingerprintHash } from '../../lib/fingerprint';
 
@@ -41,13 +42,7 @@ export const VoiceOverlay: React.FC<VoiceOverlayProps> = ({ onClose, initialConv
     li: ({ children }: any) => <li className={styles.voiceMdLi}>{children}</li>,
     blockquote: ({ children }: any) => <blockquote className={styles.voiceMdBlockquote}>{children}</blockquote>,
     hr: () => <hr className={styles.voiceMdHr} />,
-    table: ({ children }: any) => (
-      <div className={styles.voiceMdTableWrap}>
-        <table className={styles.voiceMdTable}>{children}</table>
-      </div>
-    ),
-    th: ({ children }: any) => <th className={styles.voiceMdTh}>{children}</th>,
-    td: ({ children }: any) => <td className={styles.voiceMdTd}>{children}</td>,
+    table: ({ children }: any) => <TableBlock>{children}</TableBlock>,
     pre: ({ children }: any) => <>{children}</>,
     code({ node, inline, className, children, ...props }: any) {
       const match = /language-([a-zA-Z0-9_+#.-]+)/.exec(className || '');

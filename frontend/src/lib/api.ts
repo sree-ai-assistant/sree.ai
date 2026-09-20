@@ -99,6 +99,10 @@ export const aiService = {
     const response = await api.post('/ai/voice-complete', { durationSeconds, voiceSessionId, apiCallsCount });
     return response.data;
   },
+  trackDownload: async (format?: string) => {
+    const response = await api.post('/ai/track-download', { format });
+    return response.data;
+  },
 };
 
 export const sessionService = {

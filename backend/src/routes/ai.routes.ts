@@ -65,6 +65,25 @@ router.get('/download', authMiddleware, rateLimitMiddleware('download'), async (
 });
 
 /**
+ * @route   POST /api/ai/track-download
+ * @desc    Verify and charge 1 download credit for exporting tables/assets
+ * @access  Flexible (Authenticated or Anonymous)
+ */
+router.post('/track-download', flexAuthMiddleware, rateLimitMiddleware('download'), async (req: any, res: any) => {
+  try {
+    const usage = (req as any).rateLimitInfo;
+    return res.json({
+      success: true,
+      creditsCharged: 1,
+      usage,
+    });
+  } catch (error: any) {
+    console.error('Download tracking error:', error);
+    return res.status(500).json({ success: false, message: 'Failed to record download credit' });
+  }
+});
+
+/**
  * @route   GET /api/ai/usage
  * @desc    Get comprehensive usage status for current user (authenticated or anonymous)
  * @access  Flexible
