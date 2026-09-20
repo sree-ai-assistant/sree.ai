@@ -64,7 +64,7 @@
   gap: 4px;
   padding: 3px 6px;
   /* background: rgba(20, 23, 30, 0.88); */
-  background: rgb(10 10 10 / 80%);
+  background: rgb(10 10 10 / 10%);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
   border: 1px solid rgba(255, 255, 255, 0.12);

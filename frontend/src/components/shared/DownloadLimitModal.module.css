@@ -16,7 +16,8 @@
   width: min(94%, 540px);
   max-height: calc(100vh - 2.5rem);
   overflow-y: auto;
-  background: rgba(15, 23, 42, 0.95);
+  /* background: rgba(15, 23, 42, 0.95); */
+  background: #0f0f0f;
   backdrop-filter: blur(28px);
   -webkit-backdrop-filter: blur(28px);
   border: 1px solid rgba(255, 255, 255, 0.12);
@@ -412,7 +413,8 @@
   }
 
   .tooltipContainer {
-    display: none; /* Tooltip doesn't fit on tiny mobile touch targets */
+    display: none;
+    /* Tooltip doesn't fit on tiny mobile touch targets */
   }
 
   .modalTitle {
