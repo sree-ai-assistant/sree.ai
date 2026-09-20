@@ -169,8 +169,15 @@ export const TableBlock: React.FC<TableBlockProps> = ({ children, className }) =
     } catch (err: any) {
       console.error('Download error:', err);
       if (err?.response?.status === 429) {
-        toast.error(err?.response?.data?.message || 'Download limit reached. Please upgrade your plan.');
-        useUIStore.getState().openUpgradeModal('starter');
+        const errorData = err?.response?.data;
+        useUIStore.getState().openDownloadLimitModal({
+          tier: errorData?.tier,
+          reason: errorData?.reason || 'daily',
+          limit: errorData?.limit,
+          current: errorData?.current,
+          resetsIn: errorData?.resetsIn,
+          message: errorData?.message,
+        });
       } else if (err?.response?.status === 401) {
         toast.error('Please sign in to download tables.');
       } else {

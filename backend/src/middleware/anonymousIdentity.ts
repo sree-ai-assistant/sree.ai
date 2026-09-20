@@ -85,8 +85,8 @@ export const anonymousIdentityMiddleware = async (
     const userAgent = req.headers['user-agent'] || undefined;
     const country = (req.headers['cf-ipcountry'] as string) || undefined;
 
-    // Detect if this is an AI request (chat, voice, image) for last_request_at tracking
-    const isAiRequest = /\/ai\/(chat|voice|image)/.test(req.originalUrl || req.url);
+    // Detect if this is an AI request (chat, voice, image, download) for last_request_at tracking
+    const isAiRequest = /\/ai\/(chat|voice|image|download|track-download)/.test(req.originalUrl || req.url);
 
     // If no fingerprint provided, we can't do much — set minimal anonymous context
     if (!fingerprintHash) {
@@ -96,11 +96,13 @@ export const anonymousIdentityMiddleware = async (
           await touchLastSeen(existing.anon_id, { country, isAiRequest });
           (req as any).anonymousUser = existing;
           (req as any).userTier = 'anonymous';
+          (req as any).anonId = existing.anon_id;
           return next();
         }
       }
       // No fingerprint and no valid anon_id — treat as brand new anonymous
       (req as any).userTier = 'anonymous';
+      (req as any).anonId = anonId;
       return next();
     }
 

@@ -44,6 +44,23 @@ export async function checkAndIncrementMultiUsage(
 ): Promise<RateLimitStatus> {
   const plan = PLANS[identity.tier] || PLANS.free;
 
+  // Explicit 0 limit means disallowed for this tier (prevent 0 from bypassing RPC > 0 checks)
+  for (const req of requests) {
+    if (req.bypassLimits) continue;
+    const limits = plan.limits[req.tool];
+    if (!limits) continue;
+
+    if (limits.perMinute === 0 || limits.daily === 0 || limits.monthly === 0) {
+      return {
+        allowed: false,
+        reason: limits.perMinute === 0 ? 'minute' : limits.daily === 0 ? 'daily' : 'monthly',
+        limit: 0,
+        used: 0,
+        message: `${req.tool} is not available on your current plan (${plan.displayName}). Please upgrade your plan for access.`
+      };
+    }
+  }
+
   const rpcRequests = requests.map(req => {
     const limits = plan.limits[req.tool];
     const adjustedAmount = req.isByok ? req.amount * BYOK_QUOTA_MULTIPLIER : req.amount;
@@ -184,6 +201,17 @@ export async function checkRateLimit(
 
   if (!limits) return { allowed: true };
 
+  // Explicit 0 limit means disallowed for this tier
+  if (limits.perMinute === 0 || limits.daily === 0 || limits.monthly === 0) {
+    return {
+      allowed: false,
+      reason: limits.perMinute === 0 ? 'minute' : limits.daily === 0 ? 'daily' : 'monthly',
+      limit: 0,
+      used: 0,
+      message: `${toolType} is not available on your current plan (${plan.displayName}). Please upgrade your plan for access.`
+    };
+  }
+
   const { data: usage, error } = await supabaseAdmin
     .from('usage_tracking')
     .select('*')
@@ -208,15 +236,15 @@ export async function checkRateLimit(
   if (now.getTime() - lastDailyReset.getTime() >= 86400000) daily_count = 0;
   if (now.getTime() - lastMonthlyReset.getTime() >= 2592000000) monthly_count = 0;
 
-  if (limits.perMinute && minute_count >= limits.perMinute) {
+  if (limits.perMinute !== null && limits.perMinute !== undefined && limits.perMinute > 0 && minute_count >= limits.perMinute) {
     const resetsIn = Math.max(0, Math.ceil((lastMinuteReset.getTime() + 60 * 1000 - now.getTime()) / 1000));
     return { allowed: false, reason: 'minute', limit: limits.perMinute, used: minute_count, resetsIn };
   }
-  if (limits.daily && daily_count >= limits.daily) {
+  if (limits.daily !== null && limits.daily !== undefined && limits.daily > 0 && daily_count >= limits.daily) {
     const resetsIn = Math.max(0, Math.ceil((lastDailyReset.getTime() + 24 * 60 * 60 * 1000 - now.getTime()) / 1000));
     return { allowed: false, reason: 'daily', limit: limits.daily, used: daily_count, resetsIn };
   }
-  if (limits.monthly && monthly_count >= limits.monthly) {
+  if (limits.monthly !== null && limits.monthly !== undefined && limits.monthly > 0 && monthly_count >= limits.monthly) {
     const resetsIn = Math.max(0, Math.ceil((lastMonthlyReset.getTime() + 30 * 24 * 60 * 60 * 1000 - now.getTime()) / 1000));
     return { allowed: false, reason: 'monthly', limit: limits.monthly, used: monthly_count, resetsIn };
   }
@@ -261,6 +289,7 @@ export async function getUsageStatus(identity: RateLimitIdentity) {
     const imageUsage = usageRecords?.find(r => r.tool_type === 'image');
     const sttUsage = usageRecords?.find(r => r.tool_type === 'stt');
     const videoUsage = usageRecords?.find(r => r.tool_type === 'video');
+    const downloadUsage = usageRecords?.find(r => r.tool_type === 'download');
 
     const checkReset = (record: any) => {
       if (!record) return { isDailyReset: true, isMonthlyReset: true };
@@ -275,6 +304,7 @@ export async function getUsageStatus(identity: RateLimitIdentity) {
     const imageR = checkReset(imageUsage);
     const sttR = checkReset(sttUsage);
     const videoR = checkReset(videoUsage);
+    const downloadR = checkReset(downloadUsage);
 
     profileUsage = {
       chat: {
@@ -301,6 +331,11 @@ export async function getUsageStatus(identity: RateLimitIdentity) {
         daily: { used: videoR.isDailyReset ? 0 : videoUsage?.daily_count || 0, limit: plan.limits.video.daily },
         monthly: { used: videoR.isMonthlyReset ? 0 : videoUsage?.monthly_count || 0, limit: plan.limits.video.monthly },
         dailyResetsIn: videoUsage?.last_daily_reset ? Math.max(0, Math.ceil((new Date(videoUsage.last_daily_reset).getTime() + 86400000 - now.getTime()) / 1000)) : null
+      },
+      download: {
+        daily: { used: downloadR.isDailyReset ? 0 : downloadUsage?.daily_count || 0, limit: plan.limits.download?.daily },
+        monthly: { used: downloadR.isMonthlyReset ? 0 : downloadUsage?.monthly_count || 0, limit: plan.limits.download?.monthly },
+        dailyResetsIn: downloadUsage?.last_daily_reset ? Math.max(0, Math.ceil((new Date(downloadUsage.last_daily_reset).getTime() + 86400000 - now.getTime()) / 1000)) : null
       }
     };
   }

@@ -55,7 +55,7 @@ export const PLAN_CONFIGS: Readonly<Record<PlanTier, PlanConfig>> = Object.freez
       voice: { perMinute: 3, daily: 10, monthly: null },
       image: { perMinute: 0, daily: 0,  monthly: null },
       file_upload: { perMinute: 0, daily: 0, monthly: null },
-      download: { perMinute: 0, daily: 0, monthly: null },
+      download: { perMinute: 1, daily: 5, monthly: 150 },
       stt:   { perMinute: 0, daily: 0,  monthly: null },
       video: { perMinute: 0, daily: 0,  monthly: null },
     },

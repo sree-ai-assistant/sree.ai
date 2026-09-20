@@ -68,7 +68,7 @@ export const rateLimitMiddleware = (toolType: ToolType, provider?: string) => {
 
       // 1. Resolve identity and tier from flexAuthMiddleware/anonymousIdentity
       const user = (req as any).user;
-      const anonId = (req as any).anonId;
+      const anonId = (req as any).anonId || (req as any).anonymousUser?.anon_id;
       const tier = (req as any).userTier || 'anonymous';
       const isAbuseStrictMode = !!(req as any).abuseStrictMode;
 
@@ -199,6 +199,7 @@ export const rateLimitMiddleware = (toolType: ToolType, provider?: string) => {
         return res.status(429).json({
           success: false,
           code: 'RATE_LIMIT_EXCEEDED',
+          tier,
           reason: result.reason || 'daily',
           tool: actualToolType,
           limit: result.limit,

@@ -1,8 +1,19 @@
 import { create } from 'zustand';
 
+export interface DownloadLimitInfo {
+  tier?: string;
+  reason?: 'minute' | 'daily' | 'monthly' | string;
+  limit?: number;
+  current?: number;
+  resetsIn?: number;
+  message?: string;
+}
+
 interface UIState {
   upgradeModalOpen: boolean;
   limitModalOpen: boolean;
+  downloadLimitModalOpen: boolean;
+  downloadLimitInfo: DownloadLimitInfo | null;
   targetTier: 'starter' | 'pro' | null;
   limitReached: boolean;
   remainingRequests: number | null;
@@ -14,6 +25,8 @@ interface UIState {
   closeUpgradeModal: () => void;
   openLimitModal: () => void;
   closeLimitModal: () => void;
+  openDownloadLimitModal: (info?: DownloadLimitInfo) => void;
+  closeDownloadLimitModal: () => void;
   setLimitReached: (reached: boolean) => void;
   setRemainingRequests: (count: number | null) => void;
   setSidebarCollapsed: (collapsed: boolean) => void;
@@ -25,6 +38,8 @@ interface UIState {
 export const useUIStore = create<UIState>((set) => ({
   upgradeModalOpen: false,
   limitModalOpen: false,
+  downloadLimitModalOpen: false,
+  downloadLimitInfo: null,
   targetTier: null,
   limitReached: false,
   remainingRequests: null,
@@ -35,6 +50,8 @@ export const useUIStore = create<UIState>((set) => ({
   closeUpgradeModal: () => set({ upgradeModalOpen: false, targetTier: null }),
   openLimitModal: () => set({ limitModalOpen: true }),
   closeLimitModal: () => set({ limitModalOpen: false }),
+  openDownloadLimitModal: (info) => set({ downloadLimitModalOpen: true, downloadLimitInfo: info || null }),
+  closeDownloadLimitModal: () => set({ downloadLimitModalOpen: false, downloadLimitInfo: null }),
   setLimitReached: (reached) => set({ limitReached: reached }),
   setRemainingRequests: (count) => set({ remainingRequests: count }),
   setSidebarCollapsed: (collapsed) => {

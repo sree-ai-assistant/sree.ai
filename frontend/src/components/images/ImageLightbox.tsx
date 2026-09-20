@@ -6,6 +6,7 @@ import {
   Copy, Check, Loader2, AlertCircle, ZoomIn, ZoomOut, RefreshCcw, RotateCcw
 } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { useUIStore } from '../../store/ui.store';
 import styles from './ImageLightbox.module.css';
 
 interface ImageData {
@@ -125,7 +126,19 @@ export const ImageLightbox: React.FC<ImageLightboxProps> = ({
     } catch (err: any) {
       console.error('Download failed', err);
       setDownloadStatus('error');
-      toast.error(err.response?.data?.message || 'Download failed');
+      if (err?.response?.status === 429) {
+        const errorData = err.response.data;
+        useUIStore.getState().openDownloadLimitModal({
+          tier: errorData?.tier,
+          reason: errorData?.reason || 'daily',
+          limit: errorData?.limit,
+          current: errorData?.current,
+          resetsIn: errorData?.resetsIn,
+          message: errorData?.message,
+        });
+      } else {
+        toast.error(err.response?.data?.message || 'Download failed');
+      }
       setTimeout(() => setDownloadStatus('idle'), 2000);
     }
   };

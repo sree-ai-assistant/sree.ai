@@ -315,10 +315,17 @@ const ImageGenPage: React.FC = () => {
       setTimeout(() => setDownloadStatus('idle'), 5000);
 
       if (error.response?.status === 429) {
-        // The sidebar usage card will reflect the limit, but we can also alert
-        alert(error.response.data?.message || 'Download limit reached');
+        const errorData = error.response.data;
+        useUIStore.getState().openDownloadLimitModal({
+          tier: errorData?.tier,
+          reason: errorData?.reason || 'daily',
+          limit: errorData?.limit,
+          current: errorData?.current,
+          resetsIn: errorData?.resetsIn,
+          message: errorData?.message,
+        });
       } else {
-        alert('Failed to download image. Please try again.');
+        toast.error('Failed to download image. Please try again.');
       }
       throw error;
     }

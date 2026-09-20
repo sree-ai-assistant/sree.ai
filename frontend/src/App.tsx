@@ -29,6 +29,7 @@ import {
 import { Toaster } from 'react-hot-toast';
 import { UpgradeModal } from './components/shared/UpgradeModal';
 import { LimitExceededModal } from './components/shared/LimitExceededModal';
+import { DownloadLimitModal } from './components/shared/DownloadLimitModal';
 import { UploadAgreementModal } from './components/shared/UploadAgreementModal';
 
 import { useUIStore } from './store/ui.store';
@@ -68,6 +69,7 @@ function App() {
       <Toaster position="top-right" />
       <UpgradeModal />
       <LimitExceededModal />
+      <DownloadLimitModal />
       <UploadAgreementModal />
       <Routes>
         {/* Auth Routes */}

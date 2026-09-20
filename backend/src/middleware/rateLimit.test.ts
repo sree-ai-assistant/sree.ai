@@ -141,4 +141,51 @@ describe('rateLimitMiddleware', () => {
     expect(ApiKeyService.getUserApiKey).toHaveBeenCalledWith(null, 'google');
     expect(next).toHaveBeenCalled();
   });
+
+  it('should call checkAndIncrementUsage for download tool', async () => {
+    vi.mocked(checkAndIncrementUsage).mockResolvedValue({ allowed: true });
+    (req as any).anonId = 'anon-test-123';
+    (req as any).userTier = 'anonymous';
+
+    const middleware = rateLimitMiddleware('download');
+    await middleware(req as Request, res as Response, next);
+
+    expect(checkAndIncrementUsage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: 'anonymous',
+        anonId: 'anon-test-123',
+        tier: 'anonymous',
+      }),
+      'download',
+      false
+    );
+    expect(next).toHaveBeenCalled();
+  });
+
+  it('should return 429 when download limit is exceeded', async () => {
+    vi.mocked(checkAndIncrementUsage).mockResolvedValue({
+      allowed: false,
+      reason: 'minute',
+      limit: 1,
+      used: 1,
+      resetsIn: 45,
+      message: 'Rate limit exceeded: download (1/min)',
+    });
+    (req as any).anonId = 'anon-test-123';
+    (req as any).userTier = 'anonymous';
+
+    const middleware = rateLimitMiddleware('download');
+    await middleware(req as Request, res as Response, next);
+
+    expect(res.status).toHaveBeenCalledWith(429);
+    expect(res.json).toHaveBeenCalledWith(
+      expect.objectContaining({
+        code: 'RATE_LIMIT_EXCEEDED',
+        tool: 'download',
+        limit: 1,
+        current: 1,
+      })
+    );
+    expect(next).not.toHaveBeenCalled();
+  });
 });
