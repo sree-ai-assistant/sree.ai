@@ -249,6 +249,7 @@
 }
 
 .aiResponseScroll {
+  --code-sticky-top: -1.5rem;
   overflow-y: auto;
   padding: 1.5rem 2rem;
   max-height: 65vh;

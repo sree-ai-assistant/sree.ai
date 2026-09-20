@@ -11,6 +11,7 @@ import { useNavigate } from 'react-router-dom';
 import { VoiceVisualizer } from './VoiceVisualizer';
 import { aiService } from '../../lib/api';
 import { LiveAudioManager } from '../../lib/liveAudio';
+import { CodeBlock } from '../chat/CodeBlock';
 import styles from './VoiceOverlay.module.css';
 import { getStoredAnonId, generateFingerprintHash } from '../../lib/fingerprint';
 
@@ -47,21 +48,82 @@ export const VoiceOverlay: React.FC<VoiceOverlayProps> = ({ onClose, initialConv
     ),
     th: ({ children }: any) => <th className={styles.voiceMdTh}>{children}</th>,
     td: ({ children }: any) => <td className={styles.voiceMdTd}>{children}</td>,
-    code({ className, children, ...props }: any) {
-      const match = /language-(\w+)/.exec(className || '');
-      const isInline = !match;
-      return isInline ? (
-        <code className={styles.voiceMdInlineCode} {...props}>{children}</code>
-      ) : (
-        <pre className={styles.voiceMdCodeBlock}>
-          <code>{children}</code>
-        </pre>
+    pre: ({ children }: any) => <>{children}</>,
+    code({ node, inline, className, children, ...props }: any) {
+      const match = /language-([a-zA-Z0-9_+#.-]+)/.exec(className || '');
+      const rawCode = String(children).replace(/\n$/, '');
+
+      if (match) {
+        return <CodeBlock language={match[1]} value={rawCode} />;
+      }
+
+      if (!inline && rawCode.includes('\n')) {
+        return <CodeBlock language="text" value={rawCode} />;
+      }
+
+      return (
+        <code className={styles.voiceMdInlineCode} {...props}>
+          {children}
+        </code>
       );
     },
     a: ({ href, children }: any) => (
       <a href={href} className={styles.voiceMdLink} target="_blank" rel="noopener noreferrer">{children}</a>
     ),
   }), []);
+
+// Helper to clean transcript stream and protect against accidental code block formatting issues
+const cleanMarkdownTranscript = (text: string): string => {
+  if (!text) return '';
+
+  let cleaned = text;
+
+  // 1. Ensure opening fence attached to prior text gets its own preceding blank lines:
+  // e.g. "some text```html" -> "some text\n\n```html"
+  cleaned = cleaned.replace(/([^\n])\s*(```[a-zA-Z0-9_+#.-]*)/g, '$1\n\n$2');
+
+  // 2. Handle lines starting with ``` and any trailing spaces / attached conversational text:
+  // e.g. "```   To keep going..." -> "```\n\nTo keep going..."
+  // e.g. "```   \n" -> "```\n"
+  // e.g. "```   python" -> "```python"
+  cleaned = cleaned.replace(/(^|\n)[ \t]*(```)[ \t]*(.*)/g, (match, prefix, fence, rest) => {
+    const trimmedRest = rest.trim();
+    if (!trimmedRest) {
+      return `${prefix}\`\`\``;
+    }
+    // If it's a single valid language identifier (no spaces), preserve as opening fence
+    if (/^[a-zA-Z0-9_+#.-]+$/.test(trimmedRest)) {
+      return `${prefix}\`\`\`${trimmedRest}`;
+    }
+    // Otherwise it is conversational speech / prose attached after closing backticks
+    return `${prefix}\`\`\`\n\n${trimmedRest}`;
+  });
+
+  // 3. Ensure closing code fence gets its own newline if glued directly to code:
+  // e.g. "</svg>```" -> "</svg>\n```"
+  cleaned = cleaned.replace(/([^\n])\s*(```)\s*$/g, '$1\n$2');
+
+  // 4. Auto-close dangling unclosed code fences BEFORE splitting into parts
+  // This prevents unclosed blocks from swallowing all subsequent speech
+  const fenceCount = (cleaned.match(/(?:^|\n)[ \t]*```/g) || []).length;
+  if (fenceCount % 2 !== 0) {
+    cleaned = cleaned.trimEnd() + '\n```\n';
+  }
+
+  // 5. Protect regular prose from becoming indented code blocks (4+ spaces):
+  // Split by fenced code blocks so we ONLY strip false indentation OUTSIDE code fences
+  const parts = cleaned.split(/(```[\s\S]*?```)/g);
+  const processed = parts.map((part, index) => {
+    // Even indices are regular conversational text outside of code fences
+    if (index % 2 === 0) {
+      return part.replace(/^[ \t]{2,}/gm, '');
+    }
+    // Odd indices are inside code blocks: preserve code formatting and indentation
+    return part;
+  });
+
+  return processed.join('');
+};
 
   // Session State
   const [isSessionActive, setIsSessionActive] = useState(() => {
@@ -483,9 +545,35 @@ export const VoiceOverlay: React.FC<VoiceOverlayProps> = ({ onClose, initialConv
               } else if (msg.role === 'assistant') {
                 currentTurnAiTextRef.current += msg.text;
                 setDisplayedAiResponse((prev) => {
-                  if (prev && !prev.endsWith(' ') && !prev.endsWith('\n') && !msg.text.startsWith(' ') && !msg.text.startsWith('\n')) {
-                    return prev + '  ' + msg.text;
+                  if (!prev) return msg.text;
+
+                  const trimmedPrev = prev.trimEnd();
+
+                  // 1. If incoming text starts a block element (code fence, table, heading, horizontal rule)
+                  if (
+                    msg.text.startsWith('```') ||
+                    msg.text.startsWith('|') ||
+                    msg.text.startsWith('#') ||
+                    msg.text.startsWith('---')
+                  ) {
+                    return trimmedPrev + '\n\n' + msg.text;
                   }
+
+                  // 2. If prev ends with a closing code fence line (e.g. ``` or ```   ), incoming text MUST be separated!
+                  if (/(^|\n)[ \t]*```[a-zA-Z0-9_+#.-]*[ \t]*$/.test(prev)) {
+                    return trimmedPrev + '\n\n' + msg.text.trimStart();
+                  }
+
+                  // 3. If prev ends with a table row or heading, separate with blank line
+                  if (/(^|\n)\|[^\n]+\|[ \t]*$/.test(prev) || /(^|\n)#{1,6}[ \t]+[^\n]*$/.test(prev)) {
+                    return trimmedPrev + '\n\n' + msg.text.trimStart();
+                  }
+
+                  // 4. Normal conversational word-spacing
+                  if (!prev.endsWith(' ') && !prev.endsWith('\n') && !msg.text.startsWith(' ') && !msg.text.startsWith('\n')) {
+                    return prev + ' ' + msg.text;
+                  }
+
                   return prev + msg.text;
                 });
                 setStatus('speaking');
@@ -497,8 +585,16 @@ export const VoiceOverlay: React.FC<VoiceOverlayProps> = ({ onClose, initialConv
               // Gemini finished speaking this turn — save user query + AI response to chat store & DB
               saveCompletedTurn();
               setStatus('listening');
-              // Ensure clean spacing at the end of each completed response
-              setDisplayedAiResponse((prev) => prev ? prev.trimEnd() + '  \n\n' : '');
+              // Ensure code fences are balanced and clean line breaks at end of turn without trailing space leakage
+              setDisplayedAiResponse((prev) => {
+                if (!prev) return '';
+                let cleaned = prev.trimEnd();
+                const fenceCount = (cleaned.match(/(?:^|\n)[ \t]*```/g) || []).length;
+                if (fenceCount % 2 !== 0) {
+                  cleaned += '\n```';
+                }
+                return cleaned + '\n\n';
+              });
               break;
             }
 
@@ -512,8 +608,16 @@ export const VoiceOverlay: React.FC<VoiceOverlayProps> = ({ onClose, initialConv
                 saveCompletedTurn();
               }
               setStatus('listening');
-              // Ensure spacing after interruption
-              setDisplayedAiResponse((prev) => prev ? prev.trimEnd() + '  \n\n' : '');
+              // Ensure code fences are balanced and clean line breaks after interruption
+              setDisplayedAiResponse((prev) => {
+                if (!prev) return '';
+                let cleaned = prev.trimEnd();
+                const fenceCount = (cleaned.match(/(?:^|\n)[ \t]*```/g) || []).length;
+                if (fenceCount % 2 !== 0) {
+                  cleaned += '\n```';
+                }
+                return cleaned + '\n\n';
+              });
               break;
             }
 
@@ -1842,7 +1946,7 @@ export const VoiceOverlay: React.FC<VoiceOverlayProps> = ({ onClose, initialConv
                         remarkPlugins={[remarkGfm]}
                         components={voiceMarkdownComponents}
                       >
-                        {displayedAiResponse}
+                        {cleanMarkdownTranscript(displayedAiResponse)}
                       </ReactMarkdown>
                       {status === 'thinking' && !loadingMessage && <span className={styles.streamingCursor}>|</span>}
                     </div>

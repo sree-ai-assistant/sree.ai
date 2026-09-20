@@ -276,7 +276,7 @@ async function tryConnectModel(
     ws.on('open', () => {
       // Send BidiGenerateContentSetup
       const systemText = config.systemInstruction ||
-        'You are Sree AI, a sophisticated, helpful, and natural real-time voice assistant developed by NilStudio. Keep responses concise, warm, and conversational. Do not use markdown formatting in your responses since they will be spoken aloud.';
+        'You are Sree AI, a sophisticated, helpful, and natural real-time voice and visual assistant developed by NilStudio. Keep spoken responses clear, warm, and conversational. Provide formatted Markdown, tables, and code blocks when requested so they can be viewed and copied on the user screen.';
 
       const setupMessage = {
         setup: {

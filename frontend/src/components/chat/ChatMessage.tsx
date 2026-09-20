@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import { motion } from 'framer-motion';
 import { Bot, User, AlertCircle, RefreshCw, Copy, Check, Volume2, VolumeX, Play, Pause, Loader2 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -51,10 +50,7 @@ const ChatMessageComponent: React.FC<ChatMessageProps> = ({
   };
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.2 }}
+    <div
       className={`${styles.messageRow} ${m.role === 'user' ? styles.user : ''} ${isStreaming ? styles.streamingRow : ''}`}
     >
       <div className={`${styles.avatar} ${m.role === 'assistant' ? styles.ai : ''}`}>
@@ -155,7 +151,7 @@ const ChatMessageComponent: React.FC<ChatMessageProps> = ({
           {copied ? <Check size={14} /> : <Copy size={14} />}
         </button>
       )}
-    </motion.div>
+    </div>
   );
 };
 

@@ -12,6 +12,35 @@ interface CodeBlockProps {
 export const CodeBlock: React.FC<CodeBlockProps> = memo(({ language, value }) => {
   const [copied, setCopied] = useState(false);
 
+  const displayLanguage = (language || 'code').toLowerCase().trim();
+  const prismLanguage = (() => {
+    switch (displayLanguage) {
+      case 'c++':
+        return 'cpp';
+      case 'c#':
+      case 'cs':
+        return 'csharp';
+      case 'py':
+        return 'python';
+      case 'js':
+        return 'javascript';
+      case 'ts':
+        return 'typescript';
+      case 'sh':
+      case 'shell':
+        return 'bash';
+      case 'md':
+        return 'markdown';
+      case 'yml':
+        return 'yaml';
+      case 'plaintext':
+      case 'txt':
+        return 'text';
+      default:
+        return displayLanguage || 'text';
+    }
+  })();
+
   const handleCopy = async () => {
     try {
       await navigator.clipboard.writeText(value);
@@ -25,7 +54,7 @@ export const CodeBlock: React.FC<CodeBlockProps> = memo(({ language, value }) =>
   return (
     <div className={styles.codeBlockContainer}>
       <div className={styles.codeBlockHeader}>
-        <span className={styles.language}>{language || 'code'}</span>
+        <span className={styles.language}>{displayLanguage}</span>
         <button 
           onClick={handleCopy} 
           className={`${styles.copyButton} ${copied ? styles.copied : ''}`}
@@ -36,7 +65,7 @@ export const CodeBlock: React.FC<CodeBlockProps> = memo(({ language, value }) =>
         </button>
       </div>
       <SyntaxHighlighter
-        language={language}
+        language={prismLanguage}
         style={vscDarkPlus}
         customStyle={{
           margin: 0,
