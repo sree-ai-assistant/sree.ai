@@ -55,7 +55,11 @@
 }
 
 .codeContent {
+  font-family: ui-monospace, "Cascadia Code", "Fira Code", "JetBrains Mono", Consolas, "Courier New", monospace !important;
   font-size: 0.85rem !important;
+  line-height: 1.35 !important;
+  letter-spacing: 0 !important;
+  tab-size: 2 !important;
   margin: 0 !important;
   padding: 1.25rem !important;
   background: transparent !important;

@@ -1019,7 +1019,7 @@ const cleanMarkdownTranscript = (text: string): string => {
         let fullAiText = '';
         let readerDone = false;
 
-        const audioQueue: { text: string; url: string | null; blob: Blob | null }[] = [];
+        const audioQueue: { text: string; spokenText?: string; url: string | null; blob: Blob | null }[] = [];
         let isProcessingQueue = false;
         let playbackResolve: (() => void) | null = null;
         const playbackDone = new Promise<void>((resolve) => { playbackResolve = resolve; });
@@ -1040,12 +1040,19 @@ const cleanMarkdownTranscript = (text: string): string => {
 
               // If url is empty string, TTS failed or text was empty — show text but skip audio
               if (item.url === '') {
-                const needsSpace = cumulativeText && !cumulativeText.endsWith(' ') && !cumulativeText.endsWith('\n');
-                const prefix = cumulativeText ? (needsSpace ? cumulativeText + ' ' : cumulativeText) : '';
                 const chunkText = filterThinkingTags(item.text).trim();
                 if (chunkText) {
-                  cumulativeText = prefix + chunkText;
-                  setDisplayedAiResponse(cumulativeText + ' ');
+                  const isCodeBlock = chunkText.includes('```');
+                  if (isCodeBlock) {
+                    const prefix = cumulativeText ? (cumulativeText.endsWith('\n\n') ? cumulativeText : cumulativeText.endsWith('\n') ? cumulativeText + '\n' : cumulativeText + '\n\n') : '';
+                    cumulativeText = prefix + chunkText + '\n\n';
+                    setDisplayedAiResponse(cumulativeText);
+                  } else {
+                    const needsSpace = cumulativeText && !cumulativeText.endsWith(' ') && !cumulativeText.endsWith('\n');
+                    const prefix = cumulativeText ? (needsSpace ? cumulativeText + ' ' : cumulativeText) : '';
+                    cumulativeText = prefix + chunkText;
+                    setDisplayedAiResponse(cumulativeText + ' ');
+                  }
                 }
                 playedIndex++;
                 continue;
@@ -1120,29 +1127,42 @@ const cleanMarkdownTranscript = (text: string): string => {
                   await audio.play();
                 } catch (playErr) {
                   console.warn('[Voice] Audio play() rejected, skipping segment:', playErr);
-                  const needsSpace = cumulativeText && !cumulativeText.endsWith(' ') && !cumulativeText.endsWith('\n');
-                  const prefix = cumulativeText ? (needsSpace ? cumulativeText + ' ' : cumulativeText) : '';
                   const chunkText = filterThinkingTags(item.text).trim();
                   if (chunkText) {
-                    cumulativeText = prefix + chunkText;
-                    setDisplayedAiResponse(cumulativeText + ' ');
+                    const isCodeBlock = chunkText.includes('```');
+                    if (isCodeBlock) {
+                      const prefix = cumulativeText ? (cumulativeText.endsWith('\n\n') ? cumulativeText : cumulativeText.endsWith('\n') ? cumulativeText + '\n' : cumulativeText + '\n\n') : '';
+                      cumulativeText = prefix + chunkText + '\n\n';
+                      setDisplayedAiResponse(cumulativeText);
+                    } else {
+                      const needsSpace = cumulativeText && !cumulativeText.endsWith(' ') && !cumulativeText.endsWith('\n');
+                      const prefix = cumulativeText ? (needsSpace ? cumulativeText + ' ' : cumulativeText) : '';
+                      cumulativeText = prefix + chunkText;
+                      setDisplayedAiResponse(cumulativeText + ' ');
+                    }
                   }
                   playedIndex++;
                   continue;
                 }
 
-                // Typewrite this chunk while audio plays
-                const needsSpace = cumulativeText && !cumulativeText.endsWith(' ') && !cumulativeText.endsWith('\n');
-                const prefix = cumulativeText ? (needsSpace ? cumulativeText + ' ' : cumulativeText) : '';
+                // Display this chunk while audio plays
                 const chunkText = filterThinkingTags(item.text).trim();
 
                 if (chunkText) {
-                  // Display prefix with space at the end of prior sentence before typing begins
-                  setDisplayedAiResponse(prefix);
-                  await typewriter(chunkText, (val) => setDisplayedAiResponse(prefix + val), 20);
-                  cumulativeText = prefix + chunkText;
-                  // Ensure extra space at the end of the sentence for the next sentence
-                  setDisplayedAiResponse(cumulativeText + ' ');
+                  const isCodeBlock = chunkText.includes('```');
+                  if (isCodeBlock) {
+                    // Code block: render immediately on screen with proper markdown linebreaks (no slow typewriter)
+                    const prefix = cumulativeText ? (cumulativeText.endsWith('\n\n') ? cumulativeText : cumulativeText.endsWith('\n') ? cumulativeText + '\n' : cumulativeText + '\n\n') : '';
+                    cumulativeText = prefix + chunkText + '\n\n';
+                    setDisplayedAiResponse(cumulativeText);
+                  } else {
+                    const needsSpace = cumulativeText && !cumulativeText.endsWith(' ') && !cumulativeText.endsWith('\n');
+                    const prefix = cumulativeText ? (needsSpace ? cumulativeText + ' ' : cumulativeText) : '';
+                    setDisplayedAiResponse(prefix);
+                    await typewriter(chunkText, (val) => setDisplayedAiResponse(prefix + val), 20);
+                    cumulativeText = prefix + chunkText;
+                    setDisplayedAiResponse(cumulativeText + ' ');
+                  }
                 }
 
                 // Wait for audio to finish before moving to the next chunk (sequential)
@@ -1157,12 +1177,19 @@ const cleanMarkdownTranscript = (text: string): string => {
                   URL.revokeObjectURL(item.url);
                 }
               } else {
-                const needsSpace = cumulativeText && !cumulativeText.endsWith(' ') && !cumulativeText.endsWith('\n');
-                const prefix = cumulativeText ? (needsSpace ? cumulativeText + ' ' : cumulativeText) : '';
                 const chunkText = filterThinkingTags(item.text).trim();
                 if (chunkText) {
-                  cumulativeText = prefix + chunkText;
-                  setDisplayedAiResponse(cumulativeText + ' ');
+                  const isCodeBlock = chunkText.includes('```');
+                  if (isCodeBlock) {
+                    const prefix = cumulativeText ? (cumulativeText.endsWith('\n\n') ? cumulativeText : cumulativeText.endsWith('\n') ? cumulativeText + '\n' : cumulativeText + '\n\n') : '';
+                    cumulativeText = prefix + chunkText + '\n\n';
+                    setDisplayedAiResponse(cumulativeText);
+                  } else {
+                    const needsSpace = cumulativeText && !cumulativeText.endsWith(' ') && !cumulativeText.endsWith('\n');
+                    const prefix = cumulativeText ? (needsSpace ? cumulativeText + ' ' : cumulativeText) : '';
+                    cumulativeText = prefix + chunkText;
+                    setDisplayedAiResponse(cumulativeText + ' ');
+                  }
                 }
               }
 
@@ -1181,11 +1208,18 @@ const cleanMarkdownTranscript = (text: string): string => {
         };
 
         const cleanTextForTTS = (text: string) => {
-          const filtered = filterThinkingTags(text);
+          let filtered = filterThinkingTags(text);
+
+          // Replace one or more consecutive code blocks with spoken placeholder
+          filtered = filtered.replace(/(?:```[\s\S]*?(?:```|$)\s*)+/g, (_match, offset, str) => {
+            const before = str.slice(0, offset).trim();
+            const needsPrefixPeriod = before.length > 0 && !/[.!?:]$/.test(before);
+            return (needsPrefixPeriod ? '. ' : ' ') + 'You can see the code in our conversation history. ';
+          });
+
           const noEmojis = filtered.replace(/[\p{Emoji_Presentation}\p{Extended_Pictographic}]/gu, '');
           // Strip markdown formatting characters but keep readable text
           return noEmojis
-            .replace(/```[\s\S]*?```/g, '')       // Remove code blocks entirely (not speakable)
             .replace(/`([^`]+)`/g, '$1')            // Inline code → just the text
             .replace(/#{1,6}\s*/g, '')              // Remove heading markers
             .replace(/\|[^\n]*\|/g, '')             // Remove table rows
@@ -1214,22 +1248,23 @@ const cleanMarkdownTranscript = (text: string): string => {
           isProcessingTasks = false;
         };
 
-        const fetchChunkAudio = (text: string, index: number) => {
+        const fetchChunkAudio = (text: string, index: number, spokenText?: string) => {
           ttsTasks.push(async () => {
             try {
-              const cleaned = cleanTextForTTS(text);
+              const textToSpeak = spokenText !== undefined ? spokenText : text;
+              const cleaned = cleanTextForTTS(textToSpeak);
               if (!cleaned) {
-                audioQueue[index] = { text, url: '', blob: null };
+                audioQueue[index] = { text, spokenText, url: '', blob: null };
                 return;
               }
               ttsCallsCount++;
               const blob = await aiService.generateSpeech(cleaned, undefined, voiceSessionId);
               const url = URL.createObjectURL(blob);
-              audioQueue[index] = { text, url, blob };
+              audioQueue[index] = { text, spokenText, url, blob };
             } catch (err) {
               console.error(`[Voice] TTS fetch error for chunk ${index}:`, err);
               // Mark as failed — playback loop will skip audio but still show text
-              audioQueue[index] = { text, url: '', blob: null };
+              audioQueue[index] = { text, spokenText, url: '', blob: null };
             }
           });
           runNextTtsTask();
@@ -1296,19 +1331,26 @@ const cleanMarkdownTranscript = (text: string): string => {
         let streamBuffer = '';
         let pendingSentences: string[] = [];
         let isFirstTtsChunk = true;
+        let isInCodeBlock = false;
+        let codeBlockBuffer = '';
 
-        const emitChunk = (text: string) => {
-          const s = text.trim();
+        const emitChunk = (displayText: string, spokenText?: string) => {
+          const s = displayText.trim();
           if (!s) return;
           const chunkIdx = audioQueue.length;
-          audioQueue.push({ text: s, url: null, blob: null });
-          fetchChunkAudio(s, chunkIdx);
+          audioQueue.push({ text: s, spokenText, url: null, blob: null });
+          fetchChunkAudio(s, chunkIdx, spokenText);
           if (!isProcessingQueue) processPlaybackQueue();
           isFirstTtsChunk = false;
         };
 
         const tryFlushSentences = (forceAll: boolean = false) => {
           if (forceAll) {
+            if (isInCodeBlock && codeBlockBuffer.trim()) {
+              emitChunk(codeBlockBuffer.trim(), "You can see the code in our conversation history.");
+              codeBlockBuffer = '';
+              isInCodeBlock = false;
+            }
             if (streamBuffer.trim()) {
               pendingSentences.push(streamBuffer.trim());
               streamBuffer = '';
@@ -1363,10 +1405,73 @@ const cleanMarkdownTranscript = (text: string): string => {
                     if (parsed.content) {
                       const content = parsed.content;
                       fullAiText += content;
-                      streamBuffer += content;
+
+                      if (isInCodeBlock) {
+                        codeBlockBuffer += content;
+                        // Search for the closing ``` (after the opening ``` tag)
+                        const closeIdx = codeBlockBuffer.indexOf('```', 3);
+                        if (closeIdx !== -1) {
+                          // Complete code block has finished streaming!
+                          const fullCodeBlock = codeBlockBuffer.substring(0, closeIdx + 3);
+                          const remainingText = codeBlockBuffer.substring(closeIdx + 3);
+
+                          emitChunk(fullCodeBlock, "You can see the code in our conversation history.");
+                          isInCodeBlock = false;
+                          codeBlockBuffer = '';
+                          streamBuffer = remainingText;
+                        } else {
+                          // Still inside code block: continue buffering, NO TTS emitted
+                          continue;
+                        }
+                      } else {
+                        streamBuffer += content;
+                      }
 
                       // Extract any completed sentences from streamBuffer
                       while (true) {
+                        if (isInCodeBlock) {
+                          break;
+                        }
+
+                        // Check if a code block begins in streamBuffer
+                        const openIdx = streamBuffer.indexOf('```');
+                        if (openIdx !== -1) {
+                          // Extract and flush text before the code block
+                          const textBefore = streamBuffer.substring(0, openIdx).trim();
+                          if (textBefore) {
+                            pendingSentences.push(textBefore);
+                          }
+                          if (pendingSentences.length > 0) {
+                            emitChunk(pendingSentences.join(' '));
+                            pendingSentences = [];
+                          }
+
+                          // Start buffering code block
+                          isInCodeBlock = true;
+                          codeBlockBuffer = streamBuffer.substring(openIdx);
+                          streamBuffer = '';
+
+                          // Check if the code block also closes within this same buffer
+                          const closeIdx = codeBlockBuffer.indexOf('```', 3);
+                          if (closeIdx !== -1) {
+                            const fullCodeBlock = codeBlockBuffer.substring(0, closeIdx + 3);
+                            const remainingText = codeBlockBuffer.substring(closeIdx + 3);
+
+                            emitChunk(fullCodeBlock, "You can see the code in our conversation history.");
+                            isInCodeBlock = false;
+                            codeBlockBuffer = '';
+                            streamBuffer = remainingText;
+                            continue; // Re-evaluate loop with remaining text outside code block
+                          } else {
+                            break; // Wait for more tokens while in code block
+                          }
+                        }
+
+                        // Avoid splitting if buffer ends with partial backticks
+                        if (/`{1,2}$/.test(streamBuffer)) {
+                          break;
+                        }
+
                         const boundaryIdx = findSentenceBoundary(streamBuffer);
                         if (boundaryIdx !== -1) {
                           const sentence = streamBuffer.substring(0, boundaryIdx).trim();

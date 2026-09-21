@@ -27,9 +27,15 @@ const cleanTextForTTS = (text: string) => {
   processed = processed.replace(/<(think|thinking)>[\s\S]*/gi, '');
   processed = processed.replace(/\[SYSTEM INSTRUCTION: [\s\S]*?\]/gi, '');
 
+  // Replace one or more consecutive code blocks with spoken placeholder
+  processed = processed.replace(/(?:```[\s\S]*?(?:```|$)\s*)+/g, (_match, offset, str) => {
+    const before = str.slice(0, offset).trim();
+    const needsPrefixPeriod = before.length > 0 && !/[.!?:]$/.test(before);
+    return (needsPrefixPeriod ? '. ' : ' ') + 'You can see the code in our conversation history. ';
+  });
+
   const noEmojis = processed.replace(/[\p{Emoji_Presentation}\p{Extended_Pictographic}]/gu, '');
   return noEmojis
-    .replace(/```[\s\S]*?```/g, '')
     .replace(/`([^`]+)`/g, '$1')
     .replace(/#{1,6}\s*/g, '')
     .replace(/\|[^\n]*\|/g, '')

@@ -35,6 +35,8 @@ export const CodeBlock: React.FC<CodeBlockProps> = memo(({ language, value }) =>
         return 'yaml';
       case 'plaintext':
       case 'txt':
+      case 'ascii':
+      case 'diagram':
         return 'text';
       default:
         return displayLanguage || 'text';
