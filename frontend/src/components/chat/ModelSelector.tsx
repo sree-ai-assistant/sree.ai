@@ -277,22 +277,31 @@ export const ModelSelector: React.FC = () => {
                           <div className={styles.modelName}>
                             {model.is_vision && <span className={styles.visionBadge}>Vision</span>}
                             {inMaintenance && <span className={styles.maintenanceBadge} title="In Maintenance">⚠️</span>}
-                            {model.name} {model.is_fast && <Zap size={14} className={styles.fastIcon} />}
+                            <span className={styles.modelTitle} title={model.name}>
+                              {model.name}
+                            </span>
+                            {model.is_fast && (
+                              <span title="Fast Inference" style={{ display: 'inline-flex', alignItems: 'center', flexShrink: 0 }}>
+                                <Zap size={13} className={styles.fastIcon} />
+                              </span>
+                            )}
                             {model.is_new && <span className={styles.newBadge}>NEW</span>}
                           </div>
-                          {inMaintenance ? (
-                            <span className={styles.maintenanceText}>Maintenance</span>
-                          ) : !accessible ? (
-                            <span title='Upgrade to Unlock'><Lock size={14} className={styles.lockIcon} /></span>
-                          ) : model.tier_required.toLowerCase() === 'starter' ? (
-                            <div className={styles.premiumIcon} title="Premium">
-                              <Crown size={16} fill="#FFD700" color="#B8860B" />
-                            </div>
-                          ) : (
-                            <span className={`${styles.tierBadge} ${styles[`tier-${model.tier_required.toLowerCase()}`]}`}>
-                              {model.tier_required}
-                            </span>
-                          )}
+                          <div className={styles.modelMeta}>
+                            {inMaintenance ? (
+                              <span className={styles.maintenanceText}>Maintenance</span>
+                            ) : !accessible ? (
+                              <span title='Upgrade to Unlock'><Lock size={14} className={styles.lockIcon} /></span>
+                            ) : model.tier_required.toLowerCase() === 'starter' ? (
+                              <div className={styles.premiumIcon} title="Premium">
+                                <Crown size={16} fill="#FFD700" color="#B8860B" />
+                              </div>
+                            ) : (
+                              <span className={`${styles.tierBadge} ${styles[`tier-${model.tier_required.toLowerCase()}`]}`}>
+                                {model.tier_required}
+                              </span>
+                            )}
+                          </div>
                         </div>
                         <div className={styles.modelDesc}>
                           {inMaintenance ? 'Currently undergoing maintenance. Please check back later.' : model.description}
