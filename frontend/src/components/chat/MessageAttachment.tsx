@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-import { FileText, Image as ImageIcon, Music, Video, X } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { FileText, Image as ImageIcon, Music, Video } from 'lucide-react';
 import styles from './MessageAttachment.module.css';
+import { ImagePreviewModal } from './ImagePreviewModal';
 
 interface MessageAttachmentProps {
   attachments: {
@@ -63,7 +63,7 @@ const ImageAttachment: React.FC<{ url?: string; name: string; onClick: () => voi
 };
 
 export const MessageAttachment: React.FC<MessageAttachmentProps> = ({ attachments }) => {
-  const [previewImage, setPreviewImage] = useState<string | null>(null);
+  const [previewImage, setPreviewImage] = useState<{ url: string; name: string } | null>(null);
 
   if (!attachments || attachments.length === 0) return null;
 
@@ -81,7 +81,7 @@ export const MessageAttachment: React.FC<MessageAttachmentProps> = ({ attachment
               key={idx} 
               url={atl.url} 
               name={atl.name} 
-              onClick={() => atl.url && setPreviewImage(atl.url)}
+              onClick={() => atl.url && setPreviewImage({ url: atl.url, name: atl.name })}
             />
           );
         }
@@ -118,30 +118,11 @@ export const MessageAttachment: React.FC<MessageAttachmentProps> = ({ attachment
         );
       })}
 
-      <AnimatePresence>
-        {previewImage && (
-          <motion.div 
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className={styles.lightbox}
-            onClick={() => setPreviewImage(null)}
-          >
-            <motion.div 
-              initial={{ scale: 0.9, y: 20 }}
-              animate={{ scale: 1, y: 0 }}
-              exit={{ scale: 0.9, y: 20 }}
-              className={styles.lightboxContent}
-              onClick={e => e.stopPropagation()}
-            >
-              <img src={previewImage} alt="Full preview" />
-              <button className={styles.closeLightbox} onClick={() => setPreviewImage(null)}>
-                <X size={24} />
-              </button>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      <ImagePreviewModal
+        src={previewImage?.url || null}
+        alt={previewImage?.name || 'Attachment image'}
+        onClose={() => setPreviewImage(null)}
+      />
     </div>
   );
 };

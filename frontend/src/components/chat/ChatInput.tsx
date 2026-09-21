@@ -3,6 +3,7 @@ import { Plus, Mic, ArrowUp, X, FileText, Table, Music, Video, Image as ImageIco
 import { toast } from 'react-hot-toast';
 import { motion, AnimatePresence } from 'framer-motion';
 import styles from './ChatInput.module.css';
+import { ImagePreviewModal } from './ImagePreviewModal';
 import { useModelStore } from '../../store/model.store';
 import { useAuthStore } from '../../store/auth.store';
 import { uploadFile } from '../../api/storage';
@@ -179,7 +180,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
   const [internalValue, setInternalValue] = React.useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
-  const [previewImage, setPreviewImage] = React.useState<string | null>(null);
+  const [previewImage, setPreviewImage] = React.useState<{ url: string; name: string } | null>(null);
   const { setVisionRequired } = useModelStore();
   const { user } = useAuthStore();
 
@@ -670,7 +671,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
                       </svg>
                     </div>
                   ) : atl.type === 'image' ? (
-                    <ImageThumb src={atl.preview} onClick={() => setPreviewImage(atl.preview)} />
+                    <ImageThumb src={atl.preview} onClick={() => setPreviewImage({ url: atl.preview, name: atl.file.name })} />
                   ) : atl.type === 'audio' ? (
                     <Music size={18} />
                   ) : atl.type === 'video' ? (
@@ -834,29 +835,11 @@ export const ChatInput: React.FC<ChatInputProps> = ({
         Sree Ai can make mistakes. Check important info.
       </div>
 
-      <AnimatePresence>
-        {previewImage && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className={styles.lightbox}
-            onClick={() => setPreviewImage(null)}
-          >
-            <motion.div
-              initial={{ scale: 0.9, y: 20 }}
-              animate={{ scale: 1, y: 0 }}
-              className={styles.lightboxContent}
-              onClick={e => e.stopPropagation()}
-            >
-              <img src={previewImage} alt="Full preview" />
-              <button className={styles.closeLightbox} onClick={() => setPreviewImage(null)}>
-                <X size={24} />
-              </button>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      <ImagePreviewModal
+        src={previewImage?.url || null}
+        alt={previewImage?.name || 'Attachment preview'}
+        onClose={() => setPreviewImage(null)}
+      />
     </div>
   );
 };
