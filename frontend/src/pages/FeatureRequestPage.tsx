@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { useSearchParams, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Sparkles,
@@ -57,6 +58,9 @@ const PRIORITIES: { id: PriorityType; label: string; color: string; desc: string
 
 export const FeatureRequestPage: React.FC = () => {
   const { user } = useAuthStore();
+  const [searchParams] = useSearchParams();
+  const location = useLocation();
+  const hasPreFilledRef = useRef(false);
 
   // Navigation Tab
   const [activeTab, setActiveTab] = useState<ActiveTabType>('submit');
@@ -146,6 +150,64 @@ export const FeatureRequestPage: React.FC = () => {
       setGuestName(user.display_name || user.email.split('@')[0] || '');
     }
   }, [user]);
+
+  // Pre-fill bug report form if redirected from Voice Error card or external link
+  useEffect(() => {
+    if (hasPreFilledRef.current) return;
+
+    const state = location.state as {
+      category?: string;
+      title?: string;
+      description?: string;
+      stepsToReproduce?: string;
+      priority?: PriorityType;
+    } | null;
+
+    const categoryParam = state?.category || searchParams.get('category');
+    const titleParam = state?.title || searchParams.get('title');
+    const descriptionParam = state?.description || searchParams.get('description');
+    const stepsParam = state?.stepsToReproduce || searchParams.get('steps');
+    const priorityParam = state?.priority || (searchParams.get('priority') as PriorityType | null);
+
+    let hasPreFill = false;
+
+    if (categoryParam) {
+      const foundCategory = FEATURE_CATEGORIES.find((c) => c.id === categoryParam);
+      if (foundCategory) {
+        setSelectedCategory(foundCategory);
+        hasPreFill = true;
+      }
+    }
+
+    if (titleParam) {
+      setTitle(titleParam);
+      hasPreFill = true;
+    }
+
+    if (descriptionParam) {
+      setDescription(descriptionParam);
+      hasPreFill = true;
+    }
+
+    if (stepsParam) {
+      setStepsToReproduce(stepsParam);
+      hasPreFill = true;
+    }
+
+    if (priorityParam && PRIORITIES.some((p) => p.id === priorityParam)) {
+      setPriority(priorityParam);
+      hasPreFill = true;
+    }
+
+    if (hasPreFill) {
+      hasPreFilledRef.current = true;
+      setActiveTab('submit');
+      toast('Bug report details pre-filled from your session.', {
+        icon: '🐛',
+        duration: 4500,
+      });
+    }
+  }, [location.state, searchParams]);
 
   const handleCategorySelect = (cat: CategoryOption) => {
     setSelectedCategory(cat);

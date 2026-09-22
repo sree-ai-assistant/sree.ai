@@ -714,10 +714,39 @@ router.post('/chat', flexAuthMiddleware, abuseDetectionMiddleware(), queuePriori
       }
     } catch (_) { /* never let PostHog break the response */ }
 
+    const rawErrorMsg = (error.message || '').toLowerCase();
+    const statusMatch = rawErrorMsg.match(/\b([45]\d\d)\b/);
+    const resolvedStatusCode = error.status || error.statusCode || (statusMatch ? parseInt(statusMatch[1], 10) : 500);
+
+    const resolveErrorCode = (err: any, statusCode: number, msg: string) => {
+      if (err.code && err.code !== 'AI_STREAM_ERROR') return err.code;
+      if (statusCode === 404 || msg.includes('not found') || msg.includes('unknown model') || msg.includes('model_not_found')) return 'MODEL_NOT_FOUND';
+      if (statusCode === 410 || msg.includes('410') || msg.includes('degraded') || msg.includes('maintenance') || msg.includes('gone')) return 'MODEL_MAINTENANCE_410';
+      if (statusCode === 400 || msg.includes('bad request') || msg.includes('invalid') || msg.includes('enginecore')) return 'INVALID_REQUEST_400';
+      if (statusCode === 401 || statusCode === 403 || msg.includes('api key') || msg.includes('unauthorized') || msg.includes('forbidden')) return 'AUTH_ERROR_401';
+      if (statusCode === 429 || msg.includes('rate limit') || msg.includes('quota') || msg.includes('exhausted') || msg.includes('too many requests')) return 'QUOTA_EXCEEDED_429';
+      if (statusCode === 503 || msg.includes('overloaded') || msg.includes('service unavailable')) return 'SERVICE_UNAVAILABLE_503';
+      if (statusCode === 504 || statusCode === 408 || msg.includes('timeout') || msg.includes('timed out')) return 'TIMEOUT_504';
+      if (statusCode === 502) return 'BAD_GATEWAY_502';
+      if (statusCode === 413 || msg.includes('too large')) return 'PAYLOAD_TOO_LARGE_413';
+      return statusCode >= 500 ? `SERVER_ERROR_${statusCode}` : (error.code || 'AI_STREAM_ERROR');
+    };
+
+    const resolvedCode = resolveErrorCode(error, resolvedStatusCode, rawErrorMsg);
+
     if (!res.headersSent) {
-      res.status(500).json({ success: false, message: error.message });
+      res.status(resolvedStatusCode >= 400 && resolvedStatusCode < 600 ? resolvedStatusCode : 500).json({
+        success: false,
+        message: error.message || 'AI generation failed',
+        code: resolvedCode,
+        statusCode: resolvedStatusCode,
+      });
     } else {
-      writeSSE({ error: error.message });
+      writeSSE({ 
+        error: error.message || 'AI generation failed',
+        code: resolvedCode,
+        statusCode: resolvedStatusCode,
+      });
       res.end();
     }
   }

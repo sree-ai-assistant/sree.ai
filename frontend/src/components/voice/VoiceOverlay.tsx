@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, AlertTriangle, Clock, ArrowRight, Sparkles, Zap, RotateCcw, Volume2, Hourglass, Eye, EyeOff } from 'lucide-react';
+import { X, AlertTriangle, Clock, ArrowRight, Sparkles, Zap, RotateCcw, Volume2, Hourglass, Eye, EyeOff, WifiOff, CheckCircle, Bug } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { useChatStore } from '../../store/chat.store';
@@ -67,58 +67,58 @@ export const VoiceOverlay: React.FC<VoiceOverlayProps> = ({ onClose, initialConv
     ),
   }), []);
 
-// Helper to clean transcript stream and protect against accidental code block formatting issues
-const cleanMarkdownTranscript = (text: string): string => {
-  if (!text) return '';
+  // Helper to clean transcript stream and protect against accidental code block formatting issues
+  const cleanMarkdownTranscript = (text: string): string => {
+    if (!text) return '';
 
-  let cleaned = text;
+    let cleaned = text;
 
-  // 1. Ensure opening fence attached to prior text gets its own preceding blank lines:
-  // e.g. "some text```html" -> "some text\n\n```html"
-  cleaned = cleaned.replace(/([^\n])\s*(```[a-zA-Z0-9_+#.-]*)/g, '$1\n\n$2');
+    // 1. Ensure opening fence attached to prior text gets its own preceding blank lines:
+    // e.g. "some text```html" -> "some text\n\n```html"
+    cleaned = cleaned.replace(/([^\n])\s*(```[a-zA-Z0-9_+#.-]*)/g, '$1\n\n$2');
 
-  // 2. Handle lines starting with ``` and any trailing spaces / attached conversational text:
-  // e.g. "```   To keep going..." -> "```\n\nTo keep going..."
-  // e.g. "```   \n" -> "```\n"
-  // e.g. "```   python" -> "```python"
-  cleaned = cleaned.replace(/(^|\n)[ \t]*(```)[ \t]*(.*)/g, (match, prefix, fence, rest) => {
-    const trimmedRest = rest.trim();
-    if (!trimmedRest) {
-      return `${prefix}\`\`\``;
+    // 2. Handle lines starting with ``` and any trailing spaces / attached conversational text:
+    // e.g. "```   To keep going..." -> "```\n\nTo keep going..."
+    // e.g. "```   \n" -> "```\n"
+    // e.g. "```   python" -> "```python"
+    cleaned = cleaned.replace(/(^|\n)[ \t]*(```)[ \t]*(.*)/g, (match, prefix, fence, rest) => {
+      const trimmedRest = rest.trim();
+      if (!trimmedRest) {
+        return `${prefix}\`\`\``;
+      }
+      // If it's a single valid language identifier (no spaces), preserve as opening fence
+      if (/^[a-zA-Z0-9_+#.-]+$/.test(trimmedRest)) {
+        return `${prefix}\`\`\`${trimmedRest}`;
+      }
+      // Otherwise it is conversational speech / prose attached after closing backticks
+      return `${prefix}\`\`\`\n\n${trimmedRest}`;
+    });
+
+    // 3. Ensure closing code fence gets its own newline if glued directly to code:
+    // e.g. "</svg>```" -> "</svg>\n```"
+    cleaned = cleaned.replace(/([^\n])\s*(```)\s*$/g, '$1\n$2');
+
+    // 4. Auto-close dangling unclosed code fences BEFORE splitting into parts
+    // This prevents unclosed blocks from swallowing all subsequent speech
+    const fenceCount = (cleaned.match(/(?:^|\n)[ \t]*```/g) || []).length;
+    if (fenceCount % 2 !== 0) {
+      cleaned = cleaned.trimEnd() + '\n```\n';
     }
-    // If it's a single valid language identifier (no spaces), preserve as opening fence
-    if (/^[a-zA-Z0-9_+#.-]+$/.test(trimmedRest)) {
-      return `${prefix}\`\`\`${trimmedRest}`;
-    }
-    // Otherwise it is conversational speech / prose attached after closing backticks
-    return `${prefix}\`\`\`\n\n${trimmedRest}`;
-  });
 
-  // 3. Ensure closing code fence gets its own newline if glued directly to code:
-  // e.g. "</svg>```" -> "</svg>\n```"
-  cleaned = cleaned.replace(/([^\n])\s*(```)\s*$/g, '$1\n$2');
+    // 5. Protect regular prose from becoming indented code blocks (4+ spaces):
+    // Split by fenced code blocks so we ONLY strip false indentation OUTSIDE code fences
+    const parts = cleaned.split(/(```[\s\S]*?```)/g);
+    const processed = parts.map((part, index) => {
+      // Even indices are regular conversational text outside of code fences
+      if (index % 2 === 0) {
+        return part.replace(/^[ \t]{2,}/gm, '');
+      }
+      // Odd indices are inside code blocks: preserve code formatting and indentation
+      return part;
+    });
 
-  // 4. Auto-close dangling unclosed code fences BEFORE splitting into parts
-  // This prevents unclosed blocks from swallowing all subsequent speech
-  const fenceCount = (cleaned.match(/(?:^|\n)[ \t]*```/g) || []).length;
-  if (fenceCount % 2 !== 0) {
-    cleaned = cleaned.trimEnd() + '\n```\n';
-  }
-
-  // 5. Protect regular prose from becoming indented code blocks (4+ spaces):
-  // Split by fenced code blocks so we ONLY strip false indentation OUTSIDE code fences
-  const parts = cleaned.split(/(```[\s\S]*?```)/g);
-  const processed = parts.map((part, index) => {
-    // Even indices are regular conversational text outside of code fences
-    if (index % 2 === 0) {
-      return part.replace(/^[ \t]{2,}/gm, '');
-    }
-    // Odd indices are inside code blocks: preserve code formatting and indentation
-    return part;
-  });
-
-  return processed.join('');
-};
+    return processed.join('');
+  };
 
   // Session State
   const [isSessionActive, setIsSessionActive] = useState(() => {
@@ -208,6 +208,31 @@ const cleanMarkdownTranscript = (text: string): string => {
   const [showLatencyNotice, setShowLatencyNotice] = useState<boolean>(false);
   const latencyNoticeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // Connection Error State (for error recovery UI)
+  const [connectionError, setConnectionError] = useState<{
+    title: string;
+    message: string;
+    code?: string;
+    model?: string;
+    canRetry: boolean;
+    canFallback: boolean;
+    canTryLive?: boolean;
+    canClose: boolean;
+    saved?: boolean;
+  } | null>(null);
+
+  // Remembers user text in standard (legacy) pipeline for recovery & saving if error occurs
+  const lastLegacyUserTextRef = useRef<string>('');
+  // Remembers model used in standard (legacy) pipeline for diagnostics & bug reporting
+  const lastLegacyModelRef = useRef<string>('gemini-flash-lite-latest');
+
+  // Stall detection: detects when live session stops sending data without closing
+  const liveStallTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Track whether the live session was ever fully active (past initial connect)
+  const liveSessionActiveRef = useRef<boolean>(false);
+  // Track whether close was initiated by user (not an error)
+  const userInitiatedCloseRef = useRef<boolean>(false);
+
   const triggerLatencyNotice = useCallback(() => {
     setShowLatencyNotice(true);
     if (latencyNoticeTimerRef.current) {
@@ -218,6 +243,24 @@ const cleanMarkdownTranscript = (text: string): string => {
       latencyNoticeTimerRef.current = null;
     }, 18000);
   }, []);
+
+  const clearStallTimer = useCallback(() => {
+    if (liveStallTimerRef.current) {
+      clearTimeout(liveStallTimerRef.current);
+      liveStallTimerRef.current = null;
+    }
+  }, []);
+
+  // Use a ref to hold the stall handler so resetStallTimer can be defined
+  // before saveCompletedTurn/cleanupLive (avoids block-scoped TDZ error).
+  const stallHandlerRef = useRef<(() => void) | null>(null);
+
+  const resetStallTimer = useCallback((timeoutMs: number = 30000) => {
+    clearStallTimer();
+    liveStallTimerRef.current = setTimeout(() => {
+      stallHandlerRef.current?.();
+    }, timeoutMs);
+  }, [clearStallTimer]);
 
   // Content State
   const [transcript, setTranscript] = useState('');
@@ -445,6 +488,9 @@ const cleanMarkdownTranscript = (text: string): string => {
               liveStartTimeRef.current = Date.now();
               currentTurnUserTextRef.current = '';
               currentTurnAiTextRef.current = '';
+              liveSessionActiveRef.current = true;
+              setConnectionError(null);
+              resetStallTimer(45000);
               console.log(`[Voice Live] ✅ Session started: model=${msg.model}`);
 
               // Tier-based continuous session duration limit tracking
@@ -529,6 +575,7 @@ const cleanMarkdownTranscript = (text: string): string => {
 
             case 'transcript':
             case 'input-transcript': {
+              resetStallTimer(status === 'speaking' ? 30000 : 120000);
               if (msg.role === 'user' || msg.type === 'input-transcript') {
                 // If assistant was speaking from an earlier turn that hasn't saved yet, flush it
                 if (currentTurnAiTextRef.current.trim()) {
@@ -577,6 +624,7 @@ const cleanMarkdownTranscript = (text: string): string => {
             }
 
             case 'turn-complete': {
+              resetStallTimer(120000);
               // Gemini finished speaking this turn — save user query + AI response to chat store & DB
               saveCompletedTurn();
               setStatus('listening');
@@ -594,6 +642,7 @@ const cleanMarkdownTranscript = (text: string): string => {
             }
 
             case 'interrupted': {
+              resetStallTimer(120000);
               // User barged in — clear playback
               if (liveAudioRef.current) {
                 liveAudioRef.current.clearPlayback();
@@ -618,6 +667,7 @@ const cleanMarkdownTranscript = (text: string): string => {
 
             case 'error': {
               clearTimeout(connectTimeout);
+              clearStallTimer();
               if (msg.code === 'RATE_LIMIT_EXCEEDED') {
                 const resetsIn = msg.resetsIn || 30;
                 const lockoutTime = Date.now() + (resetsIn * 1000);
@@ -634,16 +684,32 @@ const cleanMarkdownTranscript = (text: string): string => {
                 setStatus('idle');
               } else {
                 console.error('[Voice Live] Error:', msg.message);
+                const wasActive = liveSessionActiveRef.current;
                 cleanupLive();
-                setVoiceMode('legacy');
-                triggerLatencyNotice();
-                setTimeout(startRecording, 500);
+                if (wasActive) {
+                  // Mid-session error — show recovery card
+                  setConnectionError({
+                    title: 'Session Interrupted',
+                    message: msg.message || 'Something went wrong with the live connection.',
+                    code: msg.code,
+                    canRetry: true,
+                    canFallback: true,
+                    canClose: true,
+                  });
+                  setStatus('idle');
+                } else {
+                  // Initial connect error — silent fallback to legacy
+                  setVoiceMode('legacy');
+                  triggerLatencyNotice();
+                  setTimeout(startRecording, 500);
+                }
               }
               break;
             }
 
             case 'session-end': {
               console.log('[Voice Live] Session ended by server:', msg);
+              clearStallTimer();
               if (sessionLimitTimerRef.current) {
                 clearTimeout(sessionLimitTimerRef.current);
                 sessionLimitTimerRef.current = null;
@@ -656,6 +722,19 @@ const cleanMarkdownTranscript = (text: string): string => {
                   tier: msg.tier || (user ? 'free' : 'anonymous'),
                   maxMinutes: msg.maxMinutes || (msg.tier === 'anonymous' ? 3 : 5),
                   message: msg.message,
+                });
+              } else if (msg.reason === 'upstream_closed' && liveSessionActiveRef.current) {
+                // Upstream Gemini closed unexpectedly — show recovery card
+                saveCompletedTurn();
+                cleanupLive();
+                setStatus('idle');
+                setConnectionError({
+                  title: 'Connection Lost',
+                  message: 'The live voice session was interrupted. Your conversation has been saved.',
+                  code: msg.code ? `WS:${msg.code}` : undefined,
+                  canRetry: true,
+                  canFallback: true,
+                  canClose: true,
                 });
               } else {
                 cleanupLive();
@@ -671,15 +750,31 @@ const cleanMarkdownTranscript = (text: string): string => {
 
       ws.onerror = (err) => {
         clearTimeout(connectTimeout);
+        clearStallTimer();
         console.error('[Voice Live] WebSocket error:', err);
+        const wasActive = liveSessionActiveRef.current;
         cleanupLive();
-        setVoiceMode('legacy');
-        triggerLatencyNotice();
-        setTimeout(startRecording, 500);
+        if (wasActive) {
+          // Mid-session error — show recovery card
+          setConnectionError({
+            title: 'Connection Lost',
+            message: 'The live voice connection was interrupted unexpectedly.',
+            canRetry: true,
+            canFallback: true,
+            canClose: true,
+          });
+          setStatus('idle');
+        } else {
+          // Initial connect error — silent fallback
+          setVoiceMode('legacy');
+          triggerLatencyNotice();
+          setTimeout(startRecording, 500);
+        }
       };
 
       ws.onclose = (event) => {
         clearTimeout(connectTimeout);
+        clearStallTimer();
         console.log(`[Voice Live] WebSocket closed: ${event.code}`);
 
         // Save any pending turn if not yet saved
@@ -694,6 +789,29 @@ const cleanMarkdownTranscript = (text: string): string => {
         }
         setStream(null);
         liveWsRef.current = null;
+
+        // If the session was active and close wasn't user-initiated or handled by
+        // a specific message handler (session-end, error), show recovery card.
+        const wasActive = liveSessionActiveRef.current;
+        liveSessionActiveRef.current = false;
+        if (
+          wasActive &&
+          !userInitiatedCloseRef.current &&
+          !connectionError &&
+          !sessionLimitInfo &&
+          !rateLimitInfo &&
+          event.code !== 1000
+        ) {
+          setConnectionError({
+            title: 'Connection Lost',
+            message: 'The live voice session ended unexpectedly. Your conversation has been saved.',
+            code: `WS:${event.code}`,
+            canRetry: true,
+            canFallback: true,
+            canClose: true,
+          });
+          setStatus('idle');
+        }
       };
 
     } catch (err) {
@@ -706,6 +824,9 @@ const cleanMarkdownTranscript = (text: string): string => {
   }, [isSessionActive, saveCompletedTurn, triggerLatencyNotice]);
 
   const cleanupLive = useCallback(() => {
+    clearStallTimer();
+    liveSessionActiveRef.current = false;
+
     if (sessionLimitTimerRef.current) {
       clearTimeout(sessionLimitTimerRef.current);
       sessionLimitTimerRef.current = null;
@@ -724,7 +845,26 @@ const cleanMarkdownTranscript = (text: string): string => {
       liveAudioRef.current = null;
     }
     setStream(null);
-  }, []);
+  }, [clearStallTimer]);
+
+  // Wire the stall handler now that saveCompletedTurn and cleanupLive are defined
+  useEffect(() => {
+    stallHandlerRef.current = () => {
+      if (liveSessionActiveRef.current) {
+        console.warn('[Voice Live] Stall detected — no data received');
+        saveCompletedTurn();
+        cleanupLive();
+        setConnectionError({
+          title: 'Connection Stalled',
+          message: 'The AI stopped responding. This may be a temporary issue.',
+          canRetry: true,
+          canFallback: true,
+          canClose: true,
+        });
+        setStatus('idle');
+      }
+    };
+  }, [saveCompletedTurn, cleanupLive]);
 
   const startRecording = useCallback(async () => {
     if (!isSessionActive) return;
@@ -816,9 +956,19 @@ const cleanMarkdownTranscript = (text: string): string => {
       };
 
       checkSilence();
-    } catch (err) {
+    } catch (err: any) {
       console.error('Microphone Access Error:', err);
       setStatus('idle');
+      const isDenied = err?.name === 'NotAllowedError' || err?.name === 'PermissionDeniedError';
+      setConnectionError({
+        title: isDenied ? 'Microphone Access Required' : 'Microphone Error',
+        message: isDenied
+          ? 'Please allow microphone access in your browser settings to use voice mode.'
+          : 'We couldn\'t access your microphone. Please check your audio settings and try again.',
+        canRetry: true,
+        canFallback: false,
+        canClose: true,
+      });
     }
   }, [isSessionActive]);
 
@@ -883,10 +1033,21 @@ const cleanMarkdownTranscript = (text: string): string => {
       const formData = new FormData();
       formData.append('file', audioBlob, 'voice.webm');
 
-      const data = await aiService.transcribeAudio(formData);
+      // 20s watchdog timeout for transcription
+      const data = await Promise.race([
+        aiService.transcribeAudio(formData),
+        new Promise<any>((_, reject) =>
+          setTimeout(() => reject(new Error('Audio transcription timed out after 20 seconds')), 20000)
+        )
+      ]);
+
+      if (!data || !data.success) {
+        throw new Error(data?.message || 'Audio transcription failed. Please try speaking again.');
+      }
 
       if (data.success) {
         const userText = data.data.text?.trim() || '';
+        lastLegacyUserTextRef.current = userText;
         const voiceSessionId = crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substring(2) + Date.now().toString(36);
         let ttsCallsCount = 0;
 
@@ -932,26 +1093,38 @@ const cleanMarkdownTranscript = (text: string): string => {
           return;
         }
 
-        // 1. Start AI Request in parallel
+        // 1. Start AI Request in parallel with 30s connection timeout
+        const abortController = new AbortController();
+        const chatTimeoutId = setTimeout(() => {
+          abortController.abort(new Error('AI server response timed out after 30 seconds'));
+        }, 30000);
+
         const chatRequestPromise = (async () => {
-          const { data: { session } } = await Promise.race([
-            supabase.auth.getSession(),
-            new Promise<any>((_, reject) => setTimeout(() => reject(new Error('Session fetch timeout')), 3000))
-          ]);
-          return fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000/api'}/ai/chat`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': session?.access_token ? `Bearer ${session.access_token}` : '',
-              'X-Anon-Id': !session?.access_token ? (getStoredAnonId() || '') : '',
-              'X-Fingerprint': !session?.access_token ? (await generateFingerprintHash()) : '',
-            },
-            body: JSON.stringify({
-              messages: [...messagesRef.current.map(m => ({ role: m.role, content: m.content })), { role: 'user', content: userText }],
-              model: 'gemini-flash-lite-latest',   //---->voice model change here
-              mode: 'voice',
-            }),
-          });
+          try {
+            const { data: { session } } = await Promise.race([
+              supabase.auth.getSession(),
+              new Promise<any>((_, reject) => setTimeout(() => reject(new Error('Session fetch timeout')), 3000))
+            ]);
+            const requestedVoiceModel = 'gemini-flash-lite-latest'; //---> voice model change here
+            lastLegacyModelRef.current = requestedVoiceModel;
+            return await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000/api'}/ai/chat`, {
+              method: 'POST',
+              signal: abortController.signal,
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': session?.access_token ? `Bearer ${session.access_token}` : '',
+                'X-Anon-Id': !session?.access_token ? (getStoredAnonId() || '') : '',
+                'X-Fingerprint': !session?.access_token ? (await generateFingerprintHash()) : '',
+              },
+              body: JSON.stringify({
+                messages: [...messagesRef.current.map(m => ({ role: m.role, content: m.content })), { role: 'user', content: userText }],
+                model: requestedVoiceModel,
+                mode: 'voice',
+              }),
+            });
+          } finally {
+            clearTimeout(chatTimeoutId);
+          }
         })();
 
         // 2. Stream User Text UI in parallel
@@ -961,7 +1134,7 @@ const cleanMarkdownTranscript = (text: string): string => {
 
         await typewriter(userText, setTranscript, 30);
 
-        // Keep the fully typed text visible for 2 seconds so the user can read it
+        // Keep the fully typed text visible for 1.5 seconds so the user can read it
         await new Promise((resolve) => setTimeout(resolve, 1500));
 
         // Trigger "sent to AI" animation
@@ -976,42 +1149,53 @@ const cleanMarkdownTranscript = (text: string): string => {
         const chatResponse = await chatRequestPromise;
 
         if (!chatResponse.ok) {
+          let errorData: any = null;
+          let rawErrorText = '';
           try {
-            const errorText = await chatResponse.text();
-            let errorData;
+            rawErrorText = await chatResponse.text();
             try {
-              errorData = JSON.parse(errorText);
-            } catch (e) {
-              errorData = { message: errorText };
+              errorData = JSON.parse(rawErrorText);
+            } catch {
+              errorData = { message: rawErrorText };
             }
-            if (chatResponse.status === 429 || errorData?.code === 'RATE_LIMIT_EXCEEDED') {
-              const isMonthlyLimit = errorData?.reason === 'monthly';
-              const resetsIn = isMonthlyLimit ? 24 * 60 * 60 : (errorData?.resetsIn || 30);
-              const message = errorData?.message || 'Usage rate limit reached. Please try again later.';
-              const upgradeUrl = errorData?.upgradeUrl || '/pricing';
+          } catch (_) { }
 
-              const lockoutTime = Date.now() + (resetsIn * 1000);
-              localStorage.setItem('voice_lockout', lockoutTime.toString());
+          if (chatResponse.status === 429 || errorData?.code === 'RATE_LIMIT_EXCEEDED') {
+            const isMonthlyLimit = errorData?.reason === 'monthly';
+            const resetsIn = isMonthlyLimit ? 24 * 60 * 60 : (errorData?.resetsIn || 30);
+            const message = errorData?.message || 'Usage rate limit reached. Please try again later.';
+            const upgradeUrl = errorData?.upgradeUrl || '/pricing';
 
-              setIsSessionActive(false);
-              stopRecording();
-              if (audioRef.current) {
-                audioRef.current.pause();
-                audioRef.current.src = '';
-              }
-              stopLoadingMessages();
+            const lockoutTime = Date.now() + (resetsIn * 1000);
+            localStorage.setItem('voice_lockout', lockoutTime.toString());
 
-              setRateLimitInfo({
-                message,
-                resetsIn,
-                upgradeUrl
-              });
-              setCountdown(resetsIn);
-              setStatus('idle');
-              return;
+            setIsSessionActive(false);
+            stopRecording();
+            if (audioRef.current) {
+              audioRef.current.pause();
+              audioRef.current.src = '';
             }
-          } catch (e) { }
-          throw new Error(`Chat request failed with status ${chatResponse.status}`);
+            stopLoadingMessages();
+
+            setRateLimitInfo({
+              message,
+              resetsIn,
+              upgradeUrl
+            });
+            setCountdown(resetsIn);
+            setStatus('idle');
+            return;
+          }
+
+          const detailedMsg = errorData?.message || rawErrorText || `Chat request failed with status ${chatResponse.status}`;
+          const err = new Error(detailedMsg);
+          (err as any).status = chatResponse.status;
+          (err as any).code = errorData?.code || `HTTP_${chatResponse.status}`;
+          throw err;
+        }
+
+        if (!chatResponse.body) {
+          throw new Error('No readable response stream returned from the AI server.');
         }
 
         const reader = chatResponse.body?.getReader();
@@ -1032,101 +1216,15 @@ const cleanMarkdownTranscript = (text: string): string => {
           stopLoadingMessages();
           setStatus('speaking');
 
-          let playedIndex = 0;
-          let cumulativeText = '';
-          while (true) {
-            if (playedIndex < audioQueue.length) {
-              const item = audioQueue[playedIndex];
+          try {
+            let playedIndex = 0;
+            let cumulativeText = '';
+            while (true) {
+              if (playedIndex < audioQueue.length) {
+                const item = audioQueue[playedIndex];
 
-              // If url is empty string, TTS failed or text was empty — show text but skip audio
-              if (item.url === '') {
-                const chunkText = filterThinkingTags(item.text).trim();
-                if (chunkText) {
-                  const isCodeBlock = chunkText.includes('```');
-                  if (isCodeBlock) {
-                    const prefix = cumulativeText ? (cumulativeText.endsWith('\n\n') ? cumulativeText : cumulativeText.endsWith('\n') ? cumulativeText + '\n' : cumulativeText + '\n\n') : '';
-                    cumulativeText = prefix + chunkText + '\n\n';
-                    setDisplayedAiResponse(cumulativeText);
-                  } else {
-                    const needsSpace = cumulativeText && !cumulativeText.endsWith(' ') && !cumulativeText.endsWith('\n');
-                    const prefix = cumulativeText ? (needsSpace ? cumulativeText + ' ' : cumulativeText) : '';
-                    cumulativeText = prefix + chunkText;
-                    setDisplayedAiResponse(cumulativeText + ' ');
-                  }
-                }
-                playedIndex++;
-                continue;
-              }
-
-              // If audio is not ready yet (url is null), wait for it with a timeout
-              if (item.url === null) {
-                const waitStart = Date.now();
-                while (audioQueue[playedIndex].url === null) {
-                  if (Date.now() - waitStart > 15000) {
-                    // 15s timeout — TTS fetch is stuck, skip this chunk
-                    console.warn(`[Voice] TTS fetch timeout for chunk ${playedIndex}, skipping`);
-                    audioQueue[playedIndex] = { ...audioQueue[playedIndex], url: '' };
-                    break;
-                  }
-                  await new Promise(r => setTimeout(r, 100));
-                }
-                continue; // Re-check the item (might be '' now or a valid url)
-              }
-
-              // Play audio and show text simultaneously
-              if (audioRef.current) {
-                const audio = audioRef.current;
-
-                // Set the source and load it explicitly to reset the media pipeline
-                audio.src = item.url;
-                audio.load();
-
-                // Wait for the browser to register the source and be ready to play
-                await new Promise<void>((resolveReady) => {
-                  let resolved = false;
-                  const onCanPlay = () => {
-                    if (!resolved) {
-                      resolved = true;
-                      audio.removeEventListener('canplaythrough', onCanPlay);
-                      audio.removeEventListener('loadeddata', onCanPlay);
-                      resolveReady();
-                    }
-                  };
-                  audio.addEventListener('canplaythrough', onCanPlay);
-                  audio.addEventListener('loadeddata', onCanPlay);
-                  // Safety timeout in case events don't fire
-                  setTimeout(() => {
-                    if (!resolved) {
-                      resolved = true;
-                      audio.removeEventListener('canplaythrough', onCanPlay);
-                      audio.removeEventListener('loadeddata', onCanPlay);
-                      resolveReady();
-                    }
-                  }, 2000);
-                });
-
-                // Create promise that resolves when this audio chunk finishes playing
-                const audioPromise = new Promise<void>((resolveAudio) => {
-                  let doneCalled = false;
-                  const done = () => {
-                    if (!doneCalled) {
-                      doneCalled = true;
-                      resolveAudio();
-                    }
-                  };
-                  audio.onended = done;
-                  audio.onerror = (e) => {
-                    console.warn(`[Voice] Audio playback error on chunk ${playedIndex}, skipping`, e);
-                    done();
-                  };
-                  // Safety timeout: if onended doesn't fire within 15s, continue anyway
-                  setTimeout(done, 15000);
-                });
-
-                try {
-                  await audio.play();
-                } catch (playErr) {
-                  console.warn('[Voice] Audio play() rejected, skipping segment:', playErr);
+                // If url is empty string, TTS failed or text was empty — show text but skip audio
+                if (item.url === '') {
                   const chunkText = filterThinkingTags(item.text).trim();
                   if (chunkText) {
                     const isCodeBlock = chunkText.includes('```');
@@ -1145,66 +1243,157 @@ const cleanMarkdownTranscript = (text: string): string => {
                   continue;
                 }
 
-                // Display this chunk while audio plays
-                const chunkText = filterThinkingTags(item.text).trim();
+                // If audio is not ready yet (url is null), wait for it with a timeout
+                if (item.url === null) {
+                  const waitStart = Date.now();
+                  while (audioQueue[playedIndex].url === null) {
+                    if (Date.now() - waitStart > 15000) {
+                      // 15s timeout — TTS fetch is stuck, skip this chunk
+                      console.warn(`[Voice] TTS fetch timeout for chunk ${playedIndex}, skipping`);
+                      audioQueue[playedIndex] = { ...audioQueue[playedIndex], url: '' };
+                      break;
+                    }
+                    await new Promise(r => setTimeout(r, 100));
+                  }
+                  continue; // Re-check the item (might be '' now or a valid url)
+                }
 
-                if (chunkText) {
-                  const isCodeBlock = chunkText.includes('```');
-                  if (isCodeBlock) {
-                    // Code block: render immediately on screen with proper markdown linebreaks (no slow typewriter)
-                    const prefix = cumulativeText ? (cumulativeText.endsWith('\n\n') ? cumulativeText : cumulativeText.endsWith('\n') ? cumulativeText + '\n' : cumulativeText + '\n\n') : '';
-                    cumulativeText = prefix + chunkText + '\n\n';
-                    setDisplayedAiResponse(cumulativeText);
-                  } else {
-                    const needsSpace = cumulativeText && !cumulativeText.endsWith(' ') && !cumulativeText.endsWith('\n');
-                    const prefix = cumulativeText ? (needsSpace ? cumulativeText + ' ' : cumulativeText) : '';
-                    setDisplayedAiResponse(prefix);
-                    await typewriter(chunkText, (val) => setDisplayedAiResponse(prefix + val), 20);
-                    cumulativeText = prefix + chunkText;
-                    setDisplayedAiResponse(cumulativeText + ' ');
+                // Play audio and show text simultaneously
+                if (audioRef.current) {
+                  const audio = audioRef.current;
+
+                  // Set the source and load it explicitly to reset the media pipeline
+                  audio.src = item.url;
+                  audio.load();
+
+                  // Wait for the browser to register the source and be ready to play
+                  await new Promise<void>((resolveReady) => {
+                    let resolved = false;
+                    const onCanPlay = () => {
+                      if (!resolved) {
+                        resolved = true;
+                        audio.removeEventListener('canplaythrough', onCanPlay);
+                        audio.removeEventListener('loadeddata', onCanPlay);
+                        resolveReady();
+                      }
+                    };
+                    audio.addEventListener('canplaythrough', onCanPlay);
+                    audio.addEventListener('loadeddata', onCanPlay);
+                    // Safety timeout in case events don't fire
+                    setTimeout(() => {
+                      if (!resolved) {
+                        resolved = true;
+                        audio.removeEventListener('canplaythrough', onCanPlay);
+                        audio.removeEventListener('loadeddata', onCanPlay);
+                        resolveReady();
+                      }
+                    }, 2000);
+                  });
+
+                  // Create promise that resolves when this audio chunk finishes playing
+                  const audioPromise = new Promise<void>((resolveAudio) => {
+                    let doneCalled = false;
+                    const done = () => {
+                      if (!doneCalled) {
+                        doneCalled = true;
+                        resolveAudio();
+                      }
+                    };
+                    audio.onended = done;
+                    audio.onerror = (e) => {
+                      console.warn(`[Voice] Audio playback error on chunk ${playedIndex}, skipping`, e);
+                      done();
+                    };
+                    // Safety timeout: if onended doesn't fire within 15s, continue anyway
+                    setTimeout(done, 15000);
+                  });
+
+                  try {
+                    await audio.play();
+                  } catch (playErr) {
+                    console.warn('[Voice] Audio play() rejected, skipping segment:', playErr);
+                    const chunkText = filterThinkingTags(item.text).trim();
+                    if (chunkText) {
+                      const isCodeBlock = chunkText.includes('```');
+                      if (isCodeBlock) {
+                        const prefix = cumulativeText ? (cumulativeText.endsWith('\n\n') ? cumulativeText : cumulativeText.endsWith('\n') ? cumulativeText + '\n' : cumulativeText + '\n\n') : '';
+                        cumulativeText = prefix + chunkText + '\n\n';
+                        setDisplayedAiResponse(cumulativeText);
+                      } else {
+                        const needsSpace = cumulativeText && !cumulativeText.endsWith(' ') && !cumulativeText.endsWith('\n');
+                        const prefix = cumulativeText ? (needsSpace ? cumulativeText + ' ' : cumulativeText) : '';
+                        cumulativeText = prefix + chunkText;
+                        setDisplayedAiResponse(cumulativeText + ' ');
+                      }
+                    }
+                    playedIndex++;
+                    continue;
+                  }
+
+                  // Display this chunk while audio plays
+                  const chunkText = filterThinkingTags(item.text).trim();
+
+                  if (chunkText) {
+                    const isCodeBlock = chunkText.includes('```');
+                    if (isCodeBlock) {
+                      // Code block: render immediately on screen with proper markdown linebreaks (no slow typewriter)
+                      const prefix = cumulativeText ? (cumulativeText.endsWith('\n\n') ? cumulativeText : cumulativeText.endsWith('\n') ? cumulativeText + '\n' : cumulativeText + '\n\n') : '';
+                      cumulativeText = prefix + chunkText + '\n\n';
+                      setDisplayedAiResponse(cumulativeText);
+                    } else {
+                      const needsSpace = cumulativeText && !cumulativeText.endsWith(' ') && !cumulativeText.endsWith('\n');
+                      const prefix = cumulativeText ? (needsSpace ? cumulativeText + ' ' : cumulativeText) : '';
+                      setDisplayedAiResponse(prefix);
+                      await typewriter(chunkText, (val) => setDisplayedAiResponse(prefix + val), 20);
+                      cumulativeText = prefix + chunkText;
+                      setDisplayedAiResponse(cumulativeText + ' ');
+                    }
+                  }
+
+                  // Wait for audio to finish before moving to the next chunk (sequential)
+                  await audioPromise;
+
+                  // Clean up audio handlers
+                  audio.onended = null;
+                  audio.onerror = null;
+
+                  // Revoke the object URL to free memory
+                  if (item.url && item.url.startsWith('blob:')) {
+                    URL.revokeObjectURL(item.url);
+                  }
+                } else {
+                  const chunkText = filterThinkingTags(item.text).trim();
+                  if (chunkText) {
+                    const isCodeBlock = chunkText.includes('```');
+                    if (isCodeBlock) {
+                      const prefix = cumulativeText ? (cumulativeText.endsWith('\n\n') ? cumulativeText : cumulativeText.endsWith('\n') ? cumulativeText + '\n' : cumulativeText + '\n\n') : '';
+                      cumulativeText = prefix + chunkText + '\n\n';
+                      setDisplayedAiResponse(cumulativeText);
+                    } else {
+                      const needsSpace = cumulativeText && !cumulativeText.endsWith(' ') && !cumulativeText.endsWith('\n');
+                      const prefix = cumulativeText ? (needsSpace ? cumulativeText + ' ' : cumulativeText) : '';
+                      cumulativeText = prefix + chunkText;
+                      setDisplayedAiResponse(cumulativeText + ' ');
+                    }
                   }
                 }
 
-                // Wait for audio to finish before moving to the next chunk (sequential)
-                await audioPromise;
-
-                // Clean up audio handlers
-                audio.onended = null;
-                audio.onerror = null;
-
-                // Revoke the object URL to free memory
-                if (item.url && item.url.startsWith('blob:')) {
-                  URL.revokeObjectURL(item.url);
-                }
+                playedIndex++;
               } else {
-                const chunkText = filterThinkingTags(item.text).trim();
-                if (chunkText) {
-                  const isCodeBlock = chunkText.includes('```');
-                  if (isCodeBlock) {
-                    const prefix = cumulativeText ? (cumulativeText.endsWith('\n\n') ? cumulativeText : cumulativeText.endsWith('\n') ? cumulativeText + '\n' : cumulativeText + '\n\n') : '';
-                    cumulativeText = prefix + chunkText + '\n\n';
-                    setDisplayedAiResponse(cumulativeText);
-                  } else {
-                    const needsSpace = cumulativeText && !cumulativeText.endsWith(' ') && !cumulativeText.endsWith('\n');
-                    const prefix = cumulativeText ? (needsSpace ? cumulativeText + ' ' : cumulativeText) : '';
-                    cumulativeText = prefix + chunkText;
-                    setDisplayedAiResponse(cumulativeText + ' ');
-                  }
-                }
+                if (readerDone && playedIndex >= audioQueue.length) break;
+                await new Promise(r => setTimeout(r, 150));
               }
-
-              playedIndex++;
-            } else {
-              if (readerDone && playedIndex >= audioQueue.length) break;
-              await new Promise(r => setTimeout(r, 150));
             }
-          }
 
-          // Ensure full response is displayed cleanly without trailing whitespace
-          const finalClean = filterThinkingTags(cumulativeText || fullAiText).trim();
-          setDisplayedAiResponse(finalClean);
-          isProcessingQueue = false;
-          if (playbackResolve) playbackResolve();
+            // Ensure full response is displayed cleanly without trailing whitespace
+            const finalClean = filterThinkingTags(cumulativeText || fullAiText).trim();
+            setDisplayedAiResponse(finalClean);
+          } catch (playbackErr) {
+            console.error('[Voice] Playback queue execution error:', playbackErr);
+          } finally {
+            isProcessingQueue = false;
+            if (playbackResolve) playbackResolve();
+          }
         };
 
         const cleanTextForTTS = (text: string) => {
@@ -1375,10 +1564,25 @@ const cleanMarkdownTranscript = (text: string): string => {
         };
 
         let buffer = '';
+        let streamError: { message: string; code?: string; status?: number | string } | null = null;
         const processStream = async () => {
           try {
             while (true) {
-              const { done, value } = await reader!.read();
+              // 25-second watchdog per chunk to detect stalled connections
+              let chunkTimeoutId: any;
+              const readPromise = reader!.read();
+              const timeoutPromise = new Promise<{ done: boolean; value?: Uint8Array }>((_, reject) => {
+                chunkTimeoutId = setTimeout(() => reject(new Error('AI response timed out (no data for 25s)')), 25000);
+              });
+
+              let readResult: { done: boolean; value?: Uint8Array };
+              try {
+                readResult = await Promise.race([readPromise, timeoutPromise]);
+              } finally {
+                clearTimeout(chunkTimeoutId);
+              }
+
+              const { done, value } = readResult;
 
               if (value) {
                 buffer += decoder.decode(value, { stream: true });
@@ -1400,8 +1604,24 @@ const cleanMarkdownTranscript = (text: string): string => {
                 if (trimmedLine.startsWith('data:')) {
                   const dataStr = trimmedLine.replace(/^data:\s*/, '').trim();
                   if (dataStr === '[DONE]') break;
+
+                  let parsed: any = null;
                   try {
-                    const parsed = JSON.parse(dataStr);
+                    parsed = JSON.parse(dataStr);
+                  } catch (_) { }
+
+                  if (parsed) {
+                    // Check if backend returned an error chunk
+                    if (parsed.error) {
+                      const errObj = parsed.error;
+                      const msg = typeof errObj === 'string' ? errObj : (errObj.message || JSON.stringify(errObj));
+                      const code = (typeof errObj === 'object' && errObj.code) || parsed.code || 'STREAM_ERROR';
+                      const status = (typeof errObj === 'object' && errObj.statusCode) || parsed.statusCode || parsed.status;
+                      streamError = { message: msg, code, status };
+                      console.error('[Voice] SSE Stream reported error:', streamError);
+                      break;
+                    }
+
                     if (parsed.content) {
                       const content = parsed.content;
                       fullAiText += content;
@@ -1498,8 +1718,12 @@ const cleanMarkdownTranscript = (text: string): string => {
 
                       tryFlushSentences(false);
                     }
-                  } catch (e) { }
+                  }
                 }
+              }
+
+              if (streamError) {
+                break;
               }
 
               if (done) {
@@ -1509,15 +1733,38 @@ const cleanMarkdownTranscript = (text: string): string => {
                 break;
               }
             }
-          } catch (err) {
+          } catch (err: any) {
             console.error('Stream read error:', err);
             tryFlushSentences(true);
             readerDone = true;
+            if (!streamError) {
+              streamError = { message: err.message || 'Stream read failed', code: 'STREAM_ERROR' };
+            }
+          } finally {
+            readerDone = true;
+            // CRITICAL: Ensure playbackResolve is called if no chunks were queued
+            if (audioQueue.length === 0) {
+              if (playbackResolve) playbackResolve();
+            }
           }
         };
 
         // === STEP 1: Stream the full chat response ===
         await processStream();
+
+        // Check if stream returned an error
+        const activeStreamError = streamError as { message: string; code?: string; status?: number | string } | null;
+        if (activeStreamError) {
+          const err = new Error(activeStreamError.message);
+          (err as any).code = activeStreamError.code;
+          if (activeStreamError.status) (err as any).status = activeStreamError.status;
+          throw err;
+        }
+
+        // Check if stream returned empty response
+        if (fullAiText.trim().length === 0) {
+          throw new Error('AI returned an empty response. Please try asking again.');
+        }
 
         // === STEP 2: Save to chat store FIRST (before TTS finishes) ===
         // Handles both logged-in users and anonymous sessions
@@ -1546,7 +1793,11 @@ const cleanMarkdownTranscript = (text: string): string => {
         }
 
         // === STEP 3: Wait for TTS playback to complete ===
-        await playbackDone;
+        // Safety timeout of 60s so playbackDone never freezes the overlay
+        await Promise.race([
+          playbackDone,
+          new Promise<void>((resolve) => setTimeout(resolve, 60000))
+        ]);
 
         // === STEP 4: Charge voice credits ===
         const voiceFlowDurationSeconds = (Date.now() - voiceFlowStartTime) / 1000;
@@ -1567,6 +1818,14 @@ const cleanMarkdownTranscript = (text: string): string => {
       }
     } catch (err: any) {
       console.error('Voice Processing Error:', err);
+      stopLoadingMessages();
+
+      stopRecording(false);
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current.src = '';
+      }
+      setStatus('idle');
 
       let errorData = err.response?.data;
       if (err.response?.data instanceof Blob) {
@@ -1576,7 +1835,7 @@ const cleanMarkdownTranscript = (text: string): string => {
         } catch (e) { }
       }
 
-      if (err.response?.status === 429 || errorData?.code === 'RATE_LIMIT_EXCEEDED') {
+      if (err.response?.status === 429 || errorData?.code === 'RATE_LIMIT_EXCEEDED' || err.code === 'RATE_LIMIT_EXCEEDED') {
         const isMonthlyLimit = errorData?.reason === 'monthly';
         const resetsIn = isMonthlyLimit ? 24 * 60 * 60 : (errorData?.resetsIn || 30);
         const message = errorData?.message || 'Usage rate limit reached. Please try again later.';
@@ -1586,29 +1845,199 @@ const cleanMarkdownTranscript = (text: string): string => {
         localStorage.setItem('voice_lockout', lockoutTime.toString());
 
         setIsSessionActive(false);
-        stopRecording(false);
-        if (audioRef.current) {
-          audioRef.current.pause();
-          audioRef.current.src = '';
-        }
-
         setRateLimitInfo({
           message,
           resetsIn,
           upgradeUrl
         });
         setCountdown(resetsIn);
-        setStatus('idle');
         return;
       }
 
-      setStatus('idle');
-      setTimeout(startRecording, 2000);
+      // Save user transcript if captured so the user's speech is never lost on failure
+      let userTurnSaved = false;
+      const capturedUserText = lastLegacyUserTextRef.current;
+      if (capturedUserText) {
+        try {
+          const anonId = !user?.id ? (localStorage.getItem('sreeai_anon_id') || undefined) : undefined;
+          if (user?.id || anonId) {
+            let currentConvId = conversationIdRef.current;
+            if (!currentConvId) {
+              const conv = await createConversation(user?.id, capturedUserText.slice(0, 30), 'voice', anonId);
+              if (conv) {
+                currentConvId = conv.id;
+                setConversationId(conv.id);
+                conversationIdRef.current = conv.id;
+              }
+            }
+            if (currentConvId) {
+              await addMessage(currentConvId, 'user', capturedUserText, { mode: 'voice' });
+              userTurnSaved = true;
+            }
+          }
+        } catch (saveErr) {
+          console.warn('[Voice] Failed to save user speech on legacy error:', saveErr);
+        }
+      }
+
+      // Precise diagnostic classification covering all status codes and provider errors
+      const rawMsg = (err.message || errorData?.message || '').toLowerCase();
+      const rawCode = (err.code || errorData?.code || '').toUpperCase();
+      const statusMatch = rawMsg.match(/\b([45]\d\d)\b/);
+      const httpStatus = err.status || err.statusCode || (statusMatch ? parseInt(statusMatch[1], 10) : undefined);
+
+      let title = 'Request Failed';
+      let message = "We couldn't process your request. Please try again or switch to Live Voice.";
+      let code: string | undefined = err.code || (httpStatus ? `HTTP_${httpStatus}` : undefined);
+
+      if (rawMsg.includes('transcri') || rawMsg.includes('stt') || status === 'transcribing') {
+        title = 'Transcription Failed';
+        message = "We couldn't recognize your audio. Please speak clearly into your microphone and try again.";
+        code = 'STT_FAILED';
+      } else if (
+        httpStatus === 410 ||
+        rawMsg.includes('410') ||
+        rawMsg.includes('maintenance') ||
+        rawMsg.includes('degraded') ||
+        rawMsg.includes('gone') ||
+        rawCode.includes('410') ||
+        rawCode.includes('MAINTENANCE')
+      ) {
+        title = 'Model Under Maintenance';
+        message = 'This voice AI model is temporarily undergoing maintenance, deprecated, or experiencing degraded performance on the provider. You can retry or switch to Live Voice.';
+        code = 'MODEL_MAINTENANCE_410';
+      } else if (
+        httpStatus === 404 ||
+        rawMsg.includes('404') ||
+        rawMsg.includes('not found') ||
+        rawMsg.includes('model_locked') ||
+        rawMsg.includes('unknown model') ||
+        rawCode === 'MODEL_NOT_FOUND' ||
+        rawCode.includes('404')
+      ) {
+        title = 'AI Model Unavailable';
+        message = 'The voice AI model could not be found or is misconfigured on the provider. You can retry or switch to Live Voice.';
+        code = 'MODEL_NOT_FOUND_404';
+      } else if (
+        httpStatus === 400 ||
+        rawMsg.includes('400') ||
+        rawMsg.includes('bad request') ||
+        rawMsg.includes('invalid') ||
+        rawMsg.includes('enginecore') ||
+        rawCode.includes('400') ||
+        rawCode.includes('INVALID')
+      ) {
+        title = 'Invalid Request Parameters';
+        message = 'The request could not be processed by the model engine. Try switching to Live Voice or rephrasing your message.';
+        code = 'BAD_REQUEST_400';
+      } else if (
+        httpStatus === 401 ||
+        httpStatus === 403 ||
+        rawMsg.includes('api key') ||
+        rawMsg.includes('key rotation') ||
+        rawMsg.includes('unauthorized') ||
+        rawMsg.includes('forbidden') ||
+        rawMsg.includes('401') ||
+        rawMsg.includes('403') ||
+        rawCode.includes('AUTH')
+      ) {
+        title = 'Authentication / Key Error';
+        message = 'An authentication or configuration error occurred with the provider keys. The administrator has been notified.';
+        code = 'AUTH_ERROR_401';
+      } else if (
+        httpStatus === 429 ||
+        rawMsg.includes('quota') ||
+        rawMsg.includes('exhausted') ||
+        rawMsg.includes('429') ||
+        rawMsg.includes('rate limit') ||
+        rawMsg.includes('too many requests') ||
+        rawCode.includes('429') ||
+        rawCode.includes('QUOTA')
+      ) {
+        title = 'Rate Limit / Quota Exceeded';
+        message = 'The AI service has reached its request limit or provider quota is exhausted. Please wait a moment and try again or switch to Live Voice.';
+        code = 'QUOTA_EXCEEDED_429';
+      } else if (
+        httpStatus === 504 ||
+        httpStatus === 408 ||
+        rawMsg.includes('timed out') ||
+        rawMsg.includes('timeout') ||
+        rawMsg.includes('stalled') ||
+        rawMsg.includes('504') ||
+        rawMsg.includes('408') ||
+        rawMsg.includes('deadline') ||
+        rawCode.includes('TIMEOUT')
+      ) {
+        title = 'Response Timed Out';
+        message = 'The AI took too long to respond. This can happen with complex queries or high traffic. Please check your connection and try again.';
+        code = 'TIMEOUT_504';
+      } else if (
+        httpStatus === 502 ||
+        httpStatus === 503 ||
+        rawMsg.includes('502') ||
+        rawMsg.includes('503') ||
+        rawMsg.includes('gateway') ||
+        rawMsg.includes('overloaded') ||
+        rawMsg.includes('service unavailable') ||
+        rawCode.includes('503') ||
+        rawCode.includes('502')
+      ) {
+        title = 'Service Overloaded / Unavailable';
+        message = 'The upstream AI service is temporarily overloaded or experiencing high traffic. Please retry in a few moments or switch to Live Voice.';
+        code = 'SERVICE_UNAVAILABLE_503';
+      } else if (
+        httpStatus === 500 ||
+        rawMsg.includes('500') ||
+        rawMsg.includes('internal server error') ||
+        rawCode.includes('500') ||
+        rawCode.includes('SERVER_ERROR')
+      ) {
+        title = 'AI Provider Server Error';
+        message = 'The AI provider encountered an internal server error. Please try again or switch to Live Voice.';
+        code = 'SERVER_ERROR_500';
+      } else if (
+        httpStatus === 413 ||
+        rawMsg.includes('413') ||
+        rawMsg.includes('too large') ||
+        rawMsg.includes('payload too large') ||
+        rawMsg.includes('context length')
+      ) {
+        title = 'Conversation Context Too Large';
+        message = 'The conversation history exceeded the model token capacity. Try asking a fresh question or starting a new session.';
+        code = 'PAYLOAD_TOO_LARGE_413';
+      } else if (rawMsg.includes('empty response')) {
+        title = 'Empty AI Response';
+        message = 'The AI completed the turn without generating any content. Please try asking again.';
+        code = 'EMPTY_RESPONSE';
+      } else if (rawMsg.includes('fetch') || rawMsg.includes('network') || rawMsg.includes('abort') || rawMsg.includes('failed to fetch')) {
+        title = 'Connection Error';
+        message = 'Unable to communicate with the server. Please check your internet connection.';
+        code = 'NETWORK_ERROR';
+      } else if (err.message && !err.message.includes('status code')) {
+        message = err.message.length > 140 ? err.message.substring(0, 140) + '...' : err.message;
+      } else if (httpStatus) {
+        title = `Provider Service Error (${httpStatus})`;
+        message = 'The AI provider returned an unexpected status response. Please try again or switch to Live Voice.';
+        code = `HTTP_${httpStatus}`;
+      }
+
+      setConnectionError({
+        title,
+        message,
+        code,
+        model: lastLegacyModelRef.current,
+        canRetry: true,
+        canFallback: false,
+        canTryLive: true,
+        canClose: true,
+        saved: userTurnSaved,
+      });
     }
   };
 
   const handleManualClose = () => {
     setIsSessionActive(false);
+    userInitiatedCloseRef.current = true;
 
     // Save any pending unsaved turn before closing
     if (voiceMode === 'live' && (currentTurnAiTextRef.current.trim() || currentTurnUserTextRef.current.trim())) {
@@ -1627,6 +2056,77 @@ const cleanMarkdownTranscript = (text: string): string => {
       audioRef.current.src = '';
     }
     onClose();
+  };
+
+  // ─── Error Recovery Handlers ──────────────────────────────────────
+  const handleErrorRetryLive = () => {
+    setConnectionError(null);
+    setVoiceMode('connecting');
+    userInitiatedCloseRef.current = false;
+    setTimeout(() => {
+      tryConnectLive();
+    }, 200);
+  };
+
+  const handleErrorFallbackToLegacy = () => {
+    setConnectionError(null);
+    setVoiceMode('legacy');
+    triggerLatencyNotice();
+    setTimeout(() => {
+      startRecording();
+    }, 300);
+  };
+
+  const handleErrorClose = () => {
+    setConnectionError(null);
+    handleManualClose();
+  };
+
+  const handleErrorRetryLegacy = () => {
+    setConnectionError(null);
+    setTimeout(() => {
+      startRecording();
+    }, 300);
+  };
+
+  const handleReportBug = () => {
+    if (!connectionError) return;
+
+    const usedModel = connectionError.model || (voiceMode === 'live' ? (liveModel || 'gemini-2.0-flash-exp') : (lastLegacyModelRef.current || 'gemini-flash-lite-latest'));
+    const rawTitle = `[Voice] ${connectionError.title} (${usedModel})${connectionError.code ? ` - ${connectionError.code}` : ''}`;
+    const bugTitle = rawTitle.length > 80 ? rawTitle.substring(0, 77) + '...' : rawTitle;
+
+    const errorDetails = [
+      `### Voice Pipeline Error Report`,
+      `- **Error Title**: ${connectionError.title}`,
+      `- **Model**: ${usedModel}`,
+      connectionError.code ? `- **Error Code**: ${connectionError.code}` : null,
+      `- **Error Message**: ${connectionError.message}`,
+      `- **Voice Mode**: ${voiceMode === 'live' ? 'Live WebSocket (Gemini Live API)' : 'Standard Pipeline (STT → Chat → TTS)'}`,
+      `- **Timestamp**: ${new Date().toISOString()}`,
+      lastLegacyUserTextRef.current ? `- **Last Spoken Prompt**: "${lastLegacyUserTextRef.current}"` : null,
+      `- **Browser / Client**: ${navigator.userAgent.slice(0, 140)}`,
+    ].filter(Boolean).join('\n');
+
+    const reproductionSteps = [
+      `1. Open Voice Assistant`,
+      `2. Voice Mode: ${voiceMode === 'live' ? 'Live Voice' : 'Standard Voice'}`,
+      `3. Target Model: ${usedModel}`,
+      `4. Conversation interrupted with error: "${connectionError.title}" (${connectionError.code || 'NO_CODE'})`,
+      `5. Message displayed: "${connectionError.message}"`,
+    ].join('\n');
+
+    handleManualClose();
+
+    navigate('/feature-request?category=bug_report', {
+      state: {
+        category: 'bug_report',
+        title: bugTitle,
+        description: errorDetails,
+        stepsToReproduce: reproductionSteps,
+        priority: 'high_impact',
+      },
+    });
   };
 
   const handleContinueWithLatency = () => {
@@ -1669,6 +2169,7 @@ const cleanMarkdownTranscript = (text: string): string => {
     return () => {
       isUnmountedRef.current = true;
       shouldProcessRef.current = false;
+      userInitiatedCloseRef.current = true;
       if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
 
       if (sessionLimitTimerRef.current) {
@@ -1681,12 +2182,18 @@ const cleanMarkdownTranscript = (text: string): string => {
         latencyNoticeTimerRef.current = null;
       }
 
+      if (liveStallTimerRef.current) {
+        clearTimeout(liveStallTimerRef.current);
+        liveStallTimerRef.current = null;
+      }
+
       // Flush any pending turn before unmounting
       if (voiceMode === 'live' && (currentTurnAiTextRef.current.trim() || currentTurnUserTextRef.current.trim())) {
         saveCompletedTurn();
       }
 
       // Clean up Live Mode resources
+      liveSessionActiveRef.current = false;
       if (liveWsRef.current) {
         liveWsRef.current.close(1000, 'Component unmounted');
         liveWsRef.current = null;
@@ -1780,7 +2287,87 @@ const cleanMarkdownTranscript = (text: string): string => {
         </div>
       </div>
 
-      {sessionLimitInfo ? (
+      {connectionError ? (
+        <div className={styles.connectionErrorCard}>
+          <div className={styles.errorIconBadge}>
+            <WifiOff size={26} />
+          </div>
+          <h2 className={styles.errorTitle}>{connectionError.title}</h2>
+          <p className={styles.errorMessage}>{connectionError.message}</p>
+          {connectionError.code && (
+            <span className={styles.errorCodeBadge}>{connectionError.code}</span>
+          )}
+          {connectionError.saved !== false && (
+            <div className={styles.savedBadge}>
+              <CheckCircle size={12} />
+              <span>Conversation saved</span>
+            </div>
+          )}
+          <div className={styles.errorActions}>
+            {connectionError.canRetry && connectionError.canFallback && (
+              <button
+                onClick={handleErrorRetryLive}
+                className={`${styles.errorBtn} ${styles.errorRetryBtn}`}
+              >
+                <RotateCcw size={16} />
+                <span>Reconnect Live</span>
+              </button>
+            )}
+            {connectionError.canRetry && !connectionError.canFallback && (
+              <button
+                onClick={handleErrorRetryLegacy}
+                className={`${styles.errorBtn} ${styles.errorRetryBtn}`}
+              >
+                <RotateCcw size={16} />
+                <span>Try Again</span>
+              </button>
+            )}
+            {connectionError.canTryLive && (
+              <button
+                onClick={handleErrorRetryLive}
+                className={`${styles.errorBtn} ${styles.errorFallbackBtn}`}
+              >
+                <Zap size={16} />
+                <span>Switch to Live Voice</span>
+              </button>
+            )}
+            {connectionError.canFallback && (
+              <button
+                onClick={handleErrorFallbackToLegacy}
+                className={`${styles.errorBtn} ${styles.errorFallbackBtn}`}
+              >
+                <Volume2 size={16} />
+                <span>Continue with Standard Voice</span>
+                <span className={styles.contextBadge}>Preserves Context</span>
+              </button>
+            )}
+            {connectionError.canClose && (
+              <button
+                onClick={handleErrorClose}
+                className={`${styles.errorBtn} ${styles.errorCloseBtn}`}
+              >
+                <X size={16} />
+                <span>Close</span>
+              </button>
+            )}
+          </div>
+
+          <div className={styles.errorReportFooter}>
+            <span className={styles.errorReportText}>
+              You can also{' '}
+              <button
+                type="button"
+                onClick={handleReportBug}
+                className={styles.errorReportLink}
+                title="Report this bug to help improve Sree Ai"
+              >
+                <Bug size={13} />
+                <span>report this bug to improve Sree Ai</span>
+              </button>
+            </span>
+          </div>
+        </div>
+      ) : sessionLimitInfo ? (
         <motion.div
           initial={{ opacity: 0, scale: 0.94, y: 16 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}

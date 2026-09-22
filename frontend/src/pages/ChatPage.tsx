@@ -87,24 +87,41 @@ const sanitizeErrorMessage = (errorMsg: string): string => {
 
   const lowerMsg = errorMsg.toLowerCase();
 
-  if (lowerMsg.includes('degraded') || lowerMsg.includes('maintenance') || lowerMsg.includes('410')) {
-    return 'This model is currently undergoing maintenance or experiencing degraded performance. Please try again in a few minutes or switch to another model.';
+  if (lowerMsg.includes('degraded') || lowerMsg.includes('maintenance') || lowerMsg.includes('410') || lowerMsg.includes('gone')) {
+    return 'This model is currently undergoing maintenance, deprecated, or experiencing degraded performance. Please try again in a few minutes or switch to another model.';
   }
 
-  if (lowerMsg.includes('400 status code') || lowerMsg.includes('bad request') || lowerMsg.includes('invalid') || lowerMsg.includes('enginecore') || lowerMsg.includes('400')) {
+  if (lowerMsg.includes('404') || lowerMsg.includes('not found') || lowerMsg.includes('unknown model') || lowerMsg.includes('model_not_found') || lowerMsg.includes('model_locked')) {
+    return 'The requested AI model could not be found or is misconfigured on the provider. Please select a different model.';
+  }
+
+  if (lowerMsg.includes('400') || lowerMsg.includes('bad request') || lowerMsg.includes('invalid') || lowerMsg.includes('enginecore')) {
     return 'The request could not be processed by the model engine. Try switching to a different model or rephrasing your message.';
   }
 
-  if (lowerMsg.includes('api key') || lowerMsg.includes('key rotation') || lowerMsg.includes('unauthorized') || lowerMsg.includes('401')) {
+  if (lowerMsg.includes('api key') || lowerMsg.includes('key rotation') || lowerMsg.includes('unauthorized') || lowerMsg.includes('forbidden') || lowerMsg.includes('401') || lowerMsg.includes('403')) {
     return 'An authentication or configuration error occurred with the provider keys. The administrator has been notified.';
   }
 
-  if (lowerMsg.includes('rate limit') || lowerMsg.includes('429') || lowerMsg.includes('too many requests')) {
-    return 'Rate limit exceeded. Please wait a moment before trying again or upgrading your subscription.';
+  if (lowerMsg.includes('rate limit') || lowerMsg.includes('429') || lowerMsg.includes('too many requests') || lowerMsg.includes('quota') || lowerMsg.includes('exhausted')) {
+    return 'Rate limit exceeded or provider quota exhausted. Please wait a moment before trying again or upgrading your subscription.';
   }
 
-  if (lowerMsg.includes('504') || lowerMsg.includes('gateway') || lowerMsg.includes('timeout') || lowerMsg.includes('502') || lowerMsg.includes('503')) {
-    return 'The server is currently overloaded or taking too long to respond. This can happen with very complex queries or high traffic.';
+  if (lowerMsg.includes('504') || lowerMsg.includes('408') || lowerMsg.includes('gateway') || lowerMsg.includes('timeout') || lowerMsg.includes('timed out') || lowerMsg.includes('502') || lowerMsg.includes('503') || lowerMsg.includes('overloaded')) {
+    return 'The server is currently overloaded or taking too long to respond. This can happen with very complex queries or high traffic. Please retry in a moment.';
+  }
+
+  if (lowerMsg.includes('413') || lowerMsg.includes('too large') || lowerMsg.includes('payload too large') || lowerMsg.includes('context length')) {
+    return 'The conversation history or prompt is too large for this model context window. Try starting a new conversation or asking a shorter question.';
+  }
+
+  if (lowerMsg.includes('500') || lowerMsg.includes('internal server error')) {
+    return 'The AI provider encountered an internal server error. Please try again or switch to a different model.';
+  }
+
+  // Catch any remaining raw HTTP status code strings like "520 status code (no body)"
+  if (/status code/i.test(lowerMsg)) {
+    return 'The AI provider returned an unexpected status response. Please try asking again or switch to a different model.';
   }
 
   return errorMsg;
@@ -1087,7 +1104,9 @@ const ChatPage: React.FC = () => {
           throw new Error('Authentication required');
         }
 
-        throw new Error(errorData.message || errorData.error || 'API Connection Error');
+        const apiErr = new Error(errorData.message || errorData.error || 'API Connection Error');
+        if (errorData.code) (apiErr as any).code = errorData.code;
+        throw apiErr;
       }
 
       const reader = response.body?.getReader();
@@ -1142,6 +1161,7 @@ const ChatPage: React.FC = () => {
                 }
               } else if (data.error) {
                 apiError = new Error(data.error);
+                if (data.code) (apiError as any).code = data.code;
               }
             } catch (e) {
               // Ignore standard parsing errors
@@ -1269,6 +1289,8 @@ const ChatPage: React.FC = () => {
         await addMessage(currentConvId, 'assistant', displayError, {
           error: true,
           originalError: error.message,
+          code: (error as any).code || (responseStatus ? `HTTP_${responseStatus}` : undefined),
+          model: selectedModel?.model_id || selectedModel?.name || 'AI Model',
           timestamp: Date.now()
         });
       }

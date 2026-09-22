@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
-import { Bot, User, AlertCircle, RefreshCw, Copy, Check, Volume2, VolumeX, Play, Pause, Loader2 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { Bot, User, AlertCircle, RefreshCw, Copy, Check, Volume2, VolumeX, Play, Pause, Loader2, Bug } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import styles from '../../pages/ChatPage.module.css';
 import { MessageAttachment } from './MessageAttachment';
 import { ThinkingAnimation } from './ThinkingAnimation';
+import { useChatStore } from '../../store/chat.store';
 
 interface ChatMessageProps {
   message: any;
@@ -35,9 +37,50 @@ const ChatMessageComponent: React.FC<ChatMessageProps> = ({
   onPlayTts,
   onStopTts
 }) => {
+  const navigate = useNavigate();
+  const { messages, activeConversation } = useChatStore();
   const [copied, setCopied] = useState(false);
   const messageId = m.id || `msg_${i}`;
   const isPlayingThisTts = activeTtsMessageId === messageId;
+
+  const handleReportBug = () => {
+    const errorText = m.content || m.metadata?.originalError || 'Chat request failed';
+    const usedModel = m.metadata?.model || (activeConversation as any)?.model || 'AI Model';
+    const errorCode = m.metadata?.code;
+    const rawTitle = `[Chat] ${usedModel}: ${errorText}${errorCode ? ` (${errorCode})` : ''}`;
+    const bugTitle = rawTitle.length > 80 ? rawTitle.substring(0, 77) + '...' : rawTitle;
+
+    const prevUserMsg = messages.slice(0, i).reverse().find((msg: any) => msg.role === 'user');
+    const userPrompt = prevUserMsg?.content || '';
+
+    const errorDetails = [
+      `### Chat Error Report`,
+      `- **Model**: ${usedModel}`,
+      `- **Error Message**: ${errorText}`,
+      m.metadata?.originalError && m.metadata.originalError !== errorText ? `- **Original Error**: ${m.metadata.originalError}` : null,
+      errorCode ? `- **Error Code**: ${errorCode}` : null,
+      `- **Timestamp**: ${new Date(m.metadata?.timestamp || Date.now()).toISOString()}`,
+      userPrompt ? `- **User Prompt**: "${userPrompt.slice(0, 300)}"` : null,
+      `- **Browser / Client**: ${navigator.userAgent.slice(0, 140)}`,
+    ].filter(Boolean).join('\n');
+
+    const reproductionSteps = [
+      `1. Open Chat interface`,
+      `2. Selected Model: ${usedModel}`,
+      userPrompt ? `3. Sent prompt: "${userPrompt.slice(0, 150)}"` : `3. Sent message in conversation`,
+      `4. Request failed with error: "${errorText}"${errorCode ? ` [Code: ${errorCode}]` : ''}`,
+    ].join('\n');
+
+    navigate('/feature-request?category=bug_report', {
+      state: {
+        category: 'bug_report',
+        title: bugTitle,
+        description: errorDetails,
+        stepsToReproduce: reproductionSteps,
+        priority: 'high_impact',
+      },
+    });
+  };
 
   const handleCopy = async () => {
     try {
@@ -82,6 +125,15 @@ const ChatMessageComponent: React.FC<ChatMessageProps> = ({
                     >
                       <RefreshCw size={14} />
                       Retry Message
+                    </button>
+                    <button
+                      type="button"
+                      className={styles.reportBugButton}
+                      onClick={handleReportBug}
+                      title="Report this error to help improve Sree Ai"
+                    >
+                      <Bug size={14} />
+                      Report This Bug/Error
                     </button>
                   </div>
                 </div>

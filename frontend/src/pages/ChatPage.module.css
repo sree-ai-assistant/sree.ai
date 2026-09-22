@@ -780,7 +780,7 @@
 }
 
 .retryButton {
-  margin-top: 12px;
+  margin-top: 0;
   display: inline-flex;
   align-items: center;
   gap: 8px;
@@ -813,6 +813,40 @@
   color: white;
 }
 
+.reportBugButton {
+  margin-top: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(239, 68, 68, 0.08);
+  border: 1px solid rgba(239, 68, 68, 0.25);
+  color: #f87171;
+  padding: 8px 18px;
+  border-radius: 12px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.reportBugButton:hover {
+  background: rgba(239, 68, 68, 0.16);
+  border-color: rgba(239, 68, 68, 0.45);
+  color: #fca5a5;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.16);
+}
+
+.reportBugButton svg {
+  color: #f87171;
+  transition: transform 0.2s ease;
+}
+
+.reportBugButton:hover svg {
+  transform: scale(1.1);
+  color: #fca5a5;
+}
+
 .markdown h1 {
   font-size: 1.3rem;
 }
@@ -828,7 +862,10 @@
 .errorContainer {
   margin-top: 12px;
   display: flex;
+  align-items: center;
   justify-content: flex-start;
+  gap: 10px;
+  flex-wrap: wrap;
   animation: fadeIn 0.4s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
