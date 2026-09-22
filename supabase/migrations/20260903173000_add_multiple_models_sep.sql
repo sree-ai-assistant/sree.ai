@@ -80,3 +80,13 @@ INSERT INTO public.ai_models (
   65536, 1048576, FALSE, TRUE, 10, TRUE, FALSE
 ) ON CONFLICT (model_id) DO UPDATE SET
   name = EXCLUDED.name, provider = EXCLUDED.provider, tier_required = EXCLUDED.tier_required, is_vision = EXCLUDED.is_vision, description = EXCLUDED.description, max_tokens = EXCLUDED.max_tokens, context_window = EXCLUDED.context_window, in_maintenance = EXCLUDED.in_maintenance, is_fast = EXCLUDED.is_fast, img_no_can_process = EXCLUDED.img_no_can_process, is_new = EXCLUDED.is_new, is_image = EXCLUDED.is_image;
+
+-- 9. GLM-5.3-Flash
+INSERT INTO public.ai_models (
+  model_id, name, provider, tier_required, is_vision, description, max_tokens, context_window, in_maintenance, is_fast, img_no_can_process, is_new, is_image
+) VALUES (
+  'z-ai/glm-5.3-flash', 'GLM-5.3-Flash', 'nvidia', 'starter', TRUE,
+  'Multimodal 320B-total / 18B-active MoE with hybrid KDA and sparse MLA attention, native FP8 weights, reasoning and tool calling.',
+  1024, 1000000, FALSE, TRUE, 8, TRUE, FALSE
+) ON CONFLICT (model_id) DO UPDATE SET
+  name = EXCLUDED.name, provider = EXCLUDED.provider, tier_required = EXCLUDED.tier_required, is_vision = EXCLUDED.is_vision, description = EXCLUDED.description, max_tokens = EXCLUDED.max_tokens, context_window = EXCLUDED.context_window, in_maintenance = EXCLUDED.in_maintenance, is_fast = EXCLUDED.is_fast, img_no_can_process = EXCLUDED.img_no_can_process, is_new = EXCLUDED.is_new, is_image = EXCLUDED.is_image;

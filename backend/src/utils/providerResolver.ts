@@ -49,6 +49,7 @@ const PROVIDER_MAP: Record<string, string> = {
   'z-ai/glm-5.1': 'nvidia',
   'z-ai/glm-5.2': 'nvidia',
   'z-ai/glm-5.3': 'nvidia',
+  'z-ai/glm-5.3-flash': 'nvidia',
   'nvidia/ising-calibration-1-35b-a3b': 'nvidia',
   'meta/llama-3.1-8b-instruct': 'nvidia',
   'nvidia/llama-3.1-nemotron-nano-8b-v1': 'nvidia',
