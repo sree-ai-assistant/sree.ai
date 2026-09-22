@@ -44,39 +44,39 @@ export const CookiePolicyPage: React.FC = () => {
           </thead>
           <tbody>
             <tr>
-              <td><code>sb-access-token</code></td>
+              <td><code>sb-*-auth-token</code></td>
               <td>Supabase Auth</td>
               <td>Cookie / LocalStorage</td>
-              <td>1 Hour</td>
-              <td>Secure JWT token authenticating your active user session.</td>
+              <td>1 Year (Rolling)</td>
+              <td>Secure encrypted session token authenticating your active user session.</td>
             </tr>
             <tr>
-              <td><code>sb-refresh-token</code></td>
-              <td>Supabase Auth</td>
-              <td>Cookie / LocalStorage</td>
-              <td>Rolling</td>
-              <td>Enables silent token renewal without requiring re-login.</td>
-            </tr>
-            <tr>
-              <td><code>sree_anon_id</code></td>
+              <td><code>sreeai_anon_id</code></td>
               <td>Sree AI</td>
               <td>Cookie / LocalStorage</td>
               <td>90 Days</td>
-              <td>Anonymous visitor identifier enabling guest chat & trial quotas.</td>
+              <td>Anonymous visitor identifier enabling guest chat, voice trials, and usage quotas.</td>
             </tr>
             <tr>
-              <td><code>sree_tos_consent</code></td>
+              <td><code>ai_sass_device_id</code></td>
+              <td>Sree AI</td>
+              <td>LocalStorage</td>
+              <td>Persistent</td>
+              <td>Cryptographically generated unique device ID for trusted devices and session security.</td>
+            </tr>
+            <tr>
+              <td><code>sreeai_cookie_consent</code></td>
               <td>Sree AI</td>
               <td>LocalStorage</td>
               <td>1 Year</td>
-              <td>Stores proof of user acceptance of Terms & Privacy Policy.</td>
+              <td>Stores proof of user cookie consent decision (accepted or declined).</td>
             </tr>
             <tr>
               <td><code>sree_file_agreement</code></td>
               <td>Sree AI</td>
               <td>LocalStorage</td>
               <td>1 Year</td>
-              <td>Stores consent for file processing & upload disclaimer.</td>
+              <td>Stores consent for file processing & upload policy disclaimer.</td>
             </tr>
           </tbody>
         </table>
@@ -139,22 +139,46 @@ export const CookiePolicyPage: React.FC = () => {
           </thead>
           <tbody>
             <tr>
-              <td><code>sree_theme</code></td>
-              <td>Sree AI</td>
-              <td>LocalStorage</td>
-              <td>Remembers your interface theme (Dark Mode / Light Mode).</td>
-            </tr>
-            <tr>
-              <td><code>sree_sidebar_collapsed</code></td>
+              <td><code>sidebar-collapsed</code></td>
               <td>Sree AI</td>
               <td>LocalStorage</td>
               <td>Remembers whether your navigation sidebar is open or minimized.</td>
             </tr>
             <tr>
-              <td><code>sree_selected_model</code></td>
+              <td><code>model-storage</code></td>
+              <td>Sree AI</td>
+              <td>LocalStorage (Zustand)</td>
+              <td>Remembers your selected AI model, search query, and filter preferences.</td>
+            </tr>
+            <tr>
+              <td><code>image-storage</code></td>
+              <td>Sree AI</td>
+              <td>LocalStorage (Zustand)</td>
+              <td>Remembers Creative Studio settings, aspect ratio, and active prompt.</td>
+            </tr>
+            <tr>
+              <td><code>sreeai_live_voice</code></td>
               <td>Sree AI</td>
               <td>LocalStorage</td>
-              <td>Remembers your preferred default AI model for chat sessions.</td>
+              <td>Remembers your preferred voice (e.g. Zephyr, Aoede, Puck) for Gemini Live bidirectional voice mode.</td>
+            </tr>
+            <tr>
+              <td><code>last_login_method</code></td>
+              <td>Sree AI</td>
+              <td>LocalStorage</td>
+              <td>Remembers your last used sign-in provider (email, Google, GitHub) for quick access.</td>
+            </tr>
+            <tr>
+              <td><code>sree_notif_prefs</code></td>
+              <td>Sree AI</td>
+              <td>LocalStorage</td>
+              <td>Remembers your in-app notification preferences.</td>
+            </tr>
+            <tr>
+              <td><code>voice_lockout</code> / <code>chat_lockout</code></td>
+              <td>Sree AI</td>
+              <td>LocalStorage</td>
+              <td>Temporary countdown timestamps stored only when rate limits are exceeded to avoid spamming the backend.</td>
             </tr>
           </tbody>
         </table>

@@ -32,15 +32,19 @@ Designed with a **dual-identity architecture**, users can start chatting immedia
 
 ### 💬 Multi-Model Conversational Chat
 - **Multi-turn Contextual Chat**: Streaming completions with real-time markdown rendering, LaTeX math support, and syntax-highlighted code blocks.
-- **Dynamic Model Selector**: Seamlessly switch between 85+ cutting-edge models (LLaMA 3.3/3.1, DeepSeek V3.2 & V4 Pro, Gemini 3.8/2.0/1.5 Flash, Moonshot Kimi K3, Nemotron 3.5 Lightning, Meta Muse Glimmer, Qwen 2.5, Mistral Large).
-- **Multi-Modal File Analysis**: Upload and analyze PDFs, Word documents (`.docx`), Excel spreadsheets (`.xlsx`), images, and text files (with hard 10-file upload safety cap).
+- **Flagship AI Model Catalog**: Seamlessly switch between 95+ models, featuring cutting-edge flagships: **Gemini 3.8 Flash**, **DeepSeek V4 Pro**, **DeepSeek V4 Flash**, **z-ai/glm-5.3**, **z-ai/glm-5.3-flash**, **Moonshot Kimi K3**, **Gemini 3.5 Flash Lite**, **LLaMA 3.3**, and **Nemotron 3.5**.
+- **Interactive Data Tables**: Hover utility actions on Markdown tables for 1-click clipboard copy, CSV export, XLSX spreadsheet export, and expanded full-screen inspection modal.
+- **Multi-Modal File Analysis**: Upload and analyze PDFs, Word documents (`.docx`), Excel spreadsheets (`.xlsx`), images, and text files (with a hard 10-file safety cap).
 
-### 🎙️ Real-Time Voice Assistant
-- **Bi-Directional Voice Mode**: Natural voice interaction with low-latency Speech-To-Text (STT) and dynamic Text-To-Speech (TTS).
-- **Cascading STT Engine**: Zero-downtime voice input with automatic fallback from Deepgram Nova-2 to Groq Whisper Large V3.
+### 🎙️ Real-Time Voice Assistant (Gemini Live & Cascading Fallback)
+- **Gemini Live Bidirectional Streaming**: Ultra-low-latency real-time voice mode powered by Google Gemini Live WebSockets (`/api/live/voice/ws`) with Web Audio API PCM Worklets (`pcmWorklet.js`).
+- **30+ Google AI Studio Voice Personas**: User-selectable voices (*Aoede*, *Puck*, *Zephyr*, *Fenrir*, *Despina*, etc.) with live in-app audio previews and prompt personalization.
+- **Cascading STT & TTS Fallback**: Automatic failover to Deepgram Nova-2 STT $\rightarrow$ Chat LLM $\rightarrow$ TTS if WebSocket or network conditions degrade.
+- **Tier-Based Session Guardrails**: Tiered session duration limits (Free, Starter, Pro) with real-time countdown popups and high-traffic notices.
 
 ### 🎨 Creative Studio (Images & Videos)
 - **AI Image Generation**: Prioritizes **FLUX.2 klein** as the default high-speed studio model, alongside FLUX.1 (Dev/Schnell), SDXL, and SD 3.5 Large with local settings persistence, aspect ratios, and instant downloads.
+- **Anonymous Download Limits**: Built-in rate limiting (5 downloads/hr, 10 downloads/day) with interactive `DownloadLimitModal` prompting user registration.
 - **AI Video Generation**: Text-to-video capabilities powered by Google Veo 3.1 & Omni Flash models with automated Cloudflare R2 asset storage.
 
 ### 🌐 SEO & AEO (Answer Engine Optimization) Engine

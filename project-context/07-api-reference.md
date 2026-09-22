@@ -117,6 +117,7 @@ data: [DONE]                                    // Stream complete
 | `POST` | `/ai/stt` | Flex | abuseDetect, queuePriority, featureGate(voiceToText), rateLimit(stt), upload | Dictate mode STT (Groq → Deepgram cascade) |
 | `POST` | `/ai/tts` | Flex | abuseDetect, queuePriority, rateLimit(voice) | Text-to-speech (Deepgram, returns audio stream) |
 | `POST` | `/ai/voice-complete` | Flex | — | Charge voice credits after full voice flow |
+| `WSS` | `/api/live/voice/ws` | Flex | auth token / anonId validation, rateLimit | Bidirectional full-duplex WebSocket live audio streaming with Gemini Live API, model fallback cascade, and 30+ voice personas |
 
 ### File Upload
 

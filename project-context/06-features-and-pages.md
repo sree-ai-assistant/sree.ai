@@ -51,13 +51,23 @@ graph TD
 | **Auth** | Hybrid — works for anonymous + authenticated users |
 | **Route Guard** | `HybridOnboardingGuard` |
 | **Middleware** | `flexAuth → abuseDetection → queuePriority → featureGate('basicChat') → rateLimit('chat')` |
-| **Features** | Multi-model AI chat, SSE streaming, file upload (max 10 attachments per prompt), voice mode (STT → Chat → TTS), code highlighting, markdown rendering, conversation history, model selector, thinking animation |
-| **Models** | 85+ models from NVIDIA NIM, Google Gemini, Groq (default: `groq/compound-mini` for instant latency) |
+| **Features** | Multi-model AI chat, SSE streaming, file upload (max 10 attachments per prompt), interactive table utilities (Copy, CSV export, XLSX export, expand modal), code highlighting with sticky headers, markdown rendering, conversation history, model selector with responsive viewports, thinking animation |
+| **Models** | 95+ models from NVIDIA NIM, Google Gemini, Groq — featuring flagships: **Gemini 3.8 Flash**, **DeepSeek V4 Pro**, **DeepSeek V4 Flash**, **z-ai/glm-5.3**, **z-ai/glm-5.3-flash**, **Moonshot Kimi K3**, **Gemini 3.5 Flash Lite**, **LLaMA 3.3**, and **Nemotron 3.5** |
 | **Attachments** | Documents (PDF, DOCX, XLSX, CSV, TXT), Images (PNG, JPG, GIF), Audio (WebM, MP3, WAV), Video (MP4, WebM) — max 10 files per prompt enforced in UI & client validation |
 | **Upload Agreement** | Mandatory policy modal (`UploadAgreementModal`) detailing external AI model inference transmission and Indian IT Act Sec 79 compliance |
 | **Multimodal** | Document text extraction, audio transcription, video frame extraction (FFmpeg → R2 → vision content) |
 | **Video Recall** | References to previously uploaded videos are automatically re-processed |
 | **Store** | `chat.store.ts` (conversations, messages, active model, streaming state) |
+
+### 1.1 Real-Time Voice Assistant & Gemini Live Overlay
+
+| Aspect | Detail |
+|--------|--------|
+| **Protocol** | Full-duplex bidirectional streaming via WebSocket (`/api/live/voice/ws`) with Web Audio API PCM Worklet (`pcmWorklet.js`) |
+| **Models** | Priority Google Gemini Live models (`gemini-3.8-live`, `gemini-3.1-flash-live-preview`, `gemini-2.5-flash-native-audio-preview-12-2025`) |
+| **Voice Personas** | 30+ Google AI Studio voice options (*Aoede*, *Puck*, *Zephyr*, *Fenrir*, *Despina*, etc.) with live preview audio samples and user preference persistence in `profiles.live_voice` |
+| **Cascading Fallback** | Automatic failover to Deepgram Nova-2 STT $\rightarrow$ Chat LLM $\rightarrow$ TTS if WebSocket disconnects or encounters upstream rate limits |
+| **Session Guardrails** | Tier-based session duration limits (Free, Starter, Pro) with real-time countdown popups and high-traffic notices |
 
 ### 2. Image Generation (`/image/:id?`)
 

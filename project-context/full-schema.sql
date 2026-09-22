@@ -60,6 +60,8 @@ CREATE TABLE IF NOT EXISTS public.profiles (
   tos_accepted_at TIMESTAMPTZ,
   privacy_accepted BOOLEAN NOT NULL DEFAULT FALSE,
   privacy_accepted_at TIMESTAMPTZ,
+  -- Preferences
+  live_voice TEXT DEFAULT 'Zephyr',
   -- Timestamps
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()

@@ -119,11 +119,13 @@ sequenceDiagram
 | **Video** (daily) | 0 | 0 | 5 | 25 |
 | **Video** (monthly) | 0 | 0 | 150 | 750 |
 | **TTS** (daily) | 0 | 5 | 30 | 100 |
-| **Download** (daily) | 0 | 5 | 30 | 100 |
+| **Download** (hourly) | 5 | 10 | 30 | 100 |
+| **Download** (daily) | 10 | 50 | 150 | 500 |
+| **Voice Session Duration** | 3 min | 5 min | 15 min | Extended |
 | **File Upload** (per minute) | 0 | 3 | 5 | 10 |
 | **File Size** | 0MB | 10MB | 50MB | 250MB |
 
-> *Pro "unlimited" = `999,999` in code (effectively unlimited)
+> *Pro "unlimited" = `999,999` in code (effectively unlimited). Anonymous users encountering download limits are presented with the interactive `DownloadLimitModal` encouraging registration.
 
 ### Auto-Reset Periods
 

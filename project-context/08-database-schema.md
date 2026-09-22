@@ -77,6 +77,7 @@ erDiagram
 | `tos_accepted_at` | TIMESTAMPTZ | — | YES | — | When ToS was accepted |
 | `privacy_accepted` | BOOLEAN | `false` | NO | — | Privacy Policy acceptance |
 | `privacy_accepted_at` | TIMESTAMPTZ | — | YES | — | When Privacy Policy was accepted |
+| `live_voice` | TEXT | `'Zephyr'` | YES | — | Preferred Gemini Live voice assistant voice |
 | `created_at` | TIMESTAMPTZ | `now()` | NO | — | Account creation |
 | `updated_at` | TIMESTAMPTZ | `now()` | NO | — | Last update |
 

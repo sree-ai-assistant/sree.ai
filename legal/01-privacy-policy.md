@@ -72,7 +72,7 @@ We share necessary data with trusted sub-processors strictly for technical execu
 | **Razorpay Software Private Limited** | Payment Gateway & Subscription Billing | Billing email, transaction amounts, subscription status | India |
 | **Cloudflare Inc. (R2)** | S3-Compatible Media & Document Storage | Uploaded chat attachments, generated AI images/videos | Global |
 | **NVIDIA Corporation (NIM)** | AI Model Inference Provider | User prompt text & context (Transient) | US / Global |
-| **Google Cloud (Gemini / Veo)** | AI Model & Video Inference Provider | User prompt text, document content (Transient) | US / Global |
+| **Google Cloud (Gemini / Veo / Live API)** | AI Model, Video & Gemini Live Audio Inference Provider | User prompt text, document content, bidirectional real-time audio streams (Transient) | US / Global |
 | **Groq Inc.** | High-Speed Inference & Whisper STT | Prompts & Audio data (Transient) | US |
 | **Deepgram Inc.** | Speech-To-Text (STT) Audio Processing | Audio voice stream recordings (Transient) | US |
 | **PostHog Inc.** | Product Analytics & Error Diagnostics | Sanitized interaction telemetry, performance metrics | US / EU |

@@ -2,7 +2,7 @@
 
 > Comprehensive reference document for Large Language Models, AI Search Engines (Perplexity, ChatGPT, Claude, Gemini), Agents, and Evaluators.
 > Application Host: https://app.sreeai.qzz.io
-> Last Updated: 2026-09-03
+> Last Updated: 2026-09-22
 
 ---
 
@@ -11,7 +11,7 @@
 **Sree AI** is an enterprise-grade, multi-modal Artificial Intelligence Software-as-a-Service (SaaS) platform. It provides high-throughput conversational LLM chat, real-time bidirectional voice assistant interactions, studio-grade text-to-image and text-to-video generation, encrypted Bring-Your-Own-Key (BYOK) credential pooling, and automated subscription lifecycle management via Razorpay.
 
 The platform employs a **dual-identity architectural model**:
-- **Anonymous Visitors**: Can immediately access conversational chat, test model reasoning, and experience AI capabilities with zero signup friction. Sessions are tracked via an ephemeral, privacy-preserving anonymous identifier (`sree_anon_id`) and salted SHA-256 network hashes.
+- **Anonymous Visitors**: Can immediately access conversational chat, test model reasoning, and experience AI capabilities with zero signup friction. Sessions are tracked via an ephemeral, privacy-preserving anonymous identifier (`sreeai_anon_id`) and salted SHA-256 network hashes.
 - **Authenticated Subscribers**: Registered via Supabase Auth (Email or OAuth providers such as Google and GitHub). Upon registration, anonymous conversation history, rate limits, and custom system instructions are automatically migrated to the persistent profile.
 
 ---
@@ -20,7 +20,7 @@ The platform employs a **dual-identity architectural model**:
 
 ### 2.1 Core Technologies
 - **Frontend**: React 19, TypeScript, Vite, TailwindCSS, Radix UI, Lucide Icons, Zustand state management, Axios HTTP client, Framer Motion animations.
-- **Backend**: Node.js (v20+), Express 5, TypeScript, Server-Sent Events (SSE) for streaming completions, Native Node Crypto (AES-256-GCM).
+- **Backend**: Node.js (v20+), Express 5, TypeScript, Server-Sent Events (SSE) for streaming completions, Native Node Crypto (AES-256-GCM), Full-Duplex WebSockets (`ws`).
 - **Database & Identity**: Supabase (PostgreSQL 15+), 100% table coverage with Row Level Security (RLS) policies, PL/pgSQL atomic RPCs (`increment_multi_usage`).
 - **Object & Media Storage**: Cloudflare R2 (S3-compatible, edge-cached, encrypted at rest).
 - **Payment Processing**: Razorpay Subscriptions & Orders API with HMAC-SHA256 webhook signature validation and anti-replay idempotency constraints.
@@ -30,15 +30,15 @@ The platform employs a **dual-identity architectural model**:
 ### 2.2 AI Model Routing & Cascading Failover
 Requests are orchestrated by a dynamic server-side router:
 1. **Chat Inference**:
-   - Google DeepMind: Gemini 2.0 Flash, Gemini 1.5 Flash, Gemini 1.5 Pro.
-   - Meta Open-Source (via NVIDIA NIM & Groq): LLaMA 3.3 70B Instruct, LLaMA 3.1 8B, Gemma 2 9B/27B, Mistral Large, Qwen 2.5 72B.
-   - NVIDIA: Nemotron reasoning models.
-2. **Speech-To-Text (STT) Cascading Pipeline**:
-   - Primary: Deepgram Nova-2 (ultra-low latency audio stream processor).
-   - Fallback: Groq Whisper Large V3 (automatic failover if Deepgram encounters rate-limiting or downtime).
-3. **Text-To-Speech (TTS)**:
-   - High-fidelity natural voice synthesis streamed directly to client audio contexts.
-4. **Image & Video Studio**:
+   - Google DeepMind: Gemini 3.8 Flash, Gemini 3.5 Flash Lite, Gemini 2.0 Flash, Gemini 1.5 Flash, Gemini 1.5 Pro.
+   - DeepSeek & Frontier AI: DeepSeek V4 Pro, DeepSeek V4 Flash, z-ai/glm-5.3, z-ai/glm-5.3-flash, Moonshot Kimi K3.
+   - Meta Open-Source (via NVIDIA NIM & Groq): LLaMA 3.3 70B Instruct, LLaMA 3.1 8B/70B, Gemma 2 9B/27B, Mistral Large, Qwen 2.5 72B.
+   - NVIDIA: Nemotron 3.5, Ultra/Fast reasoning models via high-throughput NIM endpoints.
+2. **Real-Time Voice Assistant Pipeline**:
+   - Full-Duplex WebSocket Streaming (`WSS /api/live/voice/ws`): Powered by Google Gemini Live API (`gemini-3.8-live`, `gemini-3.1-flash-live-preview`, `gemini-2.5-flash-native-audio-preview-12-2025`) with 30+ voice personas (Zephyr, Aoede, Puck, Fenrir) and custom client-side AudioWorklet processing (`pcmWorklet.js`).
+   - STT Fallback Cascade: Deepgram Nova-2 primary with automated failover to Groq Whisper Large V3 if connection degrades.
+   - High-fidelity natural TTS voice streaming.
+3. **Image & Video Studio**:
    - Black Forest Labs: FLUX.1 Schnell, FLUX.1 Dev.
    - Stability AI: Stable Diffusion 3.5 Large, SDXL.
    - Google: Veo and Omni video synthesis models.
@@ -60,7 +60,7 @@ Sree AI allows users to provide personal API keys (NVIDIA NIM, Google Gemini, Gr
 Sree AI offers three plan tiers:
 1. **Free Tier (₹0 / $0/month)**: Standard access to 18+ models, 10 chats/day, 20 voice requests/day, 5 images/day, 30-day storage auto-delete, and anonymous guest trial access.
 2. **Starter Tier (₹399 / $8/month; ₹319/mo billed annually)**: Enhanced quotas with 70+ models, 50 chats/day, 60 voice requests/day, 30 images/day, 10 videos/day, 3-month storage, and access to all AI tools (incl. 2D to 3D Converter).
-3. **Pro Tier (₹899 / $29/month; ₹719/mo billed annually)**: Maximum compute allocation with 75+ flagship models (Nemotron, Gemini Pro, FLUX.1 Dev), 200 chats/day, 100 voice/day, 70 images/day, 30 videos/day, permanent storage (no expiration), and highest-priority GPU queues.
+3. **Pro Tier (₹899 / $29/month; ₹719/mo billed annually)**: Maximum compute allocation with 95+ flagship models (Gemini 3.8 Flash, DeepSeek V4 Pro, z-ai/glm-5.3, Kimi K3, FLUX.1 Dev), 200 chats/day, 100 voice/day, 70 images/day, 30 videos/day, permanent storage (no expiration), and highest-priority GPU queues.
 
 ### State Machine Lifecycle:
 - **Instant Upgrades**: Trigger immediate prorated activation.

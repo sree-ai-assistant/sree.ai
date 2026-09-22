@@ -125,9 +125,9 @@ export const PrivacyPage: React.FC = () => {
               <td>US / Global</td>
             </tr>
             <tr>
-              <td><strong>Google Cloud (Gemini / Veo)</strong></td>
-              <td>AI Model & Video Inference Provider</td>
-              <td>User prompt text, document content (Transient)</td>
+              <td><strong>Google Cloud (Gemini / Veo / Live API)</strong></td>
+              <td>AI Model, Video & Gemini Live Audio Inference Provider</td>
+              <td>User prompt text, document content, bidirectional real-time audio streams (Transient)</td>
               <td>US / Global</td>
             </tr>
             <tr>
