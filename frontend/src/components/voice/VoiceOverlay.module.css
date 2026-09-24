@@ -199,6 +199,27 @@
   background: #6b7280;
 }
 
+.statusDot.connecting {
+  background: #a855f7;
+  box-shadow: 0 0 10px #a855f7;
+  animation: connectingDotPulse 1.5s ease-in-out infinite;
+}
+
+@keyframes connectingDotPulse {
+
+  0%,
+  100% {
+    transform: scale(0.9);
+    opacity: 0.65;
+  }
+
+  50% {
+    transform: scale(1.25);
+    opacity: 1;
+    box-shadow: 0 0 14px #a855f7, 0 0 18px #3b82f6;
+  }
+}
+
 .contentOverlay {
   position: relative;
   z-index: 10;
@@ -1029,6 +1050,7 @@
     transform: scale(0.9);
     opacity: 0;
   }
+
   to {
     transform: scale(1);
     opacity: 1;
@@ -1051,10 +1073,13 @@
 }
 
 @keyframes errorPulse {
-  0%, 100% {
+
+  0%,
+  100% {
     transform: scale(1);
     box-shadow: 0 0 16px rgba(239, 68, 68, 0.18);
   }
+
   50% {
     transform: scale(1.06);
     box-shadow: 0 0 32px rgba(239, 68, 68, 0.4);
@@ -1579,5 +1604,69 @@
   .latencyNoticeDismiss {
     width: 22px;
     height: 22px;
+  }
+}
+
+/* ==========================================================================
+   Connecting State: "Waking up..." Shiny Shimmer Text (Centered, Flat Baseline)
+   ========================================================================== */
+.wakingUpContainer {
+  position: absolute;
+  top: calc(50% + 80px);
+  left: 0;
+  right: 0;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  z-index: 25;
+}
+
+.wakingUpText {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-family: inherit;
+  font-size: 0.95rem;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  color: rgba(255, 255, 255, 0.40);
+  user-select: none;
+  margin-top: 2rem;
+}
+
+.shinyLetter {
+  display: inline-block;
+  animation: textShinySweep 2s ease-in-out infinite;
+}
+
+@keyframes textShinySweep {
+
+  0%,
+  100% {
+    color: rgba(255, 255, 255, 0.35);
+    text-shadow: none;
+  }
+
+  30% {
+    color: #ffffff;
+    text-shadow: 0 0 8px rgba(255, 255, 255, 0.95), 0 0 16px rgba(168, 85, 247, 0.65);
+  }
+
+  60% {
+    color: rgba(255, 255, 255, 0.45);
+    text-shadow: none;
+  }
+}
+
+@media (max-width: 768px) {
+  .wakingUpContainer {
+    top: calc(50% + 72px);
+  }
+
+  .wakingUpText {
+    font-size: 0.88rem;
+    margin-top: 0;
   }
 }

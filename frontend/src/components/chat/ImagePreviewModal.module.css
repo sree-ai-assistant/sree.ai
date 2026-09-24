@@ -46,6 +46,7 @@
 }
 
 .fileNameBadge span {
+  text-shadow: 0px 1px 1px var(--tw-text-shadow-color, rgba(0, 0, 0, 0.836));
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -127,7 +128,7 @@
   height: auto;
   object-fit: contain;
   border-radius: 12px;
-  box-shadow: 
+  box-shadow:
     0 25px 60px -15px rgba(0, 0, 0, 0.85),
     0 0 0 1px rgba(255, 255, 255, 0.12);
   user-select: none;

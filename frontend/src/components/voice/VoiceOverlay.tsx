@@ -1033,11 +1033,11 @@ export const VoiceOverlay: React.FC<VoiceOverlayProps> = ({ onClose, initialConv
       const formData = new FormData();
       formData.append('file', audioBlob, 'voice.webm');
 
-      // 20s watchdog timeout for transcription
+      // 35s watchdog timeout for transcription
       const data = await Promise.race([
         aiService.transcribeAudio(formData),
         new Promise<any>((_, reject) =>
-          setTimeout(() => reject(new Error('Audio transcription timed out after 20 seconds')), 20000)
+          setTimeout(() => reject(new Error('Audio transcription timed out after 35 seconds')), 35000)
         )
       ]);
 
@@ -1093,11 +1093,11 @@ export const VoiceOverlay: React.FC<VoiceOverlayProps> = ({ onClose, initialConv
           return;
         }
 
-        // 1. Start AI Request in parallel with 30s connection timeout
+        // 1. Start AI Request in parallel with 60s connection timeout
         const abortController = new AbortController();
         const chatTimeoutId = setTimeout(() => {
-          abortController.abort(new Error('AI server response timed out after 30 seconds'));
-        }, 30000);
+          abortController.abort(new Error('AI server response timed out after 60 seconds'));
+        }, 60000);
 
         const chatRequestPromise = (async () => {
           try {
@@ -1105,7 +1105,7 @@ export const VoiceOverlay: React.FC<VoiceOverlayProps> = ({ onClose, initialConv
               supabase.auth.getSession(),
               new Promise<any>((_, reject) => setTimeout(() => reject(new Error('Session fetch timeout')), 3000))
             ]);
-            const requestedVoiceModel = 'gemini-flash-lite-latest'; //---> voice model change here
+            const requestedVoiceModel = 'gemini-3.5-flash-lite'; //---> voice model change here
             lastLegacyModelRef.current = requestedVoiceModel;
             return await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000/api'}/ai/chat`, {
               method: 'POST',
@@ -1568,11 +1568,15 @@ export const VoiceOverlay: React.FC<VoiceOverlayProps> = ({ onClose, initialConv
         const processStream = async () => {
           try {
             while (true) {
-              // 25-second watchdog per chunk to detect stalled connections
+              // Dynamic watchdog: 65s for the 1st token (TTFT can be slower during peak traffic), 40s between subsequent tokens
+              const watchdogMs = fullAiText.length === 0 ? 65000 : 40000;
               let chunkTimeoutId: any;
               const readPromise = reader!.read();
               const timeoutPromise = new Promise<{ done: boolean; value?: Uint8Array }>((_, reject) => {
-                chunkTimeoutId = setTimeout(() => reject(new Error('AI response timed out (no data for 25s)')), 25000);
+                chunkTimeoutId = setTimeout(
+                  () => reject(new Error(`AI response timed out (no data for ${Math.round(watchdogMs / 1000)}s)`)),
+                  watchdogMs
+                );
               });
 
               let readResult: { done: boolean; value?: Uint8Array };
@@ -1755,10 +1759,16 @@ export const VoiceOverlay: React.FC<VoiceOverlayProps> = ({ onClose, initialConv
         // Check if stream returned an error
         const activeStreamError = streamError as { message: string; code?: string; status?: number | string } | null;
         if (activeStreamError) {
-          const err = new Error(activeStreamError.message);
-          (err as any).code = activeStreamError.code;
-          if (activeStreamError.status) (err as any).status = activeStreamError.status;
-          throw err;
+          // If we already received substantial content from the AI, do NOT crash the turn!
+          // Finish speaking what was received rather than showing an error modal over a successful answer.
+          if (fullAiText.trim().length > 10) {
+            console.warn('[Voice] Stream interrupted or timed out after partial content, gracefully completing turn with received content:', activeStreamError);
+          } else {
+            const err = new Error(activeStreamError.message);
+            (err as any).code = activeStreamError.code;
+            if (activeStreamError.status) (err as any).status = activeStreamError.status;
+            throw err;
+          }
         }
 
         // Check if stream returned empty response
@@ -2527,25 +2537,56 @@ export const VoiceOverlay: React.FC<VoiceOverlayProps> = ({ onClose, initialConv
               stream={stream}
               audioElement={voiceMode === 'legacy' ? audioRef.current : null}
               isActive={true}
-              isGray={status === 'idle' || status === 'transcribing' || status === 'thinking' || voiceMode === 'connecting'}
+              visualState={
+                voiceMode === 'connecting'
+                  ? 'connecting'
+                  : (status === 'thinking' || status === 'transcribing')
+                    ? 'thinking'
+                    : 'active'
+              }
+              isGray={status === 'idle' && voiceMode !== 'connecting'}
             />
+            <AnimatePresence>
+              {voiceMode === 'connecting' && (
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.35, ease: 'easeOut' }}
+                  className={styles.wakingUpContainer}
+                >
+                  <div className={styles.wakingUpText}>
+                    {"Waking up...".split("").map((char, index) => (
+                      <span
+                        key={index}
+                        className={styles.shinyLetter}
+                        style={{ animationDelay: `${index * 0.12}s` }}
+                      >
+                        {char === ' ' ? '\u00A0' : char}
+                      </span>
+                    ))}
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
 
-          <div onClick={repeat} className={styles.statusIndicator}>
-            {voiceMode === 'live' && (
-              <div className={styles.liveBadge}>
-                <Zap size={10} />
-                <span>Live</span>
-              </div>
-            )}
-            <div className={`${styles.statusDot} ${styles[status]}`} />
-            <span>
-              {voiceMode === 'connecting' ? 'Connecting...' :
-                status === 'listening' ? 'AI is Listening' :
+          {voiceMode !== 'connecting' && (
+            <div onClick={repeat} className={styles.statusIndicator}>
+              {voiceMode === 'live' && (
+                <div className={styles.liveBadge}>
+                  <Zap size={10} />
+                  <span>Live</span>
+                </div>
+              )}
+              <div className={`${styles.statusDot} ${styles[status]}`} />
+              <span>
+                {status === 'listening' ? 'AI is Listening' :
                   status === 'speaking' ? 'AI is Speaking' :
                     status === 'thinking' ? 'AI is Thinking' : 'Ready'}
-            </span>
-          </div>
+              </span>
+            </div>
+          )}
 
           <div className={styles.contentOverlay}>
             <AnimatePresence>
