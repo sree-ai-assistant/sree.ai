@@ -2,7 +2,9 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 import { apiKeyPool } from './services/apiKeyPool.service';
+import { startObserverResetCron, stopObserverResetCron } from './services/modelObserver.service';
 apiKeyPool.initialize();
+startObserverResetCron();
 
 import app from './app';
 import { shutdownPostHog } from './services/posthog.service';
@@ -39,6 +41,7 @@ console.log('[WebSocket] Live voice endpoint ready at /api/live/voice');
 const gracefulShutdown = async (signal: string) => {
   console.log(`\n${signal} received. Shutting down gracefully...`);
   await shutdownPostHog();
+  stopObserverResetCron();
 
   // Close all active WebSocket connections
   wss.clients.forEach((client) => {

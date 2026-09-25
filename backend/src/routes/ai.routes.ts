@@ -19,6 +19,7 @@ import { videoService, VideoService } from '../services/video.service';
 import { getUsageStatus, checkAndIncrementUsage, checkAndIncrementMultiUsage, type RateLimitIdentity } from '../services/usage.service';
 import path from 'path';
 import axios from 'axios';
+import { reportModelError } from '../services/modelObserver.service';
 // Removed static uuid import due to ESM/CJS compatibility issues
 
 
@@ -734,6 +735,9 @@ router.post('/chat', flexAuthMiddleware, abuseDetectionMiddleware(), queuePriori
 
     const resolvedCode = resolveErrorCode(error, resolvedStatusCode, rawErrorMsg);
 
+    // Report to model error observer (fire-and-forget, never blocks response)
+    try { reportModelError(req.body?.model, resolvedStatusCode, rawErrorMsg); } catch (_) { /* never break response */ }
+
     if (!res.headersSent) {
       res.status(resolvedStatusCode >= 400 && resolvedStatusCode < 600 ? resolvedStatusCode : 500).json({
         success: false,
@@ -892,6 +896,9 @@ router.post('/image', flexAuthMiddleware, abuseDetectionMiddleware(), queuePrior
         });
       }
     } catch (_) { /* never let PostHog break the response */ }
+
+    // Report to model error observer (fire-and-forget)
+    try { reportModelError(req.body?.model, error.status || 500, error.message); } catch (_) { /* never break response */ }
 
     res.status(500).json({ success: false, message: error.message });
   }
@@ -1139,6 +1146,9 @@ router.post('/video', authMiddleware, starterPlanMiddleware, videoModelValidatio
         });
       }
     } catch (_) { /* never let PostHog break the response */ }
+
+    // Report to model error observer (fire-and-forget)
+    try { reportModelError(req.body?.model, error.status || 500, error.message); } catch (_) { /* never break response */ }
 
     res.status(500).json({ success: false, message: error.message });
   }
