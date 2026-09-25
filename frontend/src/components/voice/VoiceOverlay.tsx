@@ -296,6 +296,8 @@ export const VoiceOverlay: React.FC<VoiceOverlayProps> = ({ onClose, initialConv
   const recordingStartTimeRef = useRef<number>(0);
   const shouldProcessRef = useRef<boolean>(true);
   const isUnmountedRef = useRef<boolean>(false);
+  // Guard: prevents mic from activating while AI TTS audio is still playing
+  const isSpeakingRef = useRef<boolean>(false);
 
   const filterThinkingTags = (content: string) => {
     if (!content) return '';
@@ -868,6 +870,30 @@ export const VoiceOverlay: React.FC<VoiceOverlayProps> = ({ onClose, initialConv
 
   const startRecording = useCallback(async () => {
     if (!isSessionActive) return;
+
+    // GUARD: Do NOT start recording while TTS audio is still playing.
+    // This prevents the mic from capturing the AI's own audio output,
+    // which would trigger a cascading request and rate-limit error.
+    if (isSpeakingRef.current) {
+      console.log('[Voice] startRecording blocked — AI is still speaking, waiting...');
+      // Poll until speaking finishes (with a 120s safety cap)
+      const waitStart = Date.now();
+      while (isSpeakingRef.current && Date.now() - waitStart < 120000) {
+        await new Promise(r => setTimeout(r, 300));
+      }
+      if (isSpeakingRef.current) {
+        console.warn('[Voice] Speaking guard timed out after 120s, proceeding anyway');
+        isSpeakingRef.current = false;
+      }
+    }
+
+    // Extra safety: if the audio element is still playing, stop it
+    if (audioRef.current && !audioRef.current.paused) {
+      console.log('[Voice] Audio element still playing at startRecording — stopping it');
+      audioRef.current.pause();
+      audioRef.current.src = '';
+    }
+
     shouldProcessRef.current = true;
     isUnmountedRef.current = false;
 
@@ -1105,7 +1131,7 @@ export const VoiceOverlay: React.FC<VoiceOverlayProps> = ({ onClose, initialConv
               supabase.auth.getSession(),
               new Promise<any>((_, reject) => setTimeout(() => reject(new Error('Session fetch timeout')), 3000))
             ]);
-            const requestedVoiceModel = 'gemini-3.5-flash-lite'; //---> voice model change here
+            const requestedVoiceModel = 'gemini-flash-lite-latest'; //---> voice model change here
             lastLegacyModelRef.current = requestedVoiceModel;
             return await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000/api'}/ai/chat`, {
               method: 'POST',
@@ -1213,6 +1239,7 @@ export const VoiceOverlay: React.FC<VoiceOverlayProps> = ({ onClose, initialConv
           // The running instance will pick up new items on its own.
           if (isProcessingQueue) return;
           isProcessingQueue = true;
+          isSpeakingRef.current = true;
           stopLoadingMessages();
           setStatus('speaking');
 
@@ -1392,6 +1419,7 @@ export const VoiceOverlay: React.FC<VoiceOverlayProps> = ({ onClose, initialConv
             console.error('[Voice] Playback queue execution error:', playbackErr);
           } finally {
             isProcessingQueue = false;
+            isSpeakingRef.current = false;
             if (playbackResolve) playbackResolve();
           }
         };
@@ -1803,11 +1831,23 @@ export const VoiceOverlay: React.FC<VoiceOverlayProps> = ({ onClose, initialConv
         }
 
         // === STEP 3: Wait for TTS playback to complete ===
-        // Safety timeout of 60s so playbackDone never freezes the overlay
+        // Safety timeout of 5 minutes — long AI responses can have many TTS chunks.
+        // The previous 60s timeout was too short and caused premature mic activation
+        // while the AI was still speaking, leading to cascading rate-limit errors.
         await Promise.race([
           playbackDone,
-          new Promise<void>((resolve) => setTimeout(resolve, 60000))
+          new Promise<void>((resolve) => setTimeout(resolve, 300000))
         ]);
+
+        // Ensure the speaking guard is cleared even if playbackDone resolved via timeout
+        isSpeakingRef.current = false;
+
+        // Double-check: stop any lingering audio playback before re-arming the mic
+        if (audioRef.current && !audioRef.current.paused) {
+          console.warn('[Voice] Audio still playing after playbackDone — force-stopping');
+          audioRef.current.pause();
+          audioRef.current.src = '';
+        }
 
         // === STEP 4: Charge voice credits ===
         const voiceFlowDurationSeconds = (Date.now() - voiceFlowStartTime) / 1000;
@@ -1829,6 +1869,7 @@ export const VoiceOverlay: React.FC<VoiceOverlayProps> = ({ onClose, initialConv
     } catch (err: any) {
       console.error('Voice Processing Error:', err);
       stopLoadingMessages();
+      isSpeakingRef.current = false;
 
       stopRecording(false);
       if (audioRef.current) {
@@ -2047,6 +2088,7 @@ export const VoiceOverlay: React.FC<VoiceOverlayProps> = ({ onClose, initialConv
 
   const handleManualClose = () => {
     setIsSessionActive(false);
+    isSpeakingRef.current = false;
     userInitiatedCloseRef.current = true;
 
     // Save any pending unsaved turn before closing
