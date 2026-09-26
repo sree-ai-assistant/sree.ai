@@ -9,6 +9,7 @@ import { useAuthStore } from '../../store/auth.store';
 import { uploadFile } from '../../api/storage';
 import { aiService } from '../../lib/api';
 import { useUploadAgreementStore } from '../../store/upload-agreement.store';
+import { WaveformVoiceIcon } from '../icons/WaveformVoiceIcon';
 
 export interface Attachment {
   file: File;
@@ -178,6 +179,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
   onAuthRequired
 }) => {
   const [internalValue, setInternalValue] = React.useState('');
+  const [isVoiceHovered, setIsVoiceHovered] = React.useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
   const [previewImage, setPreviewImage] = React.useState<{ url: string; name: string } | null>(null);
@@ -634,6 +636,9 @@ export const ChatInput: React.FC<ChatInputProps> = ({
     onAttachmentsChange(updated);
   };
 
+  const hasContent = internalValue.trim().length > 0 || attachments.length > 0;
+  const showVoiceModeBtn = !hasMessages && !hasContent && !isGenerating;
+
   return (
     <div className={styles.inputWrapper}>
       {!hasMessages && <div className={styles.outerAura} />}
@@ -797,34 +802,79 @@ export const ChatInput: React.FC<ChatInputProps> = ({
                     )}
                   </AnimatePresence>
                 </div>
-                <button
-                  className={`${styles.sendBtn} ${isGenerating ? styles.stopBtn : ''}`}
-                  onClick={handleAction}
-                  disabled={disabled || attachments.some(a => a.isUploading) || (!isGenerating && !internalValue.trim() && attachments.length === 0)}
-                  style={disabled || attachments.some(a => a.isUploading) ? { opacity: 0.4, cursor: 'not-allowed' } : {}}
-                >
-                  <AnimatePresence mode="wait">
-                    {isGenerating ? (
-                      <motion.div
-                        key="stop"
-                        initial={{ scale: 0.5, opacity: 0 }}
-                        animate={{ scale: 1, opacity: 1 }}
-                        exit={{ scale: 0.5, opacity: 0 }}
+                <AnimatePresence mode="wait">
+                  {showVoiceModeBtn ? (
+                    <motion.div
+                      key="voice-mode-wrapper"
+                      className={styles.voiceModeBtnContainer}
+                      initial={{ scale: 0.7, opacity: 0 }}
+                      animate={{ scale: 1, opacity: 1 }}
+                      exit={{ scale: 0.7, opacity: 0 }}
+                      transition={{ duration: 0.15 }}
+                      onMouseEnter={() => setIsVoiceHovered(true)}
+                      onMouseLeave={() => setIsVoiceHovered(false)}
+                    >
+                      <button
+                        type="button"
+                        className={styles.voiceModeBtn}
+                        onClick={handleVoiceModeClick}
+                        disabled={disabled}
+                        aria-label="Use voice mode"
                       >
-                        <div className={styles.square} />
-                      </motion.div>
-                    ) : (
-                      <motion.div
-                        key="send"
-                        initial={{ scale: 0.5, opacity: 0 }}
-                        animate={{ scale: 1, opacity: 1 }}
-                        exit={{ scale: 0.5, opacity: 0 }}
-                      >
-                        <ArrowUp size={20} strokeWidth={3} />
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
-                </button>
+                        <WaveformVoiceIcon size={20} />
+                      </button>
+
+                      <AnimatePresence>
+                        {isVoiceHovered && (
+                          <motion.div
+                            className={styles.voiceTooltip}
+                            initial={{ opacity: 0, y: 4, scale: 0.95 }}
+                            animate={{ opacity: 1, y: 0, scale: 1 }}
+                            exit={{ opacity: 0, y: 4, scale: 0.95 }}
+                            transition={{ duration: 0.12 }}
+                          >
+                            Use voice mode
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+                    </motion.div>
+                  ) : (
+                    <motion.button
+                      key="send-action-btn"
+                      type="button"
+                      className={`${styles.sendBtn} ${isGenerating ? styles.stopBtn : ''}`}
+                      onClick={handleAction}
+                      disabled={disabled || attachments.some(a => a.isUploading) || (!isGenerating && !internalValue.trim() && attachments.length === 0)}
+                      style={disabled || attachments.some(a => a.isUploading) ? { opacity: 0.4, cursor: 'not-allowed' } : {}}
+                      initial={{ scale: 0.7, opacity: 0 }}
+                      animate={{ scale: 1, opacity: 1 }}
+                      exit={{ scale: 0.7, opacity: 0 }}
+                      transition={{ duration: 0.15 }}
+                    >
+                      <AnimatePresence mode="wait">
+                        {isGenerating ? (
+                          <motion.div
+                            key="stop"
+                            initial={{ scale: 0.5, opacity: 0 }}
+                            animate={{ scale: 1, opacity: 1 }}
+                            exit={{ scale: 0.5, opacity: 0 }}
+                          >
+                            <div className={styles.square} />
+                          </motion.div>
+                        ) : (
+                          <motion.div
+                            key="send"
+                            initial={{ scale: 0.5, opacity: 0 }}
+                            animate={{ scale: 1, opacity: 1 }}
+                            exit={{ scale: 0.5, opacity: 0 }}
+                          >
+                            <ArrowUp size={20} strokeWidth={3} />
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+                    </motion.button>
+                  )}
+                </AnimatePresence>
               </div>
             </>
           )}
