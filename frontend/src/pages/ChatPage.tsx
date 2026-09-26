@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useMemo, useDeferredValue } from 'react';
+import React, { useState, useRef, useEffect, useMemo, useCallback, useDeferredValue } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { MessageSquare, ArrowLeft, MoreVertical, Lock, Clock, Sparkles, Zap, FileText, Mail, Code, ArrowUpRight, RotateCcw, ArrowDown } from 'lucide-react';
 import { DashboardLayout } from '../features/dashboard/DashboardLayout';
@@ -581,6 +581,49 @@ const ChatPage: React.FC = () => {
   // Local loading state for conversation messages — isolated from the shared
   // store `loading` which is also set by Sidebar's fetchConversations.
   const [isLoadingConversation, setIsLoadingConversation] = useState(false);
+
+  // Preloaded audio notifier for completion when tab is inactive
+  const completionNotifierAudioRef = useRef<HTMLAudioElement | null>(null);
+
+  useEffect(() => {
+    try {
+      const audio = new Audio('/chat-inactive-completion-notifier.mp3');
+      audio.preload = 'auto';
+      audio.volume = 0.75;
+      completionNotifierAudioRef.current = audio;
+    } catch (e) {
+      console.warn('[Chat] Failed to preload completion notifier audio:', e);
+    }
+
+    return () => {
+      if (completionNotifierAudioRef.current) {
+        completionNotifierAudioRef.current.pause();
+        completionNotifierAudioRef.current.src = '';
+        completionNotifierAudioRef.current = null;
+      }
+    };
+  }, []);
+
+  const playInactiveCompletionSound = useCallback(() => {
+    // Check if the user is in another tab, minimized, or switched to another app
+    const isInactive = typeof document !== 'undefined' && (document.hidden || document.visibilityState === 'hidden' || !document.hasFocus());
+    if (!isInactive) return;
+
+    try {
+      let audio = completionNotifierAudioRef.current;
+      if (!audio) {
+        audio = new Audio('/chat-inactive-completion-notifier.mp3');
+        audio.volume = 0.75;
+        completionNotifierAudioRef.current = audio;
+      }
+      audio.currentTime = 0;
+      audio.play().catch((err) => {
+        console.warn('[Chat] Inactive completion notifier audio play blocked or failed:', err);
+      });
+    } catch (err) {
+      console.warn('[Chat] Inactive completion notifier error:', err);
+    }
+  }, []);
 
   // Performance: Memoize Markdown components to prevent heavy re-renders
   const markdownComponents = useMemo(() => ({
@@ -1212,6 +1255,11 @@ const ChatPage: React.FC = () => {
         // Voice credits are charged by VoiceOverlay via /voice-complete endpoint
         if (!isVoiceRoute) {
           useUsageStore.getState().incrementLocalUsage('chat');
+        }
+
+        // Notify user if they are on another tab / minimized / in another app
+        if (!isVoiceRoute && !showVoiceOverlay) {
+          playInactiveCompletionSound();
         }
 
         streamingOptimisticIdRef.current = null;

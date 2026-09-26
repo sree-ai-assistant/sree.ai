@@ -299,6 +299,82 @@ export const VoiceOverlay: React.FC<VoiceOverlayProps> = ({ onClose, initialConv
   // Guard: prevents mic from activating while AI TTS audio is still playing
   const isSpeakingRef = useRef<boolean>(false);
 
+  // ============================================================================
+  // CONFIG: Adjust wakeup tune delay here (in milliseconds)
+  // 3000 = 3 seconds after "Waking up..." disappears.
+  // Change this number anytime to get your perfect timing! (e.g. 1500, 2000, 3000)
+  // ============================================================================
+  const WAKEUP_TUNE_DELAY_MS = 600;
+
+  // Wake-up chime state and guards
+  const wakeupAudioRef = useRef<HTMLAudioElement | null>(null);
+  const hasPlayedWakeupRef = useRef<boolean>(false);
+  const isWakeupTunePlayingRef = useRef<boolean>(false);
+  const wakeupTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const playWakeupTune = useCallback(() => {
+    if (hasPlayedWakeupRef.current || userInitiatedCloseRef.current) return;
+    hasPlayedWakeupRef.current = true;
+    isWakeupTunePlayingRef.current = true;
+
+    try {
+      let audio = wakeupAudioRef.current;
+      if (!audio) {
+        audio = new Audio('/Voice-mode-wakeup-tune.mp3');
+        audio.preload = 'auto';
+        audio.volume = 0.7;
+        wakeupAudioRef.current = audio;
+      }
+      audio.currentTime = 0;
+
+      const clearTuneTimer = setTimeout(() => {
+        isWakeupTunePlayingRef.current = false;
+      }, 1200);
+
+      audio.onended = () => {
+        clearTimeout(clearTuneTimer);
+        isWakeupTunePlayingRef.current = false;
+      };
+      audio.onerror = () => {
+        clearTimeout(clearTuneTimer);
+        isWakeupTunePlayingRef.current = false;
+      };
+
+      audio.play().catch(err => {
+        clearTimeout(clearTuneTimer);
+        isWakeupTunePlayingRef.current = false;
+        console.warn('[Voice] Wakeup tune play error:', err);
+      });
+    } catch (err) {
+      isWakeupTunePlayingRef.current = false;
+      console.warn('[Voice] Wakeup tune initialization error:', err);
+    }
+  }, []);
+
+  const scheduleWakeupTune = useCallback(() => {
+    if (hasPlayedWakeupRef.current || userInitiatedCloseRef.current || wakeupTimerRef.current) return;
+
+    wakeupTimerRef.current = setTimeout(() => {
+      wakeupTimerRef.current = null;
+      if (!hasPlayedWakeupRef.current && !userInitiatedCloseRef.current) {
+        playWakeupTune();
+      }
+    }, WAKEUP_TUNE_DELAY_MS);
+  }, [playWakeupTune]);
+
+  // Schedule wakeup tune as soon as "Waking up..." disappears
+  const prevVoiceModeRef = useRef<'connecting' | 'live' | 'legacy'>('connecting');
+  useEffect(() => {
+    if (prevVoiceModeRef.current === 'connecting' && (voiceMode === 'live' || voiceMode === 'legacy')) {
+      // Fallback timer: in case onExitComplete is skipped, trigger scheduling
+      const fallbackTimer = setTimeout(() => {
+        scheduleWakeupTune();
+      }, 350);
+      return () => clearTimeout(fallbackTimer);
+    }
+    prevVoiceModeRef.current = voiceMode;
+  }, [voiceMode, scheduleWakeupTune]);
+
   const filterThinkingTags = (content: string) => {
     if (!content) return '';
     // Remove closed tags
@@ -417,6 +493,8 @@ export const VoiceOverlay: React.FC<VoiceOverlayProps> = ({ onClose, initialConv
 
   // ─── Live Mode: WebSocket Connection ─────────────────────────────
   const tryConnectLive = useCallback(async () => {
+    isUnmountedRef.current = false;
+    userInitiatedCloseRef.current = false;
     if (!isSessionActive) {
       setVoiceMode('legacy');
       return;
@@ -535,6 +613,8 @@ export const VoiceOverlay: React.FC<VoiceOverlayProps> = ({ onClose, initialConv
               try {
                 const audioManager = new LiveAudioManager({
                   onPcmData: (pcmBuffer) => {
+                    // Suppress PCM sending while wakeup tune is playing so Gemini doesn't hear the chime
+                    if (isWakeupTunePlayingRef.current) return;
                     // Send PCM audio to backend via WebSocket
                     if (liveWsRef.current?.readyState === WebSocket.OPEN) {
                       liveWsRef.current.send(pcmBuffer);
@@ -937,7 +1017,6 @@ export const VoiceOverlay: React.FC<VoiceOverlayProps> = ({ onClose, initialConv
 
       recorder.start();
       recordingStartTimeRef.current = Date.now();
-      recordingStartTimeRef.current = Date.now();
       setStatus('listening');
 
       // VAD Implementation with Frequency Filtering
@@ -962,11 +1041,13 @@ export const VoiceOverlay: React.FC<VoiceOverlayProps> = ({ onClose, initialConv
         }
         const avgSpeechEnergy = speechEnergy / count;
 
-        if (avgSpeechEnergy > SILENCE_THRESHOLD + 80) {
+        // Ignore audio energy if the wakeup tune is currently playing
+        if (!isWakeupTunePlayingRef.current && avgSpeechEnergy > SILENCE_THRESHOLD + 80) {
           lastSpeakTime = Date.now();
           hasSpoken = true;
           // console.log(avgSpeechEnergy)
-
+        } else if (isWakeupTunePlayingRef.current) {
+          lastSpeakTime = Date.now();
         } else {
           // Only stop if we've actually detected some speech first, 
           // or if it's been silent for a long time at the start.
@@ -2115,6 +2196,11 @@ export const VoiceOverlay: React.FC<VoiceOverlayProps> = ({ onClose, initialConv
     setConnectionError(null);
     setVoiceMode('connecting');
     userInitiatedCloseRef.current = false;
+    hasPlayedWakeupRef.current = false;
+    if (wakeupTimerRef.current) {
+      clearTimeout(wakeupTimerRef.current);
+      wakeupTimerRef.current = null;
+    }
     setTimeout(() => {
       tryConnectLive();
     }, 200);
@@ -2193,6 +2279,11 @@ export const VoiceOverlay: React.FC<VoiceOverlayProps> = ({ onClose, initialConv
   const handleRestartLive = () => {
     setSessionLimitInfo(null);
     setVoiceMode('connecting');
+    hasPlayedWakeupRef.current = false;
+    if (wakeupTimerRef.current) {
+      clearTimeout(wakeupTimerRef.current);
+      wakeupTimerRef.current = null;
+    }
     setTimeout(() => {
       tryConnectLive();
     }, 200);
@@ -2209,6 +2300,18 @@ export const VoiceOverlay: React.FC<VoiceOverlayProps> = ({ onClose, initialConv
   // using it here would cause a second connect attempt after URL navigation.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
+    isUnmountedRef.current = false;
+    userInitiatedCloseRef.current = false;
+    try {
+      if (!wakeupAudioRef.current) {
+        const audio = new Audio('/Voice-mode-wakeup-tune.mp3');
+        audio.preload = 'auto';
+        audio.volume = 0.7;
+        wakeupAudioRef.current = audio;
+      }
+    } catch (e) {
+      console.warn('[Voice] Failed to preload wakeup audio:', e);
+    }
     const timer = setTimeout(() => {
       tryConnectLive();
     }, 50);
@@ -2227,6 +2330,17 @@ export const VoiceOverlay: React.FC<VoiceOverlayProps> = ({ onClose, initialConv
       if (sessionLimitTimerRef.current) {
         clearTimeout(sessionLimitTimerRef.current);
         sessionLimitTimerRef.current = null;
+      }
+
+      if (wakeupTimerRef.current) {
+        clearTimeout(wakeupTimerRef.current);
+        wakeupTimerRef.current = null;
+      }
+
+      if (wakeupAudioRef.current) {
+        wakeupAudioRef.current.pause();
+        wakeupAudioRef.current.src = '';
+        wakeupAudioRef.current = null;
       }
 
       if (latencyNoticeTimerRef.current) {
@@ -2588,7 +2702,12 @@ export const VoiceOverlay: React.FC<VoiceOverlayProps> = ({ onClose, initialConv
               }
               isGray={status === 'idle' && voiceMode !== 'connecting'}
             />
-            <AnimatePresence>
+            <AnimatePresence
+              onExitComplete={() => {
+                // When "Waking up..." completes its exit transition and disappears, schedule audio
+                scheduleWakeupTune();
+              }}
+            >
               {voiceMode === 'connecting' && (
                 <motion.div
                   initial={{ opacity: 0 }}
