@@ -22,7 +22,7 @@ import { supabaseAdmin } from '../lib/supabase';
 // ─── Configuration ───────────────────────────────────────────────────
 
 /** Number of errors of the same status code required to auto-flag a model */
-const ERROR_THRESHOLD = 3;
+const ERROR_THRESHOLD = 5;
 
 /** How often to reset stale, un-flagged counters (in hours) */
 const COUNTER_RESET_HOURS = 12;
