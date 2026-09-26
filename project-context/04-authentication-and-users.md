@@ -153,6 +153,7 @@ When a user signs up, a database trigger `handle_new_user()` automatically creat
 | `tos_accepted_at` | TIMESTAMPTZ | When ToS was accepted |
 | `privacy_accepted` | BOOLEAN | Privacy Policy acceptance |
 | `privacy_accepted_at` | TIMESTAMPTZ | When Privacy Policy was accepted |
+| `live_voice` | TEXT | Preferred Gemini Live voice persona (default: Zephyr) |
 | `created_at` | TIMESTAMPTZ | Account creation time |
 | `updated_at` | TIMESTAMPTZ | Last profile update |
 
