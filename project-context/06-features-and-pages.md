@@ -68,6 +68,19 @@ graph TD
 | **Voice Personas** | 30+ Google AI Studio voice options (*Aoede*, *Puck*, *Zephyr*, *Fenrir*, *Despina*, etc.) with live preview audio samples and user preference persistence in `profiles.live_voice` |
 | **Cascading Fallback** | Automatic failover to Deepgram Nova-2 STT $\rightarrow$ Chat LLM $\rightarrow$ TTS if WebSocket disconnects or encounters upstream rate limits |
 | **Session Guardrails** | Tier-based session duration limits (Free, Starter, Pro) with real-time countdown popups and high-traffic notices |
+| **Audio Feedback & Visualizer** | Wake-up tune (`Voice-mode-wakeup-tune.mp3`), background tab chat completion chime (`chat-inactive-completion-notifier.mp3`), organic Canvas particle ring with thinking mode, waking-up transitions, and stream disconnect auto-recovery |
+| **Quick Launch & Error Recovery** | Conditional voice mode button on empty chat input with interactive tooltip; automatic bug report pre-fill on `FeatureRequestPage` upon model or voice stream failure |
+
+### 1.2 Self-Healing AI Model Error Observer System
+
+| Aspect | Detail |
+|--------|--------|
+| **Core Architecture** | Hybrid in-memory zero-latency tracking + asynchronous Supabase persistence (`model_error_counters` table) |
+| **Monitored Status Codes** | 404 (Model Not Found), 410 (Model Gone/Maintenance), 500 (Internal Error), 502 (Bad Gateway), 503 (Service Overloaded) |
+| **Maintenance Threshold** | **5 consecutive errors** of the same status code auto-flags the model as `in_maintenance = true` in `ai_models` |
+| **Noise Filtering** | Ignores key-level (401, 403, 429) and client-level (400, 413) errors, which are isolated and handled by `apiKeyPool.service.ts` |
+| **Lifecycle & Auto-Reset** | Un-flagged counters auto-reset every 12 hours via `reset_stale_error_counters` RPC; flagged models require admin clearance |
+| **Diagnostics Endpoint** | `GET /api/models/observer-status` provides real-time in-memory counts and active database maintenance logs |
 
 ### 2. Image Generation (`/image/:id?`)
 

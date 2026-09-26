@@ -57,7 +57,7 @@ router.use('/stt', (req, res, next) => {
 ```
 data: {"status": "Processing documents..."}    // Progress
 data: {"content": "Hello! "}                    // Token chunk
-data: {"error": "API Key not found"}           // Error
+data: {"error": "AI generation failed", "code": "MODEL_MAINTENANCE_410", "statusCode": 410} // Structured error
 data: [DONE]                                    // Stream complete
 ```
 
@@ -209,6 +209,7 @@ data: [DONE]                                    // Stream complete
 | Method | Endpoint | Auth | Description |
 |--------|----------|------|-------------|
 | `GET` | `/models` | Flex | Get all AI models (returns all models, frontend shows locked/premium accordingly) |
+| `GET` | `/models/observer-status` | Flex | Get AI Model Error Observer diagnostics (in-memory error counts, active threshold of 5, and persistent `model_error_counters`) |
 
 ---
 

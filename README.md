@@ -39,8 +39,15 @@ Designed with a **dual-identity architecture**, users can start chatting immedia
 ### 🎙️ Real-Time Voice Assistant (Gemini Live & Cascading Fallback)
 - **Gemini Live Bidirectional Streaming**: Ultra-low-latency real-time voice mode powered by Google Gemini Live WebSockets (`/api/live/voice/ws`) with Web Audio API PCM Worklets (`pcmWorklet.js`).
 - **30+ Google AI Studio Voice Personas**: User-selectable voices (*Aoede*, *Puck*, *Zephyr*, *Fenrir*, *Despina*, etc.) with live in-app audio previews and prompt personalization.
+- **Audio Chimes & Visualizer**: Includes native voice wake-up chime (`Voice-mode-wakeup-tune.mp3`), background tab chat completion notification (`chat-inactive-completion-notifier.mp3`), and organic Canvas thinking ring animation.
 - **Cascading STT & TTS Fallback**: Automatic failover to Deepgram Nova-2 STT $\rightarrow$ Chat LLM $\rightarrow$ TTS if WebSocket or network conditions degrade.
 - **Tier-Based Session Guardrails**: Tiered session duration limits (Free, Starter, Pro) with real-time countdown popups and high-traffic notices.
+
+### 🩺 Self-Healing AI Model Error Observer
+- **Automated Health Monitoring**: Hybrid zero-latency in-memory error tracking backed by asynchronous PostgreSQL persistence (`model_error_counters` table).
+- **Smart Circuit Breaker**: Auto-flags models as `in_maintenance = true` upon encountering **5 consecutive failures** of status codes 404, 410, 500, 502, or 503, preventing repeated user disruption.
+- **12-Hour Self-Healing Window**: Stale unflagged counters automatically purge every 12 hours via `reset_stale_error_counters` RPC.
+- **Live Diagnostics API**: Instant visibility into in-memory counters and active database flags via `GET /api/models/observer-status`.
 
 ### 🎨 Creative Studio (Images & Videos)
 - **AI Image Generation**: Prioritizes **FLUX.2 klein** as the default high-speed studio model, alongside FLUX.1 (Dev/Schnell), SDXL, and SD 3.5 Large with local settings persistence, aspect ratios, and instant downloads.

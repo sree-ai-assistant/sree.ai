@@ -449,6 +449,30 @@ CREATE INDEX IF NOT EXISTS idx_cleanup_logs_deleted_at ON public.cleanup_logs(de
 CREATE INDEX IF NOT EXISTS idx_cleanup_logs_user_email ON public.cleanup_logs(user_email);
 CREATE INDEX IF NOT EXISTS idx_cleanup_logs_user_or_anon_id ON public.cleanup_logs(user_or_anon_id);
 
+-- =============================================
+-- 18. MODEL ERROR COUNTERS (Model Error Observer)
+-- =============================================
+CREATE TABLE IF NOT EXISTS public.model_error_counters (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  model_id TEXT NOT NULL,
+  status_code INT4 NOT NULL,
+  error_count INT4 NOT NULL DEFAULT 0,
+  last_error_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  last_error_message TEXT NULL,
+  first_error_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  flagged_at TIMESTAMPTZ NULL,
+  window_reset_at TIMESTAMPTZ NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+
+  CONSTRAINT uq_model_status UNIQUE (model_id, status_code)
+);
+
+COMMENT ON TABLE public.model_error_counters IS 'Tracks upstream API error counts per model per HTTP status code for auto-maintenance flagging';
+
+CREATE INDEX IF NOT EXISTS idx_error_counters_model ON public.model_error_counters (model_id);
+CREATE INDEX IF NOT EXISTS idx_error_counters_flagged ON public.model_error_counters (flagged_at) WHERE flagged_at IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_error_counters_last_error ON public.model_error_counters (last_error_at);
+
 
 -- =============================================
 -- ROW LEVEL SECURITY (RLS)
@@ -472,6 +496,7 @@ ALTER TABLE public.abuse_flags ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.feature_requests ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.app_config ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.cleanup_logs ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.model_error_counters ENABLE ROW LEVEL SECURITY;
 
 -- =============================================
 -- RLS POLICIES: PROFILES
@@ -691,6 +716,12 @@ CREATE POLICY "Anyone can insert feature requests" ON public.feature_requests
 
 CREATE POLICY "Service role full access on feature_requests" ON public.feature_requests
   FOR ALL TO service_role USING (true) WITH CHECK (true);
+
+-- =============================================
+-- RLS POLICIES: MODEL ERROR COUNTERS (Service-only)
+-- =============================================
+CREATE POLICY "Service role full access on model_error_counters" ON public.model_error_counters
+  FOR ALL USING (auth.role() = 'service_role') WITH CHECK (auth.role() = 'service_role');
 
 
 -- =============================================
@@ -1201,7 +1232,73 @@ $$;
 
 
 -- =============================================
+-- F9. REPORT MODEL ERROR (Model Error Observer)
+-- =============================================
+CREATE OR REPLACE FUNCTION public.report_model_error(
+  p_model_id text,
+  p_status_code int,
+  p_error_message text DEFAULT NULL
+)
+RETURNS int
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+DECLARE
+  v_count int;
+BEGIN
+  INSERT INTO public.model_error_counters (model_id, status_code, error_count, last_error_at, last_error_message, first_error_at)
+  VALUES (p_model_id, p_status_code, 1, now(), LEFT(p_error_message, 300), now())
+  ON CONFLICT (model_id, status_code)
+  DO UPDATE SET
+    error_count = model_error_counters.error_count + 1,
+    last_error_at = now(),
+    last_error_message = COALESCE(LEFT(EXCLUDED.last_error_message, 300), model_error_counters.last_error_message)
+  RETURNING error_count INTO v_count;
+
+  RETURN v_count;
+END;
+$$;
+
+COMMENT ON FUNCTION public.report_model_error IS
+  'Atomically increments the error counter for a model+status_code pair and returns the new count. Used by the model error observer service.';
+
+
+-- =============================================
+-- F10. RESET STALE ERROR COUNTERS (Model Error Observer)
+-- =============================================
+CREATE OR REPLACE FUNCTION public.reset_stale_error_counters(
+  p_hours int DEFAULT 12
+)
+RETURNS int
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+DECLARE
+  v_reset_count int;
+BEGIN
+  UPDATE public.model_error_counters
+  SET
+    error_count = 0,
+    window_reset_at = now(),
+    first_error_at = now()
+  WHERE
+    last_error_at < now() - (p_hours || ' hours')::interval
+    AND flagged_at IS NULL
+    AND error_count > 0;
+
+  GET DIAGNOSTICS v_reset_count = ROW_COUNT;
+  RETURN v_reset_count;
+END;
+$$;
+
+COMMENT ON FUNCTION public.reset_stale_error_counters IS
+  'Resets error counters older than p_hours that have not triggered a maintenance flag. Called periodically by the model observer service.';
+
+
+-- =============================================
 -- GRANTS
 -- =============================================
 GRANT EXECUTE ON FUNCTION public.migrate_anonymous_data(TEXT, UUID) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.migrate_anonymous_data(TEXT, UUID) TO service_role;
+GRANT EXECUTE ON FUNCTION public.report_model_error(TEXT, INT, TEXT) TO service_role;
+GRANT EXECUTE ON FUNCTION public.reset_stale_error_counters(INT) TO service_role;

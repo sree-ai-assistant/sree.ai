@@ -1,11 +1,11 @@
 # Database Schema — Complete Reference
 
-> **Last verified:** 2026-09-09 against live Supabase production instance.
+> **Last verified:** 2026-09-26 against live Supabase production instance.
 > **Source of truth:** `full-schema.sql` in this directory (verified against `pg_catalog`).
 
 ## Overview
 
-Database: **Supabase (PostgreSQL)** with Row Level Security (RLS) enabled on **all 17 tables**.
+Database: **Supabase (PostgreSQL)** with Row Level Security (RLS) enabled on **all 18 tables**.
 
 ```mermaid
 erDiagram
@@ -25,6 +25,7 @@ erDiagram
     conversations ||--o{ messages : "contains"
     anonymous_users ||--o{ conversations : "owns (anon)"
     anonymous_users ||--o{ usage_tracking : "tracked"
+    ai_models ||--o{ model_error_counters : "tracked (observer)"
 ```
 
 ---
@@ -518,7 +519,33 @@ CREATE TRIGGER on_auth_user_created
 
 ---
 
-## RPC Functions (8)
+### `model_error_counters`
+
+> Tracks upstream API error counts per model per HTTP status code. Used by the Model Error Observer service to automatically flag degraded models as `in_maintenance` after repeated failures (threshold = 5).
+
+| Column | Type | Default | Nullable | Description |
+|--------|------|---------|:--------:|-------------|
+| `id` | UUID | `gen_random_uuid()` | NO | PK |
+| `model_id` | TEXT | — | NO | Upstream model identifier (e.g., `meta/llama-3.1-70b-instruct`) |
+| `status_code` | INT4 | — | NO | HTTP status code (404, 410, 500, 502, 503) |
+| `error_count` | INT4 | `0` | NO | Cumulative error count within active window |
+| `last_error_at` | TIMESTAMPTZ | `now()` | NO | Timestamp of latest error occurrence |
+| `last_error_message` | TEXT | — | YES | Truncated diagnostic message (max 300 chars) |
+| `first_error_at` | TIMESTAMPTZ | `now()` | NO | First error observed in current tracking window |
+| `flagged_at` | TIMESTAMPTZ | — | YES | When auto-flagging as `in_maintenance` was triggered |
+| `window_reset_at` | TIMESTAMPTZ | — | YES | Timestamp of last periodic counter reset |
+| `created_at` | TIMESTAMPTZ | `now()` | NO | Creation timestamp |
+
+**Constraints:** UNIQUE `(model_id, status_code)`
+
+**Indexes:** `model_id`, `(flagged_at) WHERE flagged_at IS NOT NULL`, `last_error_at`
+
+**RLS Policies (1):**
+- `Service role full access` — ALL WHERE `true` (role: service_role)
+
+---
+
+## RPC Functions (10)
 
 | Function | Arguments | Returns | Security | Description |
 |----------|-----------|---------|----------|-------------|
@@ -530,9 +557,13 @@ CREATE TRIGGER on_auth_user_created
 | `migrate_anonymous_data` | `p_anon_id TEXT, p_user_id UUID` | void | DEFINER | Migrates anonymous user's conversations and usage to authenticated account |
 | `cleanup_expired_data()` | — | JSONB | DEFINER | Automated data cleanup — deletes expired conversations/images per plan retention policies, queues R2 object cleanup |
 | `update_anonymous_cookie_consent` | `p_anon_id TEXT, p_cookie_consent BOOLEAN, p_cookie_consent_at TIMESTAMPTZ` | void | DEFINER | Updates cookie consent for non-migrated anonymous users |
+| `report_model_error` | `p_model_id TEXT, p_status_code INT, p_error_message TEXT` | INT | DEFINER | Atomically increments error counter for model+status pair and returns new count |
+| `reset_stale_error_counters` | `p_hours INT` | INT | DEFINER | Resets un-flagged error counters older than p_hours (default: 12h) |
 
 **Grants:**
 ```sql
 GRANT EXECUTE ON FUNCTION public.migrate_anonymous_data(TEXT, UUID) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.migrate_anonymous_data(TEXT, UUID) TO service_role;
+GRANT EXECUTE ON FUNCTION public.report_model_error(TEXT, INT, TEXT) TO service_role;
+GRANT EXECUTE ON FUNCTION public.reset_stale_error_counters(INT) TO service_role;
 ```

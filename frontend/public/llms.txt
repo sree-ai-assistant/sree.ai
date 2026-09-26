@@ -18,6 +18,7 @@
 - **Creative Studio (Images & Videos)**: Fast text-to-image synthesis powered by FLUX.1 (Dev / Schnell), SDXL, and SD 3.5 Large; automated text-to-video generation powered by Google Veo & Omni models.
 - **Bring Your Own Key (BYOK)**: User-provided API keys encrypted at rest using AES-256-GCM with randomized 16-byte initialization vectors (`iv`), granting a 0.2x quota usage multiplier.
 - **Atomic Multi-Window Quotas**: Atomic rate-limiting enforced in single PostgreSQL RPC transactions (`increment_multi_usage`) across 1-minute burst, 24-hour daily, and 30-day monthly windows.
+- **Self-Healing Model Error Observer**: Automated real-time error tracking that monitors upstream provider status codes (404, 410, 500, 502, 503) and auto-flags degraded models into maintenance mode after 5 consecutive failures with 12-hour self-resetting windows.
 
 ## Supported AI Models & Providers
 
