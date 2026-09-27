@@ -573,24 +573,17 @@
 .reasoningSection,
 .toolsSection {
   margin-bottom: 12px;
-  border-radius: 10px;
-  background: rgba(255, 255, 255, 0.02);
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  overflow: hidden;
-  transition: border-color 0.2s ease;
-}
-
-.reasoningSection:hover,
-.toolsSection:hover {
-  border-color: rgba(255, 255, 255, 0.12);
+  background: transparent;
+  border: none;
+  overflow: visible;
 }
 
 .collapsibleHeader {
   display: flex;
   align-items: center;
   gap: 8px;
-  width: 100%;
-  padding: 8px 12px;
+  width: auto;
+  padding: 4px 0;
   background: transparent;
   border: none;
   color: var(--text-secondary);
@@ -622,7 +615,6 @@
 
 .collapsibleHeader:hover {
   color: var(--text-primary);
-  background: rgba(255, 255, 255, 0.03);
 }
 
 .collapsibleIcon {
@@ -646,7 +638,7 @@
 }
 
 .collapsibleContent {
-  padding: 0 12px 10px;
+  padding: 0 0 10px 0;
   animation: slideDown 0.2s ease-out;
 }
 
@@ -665,18 +657,15 @@
 }
 
 .reasoningText {
-  font-size: 0.82rem;
-  line-height: 1.65;
+  font-size: 0.85rem;
+  line-height: 1.6;
   color: var(--text-secondary);
   opacity: 0.85;
-  padding: 6px 8px;
-  border-left: 2px solid rgba(167, 139, 250, 0.3);
-  background: rgba(167, 139, 250, 0.03);
-  border-radius: 0 6px 6px 0;
+  padding: 4px 0;
 }
 
 .reasoningText p {
-  margin: 0 0 6px 0;
+  margin: 0 0 10px 0;
 }
 
 .reasoningText p:last-child {

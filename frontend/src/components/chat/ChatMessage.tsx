@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Bot, User, AlertCircle, RefreshCw, Copy, Check, Volume2, VolumeX, Play, Pause, Loader2, Bug, Brain, Wrench, ChevronDown, ChevronRight, Globe, Code2, Clock } from 'lucide-react';
+import { Bot, User, AlertCircle, RefreshCw, Copy, Check, Volume2, VolumeX, Play, Pause, Loader2, Bug, Brain, Wrench, ChevronDown, ChevronRight, Globe, Code2, Clock, Terminal } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import styles from '../../pages/ChatPage.module.css';
@@ -77,7 +77,18 @@ export const ChatMessageComponent: React.FC<ChatMessageProps> = ({
   const { messages, activeConversation } = useChatStore();
   const [copied, setCopied] = useState(false);
   const [reasoningOpen, setReasoningOpen] = useState(false);
+  const [expandedTools, setExpandedTools] = useState<Set<number | string>>(new Set());
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
+
+  const toggleTool = (e: React.MouseEvent, id: number | string) => {
+    e.stopPropagation();
+    setExpandedTools(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
 
   const messageId = m.id || `msg_${i}`;
   const isPlayingThisTts = activeTtsMessageId === messageId;
@@ -198,18 +209,18 @@ export const ChatMessageComponent: React.FC<ChatMessageProps> = ({
                   <button
                     className={styles.collapsibleHeader}
                     onClick={() => setReasoningOpen(!reasoningOpen)}
+                    style={{ paddingLeft: 0, paddingBottom: 4 }}
                   >
-                    <Clock size={13} className={styles.collapsibleIcon} style={{ color: 'var(--text-secondary)' }} />
-                    <span className={styles.collapsibleLabel} style={{ fontWeight: 500, fontSize: '0.75rem', opacity: 0.9 }}>
-                      {isStreaming ? `Thinking · ${formatTimer(elapsedSeconds)}` : `Thought for ${formatTimer(savedDuration)}`}
+                    <span className={styles.collapsibleLabel} style={{ fontWeight: 400, fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+                      {isStreaming ? `Thinking...` : `Worked for ${formatTimer(savedDuration)}`}
                     </span>
-                    {reasoningOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                    {reasoningOpen ? <ChevronDown size={14} style={{ opacity: 0.6 }} /> : <ChevronRight size={14} style={{ opacity: 0.6 }} />}
                   </button>
 
                   {reasoningOpen && (
                     <div className={styles.collapsibleContent}>
                       {reasoning && (
-                        <div className={styles.reasoningText}>
+                        <div className={styles.reasoningText} style={{ marginBottom: executedTools.length ? '12px' : '0' }}>
                           <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
                             {reasoning}
                           </ReactMarkdown>
@@ -220,18 +231,33 @@ export const ChatMessageComponent: React.FC<ChatMessageProps> = ({
                         const toolName = tool.name || tool.type || tool;
                         const toolInput = tool.input || tool.arguments || tool.results?.code;
                         const toolOutput = tool.output || tool.results?.output;
+                        // Use string index if index missing
+                        const toolId = tool.index !== undefined ? tool.index : idx;
+                        const isExpanded = expandedTools.has(toolId);
 
                         return (
-                          <div key={idx} className={styles.toolEntry} style={{ marginTop: reasoning && idx === 0 ? '12px' : '0' }}>
-                            <div className={styles.toolEntryHeader}>
-                              {getToolIcon(toolName)}
-                              <span>{formatToolName(toolName)}</span>
+                          <div key={idx} className={styles.toolEntry} style={{ marginBottom: '8px' }}>
+                            <div
+                              className={styles.toolEntryHeader}
+                              onClick={(e) => toggleTool(e, toolId)}
+                              style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}
+                            >
+                              <div style={{ display: 'flex', gap: '6px', alignItems: 'center', color: 'var(--text-secondary)' }}>
+                                <Terminal size={14} style={{ opacity: 0.8 }} />
+                                <span style={{ fontSize: '0.8rem' }}>{formatToolName(toolName)}</span>
+                              </div>
+                              {isExpanded ? <ChevronDown size={13} style={{ opacity: 0.5 }} /> : <ChevronRight size={13} style={{ opacity: 0.5 }} />}
                             </div>
-                            {toolInput && (
-                              <pre className={styles.toolCode}>{typeof toolInput === 'string' ? toolInput : JSON.stringify(toolInput, null, 2)}</pre>
-                            )}
-                            {toolOutput && (
-                              <pre className={styles.toolOutput}>{typeof toolOutput === 'string' ? toolOutput.slice(0, 2000) : JSON.stringify(toolOutput, null, 2).slice(0, 2000)}</pre>
+
+                            {isExpanded && (
+                              <div style={{ marginTop: '8px' }}>
+                                {toolInput && (
+                                  <pre className={styles.toolCode}>{typeof toolInput === 'string' ? toolInput : JSON.stringify(toolInput, null, 2)}</pre>
+                                )}
+                                {toolOutput && (
+                                  <pre className={styles.toolOutput}>{typeof toolOutput === 'string' ? toolOutput.slice(0, 2000) : JSON.stringify(toolOutput, null, 2).slice(0, 2000)}</pre>
+                                )}
+                              </div>
                             )}
                           </div>
                         );
