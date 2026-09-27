@@ -37,6 +37,7 @@ const PROVIDER_MAP: Record<string, string> = {
   'stabilityai/stable-diffusion-xl-base-1.0': 'nvidia',
   'nvidia/vila-1.5-3b': 'nvidia',
   'deepseek-ai/deepseek-v4-flash': 'nvidia',
+  'deepseek-ai/deepseek-v4.1-flash': 'nvidia',
   'deepseek-ai/deepseek-v4-flash-0731': 'nvidia',
   'deepseek-ai/deepseek-v4-pro': 'nvidia',
   'deepseek-ai/deepseek-v4-pro-0813': 'nvidia',
