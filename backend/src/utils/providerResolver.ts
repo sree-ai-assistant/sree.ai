@@ -17,8 +17,8 @@ const PROVIDER_MAP: Record<string, string> = {
   'google/gemma-3n-e2b-it': 'nvidia',
   'google/gemma-3n-e4b-it': 'nvidia',
   'google/gemma-4-31b-it': 'nvidia',
-  'openai/gpt-oss-120b': 'nvidia',
-  'openai/gpt-oss-20b': 'nvidia',
+  'nvidia-openai/gpt-oss-120b': 'nvidia',
+  'nvidia-openai/gpt-oss-20b': 'nvidia',
   'meta/llama-3.1-70b-instruct': 'nvidia',
   'meta/llama-3.2-11b-vision-instruct': 'nvidia',
   'meta/llama-3.2-90b-vision-instruct': 'nvidia',
@@ -112,6 +112,9 @@ const PROVIDER_MAP: Record<string, string> = {
   // Groq API
   'groq/compound': 'groq',
   'groq/compound-mini': 'groq',
+  'groq-openai/gpt-oss-120b': 'groq',
+  'groq-openai/gpt-oss-20b': 'groq',
+  'qwen/qwen3.8-27b': 'groq',
 };
 
 /**

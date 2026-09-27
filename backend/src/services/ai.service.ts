@@ -466,10 +466,14 @@ class AiService {
 
         console.log(`[AiService] Sending request to model ${model} with ${sanitized.length} messages. Provider: ${provider}`);
 
-        // Build provider-aware request params
-        // Google's OpenAI-compatible endpoint requires max_completion_tokens (rejects max_tokens with 400)
+        // Strip provider-specific prefix if we need to disambiguate identical models across providers
+        // e.g. "groq-openai/gpt-oss-120b" -> "openai/gpt-oss-120b"
+        let apiModel = model;
+        if (model.startsWith('groq-')) apiModel = model.replace('groq-', '');
+        if (model.startsWith('nvidia-')) apiModel = model.replace('nvidia-', '');
+
         const requestParams: any = {
-          model,
+          model: apiModel,
           messages: sanitized as any,
           stream: true,
           temperature: 0.7,
@@ -481,14 +485,32 @@ class AiService {
           requestParams.max_tokens = reservedTokens;
         }
 
-        if (provider === 'groq' && model.includes('compound')) {
-          requestParams.compound_custom = {
-            tools: {
-              enabled_tools: ["web_search", "code_interpreter", "visit_website"]
-            }
-          };
-          requestParams.max_completion_tokens = reservedTokens;
-          delete requestParams.max_tokens;
+        if (provider === 'groq') {
+          if (model.includes('compound')) {
+            requestParams.compound_custom = {
+              tools: {
+                enabled_tools: ["web_search", "code_interpreter", "visit_website"]
+              }
+            };
+            requestParams.max_completion_tokens = reservedTokens;
+            delete requestParams.max_tokens;
+          } else if (model.includes('gpt-oss')) {
+            // GPT-OSS built-in tools: browser_search + code_interpreter (Groq-native, runs server-side)
+            requestParams.tools = [
+              { type: "browser_search" },
+              { type: "code_interpreter" }
+            ];
+            requestParams.reasoning_effort = "medium";
+            requestParams.include_reasoning = true;
+            requestParams.max_completion_tokens = reservedTokens;
+            delete requestParams.max_tokens;
+          } else if (model.includes('qwen')) {
+            // Qwen 3.8: reasoning via <think> tags in content stream
+            requestParams.reasoning_format = "raw";
+            requestParams.reasoning_effort = "default";
+            requestParams.max_completion_tokens = reservedTokens;
+            delete requestParams.max_tokens;
+          }
         }
 
         return await openai.chat.completions.create(requestParams);

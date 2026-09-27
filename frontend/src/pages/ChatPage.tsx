@@ -569,6 +569,10 @@ const ChatPage: React.FC = () => {
   const [autoScrollEnabled, setAutoScrollEnabled] = useState(true);
   const [showScrollButton, setShowScrollButton] = useState(false);
 
+  // Reasoning & tool execution state (for Groq GPT-OSS, Qwen, DeepSeek, etc.)
+  const [streamingReasoning, setStreamingReasoning] = useState('');
+  const [streamingExecutedTools, setStreamingExecutedTools] = useState<any[]>([]);
+
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
@@ -983,10 +987,15 @@ const ChatPage: React.FC = () => {
     const abortController = new AbortController();
     abortControllerRef.current = abortController;
 
+    const generationStartTime = Date.now();
     setIsStreamFinished(false);
     isStreamFinishedRef.current = false;
     displayedMessageLengthRef.current = 0;
+    setStreamingReasoning('');
+    setStreamingExecutedTools([]);
     let assistantMessage = '';
+    let accumulatedReasoning = '';
+    let accumulatedTools: any[] = [];
     let isStreamFinishedLocal = false;
     let isSaved = false;
     let responseStatus: number | null = null;
@@ -1198,6 +1207,46 @@ const ChatPage: React.FC = () => {
                   fullContentRef.current = assistantMessage;
                   setStreamingMessage(assistantMessage);
                 }
+              } else if (data.reasoning) {
+                // Reasoning tokens from Groq GPT-OSS (include_reasoning: true)
+                accumulatedReasoning += data.reasoning;
+                if (streamingIdRef.current === currentConvId) {
+                  setStreamingReasoning(accumulatedReasoning);
+                }
+              } else if (data.executed_tools) {
+                // Built-in tool execution metadata (browser_search, code_interpreter)
+                data.executed_tools.forEach((et: any) => {
+                  const existingToolIdx = accumulatedTools.findIndex(t => t.index === et.index);
+                  if (existingToolIdx !== -1) {
+                    accumulatedTools[existingToolIdx] = { ...accumulatedTools[existingToolIdx], ...et };
+                  } else {
+                    accumulatedTools.push(et);
+                  }
+                });
+
+                if (streamingIdRef.current === currentConvId) {
+                  setStreamingExecutedTools([...accumulatedTools]);
+                }
+              } else if (data.tool_calls) {
+                // Standard OpenAI streaming tool calls 
+                data.tool_calls.forEach((tc: any) => {
+                  const existingTool = accumulatedTools.find(t => t.index === tc.index);
+                  if (existingTool) {
+                    if (tc.function?.arguments) {
+                      existingTool.input += tc.function.arguments;
+                    }
+                  } else {
+                    accumulatedTools.push({
+                      index: tc.index,
+                      type: tc.function?.name || 'tool',
+                      input: tc.function?.arguments || '',
+                      output: ''
+                    });
+                  }
+                });
+                if (streamingIdRef.current === currentConvId) {
+                  setStreamingExecutedTools([...accumulatedTools]);
+                }
               } else if (data.status) {
                 if (streamingIdRef.current === currentConvId) {
                   setStreamingStatus(data.status);
@@ -1222,6 +1271,16 @@ const ChatPage: React.FC = () => {
         isSaved = true;
         const finalContent = assistantMessage.trim() || "😓🫠";
 
+        // Extract <think> tag content from the raw message (Qwen/DeepSeek/NVIDIA raw reasoning)
+        let thinkingContent = '';
+        const thinkMatch = finalContent.match(/<(think|thinking)>([\s\S]*?)<\/\1>/i);
+        if (thinkMatch) {
+          thinkingContent = thinkMatch[2].trim();
+        }
+
+        // Combine: backend `reasoning` field (GPT-OSS parsed) + extracted <think> tags
+        const finalReasoning = (accumulatedReasoning + (thinkingContent ? '\n' + thinkingContent : '')).trim();
+
         // Wait for typewriter to fully catch up before saving to prevent content jump/flash
         // Only wait if we are still looking at the same conversation
         let waitCount = 0;
@@ -1242,13 +1301,20 @@ const ChatPage: React.FC = () => {
           setDisplayedStreamingMessage('');
           fullContentRef.current = '';
           setStreamingStatus(null);
+          setStreamingReasoning('');
+          setStreamingExecutedTools([]);
           streamingIdRef.current = null;
         }
 
         // Add to store with the same optimistic ID used for streaming
+        // Include reasoning and tool execution metadata when available
+        const durationSeconds = Math.floor((Date.now() - generationStartTime) / 1000);
         await addMessage(currentConvId, 'assistant', finalContent, {
           optimisticId: assistantOptimisticId,
-          mode: 'text'
+          mode: 'text',
+          durationSeconds,
+          ...(finalReasoning ? { reasoning: finalReasoning } : {}),
+          ...(accumulatedTools.length > 0 ? { executed_tools: accumulatedTools } : {}),
         });
 
         // Update usage indicator — only for chat mode
@@ -1502,7 +1568,9 @@ const ChatPage: React.FC = () => {
                       content: `${filteredStreamingMessage} `,
                       metadata: {
                         mode: 'text',
-                        optimisticId: streamingOptimisticIdRef.current
+                        optimisticId: streamingOptimisticIdRef.current,
+                        ...(streamingReasoning ? { reasoning: streamingReasoning } : {}),
+                        ...(streamingExecutedTools.length > 0 ? { executed_tools: streamingExecutedTools } : {}),
                       }
                     }}
                     streamingStatus={streamingStatus}

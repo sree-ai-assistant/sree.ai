@@ -654,7 +654,29 @@ router.post('/chat', flexAuthMiddleware, abuseDetectionMiddleware(), queuePriori
         let contentSent = false;
         try {
           for await (const chunk of stream) {
-            const content = chunk.choices[0]?.delta?.content || '';
+            const delta = chunk.choices?.[0]?.delta as any;
+            const content = delta?.content || '';
+
+            // Forward reasoning tokens (Groq GPT-OSS `include_reasoning: true` → delta.reasoning)
+            const reasoning = delta?.reasoning || '';
+            if (reasoning) {
+              writeSSE({ reasoning });
+            }
+
+            // Capture standard OpenAI-style tool calls (if streaming functions/tools)
+            const toolCalls = delta?.tool_calls;
+            if (toolCalls && toolCalls.length > 0) {
+              writeSSE({ tool_calls: toolCalls });
+            }
+
+            // Forward tool execution annotations from Groq built-in tools
+            const xGroq = (chunk as any).x_groq;
+            const msg = chunk.choices?.[0]?.message as any;
+            const executedTools = delta?.executed_tools || msg?.executed_tools || (chunk as any).message?.executed_tools || xGroq?.executed_tools || (chunk as any).executed_tools;
+            if (executedTools) {
+              writeSSE({ executed_tools: executedTools });
+            }
+
             if (content) {
               contentSent = true;
               writeSSE({ content });
@@ -746,7 +768,7 @@ router.post('/chat', flexAuthMiddleware, abuseDetectionMiddleware(), queuePriori
         statusCode: resolvedStatusCode,
       });
     } else {
-      writeSSE({ 
+      writeSSE({
         error: error.message || 'AI generation failed',
         code: resolvedCode,
         statusCode: resolvedStatusCode,

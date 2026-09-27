@@ -100,3 +100,35 @@ INSERT INTO public.ai_models (
   262144, 1000000, FALSE, TRUE, 2, TRUE, FALSE
 ) ON CONFLICT (model_id) DO UPDATE SET
   name = EXCLUDED.name, provider = EXCLUDED.provider, tier_required = EXCLUDED.tier_required, is_vision = EXCLUDED.is_vision, description = EXCLUDED.description, max_tokens = EXCLUDED.max_tokens, context_window = EXCLUDED.context_window, in_maintenance = EXCLUDED.in_maintenance, is_fast = EXCLUDED.is_fast, img_no_can_process = EXCLUDED.img_no_can_process, is_new = EXCLUDED.is_new, is_image = EXCLUDED.is_image;
+
+-- 11. Groq Models (Qwen & GPT-OSS)
+INSERT INTO public.ai_models (
+  model_id, name, provider, tier_required, is_vision, description, max_tokens, context_window, in_maintenance, is_fast, img_no_can_process, is_new, is_image
+) VALUES 
+(
+  'qwen/qwen3.8-27b', 'Qwen 3.8 27B', 'groq', 'starter', TRUE,
+  '27B parameter multimodal model, reasoning, and long-horizon task performance.',
+  16384, 131072, FALSE, TRUE, 3, TRUE, FALSE
+),
+(
+  'groq-openai/gpt-oss-20b', 'GPT OSS 20B (Groq)', 'groq', 'starter', FALSE,
+  'OpenAI compact open-weight MoE model with 20B total parameters. Groq accelerated.',
+  65536, 131072, FALSE, TRUE, 0, TRUE, FALSE
+),
+(
+  'groq-openai/gpt-oss-120b', 'GPT OSS 120B (Groq)', 'groq', 'pro', FALSE,
+  'OpenAIs flagship open-weight MoE model with 120B total parameters. Groq accelerated.',
+  65536, 131072, FALSE, FALSE, 0, TRUE, FALSE
+),
+(
+  'nvidia-openai/gpt-oss-20b', 'GPT OSS 20B (Nvidia)', 'nvidia', 'starter', FALSE,
+  'OpenAI compact open-weight MoE model with 20B total parameters. Nvidia accelerated.',
+  65536, 131072, FALSE, TRUE, 0, TRUE, FALSE
+),
+(
+  'nvidia-openai/gpt-oss-120b', 'GPT OSS 120B (Nvidia)', 'nvidia', 'pro', FALSE,
+  'OpenAIs flagship open-weight MoE model with 120B total parameters. Nvidia accelerated.',
+  65536, 131072, FALSE, FALSE, 0, TRUE, FALSE
+)
+ON CONFLICT (model_id) DO UPDATE SET
+  name = EXCLUDED.name, provider = EXCLUDED.provider, tier_required = EXCLUDED.tier_required, is_vision = EXCLUDED.is_vision, description = EXCLUDED.description, max_tokens = EXCLUDED.max_tokens, context_window = EXCLUDED.context_window, in_maintenance = EXCLUDED.in_maintenance, is_fast = EXCLUDED.is_fast, img_no_can_process = EXCLUDED.img_no_can_process, is_new = EXCLUDED.is_new, is_image = EXCLUDED.is_image;

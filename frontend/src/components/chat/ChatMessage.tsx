@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Bot, User, AlertCircle, RefreshCw, Copy, Check, Volume2, VolumeX, Play, Pause, Loader2, Bug } from 'lucide-react';
+import { Bot, User, AlertCircle, RefreshCw, Copy, Check, Volume2, VolumeX, Play, Pause, Loader2, Bug, Brain, Wrench, ChevronDown, ChevronRight, Globe, Code2, Clock } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import styles from '../../pages/ChatPage.module.css';
@@ -23,7 +23,43 @@ interface ChatMessageProps {
   onStopTts?: () => void;
 }
 
-const ChatMessageComponent: React.FC<ChatMessageProps> = ({
+/** Extract <think>/<thinking> content from raw message for display */
+const extractThinkingContent = (content: string): string => {
+  if (!content || typeof content !== 'string') return '';
+  const match = content.match(/<(think|thinking)>([\s\S]*?)(?:<\/\1>|$)/i);
+  return match ? match[2].trim() : '';
+};
+
+/** Format tool name for display */
+const formatToolName = (type: string): string => {
+  switch (type) {
+    case 'browser_search':
+    case 'browser.search': return 'Searched the Web';
+    case 'code_interpreter': return 'Executed Python Code';
+    case 'visit_website':
+    case 'browser.open': return 'Visited Website';
+    case 'web_search': return 'Web Search';
+    default: return type.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+  }
+};
+
+/** Get icon for tool type */
+const getToolIcon = (type: string) => {
+  switch (type) {
+    case 'browser_search':
+    case 'browser.search':
+    case 'web_search':
+    case 'visit_website':
+    case 'browser.open':
+      return <Globe size={13} />;
+    case 'code_interpreter':
+      return <Code2 size={13} />;
+    default:
+      return <Wrench size={13} />;
+  }
+};
+
+export const ChatMessageComponent: React.FC<ChatMessageProps> = ({
   message: m,
   index: i,
   markdownComponents,
@@ -40,8 +76,52 @@ const ChatMessageComponent: React.FC<ChatMessageProps> = ({
   const navigate = useNavigate();
   const { messages, activeConversation } = useChatStore();
   const [copied, setCopied] = useState(false);
+  const [reasoningOpen, setReasoningOpen] = useState(false);
+  const [elapsedSeconds, setElapsedSeconds] = useState(0);
+
   const messageId = m.id || `msg_${i}`;
   const isPlayingThisTts = activeTtsMessageId === messageId;
+
+  // Resolve reasoning: from metadata (saved) or inline <think> tags
+  const reasoning = useMemo(() => {
+    if (m.metadata?.reasoning) return m.metadata.reasoning;
+    if (m.role === 'assistant' && m.content) return extractThinkingContent(m.content);
+    return '';
+  }, [m.metadata?.reasoning, m.content, m.role]);
+
+  // Resolve executed tools from metadata 
+  const executedTools: any[] = m.metadata?.executed_tools || [];
+  const hasReasoningBlock = reasoning || executedTools.length > 0;
+
+  // Live timer effect for streaming
+  useEffect(() => {
+    let interval: any;
+    if (isStreaming) {
+      interval = setInterval(() => {
+        setElapsedSeconds((prev) => prev + 1);
+      }, 1000);
+    }
+    return () => clearInterval(interval);
+  }, [isStreaming]);
+
+  // Final saved duration fallback if stream ended
+  const savedDuration = m.metadata?.durationSeconds || elapsedSeconds;
+
+  // Auto-expand/collapse reasoning
+  useEffect(() => {
+    if (isStreaming && hasReasoningBlock) {
+      setReasoningOpen(true);
+    } else if (!isStreaming) {
+      setReasoningOpen(false);
+    }
+  }, [isStreaming, hasReasoningBlock ? true : false]);
+
+  const formatTimer = (seconds: number) => {
+    if (seconds < 60) return `${seconds}s`;
+    const m = Math.floor(seconds / 60);
+    const s = seconds % 60;
+    return `${m}m ${s}s`;
+  };
 
   const handleReportBug = () => {
     const errorText = m.content || m.metadata?.originalError || 'Chat request failed';
@@ -104,13 +184,63 @@ const ChatMessageComponent: React.FC<ChatMessageProps> = ({
           className={styles.markdown}
           style={m.metadata?.mode === 'voice' ? { fontStyle: 'italic' } : {}}
         >
-          {isStreaming && (!m.content || !m.content.trim()) ? (
+          {isStreaming && (!m.content || !m.content.trim()) && !hasReasoningBlock ? (
             <ThinkingAnimation status={streamingStatus} isVideo={isProcessingVideo} />
           ) : (
             <>
               {m.metadata?.attachments && (
                 <MessageAttachment attachments={m.metadata.attachments} />
               )}
+
+              {/* ─── Perplexity-Style Unified Reasoning Section ─── */}
+              {m.role === 'assistant' && hasReasoningBlock && (
+                <div className={styles.reasoningSection}>
+                  <button
+                    className={styles.collapsibleHeader}
+                    onClick={() => setReasoningOpen(!reasoningOpen)}
+                  >
+                    <Clock size={13} className={styles.collapsibleIcon} style={{ color: 'var(--text-secondary)' }} />
+                    <span className={styles.collapsibleLabel} style={{ fontWeight: 500, fontSize: '0.75rem', opacity: 0.9 }}>
+                      {isStreaming ? `Thinking · ${formatTimer(elapsedSeconds)}` : `Thought for ${formatTimer(savedDuration)}`}
+                    </span>
+                    {reasoningOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                  </button>
+
+                  {reasoningOpen && (
+                    <div className={styles.collapsibleContent}>
+                      {reasoning && (
+                        <div className={styles.reasoningText}>
+                          <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
+                            {reasoning}
+                          </ReactMarkdown>
+                        </div>
+                      )}
+
+                      {executedTools.map((tool: any, idx: number) => {
+                        const toolName = tool.name || tool.type || tool;
+                        const toolInput = tool.input || tool.arguments || tool.results?.code;
+                        const toolOutput = tool.output || tool.results?.output;
+
+                        return (
+                          <div key={idx} className={styles.toolEntry} style={{ marginTop: reasoning && idx === 0 ? '12px' : '0' }}>
+                            <div className={styles.toolEntryHeader}>
+                              {getToolIcon(toolName)}
+                              <span>{formatToolName(toolName)}</span>
+                            </div>
+                            {toolInput && (
+                              <pre className={styles.toolCode}>{typeof toolInput === 'string' ? toolInput : JSON.stringify(toolInput, null, 2)}</pre>
+                            )}
+                            {toolOutput && (
+                              <pre className={styles.toolOutput}>{typeof toolOutput === 'string' ? toolOutput.slice(0, 2000) : JSON.stringify(toolOutput, null, 2).slice(0, 2000)}</pre>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              )}
+
               {m.role === 'assistant' && m.metadata?.error ? (
                 <div className={styles.errorBubbleContent}>
                   <div className={styles.errorHeader}>
