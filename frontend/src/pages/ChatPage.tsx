@@ -11,7 +11,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { getOrCreateAnonymousIdentity, getStoredAnonId, generateFingerprintHash } from '../lib/fingerprint';
 import styles from './ChatPage.module.css';
 import { VoiceOverlay } from '../components/voice/VoiceOverlay';
-import { ChatInput } from '../components/chat/ChatInput';
+import { ChatInput, type Attachment } from '../components/chat/ChatInput';
 import { ModelSelector } from '../components/chat/ModelSelector';
 import { useModelStore } from '../store/model.store';
 import { useLocation } from 'react-router-dom';
@@ -565,7 +565,7 @@ const ChatPage: React.FC = () => {
   const [streamingStatus, setStreamingStatus] = useState<string | null>(null);
   const [isStreamFinished, setIsStreamFinished] = useState(false);
   const [isProcessingVideo, setIsProcessingVideo] = useState(false);
-  const [attachments, setAttachments] = useState<any[]>([]);
+  const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [autoScrollEnabled, setAutoScrollEnabled] = useState(true);
   const [showScrollButton, setShowScrollButton] = useState(false);
 
@@ -878,12 +878,13 @@ const ChatPage: React.FC = () => {
     let hasRetried = false;
     if (lockTimeRemaining > 0) return;
 
-    const currentAttachments = isRetry ? retryAttachments : [...attachments];
+    const currentAttachments = (isRetry || retryAttachments.length > 0) ? retryAttachments : [...attachments];
 
     if (currentAttachments.some(a => a.isUploading)) return;
 
     const messageContent = text || '';
-    if (!messageContent.trim() && currentAttachments.length === 0) return;
+    const validAttachments = currentAttachments.filter(a => !a.hasFailed && (a.url || a.extractedText));
+    if (!messageContent.trim() && validAttachments.length === 0) return;
 
     let anonId = getStoredAnonId();
     if (!user?.id && !anonId) {
@@ -903,7 +904,11 @@ const ChatPage: React.FC = () => {
     fullContentRef.current = '';
     setAutoScrollEnabled(true);
     if (!isRetry) setStreamingStatus(null);
-    setAttachments([]); // Clear attachments immediately
+    if (!isRetry) {
+      // Keep failed attachments in the input bar so user can retry or remove them manually
+      const failedAttachments = currentAttachments.filter(a => a.hasFailed);
+      setAttachments(failedAttachments);
+    }
 
     // Initialize streaming refs early to prevent UI reset on navigation
     streamingOptimisticIdRef.current = assistantOptimisticId;
@@ -936,7 +941,7 @@ const ChatPage: React.FC = () => {
         metadata: {
           mode: 'text',
           optimisticId: userOptimisticId,
-          attachments: currentAttachments.map(a => ({ name: a.file?.name || a.name, type: a.type, url: a.url, extractedText: a.extractedText }))
+          attachments: validAttachments.map(a => ({ name: a.file?.name || a.name, type: a.type, url: a.url, extractedText: a.extractedText }))
         },
         created_at: new Date().toISOString()
       };
@@ -972,7 +977,7 @@ const ChatPage: React.FC = () => {
       userMsg = await addMessage(currentConvId!, 'user', messageContent, {
         optimisticId: userOptimisticId,
         mode: 'text',
-        attachments: currentAttachments.map(a => ({ name: a.file?.name || a.name, type: a.type, url: a.url, extractedText: a.extractedText }))
+        attachments: validAttachments.map(a => ({ name: a.file?.name || a.name, type: a.type, url: a.url, extractedText: a.extractedText }))
       });
     } else {
       userMsg = useChatStore.getState().messages.filter(m => m.role === 'user').pop();
@@ -983,7 +988,7 @@ const ChatPage: React.FC = () => {
       return;
     }
 
-    setIsProcessingVideo(currentAttachments.some(a => a.type === 'video'));
+    setIsProcessingVideo(validAttachments.some(a => a.type === 'video'));
     const abortController = new AbortController();
     abortControllerRef.current = abortController;
 
@@ -1060,7 +1065,7 @@ const ChatPage: React.FC = () => {
         body: JSON.stringify({
           messages: finalMessagesForRequest,
           model: selectedModel?.model_id,
-          attachments: currentAttachments.map(a => ({ name: a.file?.name || a.name, type: a.type, url: a.url, extractedText: a.extractedText })),
+          attachments: validAttachments.map(a => ({ name: a.file?.name || a.name, type: a.type, url: a.url, extractedText: a.extractedText })),
           messageId: userMsg?.id,
           conversationId: currentConvId,
           mode: isVoiceRoute ? 'voice' : 'chat'
@@ -1361,7 +1366,7 @@ const ChatPage: React.FC = () => {
 
         if (isEntityTooLarge) {
           // Trigger the retry API call immediately in parallel (background)
-          const retryPromise = handleSend(text, true, currentAttachments, autoRetryCount + 1);
+          const retryPromise = handleSend(text, true, validAttachments, autoRetryCount + 1);
 
           setStreamingStatus('Just a Moment');
           await new Promise(r => setTimeout(r, 5000));
@@ -1379,7 +1384,7 @@ const ChatPage: React.FC = () => {
           return retryPromise;
         } else {
           // Trigger the retry API call immediately in parallel (background)
-          const retryPromise = handleSend(text, true, currentAttachments, autoRetryCount + 1);
+          const retryPromise = handleSend(text, true, validAttachments, autoRetryCount + 1);
 
           setStreamingStatus('Retrying with optimized context...');
           await new Promise(r => setTimeout(r, 1500));

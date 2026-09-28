@@ -218,81 +218,224 @@
   padding: 0 4px;
 }
 
+.attachmentsWrapper {
+  position: relative;
+  width: 100%;
+  max-width: 100%;
+}
+
 .attachmentsList {
   display: flex;
   flex-wrap: nowrap;
   overflow-x: auto;
   gap: 12px;
-  padding: 8px;
+  padding: 8px 12px;
   scrollbar-width: none;
+  -ms-overflow-style: none;
+  scroll-behavior: smooth;
 }
 
 .attachmentsList::-webkit-scrollbar {
   display: none;
 }
 
+.isGrabbable .attachmentsList {
+  cursor: grab;
+}
+
+.isDragging,
+.isDragging * {
+  cursor: grabbing !important;
+  user-select: none !important;
+  -webkit-user-select: none !important;
+}
+
+.isDragging .attachmentsList {
+  scroll-behavior: auto !important;
+}
+
+.attachmentsNavEdge {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 40px;
+  display: flex;
+  align-items: center;
+  z-index: 10;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.attachmentsNavEdgeLeft {
+  left: 0;
+  justify-content: flex-start;
+  padding-left: 6px;
+  background: linear-gradient(to right, rgba(18, 18, 24, 0.95) 0%, rgba(18, 18, 24, 0.6) 60%, transparent 100%);
+  border-top-left-radius: 14px;
+}
+
+.attachmentsNavEdgeRight {
+  right: 0;
+  justify-content: flex-end;
+  padding-right: 6px;
+  background: linear-gradient(to left, rgba(18, 18, 24, 0.95) 0%, rgba(18, 18, 24, 0.6) 60%, transparent 100%);
+  border-top-right-radius: 14px;
+}
+
+.attachmentsNavEdgeVisible {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.attachmentsNavArrowBtn {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: rgba(30, 35, 45, 0.9);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(8px);
+  transition: all 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+  flex-shrink: 0;
+}
+
+.attachmentsNavArrowBtn:hover {
+  background: rgba(255, 255, 255, 0.25);
+  border-color: rgba(255, 255, 255, 0.4);
+  transform: scale(1.1);
+}
+
+.attachmentsNavArrowBtn:active {
+  transform: scale(0.92);
+}
+
 .attachmentCard {
   display: flex;
   align-items: center;
-  background: rgba(40, 40, 40, 0.5);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(30, 35, 45, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 14px;
   padding: 8px 12px;
   gap: 12px;
   min-width: 200px;
   max-width: 280px;
   position: relative;
-  transition: transform 0.2s ease;
+  overflow: hidden;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  backdrop-filter: blur(8px);
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.cardUploading {
+  /* border-color: rgba(255, 255, 255, 0.16) !important; */
+  border-color: #A3A3A3 !important;
+  background: rgba(255, 255, 255, 0.05) !important;
+}
+
+.cardFailed {
+  border-color: rgba(239, 68, 68, 0.45) !important;
+  background: rgba(239, 68, 68, 0.06) !important;
 }
 
 .cardIcon {
   width: 36px;
   height: 36px;
-  background: rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 8px;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: white;
+  color: #94a3b8;
   flex-shrink: 0;
-  transition: all 0.3s ease;
+  position: relative;
+  transition: all 0.2s ease;
 }
 
-.uploading {
-  background: #ff4757 !important;
+.uploadingIcon {
+  background: rgba(255, 255, 255, 0.04) !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
 }
 
-.progressRing {
-  width: 20px;
-  height: 20px;
-  animation: rotateRing 1s linear infinite;
+.cardIconFailed {
+  background: rgba(239, 68, 68, 0.12) !important;
+  color: #ef4444 !important;
+  border: 1px solid rgba(239, 68, 68, 0.3) !important;
 }
 
-.progressRing svg {
+.progressRingWrapper {
+  position: relative;
+  width: 22px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.progressSvg {
   width: 100%;
   height: 100%;
   transform: rotate(-90deg);
+  /* Fixed start at top (12 o'clock) */
+  transform-origin: center;
+  display: block;
 }
 
-.progressRing circle {
-  stroke-dasharray: 62.8;
-  stroke-dashoffset: 20;
+.progressTrack {
+  fill: none;
+  stroke: rgba(255, 255, 255, 0.12);
+  stroke-width: 2.2;
 }
 
-@keyframes rotateRing {
-  from {
-    transform: rotate(0deg);
-  }
+.progressBar {
+  fill: none;
+  stroke: #3b82f6;
+  stroke: white !important;
+  /*  */
+  stroke-width: 2.2;
+  stroke-linecap: round;
+  transition: stroke-dashoffset 0.15s ease-out;
+}
 
-  to {
-    transform: rotate(360deg);
-  }
+.retryIconBtn {
+  width: 100%;
+  height: 100%;
+  background: transparent;
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #ef4444;
+  cursor: pointer;
+  border-radius: 8px;
+  padding: 0;
+  transition: transform 0.2s ease, background 0.2s ease;
+}
+
+.retryIconBtn:hover {
+  background: rgba(239, 68, 68, 0.25);
+}
+
+.retryRotateIcon {
+  transition: transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.retryIconBtn:hover .retryRotateIcon {
+  transform: rotate(-180deg);
 }
 
 .cardInfo {
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  flex: 1;
 }
 
 .cardFileName {
@@ -309,6 +452,33 @@
   color: rgba(255, 255, 255, 0.5);
 }
 
+.cardUploadingText {
+  font-size: 0.72rem;
+  color: #94a3b8;
+  font-weight: 400;
+}
+
+.cardFailedTextBtn {
+  background: transparent;
+  border: none;
+  padding: 0;
+  font-size: 0.72rem;
+  color: #ef4444;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  transition: color 0.15s ease;
+  width: fit-content;
+}
+
+.cardFailedTextBtn:hover {
+  color: #f87171;
+}
+
 .cardRemoveBtn {
   position: absolute;
   top: 4px;
@@ -320,6 +490,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
+  z-index: 2;
 }
 
 .xCircle {

@@ -1,4 +1,4 @@
-import { supabase } from '../lib/supabase';
+import api from '../lib/api';
 
 export interface UploadResponse {
   success: boolean;
@@ -6,37 +6,42 @@ export interface UploadResponse {
   message?: string;
 }
 
-export const uploadFile = async (file: File): Promise<UploadResponse> => {
+export const uploadFile = async (
+  file: File,
+  onProgress?: (percent: number) => void
+): Promise<UploadResponse> => {
   try {
-    let session = null;
-    try {
-      const { data } = await Promise.race([
-        supabase.auth.getSession(),
-        new Promise<any>((_, reject) => setTimeout(() => reject(new Error('Session fetch timeout')), 3000))
-      ]);
-      session = data?.session;
-    } catch (e) {
-      console.warn('Storage upload session fetch timeout');
-    }
-    
     const formData = new FormData();
     formData.append('file', file);
 
-    const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000/api'}/ai/upload`, {
-      method: 'POST',
+    const response = await api.post('/ai/upload', formData, {
       headers: {
-        'Authorization': `Bearer ${session?.access_token}`,
+        'Content-Type': 'multipart/form-data',
       },
-      body: formData,
+      onUploadProgress: (progressEvent) => {
+        if (progressEvent.total && onProgress) {
+          const percent = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+          // Keep at max 99% until server returns final 200 response
+          onProgress(Math.min(99, Math.max(0, percent)));
+        }
+      },
     });
 
-    const data = await response.json();
-    return data;
-  } catch (error) {
+    if (onProgress) {
+      onProgress(100);
+    }
+
+    return response.data;
+  } catch (error: any) {
     console.error('File Upload API Error:', error);
+    const serverMessage =
+      error.response?.data?.message ||
+      error.message ||
+      'Upload failed. Please try again.';
     return {
       success: false,
-      message: 'Network error or server unavailable',
+      message: serverMessage,
     };
   }
 };
+

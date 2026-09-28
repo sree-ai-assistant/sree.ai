@@ -1,5 +1,5 @@
 import React, { useRef, useState } from 'react';
-import { Plus, Mic, ArrowUp, X, FileText, Table, Music, Video, Image as ImageIcon, AudioLines, Check, Trash2, Loader2 } from 'lucide-react';
+import { Plus, Mic, ArrowUp, X, FileText, Table, Music, Video, Image as ImageIcon, AudioLines, Check, Trash2, Loader2, RotateCcw, ChevronLeft, ChevronRight } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { motion, AnimatePresence } from 'framer-motion';
 import styles from './ChatInput.module.css';
@@ -12,11 +12,15 @@ import { useUploadAgreementStore } from '../../store/upload-agreement.store';
 import { WaveformVoiceIcon } from '../icons/WaveformVoiceIcon';
 
 export interface Attachment {
+  id: string;
   file: File;
   preview: string;
   url?: string;
   type: 'image' | 'document' | 'audio' | 'video';
   isUploading?: boolean;
+  progress?: number;
+  hasFailed?: boolean;
+  errorMessage?: string;
   extractedText?: string;
 }
 
@@ -43,6 +47,7 @@ const ImageThumb: React.FC<{ src: string; onClick: () => void }> = ({ src, onCli
       className={styles.imageThumb}
       onClick={onClick}
       onError={() => setHasError(true)}
+      draggable={false}
     />
   );
 };
@@ -164,6 +169,175 @@ const VoiceWaveformTrace: React.FC<{ stream: MediaStream | null; isPaused: boole
   }, [stream, isPaused]);
 
   return <canvas ref={canvasRef} style={{ width: '100%', height: '100%', display: 'block' }} />;
+};
+
+const AttachmentScrollableRow: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const [canScrollLeft, setCanScrollLeft] = useState(false);
+  const [canScrollRight, setCanScrollRight] = useState(false);
+  const [isHovered, setIsHovered] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
+
+  const isDownRef = useRef(false);
+  const startXRef = useRef(0);
+  const startScrollLeftRef = useRef(0);
+  const hasDraggedRef = useRef(false);
+
+  const checkScroll = React.useCallback(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const { scrollLeft, scrollWidth, clientWidth } = el;
+    setCanScrollLeft(scrollLeft > 6);
+    setCanScrollRight(scrollLeft + clientWidth < scrollWidth - 6);
+  }, []);
+
+  React.useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+
+    checkScroll();
+
+    const handleScroll = () => {
+      checkScroll();
+    };
+
+    el.addEventListener('scroll', handleScroll, { passive: true });
+
+    const observer = new ResizeObserver(() => {
+      checkScroll();
+    });
+    observer.observe(el);
+
+    const handleGlobalMouseMove = (e: MouseEvent) => {
+      if (!isDownRef.current || !containerRef.current) return;
+      const deltaX = e.pageX - startXRef.current;
+      if (Math.abs(deltaX) > 4) {
+        hasDraggedRef.current = true;
+        setIsDragging(true);
+      }
+      if (hasDraggedRef.current) {
+        containerRef.current.scrollLeft = startScrollLeftRef.current - deltaX;
+        checkScroll();
+      }
+    };
+
+    const handleGlobalMouseUp = () => {
+      if (!isDownRef.current) return;
+      isDownRef.current = false;
+      setIsDragging(false);
+      setTimeout(() => {
+        hasDraggedRef.current = false;
+      }, 60);
+    };
+
+    window.addEventListener('mousemove', handleGlobalMouseMove);
+    window.addEventListener('mouseup', handleGlobalMouseUp);
+
+    return () => {
+      el.removeEventListener('scroll', handleScroll);
+      observer.disconnect();
+      window.removeEventListener('mousemove', handleGlobalMouseMove);
+      window.removeEventListener('mouseup', handleGlobalMouseUp);
+    };
+  }, [checkScroll]);
+
+  const handleMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
+    const el = containerRef.current;
+    if (!el) return;
+    if (e.button !== 0) return; // Only primary mouse button
+
+    const target = e.target as HTMLElement;
+    if (target.closest('button, input, textarea')) {
+      return;
+    }
+
+    isDownRef.current = true;
+    startXRef.current = e.pageX;
+    startScrollLeftRef.current = el.scrollLeft;
+    hasDraggedRef.current = false;
+  };
+
+  const handleClickCapture = (e: React.MouseEvent) => {
+    if (hasDraggedRef.current) {
+      e.stopPropagation();
+      e.preventDefault();
+    }
+  };
+
+  const handleWheel = (e: React.WheelEvent<HTMLDivElement>) => {
+    const el = containerRef.current;
+    if (!el) return;
+    if (el.scrollWidth > el.clientWidth) {
+      if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) {
+        el.scrollLeft += e.deltaY;
+        checkScroll();
+      }
+    }
+  };
+
+  const scrollBy = (offset: number) => {
+    if (containerRef.current) {
+      containerRef.current.scrollBy({ left: offset, behavior: 'smooth' });
+      setTimeout(checkScroll, 250);
+    }
+  };
+
+  const isOverflowing = canScrollLeft || canScrollRight;
+  const showLeft = isHovered && canScrollLeft;
+  const showRight = isHovered && canScrollRight;
+
+  return (
+    <div
+      className={`${styles.attachmentsWrapper} ${isOverflowing ? styles.isGrabbable : ''} ${isDragging ? styles.isDragging : ''}`}
+      onMouseEnter={() => {
+        setIsHovered(true);
+        checkScroll();
+      }}
+      onMouseLeave={() => setIsHovered(false)}
+    >
+      <div className={`${styles.attachmentsNavEdge} ${styles.attachmentsNavEdgeLeft} ${showLeft ? styles.attachmentsNavEdgeVisible : ''}`}>
+        <button
+          type="button"
+          className={styles.attachmentsNavArrowBtn}
+          onClick={(e) => {
+            e.stopPropagation();
+            scrollBy(-240);
+          }}
+          title="Scroll left"
+          aria-label="Scroll left"
+          tabIndex={showLeft ? 0 : -1}
+        >
+          <ChevronLeft size={14} strokeWidth={2.5} />
+        </button>
+      </div>
+
+      <div
+        ref={containerRef}
+        className={styles.attachmentsList}
+        onWheel={handleWheel}
+        onMouseDown={handleMouseDown}
+        onClickCapture={handleClickCapture}
+      >
+        {children}
+      </div>
+
+      <div className={`${styles.attachmentsNavEdge} ${styles.attachmentsNavEdgeRight} ${showRight ? styles.attachmentsNavEdgeVisible : ''}`}>
+        <button
+          type="button"
+          className={styles.attachmentsNavArrowBtn}
+          onClick={(e) => {
+            e.stopPropagation();
+            scrollBy(240);
+          }}
+          title="Scroll right"
+          aria-label="Scroll right"
+          tabIndex={showRight ? 0 : -1}
+        >
+          <ChevronRight size={14} strokeWidth={2.5} />
+        </button>
+      </div>
+    </div>
+  );
 };
 
 export const ChatInput: React.FC<ChatInputProps> = ({
@@ -426,11 +600,12 @@ export const ChatInput: React.FC<ChatInputProps> = ({
     if (isGenerating) {
       onStop?.();
     } else {
-      // Prevent sending if any file is still uploading
+      // Prevent sending if any file is still actively uploading
       const isUploading = attachments.some(a => a.isUploading);
       if (isUploading) return;
 
-      if (internalValue.trim() || attachments.length > 0) {
+      const validAttachments = attachments.filter(a => !a.hasFailed && (a.url || a.extractedText));
+      if (internalValue.trim() || validAttachments.length > 0) {
         onSend(internalValue);
         setInternalValue(''); // Clear local state after sending
       }
@@ -598,10 +773,13 @@ export const ChatInput: React.FC<ChatInputProps> = ({
       else if (isVideo) type = 'video';
 
       return {
+        id: `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
         file,
         preview: isImage ? URL.createObjectURL(file) : '',
         type,
         isUploading: true,
+        progress: 0,
+        hasFailed: false,
         extractedText: extractedText || undefined
       };
     }));
@@ -609,30 +787,122 @@ export const ChatInput: React.FC<ChatInputProps> = ({
     const updated = [...attachments, ...newAttachments];
     onAttachmentsChange(updated);
 
-    newAttachments.forEach(async (atl, idx) => {
-      const globalIdx = attachments.length + idx;
-
-      const result = await uploadFile(atl.file);
-
-      onAttachmentsChange(prev => {
-        const next = [...prev];
-        if (next[globalIdx]) {
-          next[globalIdx] = {
-            ...next[globalIdx],
-            isUploading: false,
-            url: result.success ? result.url : undefined
-          };
-        }
-        return next;
-      });
+    newAttachments.forEach((atl) => {
+      handleUploadSingleAttachment(atl.id, atl.file);
     });
 
     if (fileInputRef.current) fileInputRef.current.value = '';
     if (imageInputRef.current) imageInputRef.current.value = '';
   };
 
-  const removeAttachment = (index: number) => {
-    const updated = attachments.filter((_, i) => i !== index);
+  const handleUploadSingleAttachment = async (attachmentId: string, file: File) => {
+    onAttachmentsChange(prev =>
+      prev.map(a =>
+        a.id === attachmentId
+          ? { ...a, isUploading: true, progress: 0, hasFailed: false, errorMessage: undefined }
+          : a
+      )
+    );
+
+    let currentProgress = 0;
+    let targetProgress = 10;
+    let isDone = false;
+
+    // Smooth progressive update so the circle fills smoothly and visibly
+    const progressTimer = setInterval(() => {
+      if (isDone) return;
+      if (currentProgress < targetProgress) {
+        currentProgress = Math.min(targetProgress, currentProgress + Math.max(1, Math.round((targetProgress - currentProgress) * 0.3)));
+        onAttachmentsChange(prev =>
+          prev.map(a =>
+            a.id === attachmentId && a.isUploading
+              ? { ...a, progress: currentProgress }
+              : a
+          )
+        );
+      } else if (currentProgress < 95) {
+        currentProgress = Math.min(95, currentProgress + 1);
+        onAttachmentsChange(prev =>
+          prev.map(a =>
+            a.id === attachmentId && a.isUploading
+              ? { ...a, progress: currentProgress }
+              : a
+          )
+        );
+      }
+    }, 60);
+
+    const startTime = Date.now();
+
+    const result = await uploadFile(file, (percent) => {
+      targetProgress = Math.max(targetProgress, Math.min(95, percent));
+    });
+
+    clearInterval(progressTimer);
+    isDone = true;
+
+    const elapsed = Date.now() - startTime;
+    if (elapsed < 350) {
+      await new Promise(r => setTimeout(r, 350 - elapsed));
+    }
+
+    if (result.success && result.url) {
+      // Show full circle (100%) briefly before resolving to uploaded asset
+      onAttachmentsChange(prev =>
+        prev.map(a =>
+          a.id === attachmentId
+            ? { ...a, progress: 100 }
+            : a
+        )
+      );
+      await new Promise(r => setTimeout(r, 200));
+
+      onAttachmentsChange(prev =>
+        prev.map(a =>
+          a.id === attachmentId
+            ? { ...a, isUploading: false, progress: 100, url: result.url, hasFailed: false, errorMessage: undefined }
+            : a
+        )
+      );
+    } else {
+      const errorReason = result.message || 'File upload failed. Please try again.';
+      onAttachmentsChange(prev =>
+        prev.map(a =>
+          a.id === attachmentId
+            ? { ...a, isUploading: false, progress: 0, hasFailed: true, errorMessage: errorReason }
+            : a
+        )
+      );
+      toast.error(`Upload failed: ${errorReason}`, {
+        duration: 5000,
+        position: 'top-right',
+        style: {
+          background: '#1e293b',
+          color: '#f87171',
+          border: '1px solid rgba(239, 68, 68, 0.35)',
+          fontSize: '13px',
+          fontWeight: '500',
+        },
+        iconTheme: {
+          primary: '#ef4444',
+          secondary: '#fff',
+        },
+      });
+    }
+  };
+
+  const handleRetry = (id: string, e?: React.MouseEvent) => {
+    e?.stopPropagation();
+    const target = attachments.find(a => a.id === id);
+    if (target && target.file) {
+      handleUploadSingleAttachment(target.id, target.file);
+    }
+  };
+
+  const removeAttachment = (idOrIndex: string | number) => {
+    const updated = typeof idOrIndex === 'string'
+      ? attachments.filter(a => a.id !== idOrIndex)
+      : attachments.filter((_, i) => i !== idOrIndex);
     onAttachmentsChange(updated);
   };
 
@@ -665,40 +935,97 @@ export const ChatInput: React.FC<ChatInputProps> = ({
         {!hasMessages && <div className={styles.neonBorder} />}
 
         {attachments.length > 0 && (
-          <div className={styles.attachmentsList}>
-            {attachments.map((atl, idx) => (
-              <div key={idx} className={styles.attachmentCard}>
-                <div className={`${styles.cardIcon} ${atl.isUploading ? styles.uploading : ''}`}>
-                  {atl.isUploading ? (
-                    <div className={styles.progressRing}>
-                      <svg viewBox="0 0 24 24">
-                        <circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" strokeWidth="3" strokeDasharray="60" strokeDashoffset="40" />
-                      </svg>
-                    </div>
-                  ) : atl.type === 'image' ? (
-                    <ImageThumb src={atl.preview} onClick={() => setPreviewImage({ url: atl.preview, name: atl.file.name })} />
-                  ) : atl.type === 'audio' ? (
-                    <Music size={18} />
-                  ) : atl.type === 'video' ? (
-                    <Video size={18} />
-                  ) : ['xlsx', 'xls', 'xlsm', 'xlsb', 'ods', 'csv', 'tsv', 'tab', 'prn'].includes(atl.file.name.split('.').pop()?.toLowerCase() || '') ? (
-                    <Table size={18} />
-                  ) : (
-                    <FileText size={18} />
-                  )}
+          <AttachmentScrollableRow>
+            {attachments.map((atl, idx) => {
+              const percentVal = Math.round(atl.progress || 0);
+              const circumference = 59.69;
+              const strokeDashoffset = Math.max(0, circumference - (circumference * percentVal) / 100);
+
+              return (
+                <div
+                  key={atl.id || idx}
+                  className={`${styles.attachmentCard} ${atl.hasFailed ? styles.cardFailed : ''} ${atl.isUploading ? styles.cardUploading : ''}`}
+                >
+                  <div
+                    className={`${styles.cardIcon} ${atl.isUploading ? styles.uploadingIcon : ''} ${atl.hasFailed ? styles.cardIconFailed : ''}`}
+                  >
+                    {atl.isUploading ? (
+                      <div className={styles.progressRingWrapper} title={`Uploading: ${percentVal}%`}>
+                        <svg className={styles.progressSvg} viewBox="0 0 24 24">
+                          <circle
+                            className={styles.progressTrack}
+                            cx="12"
+                            cy="12"
+                            r="9.5"
+                          />
+                          <circle
+                            className={styles.progressBar}
+                            cx="12"
+                            cy="12"
+                            r="9.5"
+                            style={{
+                              strokeDasharray: circumference,
+                              strokeDashoffset,
+                            }}
+                          />
+                        </svg>
+                      </div>
+                    ) : atl.hasFailed ? (
+                      <button
+                        type="button"
+                        className={styles.retryIconBtn}
+                        onClick={(e) => handleRetry(atl.id, e)}
+                        title={`Upload failed: ${atl.errorMessage || 'Click to retry'}`}
+                      >
+                        <RotateCcw size={16} className={styles.retryRotateIcon} />
+                      </button>
+                    ) : atl.type === 'image' ? (
+                      <ImageThumb src={atl.preview} onClick={() => setPreviewImage({ url: atl.preview, name: atl.file.name })} />
+                    ) : atl.type === 'audio' ? (
+                      <Music size={18} />
+                    ) : atl.type === 'video' ? (
+                      <Video size={18} />
+                    ) : ['xlsx', 'xls', 'xlsm', 'xlsb', 'ods', 'csv', 'tsv', 'tab', 'prn'].includes(atl.file.name.split('.').pop()?.toLowerCase() || '') ? (
+                      <Table size={18} />
+                    ) : (
+                      <FileText size={18} />
+                    )}
+                  </div>
+
+                  <div className={styles.cardInfo}>
+                    <span className={styles.cardFileName} title={atl.file.name}>{atl.file.name}</span>
+                    {atl.hasFailed ? (
+                      <button
+                        type="button"
+                        className={styles.cardFailedTextBtn}
+                        onClick={(e) => handleRetry(atl.id, e)}
+                        title={atl.errorMessage || 'Click to retry upload'}
+                      >
+                        Failed • Retry
+                      </button>
+                    ) : atl.isUploading ? (
+                      <span className={styles.cardUploadingText}>
+                        {percentVal >= 98 ? 'Processing...' : `Uploading ${percentVal}%`}
+                      </span>
+                    ) : (
+                      <span className={styles.cardFileType}>
+                        {atl.file.name.split('.').pop()?.toUpperCase() || 'File'}
+                      </span>
+                    )}
+                  </div>
+
+                  <button
+                    type="button"
+                    className={styles.cardRemoveBtn}
+                    onClick={() => removeAttachment(atl.id || idx)}
+                    title="Remove file"
+                  >
+                    <div className={styles.xCircle}><X size={12} /></div>
+                  </button>
                 </div>
-                <div className={styles.cardInfo}>
-                  <span className={styles.cardFileName}>{atl.file.name}</span>
-                  <span className={styles.cardFileType}>
-                    {atl.file.name.split('.').pop()?.toUpperCase() || 'File'}
-                  </span>
-                </div>
-                <button className={styles.cardRemoveBtn} onClick={() => removeAttachment(idx)}>
-                  <div className={styles.xCircle}><X size={12} /></div>
-                </button>
-              </div>
-            ))}
-          </div>
+              );
+            })}
+          </AttachmentScrollableRow>
         )}
 
         <div className={styles.inputInner}>
@@ -844,8 +1171,8 @@ export const ChatInput: React.FC<ChatInputProps> = ({
                       type="button"
                       className={`${styles.sendBtn} ${isGenerating ? styles.stopBtn : ''}`}
                       onClick={handleAction}
-                      disabled={disabled || attachments.some(a => a.isUploading) || (!isGenerating && !internalValue.trim() && attachments.length === 0)}
-                      style={disabled || attachments.some(a => a.isUploading) ? { opacity: 0.4, cursor: 'not-allowed' } : {}}
+                      disabled={disabled || attachments.some(a => a.isUploading) || (!isGenerating && !internalValue.trim() && !attachments.some(a => !a.hasFailed && (a.url || a.extractedText)))}
+                      style={disabled || attachments.some(a => a.isUploading) || (!isGenerating && !internalValue.trim() && !attachments.some(a => !a.hasFailed && (a.url || a.extractedText))) ? { opacity: 0.4, cursor: 'not-allowed' } : {}}
                       initial={{ scale: 0.7, opacity: 0 }}
                       animate={{ scale: 1, opacity: 1 }}
                       exit={{ scale: 0.7, opacity: 0 }}
