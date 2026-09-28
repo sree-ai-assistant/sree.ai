@@ -1,14 +1,17 @@
 import api from '../lib/api';
+import axios from 'axios';
 
 export interface UploadResponse {
   success: boolean;
   url?: string;
   message?: string;
+  deduplicated?: boolean;
 }
 
 export const uploadFile = async (
   file: File,
-  onProgress?: (percent: number) => void
+  onProgress?: (percent: number) => void,
+  signal?: AbortSignal
 ): Promise<UploadResponse> => {
   try {
     const formData = new FormData();
@@ -18,6 +21,7 @@ export const uploadFile = async (
       headers: {
         'Content-Type': 'multipart/form-data',
       },
+      signal,
       onUploadProgress: (progressEvent) => {
         if (progressEvent.total && onProgress) {
           const percent = Math.round((progressEvent.loaded * 100) / progressEvent.total);
@@ -33,6 +37,14 @@ export const uploadFile = async (
 
     return response.data;
   } catch (error: any) {
+    // Don't log or toast on intentional abort/cancel
+    if (axios.isCancel(error) || error?.code === 'ERR_CANCELED' || signal?.aborted) {
+      return {
+        success: false,
+        message: 'Upload cancelled',
+      };
+    }
+
     console.error('File Upload API Error:', error);
     const serverMessage =
       error.response?.data?.message ||
@@ -44,4 +56,3 @@ export const uploadFile = async (
     };
   }
 };
-

@@ -395,6 +395,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
   const progressiveIntervalRef = useRef<any>(null);
   const isCancelledRef = useRef<boolean>(false);
   const sttAbortControllerRef = useRef<AbortController | null>(null);
+  const uploadAbortControllersRef = useRef<Map<string, AbortController>>(new Map());
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -796,6 +797,10 @@ export const ChatInput: React.FC<ChatInputProps> = ({
   };
 
   const handleUploadSingleAttachment = async (attachmentId: string, file: File) => {
+    // Create an AbortController for this specific upload
+    const controller = new AbortController();
+    uploadAbortControllersRef.current.set(attachmentId, controller);
+
     onAttachmentsChange(prev =>
       prev.map(a =>
         a.id === attachmentId
@@ -836,10 +841,16 @@ export const ChatInput: React.FC<ChatInputProps> = ({
 
     const result = await uploadFile(file, (percent) => {
       targetProgress = Math.max(targetProgress, Math.min(95, percent));
-    });
+    }, controller.signal);
 
     clearInterval(progressTimer);
     isDone = true;
+    uploadAbortControllersRef.current.delete(attachmentId);
+
+    // If cancelled, silently exit — the attachment was already removed from state
+    if (controller.signal.aborted || result.message === 'Upload cancelled') {
+      return;
+    }
 
     const elapsed = Date.now() - startTime;
     if (elapsed < 350) {
@@ -900,6 +911,19 @@ export const ChatInput: React.FC<ChatInputProps> = ({
   };
 
   const removeAttachment = (idOrIndex: string | number) => {
+    // Abort any in-progress upload for this attachment
+    const targetId = typeof idOrIndex === 'string'
+      ? idOrIndex
+      : attachments[idOrIndex]?.id;
+
+    if (targetId) {
+      const controller = uploadAbortControllersRef.current.get(targetId);
+      if (controller) {
+        controller.abort();
+        uploadAbortControllersRef.current.delete(targetId);
+      }
+    }
+
     const updated = typeof idOrIndex === 'string'
       ? attachments.filter(a => a.id !== idOrIndex)
       : attachments.filter((_, i) => i !== idOrIndex);

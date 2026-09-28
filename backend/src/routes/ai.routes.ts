@@ -1456,26 +1456,59 @@ router.post('/stt', flexAuthMiddleware, abuseDetectionMiddleware(), queuePriorit
   }
 }));
 
-// File Upload to R2
+// File Upload to R2 (with deduplication and cancellation support)
 router.post('/upload', flexAuthMiddleware, abuseDetectionMiddleware(), queuePriorityMiddleware, featureGateMiddleware('fileUpload'), rateLimitMiddleware('file_upload'), uploadAgreementMiddleware, upload.single('file'), uploadSizeValidator, withPriorityQueue(async (req: any, res) => {
+  // AbortController to cancel the R2 upload if client disconnects
+  const uploadAbort = new AbortController();
+  let clientDisconnected = false;
+
+  req.on('close', () => {
+    if (!res.writableEnded) {
+      // Client disconnected before we sent a response
+      clientDisconnected = true;
+      uploadAbort.abort();
+      console.log('[Upload] Client disconnected — aborting R2 upload');
+    }
+  });
+
   try {
     const file = req.file;
     if (!file) {
       return res.status(400).json({ success: false, message: 'No file uploaded' });
     }
 
-    const url = await r2Service.uploadFile(file.path, file.originalname, file.mimetype);
+    const userId = req.user?.id;
+
+    // Use deduped upload — skips R2 entirely if content hash already exists
+    const { url, deduplicated } = await r2Service.uploadFileDeduped(
+      file.path,
+      file.originalname,
+      file.mimetype,
+      userId,
+      undefined,
+      uploadAbort.signal
+    );
 
     // Cleanup temporary file
     if (fs.existsSync(file.path)) fs.unlinkSync(file.path);
 
-    res.json({ success: true, url });
+    if (clientDisconnected) return; // Don't try to send response to a closed connection
+
+    res.json({ success: true, url, deduplicated });
   } catch (error: any) {
-    console.error('Upload Route Error:', error);
+    // Clean up temp file regardless
     if (req.file && fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path);
+
+    if (clientDisconnected || error.message === 'Upload aborted') {
+      console.log('[Upload] Request aborted — temp file cleaned up');
+      return; // Client is gone, no response to send
+    }
+
+    console.error('Upload Route Error:', error);
     res.status(500).json({ success: false, message: error.message });
   }
 }));
+
 
 // List API Keys
 router.get('/list-api-keys', authMiddleware, async (req: any, res) => {
