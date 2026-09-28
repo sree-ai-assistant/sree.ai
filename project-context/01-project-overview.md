@@ -59,7 +59,7 @@ Ai-Sass-3/
 | **Database Migrations** | 27 SQL files |
 | **Middleware** | 9 (auth, anonymousIdentity, rateLimit, abuseDetection, errorHandler, uploadEnforcement, featureRequestRateLimit, queuePriority, starterPlan) |
 | **AI Providers** | 4 (NVIDIA NIM, Google Gemini, Groq, Deepgram) |
-| **AI Models** | 98 models registered in `ai_models` table |
+| **AI Models** | 102 models registered in `ai_models` table |
 | **SEO & AEO Engine** | `robots.txt`, dynamic `sitemap.xml`, `llms.txt`, `llms-full.txt`, Schema.org JSON-LD |
 
 ---
