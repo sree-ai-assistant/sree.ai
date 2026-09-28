@@ -51,18 +51,23 @@ export const ImagePreviewModal: React.FC<ImagePreviewModalProps> = ({
     e.stopPropagation();
     if (!src) return;
     try {
-      const res = await fetch(src);
+      // Append cache-buster so fetch requests a fresh response with CORS headers from Cloudflare R2
+      // instead of reading the <img> tag's non-CORS response cached on disk
+      const downloadUrl = src.includes('?') ? `${src}&t=${Date.now()}` : `${src}?t=${Date.now()}`;
+      const res = await fetch(downloadUrl);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const blob = await res.blob();
       const blobUrl = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = blobUrl;
-      const cleanFileName = alt && alt !== 'Image preview' && alt !== 'Attachment preview' ? alt : 'chat-preview.png';
+      const cleanFileName = alt && alt !== 'Image preview' && alt !== 'Attachment preview' ? alt : 'image.png';
       a.download = cleanFileName.includes('.') ? cleanFileName : `${cleanFileName}.png`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
-      URL.revokeObjectURL(blobUrl);
-    } catch {
+      setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
+    } catch (err) {
+      console.warn('[ImagePreviewModal] Direct download failed, falling back to open in new tab:', err);
       window.open(src, '_blank', 'noopener,noreferrer');
     }
   }, [src, alt]);

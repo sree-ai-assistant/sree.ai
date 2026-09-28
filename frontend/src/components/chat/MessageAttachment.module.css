@@ -1,66 +1,271 @@
-.attachmentWrapper {
+.attachmentsContainer {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+  max-width: 100%;
+  margin-bottom: 0;
+}
+
+.attachmentsContainer.withText {
+  margin-bottom: 12px;
+}
+
+/* ─── Scrollable Row Wrapper & Nav Arrows ─── */
+.scrollableRowWrapper {
+  position: relative;
+  width: 100%;
+  max-width: 100%;
+}
+
+/* Grab-and-scroll cursor feedback */
+.isGrabbable .imageGallery,
+.isGrabbable .filesRow {
+  cursor: grab;
+}
+
+.isDragging,
+.isDragging * {
+  cursor: grabbing !important;
+  user-select: none !important;
+  -webkit-user-select: none !important;
+}
+
+.navEdge {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 44px;
+  display: flex;
+  align-items: center;
+  z-index: 20;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.navEdgeLeft {
+  left: 0;
+  justify-content: flex-start;
+  padding-left: 3px;
+  background: linear-gradient(to right, rgba(18, 18, 24, 0.95) 0%, rgba(18, 18, 24, 0.6) 65%, transparent 100%);
+  border-top-left-radius: 10px;
+  border-bottom-left-radius: 10px;
+}
+
+.navEdgeRight {
+  right: 0;
+  justify-content: flex-end;
+  padding-right: 3px;
+  background: linear-gradient(to left, rgba(18, 18, 24, 0.95) 0%, rgba(18, 18, 24, 0.6) 65%, transparent 100%);
+  border-top-right-radius: 10px;
+  border-bottom-right-radius: 10px;
+}
+
+.navEdgeVisible {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.navArrowBtn {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: rgba(28, 28, 38, 0.9);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.6), 0 0 10px rgba(168, 85, 247, 0.25);
+  backdrop-filter: blur(10px);
+  transition: all 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+  flex-shrink: 0;
+}
+
+.navArrowBtn:hover {
+  background: linear-gradient(135deg, #a855f7 0%, #7c3aed 100%);
+  border-color: rgba(255, 255, 255, 0.4);
+  transform: scale(1.1);
+  box-shadow: 0 4px 18px rgba(168, 85, 247, 0.6);
+}
+
+.navArrowBtn:active {
+  transform: scale(0.92);
+}
+
+/* ─── Image Gallery Row (Filmstrip / Video Frames) ─── */
+.imageGallery {
   display: flex;
   flex-direction: row;
   flex-wrap: nowrap;
-  gap: 12px;
-  margin-bottom: 12px;
-  max-width: 100%;
+  gap: 8px;
   overflow-x: auto;
-  padding: 4px 2px 10px 2px;
-  scrollbar-width: thin;
-  scrollbar-color: rgba(255, 255, 255, 0.1) transparent;
+  max-width: 100%;
+  padding: 3px 2px 4px 2px;
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE / Edge */
   -webkit-overflow-scrolling: touch;
+  overscroll-behavior-x: contain;
 }
 
-.attachmentWrapper::-webkit-scrollbar {
-  height: 5px;
+.imageGallery::-webkit-scrollbar {
+  display: none; /* Chrome, Safari, Opera */
 }
 
-.attachmentWrapper::-webkit-scrollbar-track {
-  background: rgba(255, 255, 255, 0.02);
+.imageCard {
+  position: relative;
   border-radius: 10px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  width: 136px;
+  height: 78px;
+  flex-shrink: 0;
+  background: linear-gradient(180deg, rgba(22, 22, 28, 0.9) 0%, rgba(12, 12, 16, 0.98) 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    0 2px 8px rgba(0, 0, 0, 0.35);
+  cursor: pointer;
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1),
+              border-color 0.2s ease,
+              box-shadow 0.2s ease;
 }
 
-.attachmentWrapper::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.1);
-  border-radius: 10px;
+.imageCard:hover {
+  transform: translateY(-2px);
+  border-color: rgba(168, 85, 247, 0.45);
+  box-shadow:
+    0 8px 22px -4px rgba(0, 0, 0, 0.6),
+    0 0 12px rgba(168, 85, 247, 0.25);
 }
 
-.attachmentWrapper::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.2);
+.frameBadge {
+  position: absolute;
+  top: 5px;
+  left: 5px;
+  z-index: 2;
+  font-size: 9px;
+  font-weight: 700;
+  font-family: var(--font-mono, monospace);
+  color: rgba(255, 255, 255, 0.85);
+  background: rgba(0, 0, 0, 0.65);
+  backdrop-filter: blur(6px);
+  padding: 1px 5px;
+  border-radius: 4px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  letter-spacing: 0.04em;
+  pointer-events: none;
 }
 
+.imageContent {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  -webkit-user-drag: none;
+  user-select: none;
+  pointer-events: none;
+}
+
+.imageCard:hover .imageContent {
+  transform: scale(1.05);
+}
+
+.imageOverlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+  pointer-events: none;
+}
+
+.imageCard:hover .imageOverlay {
+  opacity: 1;
+}
+
+.previewPill {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  border-radius: 20px;
+  background: rgba(15, 15, 20, 0.8);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  backdrop-filter: blur(8px);
+  color: #ffffff;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+}
+
+/* ─── Files and Audio Row ─── */
+.filesRow {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  gap: 8px;
+  overflow-x: auto;
+  max-width: 100%;
+  padding: 3px 2px 4px 2px;
+  align-items: center;
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE / Edge */
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-x: contain;
+}
+
+.filesRow::-webkit-scrollbar {
+  display: none; /* Chrome, Safari, Opera */
+}
+
+/* ─── Generic Document / Video File Card ─── */
 .attachmentCard {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 8px 14px;
-  background: rgba(255, 255, 255, 0.03);
+  gap: 8px;
+  padding: 6px 12px;
+  background: rgba(255, 255, 255, 0.035);
   border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 16px;
-  width: fit-content;
-  min-width: 200px;
-  max-width: 260px;
+  border-radius: 10px;
+  min-width: 180px;
+  max-width: 240px;
+  height: 48px;
   flex-shrink: 0;
-  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-  cursor: pointer;
-  backdrop-filter: blur(4px);
+  backdrop-filter: blur(10px);
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  position: relative;
 }
 
-.attachmentCard:hover {
+.clickableCard {
+  cursor: pointer;
+  user-select: none;
+}
+
+.clickableCard:hover {
   background: rgba(255, 255, 255, 0.07);
-  border-color: rgba(255, 255, 255, 0.15);
+  border-color: rgba(255, 255, 255, 0.2);
   transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.35);
+}
+
+.clickableCard:active {
+  transform: scale(0.98);
 }
 
 .cardIcon {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 38px;
-  height: 38px;
-  border-radius: 12px;
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
   flex-shrink: 0;
 }
 
@@ -70,10 +275,11 @@
   overflow: hidden;
   flex: 1;
   gap: 2px;
+  min-width: 0;
 }
 
 .cardFileName {
-  font-size: 13px;
+  font-size: 11.5px;
   font-weight: 500;
   color: rgba(255, 255, 255, 0.9);
   white-space: nowrap;
@@ -82,93 +288,247 @@
 }
 
 .cardFileType {
-  font-size: 10px;
+  font-size: 8.5px;
   font-weight: 700;
   letter-spacing: 0.05em;
-  opacity: 0.8;
+  opacity: 0.85;
 }
 
-.imageCard {
-  position: relative;
-  border-radius: 16px;
-  overflow: hidden;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  width: 140px;
-  height: 90px;
-  flex-shrink: 0;
-  transition: all 0.25s ease;
-  cursor: pointer;
-}
-
-.imageCard:hover {
-  transform: translateY(-2px);
-  border-color: rgba(255, 255, 255, 0.2);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-}
-
-.imageContent {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  display: block;
-}
-
-.imageOverlay {
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  padding: 6px 8px;
-  background: linear-gradient(to top, rgba(0, 0, 0, 0.8), transparent);
+.cardDownloadBtn {
+  background: transparent;
+  border: none;
+  color: rgba(255, 255, 255, 0.4);
+  width: 26px;
+  height: 26px;
+  border-radius: 6px;
   display: flex;
   align-items: center;
-  gap: 6px;
-  color: white;
-  font-size: 9px;
-  font-weight: 700;
-  letter-spacing: 0.05em;
-  opacity: 0;
-  transition: opacity 0.2s ease;
+  justify-content: center;
+  cursor: pointer;
+  margin-left: 2px;
+  flex-shrink: 0;
+  transition: all 0.15s ease;
 }
 
-.imageCard:hover .imageOverlay {
-  opacity: 1;
-}.mediaCard {
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 16px;
-  padding: 12px;
-  width: 100%;
-  max-width: 350px;
-  backdrop-filter: blur(8px);
+.clickableCard:hover .cardDownloadBtn,
+.cardDownloadBtn:hover {
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.12);
+  transform: scale(1.08);
 }
 
-.audioPlayer {
-  width: 100%;
-  height: 36px;
-  border-radius: 12px;
-  margin-top: 8px;
-}
-
-
-.mediaHeader {
+/* ─── High-End Dark Glassmorphic Audio Player Card ─── */
+.customAudioCard {
   display: flex;
   align-items: center;
   gap: 10px;
-  margin-bottom: 4px;
+  padding: 8px 12px;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.04) 0%, rgba(168, 85, 247, 0.02) 100%);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  min-width: 250px;
+  max-width: 285px;
+  height: 52px;
+  flex-shrink: 0;
+  backdrop-filter: blur(12px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-.mediaTitle {
-  font-size: 13px;
+.customAudioCard:hover {
+  border-color: rgba(168, 85, 247, 0.35);
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.06) 0%, rgba(168, 85, 247, 0.06) 100%);
+  box-shadow:
+    0 4px 16px rgba(0, 0, 0, 0.4),
+    0 0 12px rgba(168, 85, 247, 0.15);
+}
+
+.audioPlayBtn {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #a855f7 0%, #7c3aed 100%);
+  border: none;
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex-shrink: 0;
+  box-shadow: 0 2px 8px rgba(168, 85, 247, 0.35);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.audioPlayBtn:hover {
+  transform: scale(1.06);
+  box-shadow: 0 4px 14px rgba(168, 85, 247, 0.55);
+}
+
+.audioPlayBtn:active {
+  transform: scale(0.94);
+}
+
+.audioPlayBtnActive {
+  background: linear-gradient(135deg, #c084fc 0%, #a855f7 100%);
+  box-shadow: 0 0 14px rgba(168, 85, 247, 0.6);
+}
+
+.audioMainContent {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+  min-width: 0;
+}
+
+.audioHeaderRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  width: 100%;
+}
+
+.audioMetaGroup {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  flex: 1;
+}
+
+.audioTitle {
+  font-size: 11.5px;
   font-weight: 500;
   color: rgba(255, 255, 255, 0.9);
-  white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.imageCard {
+.audioBadge {
+  font-size: 8.5px;
+  font-weight: 700;
+  color: #c084fc;
+  background: rgba(168, 85, 247, 0.14);
+  padding: 1px 5px;
+  border-radius: 4px;
+  letter-spacing: 0.04em;
+  flex-shrink: 0;
+}
+
+/* ─── Animated Mini Equalizer ─── */
+.audioEqualizer {
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: 10px;
+  flex-shrink: 0;
+  margin-left: 2px;
+}
+
+.eqBar {
+  width: 2px;
+  height: 3px;
+  background: #c084fc;
+  border-radius: 1px;
+}
+
+@keyframes eqBounce {
+  0%, 100% {
+    height: 3px;
+  }
+  50% {
+    height: 10px;
+  }
+}
+
+.eqBarAnim {
+  animation: eqBounce 0.8s ease-in-out infinite;
+}
+
+.audioMuteBtn {
+  background: transparent;
+  border: none;
+  color: rgba(255, 255, 255, 0.45);
+  cursor: pointer;
+  padding: 2px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.15s ease, background 0.15s ease;
+  flex-shrink: 0;
+}
+
+.audioMuteBtn:hover {
+  color: rgba(255, 255, 255, 0.95);
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.audioScrubberRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+}
+
+.scrubberTrackContainer {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  position: relative;
+  height: 10px;
+}
+
+.audioScrubber {
+  width: 100%;
+  height: 3px;
+  appearance: none;
+  -webkit-appearance: none;
+  border-radius: 2px;
+  outline: none;
+  cursor: pointer;
+  transition: height 0.15s ease;
+}
+
+.audioScrubber:hover {
+  height: 5px;
+}
+
+.audioScrubber::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #ffffff;
+  box-shadow: 0 0 6px rgba(168, 85, 247, 0.8);
+  cursor: pointer;
+  transition: transform 0.15s ease;
+}
+
+.audioScrubber:hover::-webkit-slider-thumb {
+  transform: scale(1.2);
+}
+
+.audioScrubber::-moz-range-thumb {
+  width: 10px;
+  height: 10px;
+  border: none;
+  border-radius: 50%;
+  background: #ffffff;
+  box-shadow: 0 0 6px rgba(168, 85, 247, 0.8);
   cursor: pointer;
 }
 
-
+.audioTimestamp {
+  font-size: 9.5px;
+  font-variant-numeric: tabular-nums;
+  font-family: var(--font-mono, monospace);
+  color: rgba(255, 255, 255, 0.45);
+  font-weight: 500;
+  letter-spacing: -0.02em;
+  white-space: nowrap;
+  flex-shrink: 0;
+}

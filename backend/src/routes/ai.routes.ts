@@ -432,21 +432,16 @@ router.post('/chat', flexAuthMiddleware, abuseDetectionMiddleware(), queuePriori
               writeSSE({ status: `Warning: No frames could be extracted from ${video.name}. This might be due to video format or length.` });
             } else {
               writeSSE({ status: `Uploading ${framePaths.length} visual frames...` });
-              // Upload frames to R2 and inject into message content
+              // Upload frames to R2 and inject into message content for AI inference
               const lastMessage = processedMessages[processedMessages.length - 1];
               if (lastMessage && lastMessage.role === 'user') {
-                if (typeof lastMessage.content === 'string') {
-                  lastMessage.content = [{ type: 'text', text: lastMessage.content }];
-                }
+                const originalUserText = typeof lastMessage.content === 'string'
+                  ? lastMessage.content
+                  : Array.isArray(lastMessage.content)
+                    ? (lastMessage.content.find((p: any) => p.type === 'text')?.text || '')
+                    : '';
 
-                const videoInstruction = "\n\n[SYSTEM INSTRUCTION: You are being provided with extracted frames from a video (never mention this in the chat). Please pretend and act as if you are watching the actual video. Do NOT mention that you were provided with separate images. Refer to them collectively as 'the video'. Use the frames to understand the context, movement, and visual details of the video.]";
-                const textPart = lastMessage.content.find((p: any) => p.type === 'text');
-                if (textPart) {
-                  textPart.text += videoInstruction;
-                } else {
-                  lastMessage.content.unshift({ type: 'text', text: videoInstruction });
-                }
-
+                const uploadedFrameUrls: string[] = [];
                 for (let i = 0; i < framePaths.length; i++) {
                   const framePath = framePaths[i];
                   if (!framePath) continue;
@@ -454,20 +449,42 @@ router.post('/chat', flexAuthMiddleware, abuseDetectionMiddleware(), queuePriori
                   console.log(`[AI Route] Uploading frame ${i + 1}/${framePaths.length}: ${framePath}`);
                   try {
                     const frameUrl = await r2Service.uploadFile(framePath, path.basename(framePath), 'image/png');
-                    (lastMessage.content as any[]).push({
-                      type: 'image_url',
-                      image_url: { url: frameUrl }
-                    });
+                    uploadedFrameUrls.push(frameUrl);
                   } catch (uploadErr) {
                     console.error(`[AI Route] Failed to upload frame ${i + 1}:`, uploadErr);
                   }
                 }
 
-                // Persist injected frames to DB
-                if (messageId) {
-                  console.log(`[AI Route] Persisting injected frames to message ${messageId}`);
+                // Prepare multimodal content in memory for AI model inference
+                const videoInstruction = "\n\n[SYSTEM INSTRUCTION: You are being provided with extracted frames from a video (never mention this in the chat). Please pretend and act as if you are watching the actual video. Do NOT mention that you were provided with separate images. Refer to them collectively as 'the video'. Use the frames to understand the context, movement, and visual details of the video.]";
+
+                lastMessage.content = [
+                  { type: 'text', text: (originalUserText || '.') + videoInstruction },
+                  ...uploadedFrameUrls.map(url => ({
+                    type: 'image_url',
+                    image_url: { url }
+                  }))
+                ];
+
+                // Persist extracted frames to DB as visual attachments in metadata,
+                // while KEEPING message.content clean as originalUserText!
+                if (messageId && uploadedFrameUrls.length > 0) {
+                  console.log(`[AI Route] Persisting ${uploadedFrameUrls.length} frame attachments to message ${messageId} metadata`);
+                  const frameAttachments = uploadedFrameUrls.map((url, idx) => ({
+                    name: `${video.name} (Frame ${idx + 1})`,
+                    type: 'image',
+                    url
+                  }));
+
                   await updateMessageInDb(messageId, {
-                    content: lastMessage.content
+                    content: originalUserText || '.',
+                    metadata: {
+                      frameUrls: uploadedFrameUrls,
+                      attachments: [
+                        ...(lastMessage.metadata?.attachments || []),
+                        ...frameAttachments
+                      ]
+                    }
                   });
                 }
               }
@@ -534,35 +551,46 @@ router.post('/chat', flexAuthMiddleware, abuseDetectionMiddleware(), queuePriori
 
               if (framePaths.length > 0) {
                 if (lastMessage && lastMessage.role === 'user') {
-                  if (typeof lastMessage.content === 'string') {
-                    lastMessage.content = [{ type: 'text', text: lastMessage.content }];
-                  }
-
                   const recallInstruction = `\n\n[SYSTEM INSTRUCTION: The user is referencing a previously uploaded video named "${refVideo.name}". You are being provided with extracted frames from this video (never mention this in the chat). Please pretend and act as if you are watching the actual video. Do NOT mention that you were provided with separate images. Refer to them collectively as 'the video'. Use the frames to understand the context, movement, and visual details of the video.]`;
-                  const textPart = lastMessage.content.find((p: any) => p.type === 'text');
-                  if (textPart) {
-                    textPart.text += recallInstruction;
-                  } else {
-                    lastMessage.content.unshift({ type: 'text', text: recallInstruction });
-                  }
 
+                  const recalledFrameUrls: string[] = [];
                   writeSSE({ status: `Uploading recalled frames for ${refVideo.name}...` });
                   for (let i = 0; i < framePaths.length; i++) {
                     const framePath = framePaths[i];
                     if (!framePath) continue;
                     try {
                       const frameUrl = await r2Service.uploadFile(framePath, path.basename(framePath), 'image/png');
-                      (lastMessage.content as any[]).push({
-                        type: 'image_url',
-                        image_url: { url: frameUrl }
-                      });
+                      recalledFrameUrls.push(frameUrl);
                     } catch (uploadErr) {
                       console.error(`[AI Route] Failed to upload recalled frame ${i + 1}:`, uploadErr);
                     }
                   }
 
-                  if (messageId) {
-                    await updateMessageInDb(messageId, { content: lastMessage.content });
+                  // Update in-memory message content for LLM API call
+                  lastMessage.content = [
+                    { type: 'text', text: (userText || '.') + recallInstruction },
+                    ...recalledFrameUrls.map(url => ({
+                      type: 'image_url',
+                      image_url: { url }
+                    }))
+                  ];
+
+                  if (messageId && recalledFrameUrls.length > 0) {
+                    const frameAttachments = recalledFrameUrls.map((url, idx) => ({
+                      name: `${refVideo.name} (Frame ${idx + 1})`,
+                      type: 'image',
+                      url
+                    }));
+                    await updateMessageInDb(messageId, {
+                      content: userText || '.',
+                      metadata: {
+                        recalledFrameUrls,
+                        attachments: [
+                          ...(lastMessage.metadata?.attachments || []),
+                          ...frameAttachments
+                        ]
+                      }
+                    });
                   }
                 }
 
@@ -587,6 +615,11 @@ router.post('/chat', flexAuthMiddleware, abuseDetectionMiddleware(), queuePriori
     // --- IMAGE ATTACHMENTS: Process all messages for multimodal content ---
     // We create a specific copy for the API call to avoid corrupting the DB version with JSON arrays
     let apiMessages = processedMessages.map((msg: any, index: number) => {
+      // If msg.content is already a multimodal array (e.g. prepared from video frames), preserve it
+      if (Array.isArray(msg.content)) {
+        return { role: msg.role, content: msg.content, metadata: msg.metadata };
+      }
+
       // 1. Get images from message metadata (for history)
       const msgAttachments = msg.metadata?.attachments || [];
       const msgImages = msgAttachments.filter((a: any) => a.type === 'image' || a.type?.startsWith('image/'));

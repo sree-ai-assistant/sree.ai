@@ -58,7 +58,7 @@ function resolveSelectedModel(
 
   return (
     updatedSelected ||
-    models.find((m) => !m.is_image && !m.is_video && m.model_id === 'groq/compound-mini' && !m.in_maintenance) ||  //----> default model secected on 1st page load
+    models.find((m) => !m.is_image && !m.is_video && m.model_id === 'groq-openai/gpt-oss-20b' && !m.in_maintenance) ||  //----> default model , chat model secected on 1st page load
     models.find((m) => !m.is_image && !m.is_video && !m.in_maintenance) ||
     models.find((m) => !m.is_image && !m.is_video) ||
     models.find((m) => !m.is_image) ||

@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { supabase } from '../lib/supabase';
+import { parseMessageContent } from '../utils/messageParser';
 
 export interface Conversation {
   id: string;
@@ -120,8 +121,49 @@ export const useChatStore = create<ChatState>((set, get) => ({
       console.error('Error fetching messages:', msgError);
     }
 
-    // Filter out messages that have error metadata to ensure they don't persist on refresh
-    const cleanMessages = (messages || []).filter(m => !m.metadata?.error || m.metadata?.aborted);
+    // Filter out messages that have error metadata to ensure they don't persist on refresh,
+    // and normalize any messages that were saved with multimodal JSON array content
+    const cleanMessages = (messages || [])
+      .filter(m => !m.metadata?.error || m.metadata?.aborted)
+      .map(m => {
+        if (
+          typeof m.content === 'string' &&
+          m.content.trim().startsWith('[') &&
+          (m.content.includes('"type"') || m.content.includes('"image_url"'))
+        ) {
+          const parsed = parseMessageContent(m.content);
+          const existingAttachments = m.metadata?.attachments || [];
+          const existingUrls = new Set(existingAttachments.map((a: any) => a.url));
+          const newAttachments = [
+            ...existingAttachments,
+            ...parsed.injectedAttachments.filter(a => !existingUrls.has(a.url))
+          ];
+
+          const updatedMsg = {
+            ...m,
+            content: parsed.cleanText || '.',
+            metadata: {
+              ...(m.metadata || {}),
+              attachments: newAttachments
+            }
+          };
+
+          // Heal database record asynchronously in background so DB stays clean
+          supabase
+            .from('messages')
+            .update({
+              content: parsed.cleanText || '.',
+              metadata: updatedMsg.metadata
+            })
+            .eq('id', m.id)
+            .then(({ error }: any) => {
+              if (error) console.warn('[ChatStore] Auto-heal message DB update skipped:', error.message);
+            });
+
+          return updatedMsg;
+        }
+        return m;
+      });
 
     // Keep local optimistic messages (e.g. temp_user_ or temp_assistant_) to prevent them disappearing during loading
     const localOptimisticMessages = get().messages.filter(m => m.id.startsWith('temp_'));

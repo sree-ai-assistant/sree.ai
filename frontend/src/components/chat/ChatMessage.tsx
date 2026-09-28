@@ -7,6 +7,7 @@ import styles from '../../pages/ChatPage.module.css';
 import { MessageAttachment } from './MessageAttachment';
 import { ThinkingAnimation } from './ThinkingAnimation';
 import { useChatStore } from '../../store/chat.store';
+import { parseMessageContent } from '../../utils/messageParser';
 
 interface ChatMessageProps {
   message: any;
@@ -173,11 +174,39 @@ export const ChatMessageComponent: React.FC<ChatMessageProps> = ({
     });
   };
 
+  // Normalize message content in case it has raw JSON parts from multimodal frames
+  const parsedContent = useMemo(() => {
+    return parseMessageContent(m.content);
+  }, [m.content]);
+
+  // Combine metadata attachments with any attachments extracted from content
+  const allAttachments = useMemo(() => {
+    const existing = m.metadata?.attachments || [];
+    if (!parsedContent.injectedAttachments.length) return existing;
+    const existingUrls = new Set(existing.map((a: any) => a.url));
+    return [
+      ...existing,
+      ...parsedContent.injectedAttachments.filter(a => !existingUrls.has(a.url))
+    ];
+  }, [m.metadata?.attachments, parsedContent.injectedAttachments]);
+
+  const displayContent = parsedContent.cleanText;
+  const filteredContent = filterThinkingTags(displayContent);
+  const trimmedContent = (filteredContent || '').trim();
+
+  // If text is empty or is merely a placeholder dot with attachments, suppress rendering markdown
+  const shouldRenderMarkdown = trimmedContent !== '' && !(allAttachments.length > 0 && (trimmedContent === '.' || trimmedContent === '...'));
+
   const handleCopy = async () => {
     try {
-      await navigator.clipboard.writeText(m.content);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
+      const textToCopy = shouldRenderMarkdown
+        ? displayContent
+        : allAttachments.map((a: any) => a.name).filter(Boolean).join(', ');
+      if (textToCopy) {
+        await navigator.clipboard.writeText(textToCopy);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+      }
     } catch (err) {
       console.error('Failed to copy text:', err);
     }
@@ -199,8 +228,8 @@ export const ChatMessageComponent: React.FC<ChatMessageProps> = ({
             <ThinkingAnimation status={streamingStatus} isVideo={isProcessingVideo} />
           ) : (
             <>
-              {m.metadata?.attachments && (
-                <MessageAttachment attachments={m.metadata.attachments} />
+              {allAttachments && allAttachments.length > 0 && (
+                <MessageAttachment attachments={allAttachments} hasText={shouldRenderMarkdown} />
               )}
 
               {/* ─── Perplexity-Style Unified Reasoning Section ─── */}
@@ -295,12 +324,14 @@ export const ChatMessageComponent: React.FC<ChatMessageProps> = ({
                 </div>
               ) : (
                 <>
-                  <ReactMarkdown
-                    remarkPlugins={[remarkGfm]}
-                    components={markdownComponents}
-                  >
-                    {filterThinkingTags(m.content)}
-                  </ReactMarkdown>
+                  {shouldRenderMarkdown && (
+                    <ReactMarkdown
+                      remarkPlugins={[remarkGfm]}
+                      components={markdownComponents}
+                    >
+                      {filteredContent}
+                    </ReactMarkdown>
+                  )}
 
                   {m.metadata?.interrupted && (
                     <div className={styles.interruptedTag}>
@@ -313,7 +344,7 @@ export const ChatMessageComponent: React.FC<ChatMessageProps> = ({
                     <div className={styles.responseActions}>
                       <button
                         className={`${styles.actionBtn} ${isPlayingThisTts ? styles.playing : ''}`}
-                        onClick={() => onPlayTts?.(messageId, m.content)}
+                        onClick={() => onPlayTts?.(messageId, displayContent)}
                       >
                         {isPlayingThisTts ? (
                           <>
