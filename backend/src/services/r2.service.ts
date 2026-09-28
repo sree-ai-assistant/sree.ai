@@ -260,6 +260,133 @@ class R2Service {
   }
 
   /**
+   * Decrement ref_count for a list of R2 URLs.
+   * 
+   * Called when messages/conversations containing attachments are deleted.
+   * Uses GREATEST(0, ref_count - 1) to prevent negative counts.
+   * 
+   * @returns Number of records updated
+   */
+  async decrementRefByUrls(urls: string[]): Promise<number> {
+    if (!urls.length) return 0;
+
+    let updated = 0;
+
+    // Process in batches of 50 to avoid oversized queries
+    for (let i = 0; i < urls.length; i += 50) {
+      const batch = urls.slice(i, i + 50);
+
+      // Use raw SQL via RPC for the atomic GREATEST(0, ref_count - 1) update
+      // since supabase-js doesn't support column arithmetic in .update()
+      const { data, error } = await supabaseAdmin.rpc('decrement_file_ref_counts', {
+        p_urls: batch,
+      });
+
+      if (error) {
+        console.error('[R2 Dedup] Failed to decrement ref_count:', error.message);
+        // Fallback: update one-by-one
+        for (const url of batch) {
+          const { data: record } = await supabaseAdmin
+            .from('file_uploads')
+            .select('id, ref_count')
+            .eq('r2_url', url)
+            .maybeSingle();
+
+          if (record) {
+            await supabaseAdmin
+              .from('file_uploads')
+              .update({
+                ref_count: Math.max(0, record.ref_count - 1),
+                last_used_at: new Date().toISOString(),
+              })
+              .eq('id', record.id);
+            updated++;
+          }
+        }
+      } else {
+        updated += data || batch.length;
+      }
+    }
+
+    if (updated > 0) {
+      console.log(`[R2 Dedup] Decremented ref_count for ${updated} file(s)`);
+    }
+    return updated;
+  }
+
+  /**
+   * Extract all attachment URLs from messages in a conversation.
+   * 
+   * Reads messages.metadata.attachments[].url for all messages
+   * in the given conversation. Used before deleting a conversation
+   * to know which file_uploads records to decrement.
+   */
+  async extractAttachmentUrlsFromConversation(conversationId: string): Promise<string[]> {
+    const { data: messages, error } = await supabaseAdmin
+      .from('messages')
+      .select('metadata')
+      .eq('conversation_id', conversationId)
+      .not('metadata', 'is', null);
+
+    if (error || !messages) {
+      console.error('[R2 Dedup] Failed to fetch messages for ref cleanup:', error?.message);
+      return [];
+    }
+
+    const urls: string[] = [];
+    for (const msg of messages) {
+      const attachments = msg.metadata?.attachments;
+      if (Array.isArray(attachments)) {
+        for (const att of attachments) {
+          if (att.url && typeof att.url === 'string') {
+            urls.push(att.url);
+          }
+        }
+      }
+    }
+
+    return urls;
+  }
+
+  /**
+   * Extract attachment URLs from multiple conversations at once.
+   * Used during account deletion.
+   */
+  async extractAttachmentUrlsFromConversations(conversationIds: string[]): Promise<string[]> {
+    if (!conversationIds.length) return [];
+
+    const urls: string[] = [];
+
+    // Process in batches of 50 conversation IDs
+    for (let i = 0; i < conversationIds.length; i += 50) {
+      const batch = conversationIds.slice(i, i + 50);
+      const { data: messages, error } = await supabaseAdmin
+        .from('messages')
+        .select('metadata')
+        .in('conversation_id', batch)
+        .not('metadata', 'is', null);
+
+      if (error || !messages) {
+        console.error('[R2 Dedup] Batch fetch error:', error?.message);
+        continue;
+      }
+
+      for (const msg of messages) {
+        const attachments = msg.metadata?.attachments;
+        if (Array.isArray(attachments)) {
+          for (const att of attachments) {
+            if (att.url && typeof att.url === 'string') {
+              urls.push(att.url);
+            }
+          }
+        }
+      }
+    }
+
+    return urls;
+  }
+
+  /**
    * Check if an object exists in R2.
    * Uses HeadObject (zero-bandwidth, just metadata).
    */
