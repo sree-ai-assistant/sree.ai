@@ -3,8 +3,10 @@ dotenv.config();
 
 import { apiKeyPool } from './services/apiKeyPool.service';
 import { startObserverResetCron, stopObserverResetCron } from './services/modelObserver.service';
+import { startR2MaintenanceCron, stopR2MaintenanceCron } from './services/r2.service';
 apiKeyPool.initialize();
 startObserverResetCron();
+startR2MaintenanceCron();
 
 import app from './app';
 import { shutdownPostHog } from './services/posthog.service';
@@ -42,6 +44,7 @@ const gracefulShutdown = async (signal: string) => {
   console.log(`\n${signal} received. Shutting down gracefully...`);
   await shutdownPostHog();
   stopObserverResetCron();
+  stopR2MaintenanceCron();
 
   // Close all active WebSocket connections
   wss.clients.forEach((client) => {

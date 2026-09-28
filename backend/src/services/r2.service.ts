@@ -476,3 +476,89 @@ class R2Service {
 }
 
 export const r2Service = new R2Service();
+
+// ─── Periodic R2 Maintenance Cron ────────────────────────────────────────────
+
+const HEALTH_CHECK_INTERVAL_MS = 24 * 60 * 60 * 1000; // Every 24 hours
+const GC_INTERVAL_MS = 7 * 24 * 60 * 60 * 1000;       // Every 7 days
+const GC_DAYS_OLD = 30;                                 // GC orphans older than 30 days
+
+let healthCheckIntervalHandle: ReturnType<typeof setInterval> | null = null;
+let gcIntervalHandle: ReturnType<typeof setInterval> | null = null;
+
+/**
+ * Start the periodic R2 maintenance cron.
+ * 
+ * Two jobs run on separate intervals:
+ * 
+ * 1. **Health Check (every 24h)** — Scans `file_uploads` table and verifies
+ *    each record has a real R2 object via HeadObject. Stale records (where R2
+ *    object was manually deleted or lost) are auto-cleaned so future uploads
+ *    of the same content go through normally instead of returning a dead URL.
+ *    Runs with `dryRun: false` so stale DB records are actually removed.
+ * 
+ * 2. **Garbage Collection (every 7 days)** — Finds records with `ref_count = 0`
+ *    that haven't been used in 30+ days (nobody references them anymore).
+ *    Deletes both the R2 object AND the DB record to free storage.
+ *    Runs with `dryRun: false`.
+ * 
+ * Should be called once at server startup.
+ */
+export function startR2MaintenanceCron(): void {
+  if (healthCheckIntervalHandle || gcIntervalHandle) {
+    console.warn('[R2 Maintenance] Cron already running — skipping duplicate start');
+    return;
+  }
+
+  console.log(
+    `[R2 Maintenance] ✅ Started | health check: every 24h | GC: every 7d (orphans > ${GC_DAYS_OLD}d)`
+  );
+
+  // ── Health Check Cron ──
+  healthCheckIntervalHandle = setInterval(async () => {
+    try {
+      console.log('[R2 Maintenance] 🔍 Running scheduled health check...');
+      const report = await r2Service.healthCheck({ dryRun: false });
+      console.log(
+        `[R2 Maintenance] 🔍 Health check done — ` +
+        `checked: ${report.checked}, healthy: ${report.healthy}, ` +
+        `stale: ${report.stale}, cleaned: ${report.cleanedUp}`
+      );
+    } catch (err: any) {
+      console.error('[R2 Maintenance] Health check failed:', err.message);
+    }
+  }, HEALTH_CHECK_INTERVAL_MS);
+
+  // ── Garbage Collection Cron ──
+  gcIntervalHandle = setInterval(async () => {
+    try {
+      console.log('[R2 Maintenance] 🗑️ Running scheduled garbage collection...');
+      const report = await r2Service.garbageCollect({
+        dryRun: false,
+        daysOld: GC_DAYS_OLD,
+      });
+      console.log(
+        `[R2 Maintenance] 🗑️ GC done — ` +
+        `found: ${report.found}, deletedFromR2: ${report.deletedFromR2}, ` +
+        `deletedFromDB: ${report.deletedFromDB}`
+      );
+    } catch (err: any) {
+      console.error('[R2 Maintenance] Garbage collection failed:', err.message);
+    }
+  }, GC_INTERVAL_MS);
+}
+
+/**
+ * Stop the R2 maintenance cron. Called during graceful shutdown.
+ */
+export function stopR2MaintenanceCron(): void {
+  if (healthCheckIntervalHandle) {
+    clearInterval(healthCheckIntervalHandle);
+    healthCheckIntervalHandle = null;
+  }
+  if (gcIntervalHandle) {
+    clearInterval(gcIntervalHandle);
+    gcIntervalHandle = null;
+  }
+  console.log('[R2 Maintenance] Cron stopped');
+}
