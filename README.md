@@ -32,9 +32,11 @@ Designed with a **dual-identity architecture**, users can start chatting immedia
 
 ### 💬 Multi-Model Conversational Chat
 - **Multi-turn Contextual Chat**: Streaming completions with real-time markdown rendering, LaTeX math support, and syntax-highlighted code blocks.
-- **Flagship AI Model Catalog**: Seamlessly switch between 95+ models, featuring cutting-edge flagships: **Gemini 3.8 Flash**, **DeepSeek V4 Pro**, **DeepSeek V4 Flash**, **z-ai/glm-5.3**, **z-ai/glm-5.3-flash**, **Moonshot Kimi K3**, **Gemini 3.5 Flash Lite**, **LLaMA 3.3**, and **Nemotron 3.5**.
+- **Flagship AI Model Catalog**: Seamlessly switch between 102+ models, featuring cutting-edge flagships: **Gemini 3.8 Flash**, **DeepSeek V4 Pro**, **DeepSeek V4 Flash**, **DeepSeek V4.1 Flash**, **z-ai/glm-5.3**, **z-ai/glm-5.3-flash**, **Moonshot Kimi K3**, **GPT-OSS 120B/20B**, **Qwen 3.8 27B**, **Gemini 3.5 Flash Lite**, **LLaMA 3.3**, and **Nemotron 3.5**.
+- **Perplexity-Style Reasoning Drawer**: Collapsible live thinking viewer that parses `<think>` streams in real-time with step execution timers, animated status indicators, and clean separation from final answers.
 - **Interactive Data Tables**: Hover utility actions on Markdown tables for 1-click clipboard copy, CSV export, XLSX spreadsheet export, and expanded full-screen inspection modal.
-- **Multi-Modal File Analysis**: Upload and analyze PDFs, Word documents (`.docx`), Excel spreadsheets (`.xlsx`), images, and text files (with a hard 10-file safety cap).
+- **Multi-Modal File Analysis**: Upload and analyze PDFs, Word documents (`.docx`), Excel spreadsheets (`.xlsx`), images, and text files (with hard 10-file safety cap, individual upload cancellation, and touch-and-drag scroll UX).
+- **R2 Content Deduplication & Garbage Collection**: Cryptographic SHA-256 hashing avoids storing duplicate files in Cloudflare R2, paired with database reference-counting triggers and automated weekly orphan sweeps.
 
 ### 🎙️ Real-Time Voice Assistant (Gemini Live & Cascading Fallback)
 - **Gemini Live Bidirectional Streaming**: Ultra-low-latency real-time voice mode powered by Google Gemini Live WebSockets (`/api/live/voice/ws`) with Web Audio API PCM Worklets (`pcmWorklet.js`).
@@ -402,6 +404,9 @@ stateDiagram-v2
    # PostHog Analytics & Error Tracking (Backend)
    POSTHOG_PROJECT_TOKEN=your_posthog_project_token
    POSTHOG_HOST=https://us.i.posthog.com
+
+   # Admin Secret for Internal Maintenance & Health Checks
+   ADMIN_SECRET=your_admin_secret_key_here
    ```
 
    Create `.env` in `frontend/`:
@@ -434,7 +439,7 @@ stateDiagram-v2
 
 ## 🗄️ Database & RLS Setup
 
-The database utilizes Supabase PostgreSQL with strict Row Level Security (RLS) on all tables:
+The database utilizes Supabase PostgreSQL with strict Row Level Security (RLS) on all 19 tables:
 
 - **All-In-One Production Script**: [`project-context/full-schema.sql`](file:///p:/antygravity-projects/Ai-Sass-3/project-context/full-schema.sql)
 - **Included Tables**:
@@ -442,11 +447,16 @@ The database utilizes Supabase PostgreSQL with strict Row Level Security (RLS) o
   - `subscriptions`: Razorpay subscription state machine
   - `payment_history`: Idempotent transaction logs
   - `conversations` & `messages`: Chat persistence (Auth & Anonymous)
+  - `file_uploads`: Cloudflare R2 content-addressable deduplication records and reference counts
   - `anonymous_users`: Identity fingerprinting and usage tracking
   - `usage_tracking`: Unified per-minute, daily, and monthly rate counters
   - `api_keys`: Encrypted BYOK key vault
-  - `ai_models`: Dynamic AI model capabilities catalog
+  - `ai_models`: Dynamic AI model capabilities catalog (102+ models)
+  - `model_error_counters`: Circuit breaker consecutive failure logs
   - `feature_requests`: Integrated ticket submission and status tracking
+  - `user_images` & `user_videos`: Studio generation asset metadata
+  - `user_sessions` & `trusted_devices`: Session and security management
+  - `abuse_flags`, `app_config`, & `cleanup_logs`: Governance and operational diagnostics
 
 ---
 
@@ -468,6 +478,9 @@ The database utilizes Supabase PostgreSQL with strict Row Level Security (RLS) o
 | **Keys** | `POST` | `/api/user/settings/keys` | Saves user BYOK API key (encrypted) |
 | **Feature** | `POST` | `/api/feature-requests` | Submits feature requests / bug reports |
 | **Config** | `GET` | `/api/config/public` | Retrieves whitelisted public runtime configuration |
+| **Admin** | `POST` | `/api/admin/r2/health-check` | Performs R2 bucket integrity check (`x-admin-secret`) |
+| **Admin** | `POST` | `/api/admin/r2/garbage-collect` | Cleans up orphaned R2 files (`x-admin-secret`) |
+| **Admin** | `GET` | `/api/admin/r2/status` | Reports R2 storage metrics & orphan count (`x-admin-secret`) |
 
 *Detailed request/response contracts available in [`project-context/07-api-reference.md`](file:///p:/antygravity-projects/Ai-Sass-3/project-context/07-api-reference.md).*
 

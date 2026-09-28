@@ -51,10 +51,11 @@ graph TD
 | **Auth** | Hybrid — works for anonymous + authenticated users |
 | **Route Guard** | `HybridOnboardingGuard` |
 | **Middleware** | `flexAuth → abuseDetection → queuePriority → featureGate('basicChat') → rateLimit('chat')` |
-| **Features** | Multi-model AI chat, SSE streaming, file upload (max 10 attachments per prompt), interactive table utilities (Copy, CSV export, XLSX export, expand modal), code highlighting with sticky headers, markdown rendering, conversation history, model selector with responsive viewports, thinking animation |
-| **Models** | 95+ models from NVIDIA NIM, Google Gemini, Groq — featuring flagships: **Gemini 3.8 Flash**, **DeepSeek V4 Pro**, **DeepSeek V4 Flash**, **z-ai/glm-5.3**, **z-ai/glm-5.3-flash**, **Moonshot Kimi K3**, **Gemini 3.5 Flash Lite**, **LLaMA 3.3**, and **Nemotron 3.5** |
-| **Attachments** | Documents (PDF, DOCX, XLSX, CSV, TXT), Images (PNG, JPG, GIF), Audio (WebM, MP3, WAV), Video (MP4, WebM) — max 10 files per prompt enforced in UI & client validation |
+| **Features** | Multi-model AI chat, SSE streaming, Perplexity-style collapsible reasoning drawer for `<think>` thinking streams with duration clocks and step trace, file upload (max 10 attachments per prompt) with per-file cancellation and drag-and-scroll attachment strip, interactive table utilities (Copy, CSV export, XLSX export, expand modal), code highlighting with sticky headers, markdown rendering, conversation history, model selector with responsive viewports, thinking animation |
+| **Models** | 102+ models from NVIDIA NIM, Google Gemini, Groq — featuring flagships: **Gemini 3.8 Flash**, **DeepSeek V4 Pro**, **DeepSeek V4 Flash**, **DeepSeek V4.1 Flash**, **z-ai/glm-5.3**, **z-ai/glm-5.3-flash**, **Moonshot Kimi K3**, **GPT-OSS 120B/20B**, **Qwen 3.8 27B**, **Gemini 3.5 Flash Lite**, **LLaMA 3.3**, and **Nemotron 3.5** |
+| **Attachments** | Documents (PDF, DOCX, XLSX, CSV, TXT), Images (PNG, JPG, GIF), Audio (WebM, MP3, WAV), Video (MP4, WebM) — max 10 files per prompt enforced in UI & client validation; individual upload abort controller for instant cancellation |
 | **Upload Agreement** | Mandatory policy modal (`UploadAgreementModal`) detailing external AI model inference transmission and Indian IT Act Sec 79 compliance |
+| **Storage & Deduplication** | Cloudflare R2 object storage with SHA-256 cryptographic deduplication (`file_uploads` table), automated reference-counting triggers on messages, 24h health checks, and 7-day orphan garbage collection |
 | **Multimodal** | Document text extraction, audio transcription, video frame extraction (FFmpeg → R2 → vision content) |
 | **Video Recall** | References to previously uploaded videos are automatically re-processed |
 | **Store** | `chat.store.ts` (conversations, messages, active model, streaming state) |

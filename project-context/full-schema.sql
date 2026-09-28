@@ -473,6 +473,34 @@ CREATE INDEX IF NOT EXISTS idx_error_counters_model ON public.model_error_counte
 CREATE INDEX IF NOT EXISTS idx_error_counters_flagged ON public.model_error_counters (flagged_at) WHERE flagged_at IS NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_error_counters_last_error ON public.model_error_counters (last_error_at);
 
+-- =============================================
+-- 19. FILE UPLOADS (R2 Content-Hash Deduplication)
+-- =============================================
+CREATE TABLE IF NOT EXISTS public.file_uploads (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  content_hash VARCHAR(64) NOT NULL,
+  r2_key VARCHAR(512) NOT NULL,
+  r2_url TEXT NOT NULL,
+  bucket VARCHAR(128) NOT NULL DEFAULT 'chat-files',
+  original_name TEXT,
+  mime_type VARCHAR(128),
+  file_size_bytes BIGINT,
+  user_id UUID REFERENCES auth.users(id) ON DELETE SET NULL,
+  ref_count INTEGER NOT NULL DEFAULT 1,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  last_used_at TIMESTAMPTZ DEFAULT NOW(),
+
+  CONSTRAINT uq_file_uploads_hash_bucket UNIQUE (content_hash, bucket)
+);
+
+COMMENT ON TABLE public.file_uploads IS 'Tracks unique files in R2 by content hash for deduplication. Managed by backend service_role only.';
+
+CREATE INDEX IF NOT EXISTS idx_file_uploads_hash ON public.file_uploads(content_hash);
+CREATE INDEX IF NOT EXISTS idx_file_uploads_user ON public.file_uploads(user_id);
+CREATE INDEX IF NOT EXISTS idx_file_uploads_gc ON public.file_uploads(ref_count, last_used_at);
+CREATE INDEX IF NOT EXISTS idx_file_uploads_r2_url ON public.file_uploads(r2_url);
+CREATE INDEX IF NOT EXISTS idx_file_uploads_r2_key ON public.file_uploads(r2_key);
+
 
 -- =============================================
 -- ROW LEVEL SECURITY (RLS)
@@ -497,6 +525,7 @@ ALTER TABLE public.feature_requests ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.app_config ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.cleanup_logs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.model_error_counters ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.file_uploads ENABLE ROW LEVEL SECURITY;
 
 -- =============================================
 -- RLS POLICIES: PROFILES
@@ -723,6 +752,12 @@ CREATE POLICY "Service role full access on feature_requests" ON public.feature_r
 CREATE POLICY "Service role full access on model_error_counters" ON public.model_error_counters
   FOR ALL USING (auth.role() = 'service_role') WITH CHECK (auth.role() = 'service_role');
 
+-- =============================================
+-- RLS POLICIES: FILE UPLOADS (Service-only)
+-- =============================================
+CREATE POLICY "Service role full access on file_uploads" ON public.file_uploads
+  FOR ALL USING (auth.role() = 'service_role') WITH CHECK (auth.role() = 'service_role');
+
 
 -- =============================================
 -- TRIGGERS
@@ -763,6 +798,95 @@ DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
 CREATE TRIGGER on_auth_user_created
   AFTER INSERT ON auth.users
   FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
+
+-- Automatically decrement file_uploads.ref_count on message deletion
+CREATE OR REPLACE FUNCTION public.handle_message_attachment_deletion()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+DECLARE
+  att JSONB;
+  att_url TEXT;
+  file_key TEXT;
+BEGIN
+  IF OLD.metadata IS NOT NULL AND OLD.metadata ? 'attachments' THEN
+    IF jsonb_typeof(OLD.metadata->'attachments') = 'array' THEN
+      FOR att IN SELECT * FROM jsonb_array_elements(OLD.metadata->'attachments')
+      LOOP
+        att_url := att->>'url';
+        IF att_url IS NOT NULL AND att_url != '' THEN
+          file_key := split_part(split_part(att_url, '?', 1), '/', -1);
+          UPDATE public.file_uploads
+          SET
+            ref_count = GREATEST(0, ref_count - 1),
+            last_used_at = NOW()
+          WHERE r2_url = att_url OR r2_key = file_key;
+        END IF;
+      END LOOP;
+    END IF;
+  END IF;
+  RETURN OLD;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trg_message_attachment_deletion ON public.messages;
+CREATE TRIGGER trg_message_attachment_deletion
+AFTER DELETE ON public.messages
+FOR EACH ROW
+EXECUTE FUNCTION public.handle_message_attachment_deletion();
+
+-- Automatically decrement file_uploads.ref_count on message attachment removal
+CREATE OR REPLACE FUNCTION public.handle_message_attachment_update()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+DECLARE
+  old_att JSONB;
+  new_att JSONB;
+  att_url TEXT;
+  file_key TEXT;
+  new_urls TEXT[];
+BEGIN
+  IF OLD.metadata IS NULL OR NOT (OLD.metadata ? 'attachments') THEN
+    RETURN NEW;
+  END IF;
+
+  new_urls := ARRAY[]::TEXT[];
+  IF NEW.metadata IS NOT NULL AND NEW.metadata ? 'attachments' AND jsonb_typeof(NEW.metadata->'attachments') = 'array' THEN
+    FOR new_att IN SELECT * FROM jsonb_array_elements(NEW.metadata->'attachments')
+    LOOP
+      IF new_att->>'url' IS NOT NULL THEN
+        new_urls := array_append(new_urls, new_att->>'url');
+      END IF;
+    END LOOP;
+  END IF;
+
+  IF jsonb_typeof(OLD.metadata->'attachments') = 'array' THEN
+    FOR old_att IN SELECT * FROM jsonb_array_elements(OLD.metadata->'attachments')
+    LOOP
+      att_url := old_att->>'url';
+      IF att_url IS NOT NULL AND att_url != '' AND NOT (att_url = ANY(new_urls)) THEN
+        file_key := split_part(split_part(att_url, '?', 1), '/', -1);
+        UPDATE public.file_uploads
+        SET
+          ref_count = GREATEST(0, ref_count - 1),
+          last_used_at = NOW()
+        WHERE r2_url = att_url OR r2_key = file_key;
+      END IF;
+    END LOOP;
+  END IF;
+
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trg_message_attachment_update ON public.messages;
+CREATE TRIGGER trg_message_attachment_update
+AFTER UPDATE OF metadata ON public.messages
+FOR EACH ROW
+EXECUTE FUNCTION public.handle_message_attachment_update();
 
 
 -- =============================================
@@ -1296,9 +1420,41 @@ COMMENT ON FUNCTION public.reset_stale_error_counters IS
 
 
 -- =============================================
+-- F11. DECREMENT FILE REF COUNTS (R2 Dedup & GC)
+-- =============================================
+CREATE OR REPLACE FUNCTION public.decrement_file_ref_counts(p_urls TEXT[])
+RETURNS INTEGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+DECLARE
+  affected INTEGER;
+BEGIN
+  IF p_urls IS NULL OR array_length(p_urls, 1) IS NULL THEN
+    RETURN 0;
+  END IF;
+
+  UPDATE public.file_uploads
+  SET
+    ref_count = GREATEST(0, ref_count - 1),
+    last_used_at = NOW()
+  WHERE r2_url = ANY(p_urls)
+     OR r2_key = ANY(SELECT split_part(split_part(u, '?', 1), '/', -1) FROM unnest(p_urls) AS u);
+
+  GET DIAGNOSTICS affected = ROW_COUNT;
+  RETURN affected;
+END;
+$$;
+
+COMMENT ON FUNCTION public.decrement_file_ref_counts IS
+  'Atomically decrements ref_count for a batch of R2 URLs or keys. Uses GREATEST(0, ref_count - 1).';
+
+
+-- =============================================
 -- GRANTS
 -- =============================================
 GRANT EXECUTE ON FUNCTION public.migrate_anonymous_data(TEXT, UUID) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.migrate_anonymous_data(TEXT, UUID) TO service_role;
 GRANT EXECUTE ON FUNCTION public.report_model_error(TEXT, INT, TEXT) TO service_role;
 GRANT EXECUTE ON FUNCTION public.reset_stale_error_counters(INT) TO service_role;
+GRANT EXECUTE ON FUNCTION public.decrement_file_ref_counts(TEXT[]) TO service_role;

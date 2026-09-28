@@ -16,6 +16,7 @@ router.use('/models',            modelsRoutes);
 router.use('/payment',           paymentRoutes);
 router.use('/feature-requests',  featureRequestRoutes);
 router.use('/config',            configRoutes);
+router.use('/admin',             adminRoutes);
 router.use('/stt', (req, res, next) => {
   req.url = '/stt' + req.url;
   aiRoutes(req, res, next);
@@ -259,6 +260,18 @@ data: [DONE]                                    // Stream complete
 | Method | Endpoint | Auth | Description |
 |--------|----------|------|-------------|
 | `GET` | `/config/public` | None | Get whitelisted public config flags (e.g., `video_byok_only_banner`) |
+
+---
+
+## Admin Maintenance Routes (`/api/admin`)
+
+> Internal infrastructure and maintenance endpoints. Protected by `x-admin-secret` header matching `ADMIN_SECRET` environment variable.
+
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| `POST` | `/admin/r2/health-check` | `x-admin-secret` | Scans `file_uploads` table and validates presence in Cloudflare R2 via `HeadObjectCommand`. Optional `dryRun` (default `true`) and `limit`. |
+| `POST` | `/admin/r2/garbage-collect` | `x-admin-secret` | Finds orphaned R2 files with `ref_count = 0` older than `daysOld` (default 30) and deletes them from both R2 storage and the database. |
+| `GET` | `/admin/r2/status` | `x-admin-secret` | Returns summary metrics: total uploaded records, active references, and orphaned files awaiting GC. |
 
 ---
 

@@ -1,11 +1,11 @@
 # Database Schema — Complete Reference
 
-> **Last verified:** 2026-09-26 against live Supabase production instance.
+> **Last verified:** 2026-09-29 against live Supabase production instance.
 > **Source of truth:** `full-schema.sql` in this directory (verified against `pg_catalog`).
 
 ## Overview
 
-Database: **Supabase (PostgreSQL)** with Row Level Security (RLS) enabled on **all 18 tables**.
+Database: **Supabase (PostgreSQL)** with Row Level Security (RLS) enabled on **all 19 tables**.
 
 ```mermaid
 erDiagram
@@ -21,6 +21,7 @@ erDiagram
     auth_users ||--o{ payment_history : "has"
     auth_users ||--o{ feature_requests : "submits"
     auth_users ||--o{ abuse_flags : "flagged"
+    auth_users ||--o{ file_uploads : "uploads"
 
     conversations ||--o{ messages : "contains"
     anonymous_users ||--o{ conversations : "owns (anon)"
@@ -545,7 +546,39 @@ CREATE TRIGGER on_auth_user_created
 
 ---
 
-## RPC Functions (10)
+### `file_uploads`
+
+> Tracks unique files uploaded to Cloudflare R2 by content hash for global deduplication. When duplicate files are uploaded, existing URLs are returned without duplicate storage. Uses reference counting for automated garbage collection.
+
+| Column | Type | Default | Nullable | Description |
+|--------|------|---------|:--------:|-------------|
+| `id` | UUID | `gen_random_uuid()` | NO | PK |
+| `content_hash` | VARCHAR(64) | — | NO | SHA-256 hex digest of file content |
+| `r2_key` | VARCHAR(512) | — | NO | R2 storage object key |
+| `r2_url` | TEXT | — | NO | Full public Cloudflare R2 URL |
+| `bucket` | VARCHAR(128) | `'chat-files'` | NO | Target R2 storage bucket |
+| `original_name` | TEXT | — | YES | Original file name at upload |
+| `mime_type` | VARCHAR(128) | — | YES | File MIME type |
+| `file_size_bytes` | BIGINT | — | YES | File size in bytes |
+| `user_id` | UUID | — | YES | FK → auth.users ON DELETE SET NULL |
+| `ref_count` | INTEGER | `1` | NO | Active reference count (0 = eligible for GC) |
+| `created_at` | TIMESTAMPTZ | `now()` | YES | Upload timestamp |
+| `last_used_at` | TIMESTAMPTZ | `now()` | YES | Updated on re-uploads / referenced |
+
+**Constraints:** UNIQUE `(content_hash, bucket)`
+
+**Indexes:** `content_hash`, `user_id`, `(ref_count, last_used_at)`, `r2_url`, `r2_key`
+
+**RLS Policies (0 public, service_role bypasses):**
+- RLS enabled; managed by backend `service_role` only.
+
+**Automated Triggers on `messages`:**
+- `trg_message_attachment_deletion`: Fires `AFTER DELETE ON messages`, parsing `OLD.metadata->'attachments'` and atomically decrementing `ref_count = GREATEST(0, ref_count - 1)`.
+- `trg_message_attachment_update`: Fires `AFTER UPDATE OF metadata ON messages`, detecting detached URLs and decrementing `ref_count`.
+
+---
+
+## RPC Functions (11)
 
 | Function | Arguments | Returns | Security | Description |
 |----------|-----------|---------|----------|-------------|
@@ -559,6 +592,7 @@ CREATE TRIGGER on_auth_user_created
 | `update_anonymous_cookie_consent` | `p_anon_id TEXT, p_cookie_consent BOOLEAN, p_cookie_consent_at TIMESTAMPTZ` | void | DEFINER | Updates cookie consent for non-migrated anonymous users |
 | `report_model_error` | `p_model_id TEXT, p_status_code INT, p_error_message TEXT` | INT | DEFINER | Atomically increments error counter for model+status pair and returns new count |
 | `reset_stale_error_counters` | `p_hours INT` | INT | DEFINER | Resets un-flagged error counters older than p_hours (default: 12h) |
+| `decrement_file_ref_counts` | `p_urls TEXT[]` | INT | DEFINER | Atomically decrements `ref_count` for a batch of R2 URLs or keys using `GREATEST(0, ref_count - 1)` |
 
 **Grants:**
 ```sql
@@ -566,4 +600,5 @@ GRANT EXECUTE ON FUNCTION public.migrate_anonymous_data(TEXT, UUID) TO authentic
 GRANT EXECUTE ON FUNCTION public.migrate_anonymous_data(TEXT, UUID) TO service_role;
 GRANT EXECUTE ON FUNCTION public.report_model_error(TEXT, INT, TEXT) TO service_role;
 GRANT EXECUTE ON FUNCTION public.reset_stale_error_counters(INT) TO service_role;
+GRANT EXECUTE ON FUNCTION public.decrement_file_ref_counts(TEXT[]) TO service_role;
 ```
