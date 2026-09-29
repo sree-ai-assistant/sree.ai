@@ -426,13 +426,13 @@
 
 .bubble {
   max-width: 85%;
+  min-width: 0;
   padding: 16px 8px;
   border-radius: 20px;
   font-size: 0.95rem;
   line-height: 1.6;
   position: relative;
-  /* overflow: hidden;
-  overflow-x: scroll; */
+  overflow: visible;
 }
 
 .bubble.ai {
@@ -514,6 +514,22 @@
   color: white;
   padding: 12px 20px;
   border-radius: 24px;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+  min-width: 0;
+}
+
+.bubble.user pre {
+  white-space: pre-wrap;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+  margin: 0;
+}
+
+.bubble.user code {
+  white-space: pre-wrap;
+  word-break: break-word;
+  overflow-wrap: anywhere;
 }
 
 .bubble.error {
@@ -848,10 +864,17 @@
   margin-top: 0;
 }
 
+.markdown {
+  word-break: break-word;
+  overflow-wrap: anywhere;
+}
+
 .markdown p {
   margin: 0;
   line-height: 1.7;
   letter-spacing: 0.01em;
+  word-break: break-word;
+  overflow-wrap: anywhere;
 }
 
 .markdown p+p {

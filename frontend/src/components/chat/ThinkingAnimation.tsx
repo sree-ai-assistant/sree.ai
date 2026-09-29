@@ -24,23 +24,28 @@ const videoProcessingTerms = [
 export const ThinkingAnimation: React.FC<{ status?: string | null, isVideo?: boolean }> = ({ status, isVideo }) => {
   const [index, setIndex] = useState(0);
   const [isVideoPhase, setIsVideoPhase] = useState(false);
-  const [showSpecialMessage, setShowSpecialMessage] = useState(false);
+  const [specialPhase, setSpecialPhase] = useState<0 | 1 | 2>(0);
 
   useEffect(() => {
     let cycleTimeout: number;
 
     const startNormal = () => {
-      setShowSpecialMessage(false);
-      cycleTimeout = window.setTimeout(startSpecial, 120000); // 2 minutes normal
+      setSpecialPhase(0);
+      cycleTimeout = window.setTimeout(startSpecial1, 120000); // 2 minutes normal
     };
 
-    const startSpecial = () => {
-      setShowSpecialMessage(true);
-      cycleTimeout = window.setTimeout(startNormal, 30000); // 30 seconds special
+    const startSpecial1 = () => {
+      setSpecialPhase(1);
+      cycleTimeout = window.setTimeout(startSpecial2, 30000); // 30 seconds for 1st message
+    };
+
+    const startSpecial2 = () => {
+      setSpecialPhase(2);
+      cycleTimeout = window.setTimeout(startNormal, 30000); // 30 seconds for 2nd message (same duration)
     };
 
     // Initial cycle: start normal, transition to special after 2 mins
-    cycleTimeout = window.setTimeout(startSpecial, 120000);
+    cycleTimeout = window.setTimeout(startSpecial1, 120000);
 
     return () => window.clearTimeout(cycleTimeout);
   }, []);
@@ -65,20 +70,22 @@ export const ThinkingAnimation: React.FC<{ status?: string | null, isVideo?: boo
       return;
     }
 
-    if (showSpecialMessage) return;
+    if (specialPhase !== 0) return;
 
     const currentTerms = isVideoPhase ? videoProcessingTerms : thinkingTerms;
     const timer = window.setInterval(() => {
       setIndex((prev) => (prev + 1) % currentTerms.length);
     }, 6000); // 1.5s fade in + 3s stay + 1.5s fade out = 6s total cycle
     return () => window.clearInterval(timer);
-  }, [status, isVideoPhase, showSpecialMessage]);
+  }, [status, isVideoPhase, specialPhase]);
 
   const currentTerms = isVideoPhase ? videoProcessingTerms : thinkingTerms;
   let displayContent = '';
 
-  if (showSpecialMessage) {
+  if (specialPhase === 1) {
     displayContent = "You have chosen a Thinking Model, So Be Patient & Let it Cook !";
+  } else if (specialPhase === 2) {
+    displayContent = "🔊 I Will Notify You, Once Done !!!";
   } else if (status && !isVideoPhase && status !== 'Thinking...') {
     displayContent = status;
   } else {
