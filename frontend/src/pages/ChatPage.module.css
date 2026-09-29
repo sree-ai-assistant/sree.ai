@@ -1326,3 +1326,151 @@
     opacity: 1;
   }
 }
+
+/* ─── Anonymous User Call-To-Action Banner ─── */
+.anonBanner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  background: rgba(30, 31, 35, 0.94);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 24px;
+  padding: 10px 12px 10px 22px;
+  margin: 10px 10px;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.35);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  position: relative;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.anonBanner:hover {
+  border-color: rgba(255, 255, 255, 0.2);
+  box-shadow: 0 10px 32px rgba(0, 0, 0, 0.45);
+}
+
+.anonBannerText {
+  color: #e2e8f0;
+  font-size: 0.88rem;
+  font-weight: 400;
+  line-height: 1.45;
+  letter-spacing: -0.01em;
+  user-select: none;
+}
+
+.anonBannerActions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.anonBannerLoginBtn {
+  background: #ffffff;
+  color: #000000;
+  border: none;
+  border-radius: 9999px;
+  padding: 7px 18px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.anonBannerLoginBtn:hover {
+  background: #f1f5f9;
+  transform: translateY(-1px);
+}
+
+.anonBannerSignupBtn {
+  background: rgba(255, 255, 255, 0.08);
+  color: #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 9999px;
+  padding: 7px 18px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.anonBannerSignupBtn:hover {
+  background: rgba(255, 255, 255, 0.16);
+  border-color: rgba(255, 255, 255, 0.4);
+  transform: translateY(-1px);
+}
+
+.anonBannerDismissBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: transparent;
+  border: none;
+  color: #94a3b8;
+  cursor: pointer;
+  padding: 0;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s ease, background 0.2s ease, color 0.2s ease;
+  margin-left: 2px;
+}
+
+.anonBanner:hover .anonBannerDismissBtn {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.anonBannerDismissBtn:hover {
+  background: rgba(255, 255, 255, 0.12);
+  color: #ffffff;
+}
+
+/* Phone and touch devices: cross button is ALWAYS visible */
+@media (max-width: 768px),
+(hover: none) {
+  .anonBannerDismissBtn {
+    opacity: 1 !important;
+    pointer-events: auto !important;
+  }
+}
+
+@media (max-width: 640px) {
+  .anonBanner {
+    flex-direction: column;
+    align-items: flex-start;
+    border-radius: 20px;
+    padding: 14px 16px 14px 18px;
+    gap: 12px;
+  }
+
+  .anonBannerText {
+    font-size: 0.84rem;
+    padding-right: 28px;
+  }
+
+  .anonBannerActions {
+    width: 100%;
+    justify-content: flex-end;
+    gap: 8px;
+  }
+
+  .anonBannerLoginBtn,
+  .anonBannerSignupBtn {
+    flex: 1;
+    text-align: center;
+    padding: 8px 14px;
+    font-size: 0.82rem;
+  }
+
+  .anonBannerDismissBtn {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+  }
+}

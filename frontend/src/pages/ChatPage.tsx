@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, useMemo, useCallback, useDeferredValue } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { MessageSquare, ArrowLeft, MoreVertical, Lock, Clock, Sparkles, Zap, FileText, Mail, Code, ArrowUpRight, RotateCcw, ArrowDown } from 'lucide-react';
+import { MessageSquare, ArrowLeft, MoreVertical, Lock, Clock, Sparkles, Zap, FileText, Mail, Code, ArrowUpRight, RotateCcw, ArrowDown, X } from 'lucide-react';
 import { DashboardLayout } from '../features/dashboard/DashboardLayout';
 import toast from 'react-hot-toast';
 import { supabase } from '../lib/supabase';
@@ -568,6 +568,30 @@ const ChatPage: React.FC = () => {
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [autoScrollEnabled, setAutoScrollEnabled] = useState(true);
   const [showScrollButton, setShowScrollButton] = useState(false);
+
+  // Anonymous Sign-Up Prompt Banner (appears after 2nd completed response for unauthenticated users)
+  const [isAnonBannerDismissed, setIsAnonBannerDismissed] = useState<boolean>(() => {
+    try {
+      return sessionStorage.getItem('sree_anon_banner_dismissed') === 'true';
+    } catch {
+      return false;
+    }
+  });
+
+  const assistantResponsesCount = useMemo(() => {
+    return messages.filter(m => m.role === 'assistant' && !m.metadata?.error).length;
+  }, [messages]);
+
+  const showAnonBanner = !user && !isAnonBannerDismissed && !isGenerating && assistantResponsesCount >= 2;
+
+  const handleDismissAnonBanner = () => {
+    setIsAnonBannerDismissed(true);
+    try {
+      sessionStorage.setItem('sree_anon_banner_dismissed', 'true');
+    } catch (e) {
+      console.error('Failed to save banner dismissal', e);
+    }
+  };
 
   // Reasoning & tool execution state (for Groq GPT-OSS, Qwen, DeepSeek, etc.)
   const [streamingReasoning, setStreamingReasoning] = useState('');
@@ -1640,6 +1664,47 @@ const ChatPage: React.FC = () => {
                   >
                     <RotateCcw size={12} />
                   </button>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            <AnimatePresence>
+              {showAnonBanner && (
+                <motion.div
+                  initial={{ opacity: 0, y: 10, scale: 0.98 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: 8, scale: 0.98 }}
+                  transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
+                  className={styles.anonBanner}
+                >
+                  <div className={styles.anonBannerText}>
+                    You’ll get smarter responses and can upload files, images, and more.
+                  </div>
+                  <div className={styles.anonBannerActions}>
+                    <button
+                      type="button"
+                      onClick={() => navigate('/login')}
+                      className={styles.anonBannerLoginBtn}
+                    >
+                      Log in
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => navigate('/signup')}
+                      className={styles.anonBannerSignupBtn}
+                    >
+                      Sign up for free
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleDismissAnonBanner}
+                      className={styles.anonBannerDismissBtn}
+                      title="Dismiss"
+                      aria-label="Dismiss banner"
+                    >
+                      <X size={15} />
+                    </button>
+                  </div>
                 </motion.div>
               )}
             </AnimatePresence>
