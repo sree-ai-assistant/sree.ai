@@ -20,6 +20,7 @@ import { CodeBlock } from '../components/chat/CodeBlock';
 import { TableBlock } from '../components/chat/TableBlock';
 import { ChatMessage } from '../components/chat/ChatMessage';
 import { LimitModal } from '../components/modals/LimitModal';
+import { AnonAuthModal } from '../components/modals/AnonAuthModal';
 import { aiService } from '../lib/api';
 
 const cleanTextForTTS = (text: string) => {
@@ -582,7 +583,56 @@ const ChatPage: React.FC = () => {
     return messages.filter(m => m.role === 'assistant' && !m.metadata?.error).length;
   }, [messages]);
 
-  const showAnonBanner = !user && !isAnonBannerDismissed && !isGenerating && assistantResponsesCount >= 2;
+  // Anonymous 5th-Response Sign-Up Modal
+  // Shows once every 24 hours at the 5th completed assistant response of any conversation for unauthenticated users
+  const [showAnonAuthModal, setShowAnonAuthModal] = useState<boolean>(false);
+  const convModalTriggeredRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    // Only for unauthenticated users, after streaming is complete, when assistant responses count is at least 5
+    if (!user && !isGenerating && assistantResponsesCount >= 5) {
+      // Don't re-trigger multiple times within the same conversation session
+      const currentConvKey = id || 'new_chat';
+      if (convModalTriggeredRef.current === currentConvKey) {
+        return;
+      }
+
+      try {
+        const lastShownStr = localStorage.getItem('sree_anon_modal_last_shown_at');
+        const TWENTY_FOUR_HOURS_MS = 24 * 60 * 60 * 1000;
+        let shouldShow = true;
+
+        if (lastShownStr) {
+          const lastShownTime = Number(lastShownStr);
+          if (!isNaN(lastShownTime)) {
+            shouldShow = Date.now() - lastShownTime >= TWENTY_FOUR_HOURS_MS;
+          }
+        }
+
+        if (shouldShow) {
+          const timer = setTimeout(() => {
+            setShowAnonAuthModal(true);
+            convModalTriggeredRef.current = currentConvKey;
+            localStorage.setItem('sree_anon_modal_last_shown_at', Date.now().toString());
+          }, 600);
+          return () => clearTimeout(timer);
+        }
+      } catch (e) {
+        console.warn('Failed to access localStorage for sree_anon_modal_last_shown_at', e);
+      }
+    }
+  }, [user, isGenerating, assistantResponsesCount, id]);
+
+  const handleCloseAnonAuthModal = () => {
+    setShowAnonAuthModal(false);
+    try {
+      localStorage.setItem('sree_anon_modal_last_shown_at', Date.now().toString());
+    } catch (e) {
+      console.warn('Failed to save sree_anon_modal_last_shown_at dismissal', e);
+    }
+  };
+
+  const showAnonBanner = !user && !isAnonBannerDismissed && !isGenerating && assistantResponsesCount >= 2 && !showAnonAuthModal;
 
   const handleDismissAnonBanner = () => {
     setIsAnonBannerDismissed(true);
@@ -1739,6 +1789,11 @@ const ChatPage: React.FC = () => {
           onClose={() => setLimitModal(prev => ({ ...prev, isOpen: false }))}
           type={limitModal.type}
           limitInfo={limitModal.limitInfo}
+        />
+
+        <AnonAuthModal
+          isOpen={showAnonAuthModal}
+          onClose={handleCloseAnonAuthModal}
         />
       </>
     </DashboardLayout>
