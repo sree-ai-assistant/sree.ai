@@ -24,16 +24,18 @@
 
 **Sree AI** is a full-stack, production-ready AI SaaS platform built for high-throughput AI interactions. It offers seamless multi-provider AI model routing (NVIDIA NIM, Google Gemini, Groq, Deepgram), real-time conversational voice mode, multi-modal file analysis, image/video creation studio, a Bring-Your-Own-Key (BYOK) system with quota discounts, and an end-to-end Razorpay subscription lifecycle.
 
-Designed with a **dual-identity architecture**, users can start chatting immediately without registration, with automatic state and quota migration upon signing up.
+Designed with a **dual-identity architecture**, users can start chatting immediately without registration, experience progressive conversion nudges (2nd-response banner and 24-hour rate-limited 5th-response auth modal), and enjoy automatic conversation and quota migration upon signing up.
 
 ---
 
 ## 🚀 Key Features
 
 ### 💬 Multi-Model Conversational Chat
-- **Multi-turn Contextual Chat**: Streaming completions with real-time markdown rendering, LaTeX math support, and syntax-highlighted code blocks.
+- **Multi-turn Contextual Chat**: Streaming completions with real-time markdown rendering, LaTeX math support, sticky code block headers, and resilient text wrapping (`word-break: break-word`, `overflow-wrap: anywhere`) ensuring zero horizontal overflow or avatar collision.
 - **Flagship AI Model Catalog**: Seamlessly switch between 102+ models, featuring cutting-edge flagships: **Gemini 3.8 Flash**, **DeepSeek V4 Pro**, **DeepSeek V4 Flash**, **DeepSeek V4.1 Flash**, **z-ai/glm-5.3**, **z-ai/glm-5.3-flash**, **Moonshot Kimi K3**, **GPT-OSS 120B/20B**, **Qwen 3.8 27B**, **Gemini 3.5 Flash Lite**, **LLaMA 3.3**, and **Nemotron 3.5**.
 - **Perplexity-Style Reasoning Drawer**: Collapsible live thinking viewer that parses `<think>` streams in real-time with step execution timers, animated status indicators, and clean separation from final answers.
+- **Sequenced Thinking Notifications**: Responsive thinking animations in `ThinkingAnimation` cycling through an initial preparation notice (30s) and subsequent completion notification alert (`"🔊 I Will Notify You, Once Done !!!"`).
+- **Progressive Anonymous Conversion Funnel**: Frictionless guest exploration with dual conversion nudges: (1) Subtle bottom banner above chat input after the 2nd AI response (session-persisted dismissal); (2) High-intent ChatGPT-styled modal dialog (`AnonAuthModal`) after the 5th AI response, strictly rate-limited to once every 24 hours with Google/GitHub OAuth and pre-filled email support.
 - **Interactive Data Tables**: Hover utility actions on Markdown tables for 1-click clipboard copy, CSV export, XLSX spreadsheet export, and expanded full-screen inspection modal.
 - **Multi-Modal File Analysis**: Upload and analyze PDFs, Word documents (`.docx`), Excel spreadsheets (`.xlsx`), images, and text files (with hard 10-file safety cap, individual upload cancellation, and touch-and-drag scroll UX).
 - **R2 Content Deduplication & Garbage Collection**: Cryptographic SHA-256 hashing avoids storing duplicate files in Cloudflare R2, paired with database reference-counting triggers and automated weekly orphan sweeps.
@@ -508,7 +510,7 @@ All policies are maintained as markdown source files in [`legal/`](file:///p:/an
 | **Security & BYOK Policy** | [`legal/03-security-and-byok-policy.md`](legal/03-security-and-byok-policy.md) | [`/security`](https://app.sreeai.qzz.io/security) | AES-256-GCM encryption architecture, 16-byte random IVs, 100% table RLS matrix, and Shared Responsibility Framework (Supabase, Cloudflare, Razorpay, AI providers). |
 | **Refund & Cancellation Policy** | [`legal/04-refund-and-cancellation-policy.md`](legal/04-refund-and-cancellation-policy.md) | [`/refund-policy`](https://app.sreeai.qzz.io/refund-policy) | Consumable digital service rules, in-app self-service cancellations, 3 exception categories, and 5–7 business days Razorpay refund SLA. |
 | **Acceptable Use Policy (AUP)** | [`legal/05-acceptable-use-policy.md`](legal/05-acceptable-use-policy.md) | [`/acceptable-use`](https://app.sreeai.qzz.io/acceptable-use) | Zero-tolerance for CSAM (NCMEC referral), bans on deepfakes/malware/DDoS/proxy circumvention, and prohibitions on certified high-risk decisions. |
-| **Cookie Policy** | [`legal/06-cookie-policy.md`](legal/06-cookie-policy.md) | [`/cookies`](https://app.sreeai.qzz.io/cookies) | Complete transparency for Supabase Auth JWTs, anonymous guest tokens, PostHog telemetry cookies (zero PII), and local UI preferences. |
+| **Cookie Policy** | [`legal/06-cookie-policy.md`](legal/06-cookie-policy.md) | [`/cookies`](https://app.sreeai.qzz.io/cookies) | Complete transparency for Supabase Auth JWTs, anonymous guest tokens, PostHog telemetry cookies (zero PII), local UI preferences, and client conversion state tokens (`sree_anon_banner_dismissed`, `sree_anon_modal_last_shown_at`). |
 
 ---
 
