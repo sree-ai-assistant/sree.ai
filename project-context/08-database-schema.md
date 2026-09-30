@@ -1,6 +1,6 @@
 # Database Schema — Complete Reference
 
-> **Last verified:** 2026-09-29 against live Supabase production instance.
+> **Last verified:** 2026-09-30 against live Supabase production instance.
 > **Source of truth:** `full-schema.sql` in this directory (verified against `pg_catalog`).
 
 ## Overview
@@ -578,12 +578,14 @@ CREATE TRIGGER on_auth_user_created
 
 ---
 
-## RPC Functions (11)
+## RPC Functions & Triggers (13)
 
 | Function | Arguments | Returns | Security | Description |
 |----------|-----------|---------|----------|-------------|
 | `handle_new_user()` | — | trigger | DEFINER | Creates profile on auth.users INSERT |
 | `update_updated_at_column()` | — | trigger | INVOKER | Sets `updated_at = NOW()` on row update |
+| `handle_message_attachment_deletion()` | — | trigger | DEFINER | AFTER DELETE on messages — decrements `file_uploads.ref_count` for all attachment URLs in `OLD.metadata` |
+| `handle_message_attachment_update()` | — | trigger | DEFINER | AFTER UPDATE OF metadata on messages — decrements `ref_count` for URLs present in old but not new metadata |
 | `increment_multi_usage` | `p_user_id UUID, p_anon_id TEXT, p_requests JSONB` | JSONB | DEFINER | Atomic multi-tool usage increment with auto period resets |
 | `increment_usage` | `p_user_id UUID, p_anon_id TEXT, p_tool_type TEXT, p_amount NUMERIC, p_minute_limit NUMERIC, p_daily_limit NUMERIC, p_monthly_limit NUMERIC` | JSONB | INVOKER | Single-tool atomic increment with limit checking |
 | `decrement_requests` | `user_id UUID` | void | DEFINER | Decrements legacy `requests_remaining` counter |

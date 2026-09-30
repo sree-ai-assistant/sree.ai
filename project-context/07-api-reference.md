@@ -50,7 +50,8 @@ router.use('/stt', (req, res, next) => {
   "attachments": [{"type": "document", "url": "...", "name": "file.pdf"}],
   "messageId": "uuid",
   "conversationId": "uuid",
-  "mode": "voice"  // optional, skips chat credit charge
+  "mode": "voice",            // optional, skips chat credit charge
+  "reasoning_level": "high"   // optional: "low" | "medium" | "high" — controls AI thinking effort
 }
 ```
 
