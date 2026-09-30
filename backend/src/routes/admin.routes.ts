@@ -37,6 +37,12 @@ const adminGuard = (req: Request, res: Response, next: Function) => {
 // ─── Health Check ────────────────────────────────────────────────────────────
 // POST /api/admin/r2/health-check
 // Body (optional): { "dryRun": true, "bucket": "chat-files", "limit": 1000 }
+// -d '{ "dryRun": true, "bucket": "chat-files", "limit": 1000 }'
+//
+//curl -X POST http://localhost:5000/api/admin/r2/health-check \
+//  -H "x-admin-secret: YOUR_SECRET" \
+//  -H "Content-Type: application/json" \
+//  -d '{ "dryRun": true, "bucket": "chat-files", "limit": 1000 }'
 //
 // Scans `file_uploads` table and verifies each record has a real R2 object.
 // dryRun=true (default) only reports. dryRun=false also cleans stale records.
@@ -69,6 +75,11 @@ router.post('/r2/health-check', adminGuard, async (req: Request, res: Response) 
 // POST /api/admin/r2/garbage-collect
 // Body (optional): { "dryRun": true, "daysOld": 30, "bucket": "chat-files", "limit": 500 }
 //
+//curl -X POST http://localhost:5000/api/admin/r2/garbage-collect \
+//  -H "x-admin-secret: YOUR_SECRET" \
+//  -H "Content-Type: application/json" \
+//  -d '{ "dryRun": true, "daysOld": 30, "bucket": "chat-files", "limit": 500 }'
+//
 // Finds records with ref_count=0 and last_used_at older than daysOld threshold.
 // Deletes both the R2 object and the DB record.
 router.post('/r2/garbage-collect', adminGuard, async (req: Request, res: Response) => {
@@ -98,6 +109,10 @@ router.post('/r2/garbage-collect', adminGuard, async (req: Request, res: Respons
 
 // ─── Combined Status ─────────────────────────────────────────────────────────
 // GET /api/admin/r2/status
+//
+//curl -X GET "http://localhost:5000/api/admin/r2/status" \
+//  -H "x-admin-secret: YOUR_SECRET"
+//
 // Quick overview: counts from file_uploads table
 router.get('/r2/status', adminGuard, async (req: Request, res: Response) => {
   try {
