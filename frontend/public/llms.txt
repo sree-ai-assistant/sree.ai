@@ -12,7 +12,7 @@
 
 ## Key Capabilities & Modalities
 
-- **Multi-Model LLM Chat (102+ Models)**: Real-time streaming SSE completions with markdown formatting, LaTeX math rendering, syntax-highlighted code execution blocks, Perplexity-style collapsible reasoning drawer for `<think>` thinking streams, and customizable system instructions (`more_about_you` and `custom_instructions`).
+- **Multi-Model LLM Chat (102+ Models)**: Real-time streaming SSE completions with native Google thought token streaming and Groq reasoning effort controls (Minimal, Low, Medium, High, Default, None), markdown formatting, LaTeX math rendering, syntax-highlighted code execution blocks, Perplexity-style collapsible reasoning drawer for thinking streams, and customizable system instructions (`more_about_you` and `custom_instructions`).
 - **Multi-Modal Document Parsing & R2 Deduplication**: Instant OCR and analysis of uploaded files (PDF, Word DOCX, Excel XLSX, plain text, and high-resolution images). Uploads are backed by Cloudflare R2 with SHA-256 cryptographic content deduplication and automated reference-counted garbage collection.
 - **Real-Time Voice Assistant**: Full-duplex bidirectional spoken interactions via WebSocket (`/api/live/voice/ws`) using Google Gemini Live API with 30+ voice personas (Zephyr, Aoede, Puck, Fenrir), backed by cascading Speech-To-Text (Deepgram Nova-2 primary with automated failover to Groq Whisper Large V3) and high-fidelity text-to-speech audio synthesis.
 - **Creative Studio (Images & Videos)**: Fast text-to-image synthesis powered by FLUX.1 (Dev / Schnell), SDXL, and SD 3.5 Large; automated text-to-video generation powered by Google Veo & Omni models.

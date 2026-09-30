@@ -29,10 +29,10 @@ The platform employs a **dual-identity architectural model**:
 
 ### 2.2 AI Model Routing & Cascading Failover
 Requests are orchestrated by a dynamic server-side router:
-1. **Chat Inference**:
-   - Google DeepMind: Gemini 3.8 Flash, Gemini 3.5 Flash Lite, Gemini 2.0 Flash, Gemini 1.5 Flash, Gemini 1.5 Pro.
+1. **Chat Inference & Reasoning Controls**:
+   - Google DeepMind: Gemini 3.8 Flash, Gemini 3.5 Flash Lite, Gemini 2.0 Flash, Gemini 1.5 Flash, Gemini 1.5 Pro (with native SSE thought token streaming and Thinking Level controls: Minimal, Low, Medium, High).
    - DeepSeek & Frontier AI: DeepSeek V4 Pro, DeepSeek V4 Flash, DeepSeek V4.1 Flash, z-ai/glm-5.3, z-ai/glm-5.3-flash, Moonshot Kimi K3, GPT-OSS 120B/20B, Qwen 3.8 27B.
-   - Meta Open-Source (via NVIDIA NIM & Groq): LLaMA 3.3 70B Instruct, LLaMA 3.1 8B/70B, Gemma 2 9B/27B, Mistral Large, Qwen 2.5 72B.
+   - Meta Open-Source (via NVIDIA NIM & Groq): LLaMA 3.3 70B Instruct, LLaMA 3.1 8B/70B, Gemma 2 9B/27B, Mistral Large, Qwen 2.5 72B (with Groq Reasoning Effort controls: Default, None, Low, Medium, High).
    - NVIDIA: Nemotron 3.5, Ultra/Fast reasoning models via high-throughput NIM endpoints.
 2. **Real-Time Voice Assistant Pipeline**:
    - Full-Duplex WebSocket Streaming (`WSS /api/live/voice/ws`): Powered by Google Gemini Live API (`gemini-3.8-live`, `gemini-3.1-flash-live-preview`, `gemini-2.5-flash-native-audio-preview-12-2025`) with 30+ voice personas (Zephyr, Aoede, Puck, Fenrir) and custom client-side AudioWorklet processing (`pcmWorklet.js`).
