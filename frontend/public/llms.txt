@@ -9,6 +9,7 @@
 - **Official Website**: https://sreeai.qzz.io
 - **Primary Modalities**: Conversational Chat, Multi-Modal File Analysis (PDF, DOCX, XLSX, Images), Voice Assistant (STT/TTS), AI Image Studio, AI Video Studio.
 - **Access Architecture**: Dual-identity support. Anonymous guest visitors can immediately explore multi-turn chat and trials without registration; registered users unlock persistent history, custom instructions, image/video generation, and BYOK.
+- **Conversion & Retention Architecture**: Progressive guest conversion pipeline featuring a subtle dismissible prompt banner above the chat input after the 2nd AI response, and a high-intent modal dialog with 1-click Google/GitHub OAuth and pre-filled email support after the 5th AI response (strictly rate-limited to once every 24 hours).
 
 ## Key Capabilities & Modalities
 

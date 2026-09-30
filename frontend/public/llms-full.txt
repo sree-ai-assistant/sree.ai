@@ -12,7 +12,8 @@
 
 The platform employs a **dual-identity architectural model**:
 - **Anonymous Visitors**: Can immediately access conversational chat, test model reasoning, and experience AI capabilities with zero signup friction. Sessions are tracked via an ephemeral, privacy-preserving anonymous identifier (`sreeai_anon_id`) and salted SHA-256 network hashes.
-- **Authenticated Subscribers**: Registered via Supabase Auth (Email or OAuth providers such as Google and GitHub). Upon registration, anonymous conversation history, rate limits, and custom system instructions are automatically migrated to the persistent profile.
+- **Progressive Conversion Pipeline**: Seamless guest nudges including a subtle, dismissible banner above the chat input after the 2nd AI response, and a high-intent modal dialog with 1-click Google/GitHub OAuth and pre-filled email support after the 5th AI response (strictly rate-limited to once every 24 hours).
+- **Authenticated Subscribers**: Registered via Supabase Auth (Email or OAuth providers such as Google and GitHub). Upon registration, anonymous conversation history, rate limits, and custom system instructions are automatically migrated to the persistent profile via `migrate_anonymous_data`.
 
 ---
 

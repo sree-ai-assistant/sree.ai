@@ -232,6 +232,14 @@ export const useStore = create<StoreState>((set, get) => ({
 | `LimitExceededModal` | Rate limit hit (429 response) | Shows usage stats, reset time, upgrade option |
 | `UploadAgreementModal` | First file upload attempt | Data processing agreement before uploads are allowed |
 | `ConfirmModal` | Destructive actions | Generic confirmation (delete account, revoke sessions, etc.) |
+| `AnonAuthModal` | 5th completed AI response for anonymous users (once per 24 hours) | Centered high-intent ChatGPT-styled login/signup modal with Google & GitHub OAuth and email prefill |
+
+### Conversion Banners & Nudges
+
+| Component | Trigger | Purpose |
+|-----------|---------|---------|
+| `.anonBanner` (Chat Input) | 2nd completed AI response for unauthenticated users | Floating pill CTA above the chat input with Log In / Sign Up buttons. Dismissable per session via cross (`✕`) button with desktop hover reveal and mobile touch display. |
+
 
 ---
 

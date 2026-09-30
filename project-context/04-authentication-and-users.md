@@ -238,3 +238,37 @@ To comply with the Indian **DPDP Act 2023** and **IT Act Section 79** safe harbo
    - When the user returns from Google OAuth or email confirmation, `auth.store.ts` automatically commits the timestamp to Supabase `profiles` if not already set, eliminating race conditions or timestamp overwrites.
 4. **Anonymous User Experience**:
    - Anonymous visitors receive a personalized conversational greeting (`"Bro !"` / friendly guest salutation) instead of blank greetings across the header and chat input.
+
+---
+
+## Anonymous User Conversion Architecture
+
+Sree AI employs a dual-stage, non-intrusive conversion pipeline designed to maximize guest-to-registered user transitions without disrupting exploratory interactions:
+
+### 1. 2nd-Response Prompt Banner (`ChatPage.module.css` `.anonBanner`)
+- **Trigger**: Appears above the chat input immediately following the completion of the 2nd assistant response in a session (`!user && !isAnonBannerDismissed && !isGenerating && assistantResponsesCount >= 2 && !showAnonAuthModal`).
+- **Design & Behavior**:
+  - Sleek translucent pill banner (`rgba(30, 31, 35, 0.94)`) with backdrop blur (`12px`).
+  - Text: *"You'll get smarter responses and can upload files, images, and more."*
+  - Dual action buttons: White pill **Log in** (`/login`) and secondary **Sign up for free** (`/signup`).
+  - **Dismissal**: Cross (`✕`) button. On desktop, smoothly reveals on hover over the banner; on mobile touchscreens (`max-width: 640px`), permanently visible for frictionless touch dismissal.
+  - **Storage**: Dismissal state stored in `sessionStorage` (`sree_anon_banner_dismissed: 'true'`), keeping the banner hidden for the rest of that browser tab session.
+
+### 2. 5th-Response Recurring Auth Modal (`AnonAuthModal.tsx`)
+- **Trigger**: Displays at the 5th completed assistant response in any conversation for unauthenticated users (`!user && !isGenerating && assistantResponsesCount >= 5`), triggered after a 600ms grace delay once streaming stops.
+- **Design & Layout**:
+  - Centered high-intent ChatGPT-styled modal card (`#212121` dark surface, `24px` border radius, `0 24px 60px rgba(0, 0, 0, 0.65)` shadow) with dimmed blurred backdrop (`rgba(0, 0, 0, 0.72)`).
+  - Title: *"Log in or sign up"* with explanatory value proposition subtitle.
+  - Social OAuth pills: **Continue with Google** (official 4-color SVG) and **Continue with GitHub**, directly integrated with Supabase OAuth.
+  - Centered `OR` divider.
+  - Dark rounded email input field with white **Continue** pill button.
+- **24-Hour Cooldown Enforcement**:
+  - The exact Unix timestamp of modal display or dismissal is saved in `localStorage` (`sree_anon_modal_last_shown_at`).
+  - Evaluated on subsequent messages and conversations: only re-triggers if `Date.now() - lastShownTime >= 24 * 60 * 60 * 1000`.
+  - Guarded against duplicate triggers within the same conversation session via `convModalTriggeredRef`.
+- **Email Prefill Continuity**:
+  - Submitting an email in `AnonAuthModal` navigates to `/signup` with `{ state: { email } }`.
+  - Both `SignupForm.tsx` and `LoginForm.tsx` consume `useLocation().state.email` to pre-populate the email input field automatically.
+- **Mutual Exclusion**:
+  - When `AnonAuthModal` is open, the 2nd-response bottom input banner is automatically hidden (`!showAnonAuthModal`) to prevent competing visual elements.
+

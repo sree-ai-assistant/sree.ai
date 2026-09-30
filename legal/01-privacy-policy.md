@@ -32,6 +32,7 @@ If you do not agree with the terms of this Privacy Policy, please do not access 
   - **Browser Fingerprint:** A SHA-256 hash of client screen resolution, browser capabilities, and operating system.
 - **Usage & Telemetry Data:** Request timestamps, tool usage frequency (chat completions, image generations, audio transcriptions, token consumption), model selections, latency metrics, and error logs (via PostHog).
 - **Device & Session Metadata:** Operating system, browser type, device identifiers, and active session status recorded in `user_sessions` and `trusted_devices` to secure your account.
+- **Client-Side State & Preference Tokens:** Browser local storage and session storage are used to store non-identifying client preferences (such as theme and sidebar states) and frequency controls (such as prompt banner dismissals and the 24-hour anonymous modal cooldown timestamp `sree_anon_modal_last_shown_at`), as fully disclosed in our [Cookie Policy](https://app.sreeai.qzz.io/cookies).
 
 ### 2.3 Payment & Billing Information
 - All financial transactions and recurring subscriptions are processed securely by our third-party payment processor, **Razorpay**.

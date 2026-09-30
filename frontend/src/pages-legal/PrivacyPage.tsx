@@ -51,6 +51,7 @@ export const PrivacyPage: React.FC = () => {
         </li>
         <li><strong>Usage & Telemetry Data:</strong> Request timestamps, tool usage frequency (chat completions, image generations, audio transcriptions, token consumption), model selections, latency metrics, and error logs (via PostHog).</li>
         <li><strong>Device & Session Metadata:</strong> Operating system, browser type, device identifiers, and active session status recorded in <code>user_sessions</code> and <code>trusted_devices</code> to secure your account.</li>
+        <li><strong>Client-Side State & Preference Tokens:</strong> Browser local storage and session storage are used to store non-identifying client preferences (such as theme and sidebar states) and frequency controls (such as prompt banner dismissals and the 24-hour anonymous modal cooldown timestamp <code>sree_anon_modal_last_shown_at</code>), as fully disclosed in our <a href="/cookies">Cookie Policy</a>.</li>
       </ul>
 
       <h3>2.3 Payment & Billing Information</h3>
