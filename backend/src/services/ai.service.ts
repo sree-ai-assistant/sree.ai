@@ -221,7 +221,10 @@ class AiService {
 
     const response = await fetch(url, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'x-goog-api-key': apiKey
+      },
       body: JSON.stringify(payload)
     });
 
@@ -994,6 +997,7 @@ class AiService {
       const response = await axios.post(url, payload, {
         headers: {
           'Content-Type': 'application/json',
+          'x-goog-api-key': apiKey,
         },
         timeout: 120000,
       });

@@ -2,7 +2,7 @@
 
 > Comprehensive reference document for Large Language Models, AI Search Engines (Perplexity, ChatGPT, Claude, Gemini), Agents, and Evaluators.
 > Application Host: https://app.sreeai.qzz.io
-> Last Updated: 2026-09-29
+> Last Updated: 2026-09-30
 
 ---
 
