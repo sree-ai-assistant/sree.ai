@@ -8,12 +8,13 @@ import { MessageAttachment } from './MessageAttachment';
 import { ThinkingAnimation } from './ThinkingAnimation';
 import { useChatStore } from '../../store/chat.store';
 import { parseMessageContent } from '../../utils/messageParser';
+import { extractThinkingContent as extractThinking, filterThinkingTags as defaultFilterThinkingTags } from '../../utils/thinkingFilter';
 
 interface ChatMessageProps {
   message: any;
   index: number;
   markdownComponents: any;
-  filterThinkingTags: (content: string) => string;
+  filterThinkingTags?: (content: string, isStreaming?: boolean) => string;
   onRetry: (index: number, content: string, attachments: any[], id?: string) => void;
   isStreaming?: boolean;
   streamingStatus?: string | null;
@@ -23,13 +24,6 @@ interface ChatMessageProps {
   onPlayTts?: (messageId: string, text: string) => void;
   onStopTts?: () => void;
 }
-
-/** Extract <think>/<thinking> content from raw message for display */
-const extractThinkingContent = (content: string): string => {
-  if (!content || typeof content !== 'string') return '';
-  const match = content.match(/<(think|thinking)>([\s\S]*?)(?:<\/\1>|$)/i);
-  return match ? match[2].trim() : '';
-};
 
 /** Format tool name for display */
 const formatToolName = (type: string): string => {
@@ -97,7 +91,7 @@ export const ChatMessageComponent: React.FC<ChatMessageProps> = ({
   // Resolve reasoning: from metadata (saved) or inline <think> tags
   const reasoning = useMemo(() => {
     if (m.metadata?.reasoning) return m.metadata.reasoning;
-    if (m.role === 'assistant' && m.content) return extractThinkingContent(m.content);
+    if (m.role === 'assistant' && m.content) return extractThinking(m.content);
     return '';
   }, [m.metadata?.reasoning, m.content, m.role]);
 
@@ -191,7 +185,11 @@ export const ChatMessageComponent: React.FC<ChatMessageProps> = ({
   }, [m.metadata?.attachments, parsedContent.injectedAttachments]);
 
   const displayContent = parsedContent.cleanText;
-  const filteredContent = filterThinkingTags(displayContent);
+  const activeFilter = filterThinkingTags || defaultFilterThinkingTags;
+  // User messages are verbatim — never strip thinking or HTML tags from user input!
+  const filteredContent = m.role === 'assistant'
+    ? activeFilter(displayContent, isStreaming)
+    : displayContent;
   const trimmedContent = (filteredContent || '').trim();
 
   // If text is empty or is merely a placeholder dot with attachments, suppress rendering markdown
@@ -200,7 +198,7 @@ export const ChatMessageComponent: React.FC<ChatMessageProps> = ({
   const handleCopy = async () => {
     try {
       const textToCopy = shouldRenderMarkdown
-        ? displayContent
+        ? filteredContent
         : allAttachments.map((a: any) => a.name).filter(Boolean).join(', ');
       if (textToCopy) {
         await navigator.clipboard.writeText(textToCopy);
@@ -241,7 +239,14 @@ export const ChatMessageComponent: React.FC<ChatMessageProps> = ({
                     style={{ paddingLeft: 0, paddingBottom: 4 }}
                   >
                     <span className={styles.collapsibleLabel} style={{ fontWeight: 400, fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
-                      {isStreaming ? `Thinking...` : `Worked for ${formatTimer(savedDuration)}`}
+                      {(() => {
+                        const hasTools = executedTools && executedTools.length > 0;
+                        if (isStreaming) {
+                          return hasTools ? 'Working...' : 'Thinking...';
+                        }
+                        const durationText = savedDuration > 0 ? ` for ${formatTimer(savedDuration)}` : '';
+                        return hasTools ? `Worked${durationText}` : `Thought${durationText}`;
+                      })()}
                     </span>
                     {reasoningOpen ? <ChevronDown size={14} style={{ opacity: 0.6 }} /> : <ChevronRight size={14} style={{ opacity: 0.6 }} />}
                   </button>
@@ -344,7 +349,7 @@ export const ChatMessageComponent: React.FC<ChatMessageProps> = ({
                     <div className={styles.responseActions}>
                       <button
                         className={`${styles.actionBtn} ${isPlayingThisTts ? styles.playing : ''}`}
-                        onClick={() => onPlayTts?.(messageId, displayContent)}
+                        onClick={() => onPlayTts?.(messageId, filteredContent)}
                       >
                         {isPlayingThisTts ? (
                           <>

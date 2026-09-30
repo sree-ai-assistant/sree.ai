@@ -149,6 +149,127 @@ class AiService {
     });
   }
 
+  /**
+   * Native Google Gemini streaming via streamGenerateContent SSE endpoint.
+   * This is required because Google's OpenAI-compatible endpoint does NOT stream
+   * raw thought tokens (it only returns an encrypted thought_signature).
+   * Native streamGenerateContent cleanly streams real thought tokens when thinkingConfig.includeThoughts = true.
+   */
+  private async *streamGoogleNative(
+    apiKey: string,
+    model: string,
+    messages: any[],
+    maxOutputTokens: number,
+    reasoningEffort: 'minimal' | 'low' | 'medium' | 'high' = 'minimal'
+  ): AsyncGenerator<any, void, unknown> {
+    const isGemini25 = model.includes('2.5');
+    const thinkingConfig: any = { includeThoughts: true };
+    if (isGemini25) {
+      const budgetMap: Record<string, number> = { minimal: 1024, low: 2048, medium: 8192, high: 24576 };
+      thinkingConfig.thinkingBudget = budgetMap[reasoningEffort] || 1024;
+    } else {
+      const levelMap: Record<string, string> = { minimal: 'MINIMAL', low: 'LOW', medium: 'MEDIUM', high: 'HIGH' };
+      thinkingConfig.thinkingLevel = levelMap[reasoningEffort] || 'LOW';
+    }
+
+    const systemMsg = messages.find(m => m.role === 'system');
+    const nonSystemMsgs = messages.filter(m => m.role !== 'system');
+
+    const contents = nonSystemMsgs.map(m => {
+      let parts: any[] = [];
+      if (typeof m.content === 'string') {
+        parts = [{ text: m.content }];
+      } else if (Array.isArray(m.content)) {
+        parts = m.content.map((p: any) => {
+          if (p.type === 'text') return { text: p.text };
+          if (p.type === 'image_url' && p.image_url?.url) {
+            const match = p.image_url.url.match(/^data:([^;]+);base64,(.+)$/);
+            if (match) {
+              return {
+                inlineData: {
+                  mimeType: match[1],
+                  data: match[2]
+                }
+              };
+            }
+          }
+          return { text: '' };
+        });
+      }
+      return {
+        role: m.role === 'assistant' ? 'model' : 'user',
+        parts
+      };
+    });
+
+    const payload: any = {
+      contents,
+      generationConfig: {
+        maxOutputTokens,
+        temperature: 0.7,
+        thinkingConfig
+      }
+    };
+
+    if (systemMsg && typeof systemMsg.content === 'string' && systemMsg.content.trim()) {
+      payload.systemInstruction = {
+        parts: [{ text: systemMsg.content }]
+      };
+    }
+
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:streamGenerateContent?key=${encodeURIComponent(apiKey)}&alt=sse`;
+
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+
+    if (!response.ok) {
+      const errText = await response.text();
+      const error: any = new Error(`Google native stream error ${response.status}: ${errText}`);
+      error.status = response.status;
+      throw error;
+    }
+
+    if (!response.body) {
+      throw new Error('Google native stream returned an empty body');
+    }
+
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+
+      const lines = buffer.split('\n');
+      buffer = lines.pop() || '';
+
+      for (const line of lines) {
+        if (line.startsWith('data: ')) {
+          const jsonStr = line.slice(6).trim();
+          if (jsonStr === '[DONE]') continue;
+          try {
+            const data = JSON.parse(jsonStr);
+            const parts = data.candidates?.[0]?.content?.parts || [];
+            for (const part of parts) {
+              if (part.thought) {
+                yield { choices: [{ delta: { reasoning: part.text } }] };
+              } else if (part.text) {
+                yield { choices: [{ delta: { content: part.text } }] };
+              }
+            }
+          } catch (e) {
+            // ignore partial JSON chunks
+          }
+        }
+      }
+    }
+  }
+
   private getGroqClient(apiKey: string) {
     return new OpenAI({
       apiKey,
@@ -171,7 +292,7 @@ class AiService {
     }
   }
 
-  async streamChat(apiKey: string, messages: any[], model: string = 'meta/llama-3.1-70b-instruct', onStatus?: (status: string) => void, userId?: string, provider: string = 'nvidia'): Promise<any> {
+  async streamChat(apiKey: string, messages: any[], model: string = 'meta/llama-3.1-70b-instruct', onStatus?: (status: string) => void, userId?: string, provider: string = 'nvidia', reasoningEffort: 'minimal' | 'low' | 'medium' | 'high' | 'default' | 'none' = 'minimal'): Promise<any> {
     const openai = this.getClientForModel(apiKey, provider);
 
     // 1. Fetch model configuration
@@ -480,12 +601,24 @@ class AiService {
         };
 
         if (provider === 'google') {
-          requestParams.max_completion_tokens = reservedTokens;
-        } else {
-          requestParams.max_tokens = reservedTokens;
+          // Google's OpenAI-compatible endpoint does NOT stream raw thought tokens (only returns thought_signature).
+          // streamGoogleNative connects to Google's native SSE endpoint to stream true protocol-level thoughts instantly.
+          const googleEffort: 'minimal' | 'low' | 'medium' | 'high' =
+            (reasoningEffort === 'default' || reasoningEffort === 'none') ? 'minimal' : reasoningEffort;
+          return this.streamGoogleNative(apiKey, apiModel, sanitized, reservedTokens, googleEffort);
         }
 
+        requestParams.max_tokens = reservedTokens;
+
         if (provider === 'groq') {
+          // Groq supports reasoning_effort: ["default", "none", "low", "medium", "high"]
+          let groqReasoning = 'default';
+          if (['default', 'none', 'low', 'medium', 'high'].includes(reasoningEffort)) {
+            groqReasoning = reasoningEffort;
+          } else if (reasoningEffort === 'minimal') {
+            groqReasoning = 'default';
+          }
+
           if (model.includes('compound')) {
             requestParams.compound_custom = {
               tools: {
@@ -500,16 +633,35 @@ class AiService {
               { type: "browser_search" },
               { type: "code_interpreter" }
             ];
-            requestParams.reasoning_effort = "medium";
-            requestParams.include_reasoning = true;
+            if (groqReasoning === 'none') {
+              requestParams.include_reasoning = false;
+            } else if (['low', 'medium', 'high'].includes(groqReasoning)) {
+              requestParams.reasoning_effort = groqReasoning;
+              requestParams.include_reasoning = true;
+            } else {
+              // 'default': omit reasoning_effort so Groq uses model default, include_reasoning = true
+              requestParams.include_reasoning = true;
+            }
             requestParams.max_completion_tokens = reservedTokens;
             delete requestParams.max_tokens;
           } else if (model.includes('qwen')) {
             // Qwen 3.8: reasoning via <think> tags in content stream
             requestParams.reasoning_format = "raw";
-            requestParams.reasoning_effort = "default";
+            if (['low', 'medium', 'high'].includes(groqReasoning)) {
+              requestParams.reasoning_effort = groqReasoning;
+            }
             requestParams.max_completion_tokens = reservedTokens;
             delete requestParams.max_tokens;
+          } else {
+            // Generic Groq models with reasoning support
+            if (groqReasoning === 'none') {
+              requestParams.include_reasoning = false;
+            } else if (['low', 'medium', 'high'].includes(groqReasoning)) {
+              requestParams.reasoning_effort = groqReasoning;
+              requestParams.include_reasoning = true;
+            } else {
+              requestParams.include_reasoning = true;
+            }
           }
         }
 

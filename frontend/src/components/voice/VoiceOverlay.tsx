@@ -15,6 +15,7 @@ import { CodeBlock } from '../chat/CodeBlock';
 import { TableBlock } from '../chat/TableBlock';
 import styles from './VoiceOverlay.module.css';
 import { getStoredAnonId, generateFingerprintHash } from '../../lib/fingerprint';
+import { filterThinkingTags as filterThinkingTagsUtil } from '../../utils/thinkingFilter';
 
 interface VoiceOverlayProps {
   onClose: () => void;
@@ -377,14 +378,9 @@ export const VoiceOverlay: React.FC<VoiceOverlayProps> = ({ onClose, initialConv
 
   const filterThinkingTags = (content: string) => {
     if (!content) return '';
-    // Remove closed tags
-    let processed = content.replace(/<(think|thinking)>[\s\S]*?<\/\1>/gi, '');
-    // Remove open tags and everything after them (for streaming)
-    processed = processed.replace(/<(think|thinking)>[\s\S]*/gi, '');
-    // Remove system instructions
-    processed = processed.replace(/\[SYSTEM INSTRUCTION: [\s\S]*?\]/gi, '');
+    const cleaned = filterThinkingTagsUtil(content, false);
     // Trim leading whitespace (e.g. from stripped thinking blocks), but preserve intentional trailing spaces
-    return processed.replace(/^\s+/, '');
+    return cleaned.replace(/^\s+/, '');
   };
 
   const formatCountdown = (totalSeconds: number) => {

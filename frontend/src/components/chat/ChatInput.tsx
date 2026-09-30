@@ -1,10 +1,11 @@
 import React, { useRef, useState } from 'react';
-import { Plus, Mic, ArrowUp, X, FileText, Table, Music, Video, Image as ImageIcon, AudioLines, Check, Trash2, Loader2, RotateCcw, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Plus, Mic, ArrowUp, X, FileText, Table, Music, Video, Image as ImageIcon, AudioLines, Check, Trash2, Loader2, RotateCcw, ChevronLeft, ChevronRight, Brain, ChevronDown } from 'lucide-react';
+import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
 import { toast } from 'react-hot-toast';
 import { motion, AnimatePresence } from 'framer-motion';
 import styles from './ChatInput.module.css';
 import { ImagePreviewModal } from './ImagePreviewModal';
-import { useModelStore } from '../../store/model.store';
+import { useModelStore, type ReasoningEffort } from '../../store/model.store';
 import { useAuthStore } from '../../store/auth.store';
 import { uploadFile } from '../../api/storage';
 import { aiService } from '../../lib/api';
@@ -36,6 +37,21 @@ interface ChatInputProps {
   placeholderText?: string;
   onAuthRequired?: () => void;
 }
+
+const GOOGLE_THINKING_OPTIONS: { value: ReasoningEffort; label: string; desc: string; isDefault?: boolean }[] = [
+  { value: 'minimal', label: 'Minimal', desc: 'Fast, minimal thinking tokens', isDefault: true },
+  { value: 'low', label: 'Low', desc: 'Light thinking for simple logic' },
+  { value: 'medium', label: 'Medium', desc: 'Balanced thinking depth' },
+  { value: 'high', label: 'High', desc: 'Maximum depth for complex problems' },
+];
+
+const GROQ_REASONING_OPTIONS: { value: ReasoningEffort; label: string; desc: string; isDefault?: boolean }[] = [
+  { value: 'default', label: 'Default', desc: 'Model default reasoning effort', isDefault: true },
+  { value: 'none', label: 'None', desc: 'Disable reasoning completely' },
+  { value: 'low', label: 'Low', desc: 'Light reasoning for simple logic' },
+  { value: 'medium', label: 'Medium', desc: 'Balanced reasoning depth' },
+  { value: 'high', label: 'High', desc: 'Maximum depth for complex problems' },
+];
 
 const ImageThumb: React.FC<{ src: string; onClick: () => void }> = ({ src, onClick }) => {
   const [hasError, setHasError] = useState(false);
@@ -357,11 +373,50 @@ export const ChatInput: React.FC<ChatInputProps> = ({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
   const [previewImage, setPreviewImage] = React.useState<{ url: string; name: string } | null>(null);
-  const { setVisionRequired } = useModelStore();
+  const { selectedModel, setVisionRequired, reasoningEffort, setReasoningEffort } = useModelStore();
   const { user } = useAuthStore();
+
+  const provider = selectedModel?.provider?.toLowerCase();
+  const isGoogle = provider === 'google';
+  const isGroq = provider === 'groq';
+  const isNvidia = provider === 'nvidia';
+  const showReasoningSelector = (isGoogle || isGroq) && !isNvidia;
+
+  const reasoningOptions = isGoogle ? GOOGLE_THINKING_OPTIONS : GROQ_REASONING_OPTIONS;
+  const menuTitle = isGoogle ? 'Thinking Level' : 'Reasoning Level';
+
+  const effectiveEffort: ReasoningEffort = reasoningOptions.some((o) => o.value === reasoningEffort)
+    ? reasoningEffort
+    : (isGoogle ? 'minimal' : 'default');
+
+  const activeOption = reasoningOptions.find((o) => o.value === effectiveEffort) || reasoningOptions[0];
 
   const [isVoiceMenuOpen, setIsVoiceMenuOpen] = React.useState(false);
   const voiceMenuRef = useRef<HTMLDivElement>(null);
+
+  const [isReasoningMenuOpen, setIsReasoningMenuOpen] = React.useState(false);
+  const inputContainerRef = useRef<HTMLDivElement>(null);
+  const reasoningTriggerRef = useRef<HTMLButtonElement>(null);
+  const [dropdownSideOffset, setDropdownSideOffset] = React.useState(12);
+
+  const updateDropdownOffset = React.useCallback(() => {
+    if (reasoningTriggerRef.current && inputContainerRef.current) {
+      const triggerRect = reasoningTriggerRef.current.getBoundingClientRect();
+      const containerRect = inputContainerRef.current.getBoundingClientRect();
+      const diff = triggerRect.top - containerRect.top;
+      // Float cleanly 10px above the top border of the input container
+      const offset = Math.max(8, Math.round(diff + 10));
+      setDropdownSideOffset(offset);
+    }
+  }, []);
+
+  React.useEffect(() => {
+    if (isReasoningMenuOpen) {
+      updateDropdownOffset();
+      window.addEventListener('resize', updateDropdownOffset);
+      return () => window.removeEventListener('resize', updateDropdownOffset);
+    }
+  }, [isReasoningMenuOpen, updateDropdownOffset]);
 
   React.useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -571,18 +626,44 @@ export const ChatInput: React.FC<ChatInputProps> = ({
   }, [attachments, setVisionRequired]);
 
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const [isMultiLine, setIsMultiLine] = useState(false);
 
   const adjustHeight = () => {
     const textarea = textareaRef.current;
     if (textarea) {
-      textarea.style.height = 'auto';
-      textarea.style.height = `${Math.min(textarea.scrollHeight, 200)}px`;
+      // Reset height to 0px temporarily to get exact scrollHeight without stale height caching
+      textarea.style.height = '0px';
+      const scrollHeight = textarea.scrollHeight;
+
+      const val = textarea.value;
+      const hasNewline = val.includes('\n');
+      const isMulti = hasNewline || scrollHeight > 46;
+
+      if (val.trim().length === 0) {
+        setIsMultiLine(false);
+      } else if (isMulti) {
+        setIsMultiLine(true);
+      } else if (!hasNewline && scrollHeight <= 42) {
+        setIsMultiLine(false);
+      }
+
+      const minH = isMulti ? 42 : 36;
+      const targetHeight = Math.min(Math.max(scrollHeight, minH), 200);
+      textarea.style.height = `${targetHeight}px`;
+      textarea.style.overflowY = scrollHeight > 200 ? 'auto' : 'hidden';
     }
   };
 
   React.useEffect(() => {
     adjustHeight();
   }, [internalValue]);
+
+  React.useEffect(() => {
+    const raf = requestAnimationFrame(() => {
+      adjustHeight();
+    });
+    return () => cancelAnimationFrame(raf);
+  }, [isMultiLine]);
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (disabled) return;
@@ -955,7 +1036,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
         disabled={disabled}
       />
 
-      <div className={`${styles.inputContainer} ${disabled ? styles.disabled : ''}`}>
+      <div ref={inputContainerRef} className={`${styles.inputContainer} ${disabled ? styles.disabled : ''}`}>
         {!hasMessages && <div className={styles.neonBorder} />}
 
         {attachments.length > 0 && (
@@ -1052,7 +1133,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
           </AttachmentScrollableRow>
         )}
 
-        <div className={styles.inputInner}>
+        <div className={`${styles.inputInner} ${isMultiLine ? styles.isMultiLine : ''}`}>
           {isDictating ? (
             <div className={styles.dictateContainer}>
               <div className={styles.dictateWaveSection}>
@@ -1093,22 +1174,102 @@ export const ChatInput: React.FC<ChatInputProps> = ({
             </div>
           ) : (
             <>
-              <button className={`${styles.iconBtn} ${styles.plusBtn}`} onClick={() => !disabled && fileInputRef.current?.click()} disabled={disabled} style={disabled ? { opacity: 0.5, cursor: 'not-allowed' } : {}}>
-                <Plus size={22} />
-              </button>
-
               <textarea
                 ref={textareaRef}
-                className={styles.input}
+                className={`${styles.input} ${showReasoningSelector && !isMultiLine ? styles.inputWithReasoning : ''}`}
                 value={internalValue}
                 onChange={(e) => setInternalValue(e.target.value)}
+                onInput={adjustHeight}
                 onKeyDown={handleKeyDown}
                 placeholder={placeholderText || "Ask anything"}
                 disabled={disabled}
                 rows={1}
               />
 
-              <div className={styles.inputActions}>
+              <div className={styles.bottomToolbar}>
+                <button
+                  type="button"
+                  className={`${styles.iconBtn} ${styles.plusBtn}`}
+                  onClick={() => !disabled && fileInputRef.current?.click()}
+                  disabled={disabled}
+                  style={disabled ? { opacity: 0.5, cursor: 'not-allowed' } : {}}
+                  title="Add files or images"
+                  aria-label="Add files or images"
+                >
+                  <Plus size={22} />
+                </button>
+
+                <div className={styles.inputActions}>
+                {/* Reasoning / Thinking Level Selector (Hidden for NVIDIA and unsupported models) */}
+                {showReasoningSelector && (
+                  <div className={styles.reasoningMenuContainer}>
+                    <DropdownMenu.Root
+                      open={isReasoningMenuOpen}
+                      onOpenChange={(open) => {
+                        if (open) {
+                          updateDropdownOffset();
+                        }
+                        setIsReasoningMenuOpen(open);
+                      }}
+                    >
+                      <DropdownMenu.Trigger asChild>
+                        <button
+                          ref={reasoningTriggerRef}
+                          type="button"
+                          className={`${styles.reasoningPillBtn} ${isReasoningMenuOpen ? styles.reasoningPillActive : ''}`}
+                          aria-label={`${menuTitle}: ${activeOption.label}`}
+                          title={`${menuTitle}: ${activeOption.label}`}
+                          disabled={disabled}
+                          style={disabled ? { opacity: 0.5, cursor: 'not-allowed' } : {}}
+                        >
+                          <Brain size={14} className={styles.reasoningIcon} />
+                          <span className={styles.reasoningLabel}>
+                            {activeOption.label}
+                          </span>
+                          <ChevronDown size={12} className={`${styles.reasoningChevron} ${isReasoningMenuOpen ? styles.chevronRotated : ''}`} />
+                        </button>
+                      </DropdownMenu.Trigger>
+
+                      <DropdownMenu.Portal>
+                        <DropdownMenu.Content
+                          className={styles.reasoningDropdown}
+                          side="top"
+                          align="center"
+                          sideOffset={dropdownSideOffset}
+                          collisionPadding={12}
+                          avoidCollisions={true}
+                          onCloseAutoFocus={(e) => e.preventDefault()}
+                        >
+                          <div className={styles.reasoningDropdownHeader}>
+                            <Brain size={13} className={styles.headerBrainIcon} />
+                            <span>{menuTitle}</span>
+                          </div>
+                          {reasoningOptions.map((opt) => (
+                            <DropdownMenu.Item
+                              key={opt.value}
+                              className={`${styles.reasoningOptionItem} ${effectiveEffort === opt.value ? styles.reasoningOptionActive : ''}`}
+                              onSelect={() => {
+                                setReasoningEffort(opt.value);
+                              }}
+                            >
+                              <div className={styles.reasoningOptionContent}>
+                                <div className={styles.reasoningOptionTitleRow}>
+                                  <span className={styles.reasoningOptionTitle}>{opt.label}</span>
+                                  {opt.isDefault && <span className={styles.reasoningDefaultBadge}>Default</span>}
+                                </div>
+                                <span className={styles.reasoningOptionDesc}>{opt.desc}</span>
+                              </div>
+                              {effectiveEffort === opt.value && (
+                                <Check size={14} className={styles.reasoningCheck} />
+                              )}
+                            </DropdownMenu.Item>
+                          ))}
+                        </DropdownMenu.Content>
+                      </DropdownMenu.Portal>
+                    </DropdownMenu.Root>
+                  </div>
+                )}
+
                 <div className={styles.voiceMenuContainer} ref={voiceMenuRef}>
                   <button
                     className={`${styles.iconBtn} ${isVoiceMenuOpen ? styles.activeMicBtn : ''}`}
@@ -1226,6 +1387,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
                     </motion.button>
                   )}
                 </AnimatePresence>
+                </div>
               </div>
             </>
           )}

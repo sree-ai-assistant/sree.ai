@@ -20,8 +20,6 @@ import { getUsageStatus, checkAndIncrementUsage, checkAndIncrementMultiUsage, ty
 import path from 'path';
 import axios from 'axios';
 import { reportModelError } from '../services/modelObserver.service';
-// Removed static uuid import due to ESM/CJS compatibility issues
-
 
 const router = Router();
 
@@ -225,7 +223,11 @@ router.post('/chat', flexAuthMiddleware, abuseDetectionMiddleware(), queuePriori
 
   try {
     const { v4: uuidv4 } = await import('uuid');
-    const { messages, model, attachments, messageId, conversationId } = req.body;
+    const { messages, model, attachments, messageId, conversationId, reasoning_effort } = req.body;
+    const validEfforts = ['minimal', 'low', 'medium', 'high', 'default', 'none'] as const;
+    const reasoningEffort: 'minimal' | 'low' | 'medium' | 'high' | 'default' | 'none' = (validEfforts as readonly string[]).includes(reasoning_effort)
+      ? reasoning_effort
+      : 'minimal';
     const userId = req.user?.id; // Optional for anonymous
     const isAuth = !!userId;
     const tier = (req as any).userTier as PlanTier || 'anonymous';
@@ -682,16 +684,17 @@ router.post('/chat', flexAuthMiddleware, abuseDetectionMiddleware(), queuePriori
       async (rotatedKey) => {
         const stream = await aiService.streamChat(rotatedKey, optimizedMessages, model, (status) => {
           writeSSE({ status });
-        }, userId, provider);
+        }, userId, provider, reasoningEffort);
 
         let contentSent = false;
+
         try {
           for await (const chunk of stream) {
             const delta = chunk.choices?.[0]?.delta as any;
             const content = delta?.content || '';
 
-            // Forward reasoning tokens (Groq GPT-OSS `include_reasoning: true` → delta.reasoning)
-            const reasoning = delta?.reasoning || '';
+            // Forward native provider reasoning tokens (Groq GPT-OSS delta.reasoning or Google native thought)
+            const reasoning = delta?.reasoning || delta?.reasoning_content || delta?.thought || '';
             if (reasoning) {
               writeSSE({ reasoning });
             }

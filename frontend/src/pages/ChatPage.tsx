@@ -22,11 +22,10 @@ import { ChatMessage } from '../components/chat/ChatMessage';
 import { LimitModal } from '../components/modals/LimitModal';
 import { AnonAuthModal } from '../components/modals/AnonAuthModal';
 import { aiService } from '../lib/api';
+import { filterThinkingTags as filterThinkingTagsUtil, extractThinkingContent } from '../utils/thinkingFilter';
 
 const cleanTextForTTS = (text: string) => {
-  let processed = text.replace(/<(think|thinking)>[\s\S]*?<\/\1>/gi, '');
-  processed = processed.replace(/<(think|thinking)>[\s\S]*/gi, '');
-  processed = processed.replace(/\[SYSTEM INSTRUCTION: [\s\S]*?\]/gi, '');
+  let processed = filterThinkingTagsUtil(text, false);
 
   // Replace one or more consecutive code blocks with spoken placeholder
   processed = processed.replace(/(?:```[\s\S]*?(?:```|$)\s*)+/g, (_match, offset, str) => {
@@ -132,7 +131,7 @@ const ChatPage: React.FC = () => {
   const { user, initialized } = useAuthStore();
   const [session, setSession] = useState<any>(null);
   const [lockTimeRemaining, setLockTimeRemaining] = useState<number>(0);
-  const { selectedModel } = useModelStore();
+  const { selectedModel, reasoningEffort } = useModelStore();
   const {
     activeConversation,
     messages,
@@ -735,26 +734,21 @@ const ChatPage: React.FC = () => {
     }
   };
 
-  const filterThinkingTags = (content: any) => {
-    if (!content) return '';
-    if (typeof content !== 'string') return String(content);
-
-    // Fast check if there are even any tags to process
-    if (!content.includes('<think') && !content.includes('[SYSTEM')) {
-      return content.trim();
-    }
-
-    let processed = content.replace(/<(think|thinking)>[\s\S]*?<\/\1>/gi, '');
-    processed = processed.replace(/<(think|thinking)>[\s\S]*/gi, '');
-    processed = processed.replace(/\[SYSTEM INSTRUCTION[\s\S]*?(?:\]|$)/gi, '');
-    return processed.trim();
+  const filterThinkingTags = (content: any, isStreaming = false) => {
+    return filterThinkingTagsUtil(content, isStreaming);
   };
 
   // Performance: Throttle the heavy thinking-tag filtering
   const filteredStreamingMessage = useMemo(() =>
-    filterThinkingTags(displayedStreamingMessage),
+    filterThinkingTagsUtil(displayedStreamingMessage, true),
     [displayedStreamingMessage]
   );
+
+  // Live thinking: extracts active reasoning block while streaming (for models with <think> tags in content stream)
+  const liveStreamingThinking = useMemo(() => {
+    if (streamingReasoning) return streamingReasoning;
+    return extractThinkingContent(displayedStreamingMessage);
+  }, [streamingReasoning, displayedStreamingMessage]);
 
   const estimateTokens = (messages: any[]) => {
     let totalChars = 0;
@@ -1142,7 +1136,12 @@ const ChatPage: React.FC = () => {
           attachments: validAttachments.map(a => ({ name: a.file?.name || a.name, type: a.type, url: a.url, extractedText: a.extractedText })),
           messageId: userMsg?.id,
           conversationId: currentConvId,
-          mode: isVoiceRoute ? 'voice' : 'chat'
+          mode: isVoiceRoute ? 'voice' : 'chat',
+          reasoning_effort: (selectedModel?.provider === 'google' && (reasoningEffort === 'default' || reasoningEffort === 'none'))
+            ? 'minimal'
+            : (selectedModel?.provider === 'groq' && reasoningEffort === 'minimal')
+              ? 'default'
+              : (reasoningEffort || (selectedModel?.provider === 'groq' ? 'default' : 'minimal'))
         }),
         signal: abortController.signal,
       });
@@ -1350,15 +1349,11 @@ const ChatPage: React.FC = () => {
         isSaved = true;
         const finalContent = assistantMessage.trim() || "😓🫠";
 
-        // Extract <think> tag content from the raw message (Qwen/DeepSeek/NVIDIA raw reasoning)
-        let thinkingContent = '';
-        const thinkMatch = finalContent.match(/<(think|thinking)>([\s\S]*?)<\/\1>/i);
-        if (thinkMatch) {
-          thinkingContent = thinkMatch[2].trim();
-        }
+        // Extract reasoning tag content from the raw message (Qwen/DeepSeek/NVIDIA/Google raw reasoning)
+        const thinkingContent = extractThinkingContent(finalContent);
 
-        // Combine: backend `reasoning` field (GPT-OSS parsed) + extracted <think> tags
-        const finalReasoning = (accumulatedReasoning + (thinkingContent ? '\n' + thinkingContent : '')).trim();
+        // Combine: backend `reasoning` field (GPT-OSS parsed) + extracted <think>/<thinking> tags
+        const finalReasoning = (accumulatedReasoning + (thinkingContent && !accumulatedReasoning.includes(thinkingContent) ? (accumulatedReasoning ? '\n' : '') + thinkingContent : '')).trim();
 
         // Wait for typewriter to fully catch up before saving to prevent content jump/flash
         // Only wait if we are still looking at the same conversation
@@ -1648,7 +1643,7 @@ const ChatPage: React.FC = () => {
                       metadata: {
                         mode: 'text',
                         optimisticId: streamingOptimisticIdRef.current,
-                        ...(streamingReasoning ? { reasoning: streamingReasoning } : {}),
+                        ...(liveStreamingThinking ? { reasoning: liveStreamingThinking } : {}),
                         ...(streamingExecutedTools.length > 0 ? { executed_tools: streamingExecutedTools } : {}),
                       }
                     }}

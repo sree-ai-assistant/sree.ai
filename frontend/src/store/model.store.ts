@@ -22,17 +22,21 @@ export interface AIModel {
 
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
 
+export type ReasoningEffort = 'minimal' | 'low' | 'medium' | 'high' | 'default' | 'none';
+
 interface ModelState {
   models: AIModel[];
   selectedModel: AIModel | null;
   cachedAt: number;
   loading: boolean;
   visionRequired: boolean;
+  reasoningEffort: ReasoningEffort;
 
   // Actions
   fetchModels: (forceRefresh?: boolean) => Promise<void>;
   setSelectedModel: (modelId: string) => void;
   setVisionRequired: (required: boolean) => void;
+  setReasoningEffort: (effort: ReasoningEffort) => void;
 }
 
 /**
@@ -82,6 +86,9 @@ export const useModelStore = create<ModelState>()(
       cachedAt: 0,
       loading: false,
       visionRequired: false,
+      reasoningEffort: 'minimal',
+
+      setReasoningEffort: (effort: ReasoningEffort) => set({ reasoningEffort: effort }),
 
       fetchModels: async (forceRefresh = false) => {
         // Wait for Zustand to finish hydrating persisted state from localStorage.
@@ -180,6 +187,7 @@ export const useModelStore = create<ModelState>()(
         models: state.models,
         selectedModel: state.selectedModel,
         cachedAt: state.cachedAt,
+        reasoningEffort: state.reasoningEffort,
       }),
       onRehydrateStorage: () => {
         // Called when hydration completes — unblock any waiting fetchModels calls
