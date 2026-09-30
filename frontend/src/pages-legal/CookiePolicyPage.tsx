@@ -9,7 +9,7 @@ export const CookiePolicyPage: React.FC = () => {
       title="Cookie Policy"
       subtitle="Transparency regarding strictly necessary tokens, privacy-preserving PostHog diagnostics, and interface preferences on Sree AI."
       badge="Cookie & Storage Transparency"
-      lastUpdated="August 20, 2026"
+      lastUpdated="September 30, 2026"
     >
       <div className={styles.callout}>
         <Shield className={styles.calloutIcon} size={20} />
@@ -179,6 +179,18 @@ export const CookiePolicyPage: React.FC = () => {
               <td>Sree AI</td>
               <td>LocalStorage</td>
               <td>Temporary countdown timestamps stored only when rate limits are exceeded to avoid spamming the backend.</td>
+            </tr>
+            <tr>
+              <td><code>sree_anon_banner_dismissed</code></td>
+              <td>Sree AI</td>
+              <td>SessionStorage</td>
+              <td>Records whether the anonymous sign-up prompt banner has been dismissed. Cleared automatically when the browser tab is closed — never persists across sessions.</td>
+            </tr>
+            <tr>
+              <td><code>sree_anon_modal_last_shown_at</code></td>
+              <td>Sree AI</td>
+              <td>LocalStorage</td>
+              <td>Unix timestamp (milliseconds) of when the sign-in prompt modal was last displayed to an anonymous user. Used to enforce a 24-hour cooldown so the modal does not re-appear more than once per day.</td>
             </tr>
           </tbody>
         </table>

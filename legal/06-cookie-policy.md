@@ -1,7 +1,7 @@
 # Cookie Policy — Sree AI
 
 **Effective Date:** August 20, 2026  
-**Last Updated:** August 20, 2026  
+**Last Updated:** September 30, 2026  
 **Application:** Sree AI (accessible via [https://app.sreeai.qzz.io](https://app.sreeai.qzz.io))
 
 ---
@@ -48,6 +48,8 @@ These preferences ensure a seamless and personalized user experience across page
 | `last_login_method` | Sree AI | LocalStorage | Remembers your last used sign-in provider (email, Google, GitHub) for quick access. |
 | `sree_notif_prefs` | Sree AI | LocalStorage | Remembers your in-app notification preferences. |
 | `voice_lockout` / `chat_lockout` | Sree AI | LocalStorage | Temporary countdown timestamps stored only when rate limits are exceeded to avoid spamming the backend. |
+| `sree_anon_banner_dismissed` | Sree AI | SessionStorage | Records whether the anonymous sign-up prompt banner has been dismissed. Cleared when the browser tab closes — never persists across sessions. |
+| `sree_anon_modal_last_shown_at` | Sree AI | LocalStorage | Unix timestamp (ms) of when the sign-in prompt modal was last shown to an anonymous user. Enforces a 24-hour cooldown so the modal does not re-appear more than once per day. |
 
 > **Privacy Guarantee:** PostHog telemetry is configured to strip cleartext IP addresses, personal identifiers, chat message bodies, and uploaded file contents. Telemetry is utilized solely for platform reliability and speed optimization.
 
