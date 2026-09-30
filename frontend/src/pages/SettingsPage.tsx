@@ -2352,7 +2352,7 @@ const SettingsPage: React.FC = () => {
               exit={{ opacity: 0, scale: 0.95, y: 20 }}
               onClick={(e) => e.stopPropagation()}
               style={{
-                background: 'var(--bg-secondary, #1a1a2e)',
+                background: 'var(--bg-surface)',
                 borderRadius: 16, padding: '2rem', width: '100%', maxWidth: 420,
                 border: '1px solid rgba(255,255,255,0.08)',
                 boxShadow: '0 24px 48px rgba(0,0,0,0.4)'
@@ -2448,8 +2448,8 @@ const SettingsPage: React.FC = () => {
                     disabled={passwordStatus === 'saving'}
                     style={{
                       width: '100%', padding: '0.75rem', borderRadius: 10, border: 'none',
-                      background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
-                      color: '#fff', fontWeight: 700, fontSize: '0.9rem', cursor: 'pointer',
+                      background: '#fafafafa',
+                      color: '#000000fa', fontWeight: 700, fontSize: '0.9rem', cursor: 'pointer',
                       display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
                       opacity: passwordStatus === 'saving' ? 0.6 : 1
                     }}
