@@ -45,7 +45,7 @@ export interface User {
 export const resolveActiveProvider = (session: any): string => {
   if (!session?.user) return 'email';
 
-  // 1. Check provider_token if present in session
+  // 1. Check provider_token if present in session (OAuth session token)
   const providerToken = session.provider_token;
   if (typeof providerToken === 'string') {
     if (providerToken.startsWith('gho_') || providerToken.startsWith('ghu_') || providerToken.startsWith('ghp_')) {
@@ -56,29 +56,63 @@ export const resolveActiveProvider = (session: any): string => {
     }
   }
 
-  // 2. Check localStorage 'last_login_method'
+  // 2. Check localStorage 'last_login_method' (explicitly saved during login/signup)
   try {
     const lastLogin = localStorage.getItem('last_login_method');
+    if (lastLogin === 'email') {
+      const hasEmail = Boolean(
+        session.user.email ||
+        session.user.app_metadata?.provider === 'email' ||
+        session.user.app_metadata?.providers?.includes('email') ||
+        session.user.identities?.some((id: any) => id.provider === 'email')
+      );
+      if (hasEmail) {
+        return 'email';
+      }
+    }
     if (lastLogin && (lastLogin === 'github' || lastLogin === 'google')) {
-      const hasIdentity = session.user.identities?.some((id: any) => id.provider === lastLogin);
+      const hasIdentity = Boolean(
+        session.user.identities?.some((id: any) => id.provider === lastLogin) ||
+        session.user.app_metadata?.providers?.includes(lastLogin) ||
+        session.user.app_metadata?.provider === lastLogin
+      );
       if (hasIdentity) {
         return lastLogin;
       }
     }
   } catch (e) { }
 
-  // 3. Check identities sorted by last_sign_in_at (most recent first)
-  if (Array.isArray(session.user.identities) && session.user.identities.length > 0) {
-    const sorted = [...session.user.identities].sort((a: any, b: any) => {
+  // 3. Fallback heuristic when localStorage is unavailable:
+  // In Supabase, OAuth logins update the specific identity's last_sign_in_at.
+  // Email logins update session.user.last_sign_in_at, leaving OAuth identities with older timestamps.
+  const userSignInTime = session.user.last_sign_in_at ? (Date.parse(session.user.last_sign_in_at) || 0) : 0;
+  const oauthIdentities = Array.isArray(session.user.identities)
+    ? session.user.identities.filter((id: any) => id.provider === 'google' || id.provider === 'github')
+    : [];
+
+  if (oauthIdentities.length > 0) {
+    const sortedOAuth = [...oauthIdentities].sort((a: any, b: any) => {
       const timeA = a.last_sign_in_at ? (Date.parse(a.last_sign_in_at) || 0) : 0;
       const timeB = b.last_sign_in_at ? (Date.parse(b.last_sign_in_at) || 0) : 0;
       return timeB - timeA;
     });
-    if (sorted[0]?.provider) {
-      return sorted[0].provider;
+
+    const latestOAuth = sortedOAuth[0];
+    const latestOAuthTime = latestOAuth?.last_sign_in_at ? (Date.parse(latestOAuth.last_sign_in_at) || 0) : 0;
+
+    // If top-level user sign-in timestamp is >5s newer than the latest OAuth identity sign-in,
+    // this session was authenticated via email/password.
+    if (userSignInTime > 0 && latestOAuthTime > 0 && (userSignInTime - latestOAuthTime > 5000)) {
+      return 'email';
+    }
+
+    // If OAuth identity sign-in time matches user sign-in time, it was an OAuth login
+    if (userSignInTime > 0 && latestOAuthTime > 0 && Math.abs(userSignInTime - latestOAuthTime) <= 5000) {
+      return latestOAuth.provider;
     }
   }
 
+  // 4. Fallback to app_metadata provider or first identity or 'email'
   return session.user.app_metadata?.provider ||
     session.user.identities?.[0]?.provider ||
     session.user.app_metadata?.providers?.[0] ||
@@ -328,7 +362,7 @@ export const useAuthStore = create<AuthState>((set) => ({
           const githubAvatar = getProviderAvatar(session.user, 'github');
           const activeProviderAvatar = activeProvider === 'github'
             ? githubAvatar
-            : (activeProvider === 'google' ? googleAvatar : extractProviderAvatarUrl(session.user));
+            : (activeProvider === 'google' ? googleAvatar : null);
 
           if (profile) {
             let avatarUrl = profile.avatar_url;
@@ -428,7 +462,7 @@ export const useAuthStore = create<AuthState>((set) => ({
               const githubAvatar = getProviderAvatar(session.user, 'github');
               const activeProviderAvatar = activeProvider === 'github'
                 ? githubAvatar
-                : (activeProvider === 'google' ? googleAvatar : extractProviderAvatarUrl(session.user));
+                : (activeProvider === 'google' ? googleAvatar : null);
 
               let avatarUrl = profile?.avatar_url;
               const hasCustomAvatar = isCustomUploadedAvatar(avatarUrl);

@@ -33,6 +33,7 @@ export interface UserAvatarSource {
   github_avatar_url?: string | null;
   email?: string | null;
   id?: string | null;
+  provider?: string | null;
   user_metadata?: any;
 }
 
@@ -56,9 +57,11 @@ export const getUserAvatarUrl = (
   if (user.provider_avatar_url && isValidAvatarUrl(user.provider_avatar_url)) {
     return user.provider_avatar_url.trim();
   }
-  const metaAvatar = user.user_metadata?.avatar_url || user.user_metadata?.picture;
-  if (metaAvatar && isValidAvatarUrl(metaAvatar)) {
-    return metaAvatar.trim();
+  if (user.provider !== 'email') {
+    const metaAvatar = user.user_metadata?.avatar_url || user.user_metadata?.picture;
+    if (metaAvatar && isValidAvatarUrl(metaAvatar)) {
+      return metaAvatar.trim();
+    }
   }
   return getLoggedInDefaultAvatarUrl(user.id);
 };
