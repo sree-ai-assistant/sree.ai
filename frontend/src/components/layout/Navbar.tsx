@@ -29,6 +29,7 @@ import { useUsageStore } from '../../store/usage.store';
 import { useUIStore } from '../../store/ui.store';
 import toast from 'react-hot-toast';
 import { OAuthBadge } from './OAuthBadge';
+import { getLoggedInDefaultAvatarUrl } from '../../utils/avatar';
 import styles from './Navbar.module.css';
 
 export const Navbar: React.FC = () => {
@@ -397,11 +398,11 @@ export const Navbar: React.FC = () => {
                   {planLabel} Plan
                 </span>
               </div>
-              <div className={`${styles.userAvatar} ${(!user.avatar_url || avatarError) ? styles.avatarPlaceholder : ''}`}>
+              <div className={styles.userAvatar}>
                 {(user.avatar_url && !avatarError) ? (
-                  <img src={user.avatar_url} alt={displayName || 'User'} className={styles.avatarImg} onError={() => setAvatarError(true)} />
+                  <img src={user.avatar_url} alt={displayName || 'User'} className={styles.avatarImg} referrerPolicy="no-referrer" onError={() => setAvatarError(true)} />
                 ) : (
-                  <User size={16} className={styles.avatarUserIcon} />
+                  <img src={getLoggedInDefaultAvatarUrl(user.id)} alt={displayName || 'User'} className={styles.avatarImg} referrerPolicy="no-referrer" />
                 )}
                 <OAuthBadge provider={user.provider} size={10} />
               </div>
@@ -418,11 +419,11 @@ export const Navbar: React.FC = () => {
                   {/* User identity */}
                   <div className={styles.menuHeader}>
                     <div className={styles.menuAvatarRow}>
-                      <div className={`${styles.menuAvatar} ${(!user.avatar_url || avatarError) ? styles.avatarPlaceholder : ''}`}>
+                      <div className={styles.menuAvatar}>
                         {(user.avatar_url && !avatarError) ? (
-                          <img src={user.avatar_url} alt={displayName || 'User'} className={styles.avatarImg} onError={() => setAvatarError(true)} />
+                          <img src={user.avatar_url} alt={displayName || 'User'} className={styles.avatarImg} referrerPolicy="no-referrer" onError={() => setAvatarError(true)} />
                         ) : (
-                          <User size={20} className={styles.avatarUserIcon} />
+                          <img src={getLoggedInDefaultAvatarUrl(user.id)} alt={displayName || 'User'} className={styles.avatarImg} referrerPolicy="no-referrer" />
                         )}
                         <OAuthBadge provider={user.provider} size={11} />
                       </div>

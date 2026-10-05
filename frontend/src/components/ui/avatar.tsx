@@ -47,6 +47,7 @@ const AvatarImage = React.forwardRef<
       ref={ref}
       src={src}
       alt={alt}
+      referrerPolicy="no-referrer"
       onLoad={() => context?.setImageLoaded(true)}
       onError={() => context?.setImageError(true)}
       className={cn(

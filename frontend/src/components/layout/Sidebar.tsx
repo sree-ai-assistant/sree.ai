@@ -30,6 +30,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { UsageIndicator } from '../sidebar/UsageIndicator';
 import { LimitModal } from '../modals/LimitModal';
 import { OAuthBadge } from './OAuthBadge';
+import { getLoggedInDefaultAvatarUrl } from '../../utils/avatar';
 import styles from './Sidebar.module.css';
 
 
@@ -471,12 +472,12 @@ export const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, setIsCollapsed })
           {user ? (
             <div className={`${styles.profileCard} ${(!isCollapsed && user.plan_type === 'pro') ? styles.proCard : ''}`}>
               <div className={styles.profileInfo}>
-                <div className={`${styles.avatar} ${(!user.avatar_url || avatarError) ? styles.avatarPlaceholder : ''}`}>
+                <div className={styles.avatar}>
                   <div className={styles.status} />
                   {(user.avatar_url && !avatarError) ? (
-                    <img src={user.avatar_url} alt={user.display_name || 'User'} className={styles.avatarImg} onError={() => setAvatarError(true)} />
+                    <img src={user.avatar_url} alt={user.display_name || 'User'} className={styles.avatarImg} referrerPolicy="no-referrer" onError={() => setAvatarError(true)} />
                   ) : (
-                    <User size={18} className={styles.avatarUserIcon} />
+                    <img src={getLoggedInDefaultAvatarUrl(user.id)} alt={user.display_name || 'User'} className={styles.avatarImg} referrerPolicy="no-referrer" />
                   )}
                   <OAuthBadge provider={user.provider} size={12} />
                 </div>

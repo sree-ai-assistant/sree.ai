@@ -44,6 +44,7 @@ import { Progress } from '../components/ui/progress';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '../components/ui/tabs';
 import { Avatar, AvatarImage, AvatarFallback } from '../components/ui/avatar';
 import { Skeleton } from '../components/ui/skeleton';
+import { getAnonymousAvatarUrl, getLoggedInDefaultAvatarUrl } from '../utils/avatar';
 
 import styles from './Dashboard.module.css';
 
@@ -174,6 +175,21 @@ const Dashboard: React.FC = () => {
     if (hour < 18) return 'Good afternoon';
     return 'Good evening';
   }, []);
+
+  const [avatarError, setAvatarError] = useState(false);
+  const [anonId, setAnonId] = useState<string | null>(null);
+
+  useEffect(() => {
+    setAvatarError(false);
+  }, [user?.avatar_url]);
+
+  useEffect(() => {
+    if (!user?.id) {
+      getOrCreateAnonymousIdentity().then(id => {
+        if (id?.anonId) setAnonId(id.anonId);
+      });
+    }
+  }, [user?.id]);
 
   const isGuest = !user || !user.email;
   const userName = user
@@ -326,18 +342,30 @@ const Dashboard: React.FC = () => {
             <div className={styles.heroUserArea}>
               {isGuest ? (
                 <div className={styles.guestAvatar}>
-                  <User size={22} strokeWidth={2} className={styles.guestAvatarIcon} />
+                  <img
+                    src={getAnonymousAvatarUrl(anonId)}
+                    alt="Guest Avatar"
+                    className={styles.avatarImg}
+                  />
                 </div>
-              ) : user?.avatar_url ? (
-                <Avatar className={styles.userAvatar}>
-                  <AvatarImage src={user.avatar_url} alt={userName} />
-                  <AvatarFallback>
-                    <User size={22} strokeWidth={2} className={styles.guestAvatarIcon} />
-                  </AvatarFallback>
-                </Avatar>
+              ) : (user?.avatar_url && !avatarError) ? (
+                <div className={styles.userAvatar}>
+                  <img
+                    src={user.avatar_url}
+                    alt={userName}
+                    className={styles.avatarImg}
+                    referrerPolicy="no-referrer"
+                    onError={() => setAvatarError(true)}
+                  />
+                </div>
               ) : (
-                <div className={styles.guestAvatar}>
-                  <User size={22} strokeWidth={2} className={styles.guestAvatarIcon} />
+                <div className={styles.userAvatar}>
+                  <img
+                    src={getLoggedInDefaultAvatarUrl(user?.id)}
+                    alt={userName}
+                    className={styles.avatarImg}
+                    referrerPolicy="no-referrer"
+                  />
                 </div>
               )}
 

@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import { useAuthStore } from '../../store/auth.store';
 import { OAuthBadge } from './OAuthBadge';
+import { getLoggedInDefaultAvatarUrl } from '../../utils/avatar';
 import styles from './SettingsSidebar.module.css';
 
 interface SettingsSidebarProps {
@@ -204,11 +205,9 @@ export const SettingsSidebar: React.FC<SettingsSidebarProps> = ({
           <div className={styles.avatarWrapper}>
             <div className={styles.avatarContainer} onClick={() => !isUploadingAvatar && fileInputRef.current?.click()}>
               {(user?.avatar_url && !avatarError) ? (
-                <img src={user.avatar_url} alt="Profile" className={styles.avatarImg} onError={() => setAvatarError(true)} />
+                <img src={user.avatar_url} alt="Profile" className={styles.avatarImg} referrerPolicy="no-referrer" onError={() => setAvatarError(true)} />
               ) : (
-                <div className={styles.avatarPlaceholder}>
-                  <LucideUser size={18} style={{ color: 'var(--text-secondary)' }} />
-                </div>
+                <img src={getLoggedInDefaultAvatarUrl(user?.id)} alt="Profile" className={styles.avatarImg} referrerPolicy="no-referrer" />
               )}
               {isUploadingAvatar ? (
                 <div className={styles.avatarLoadingOverlay}>

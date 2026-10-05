@@ -45,6 +45,7 @@ import { useUsageStore } from '../store/usage.store';
 import ApiKeyModal from '../components/shared/ApiKeyModal';
 import { getProviderLogo, PROVIDER_COLORS } from '../components/icons/ProviderLogos';
 import { OAuthBadge } from '../components/layout/OAuthBadge';
+import { getLoggedInDefaultAvatarUrl } from '../utils/avatar';
 import styles from './SettingsPage.module.css';
 import { useUIStore } from '../store/ui.store';
 import { useUploadAgreementStore } from '../store/upload-agreement.store';
@@ -1418,6 +1419,7 @@ const SettingsPage: React.FC = () => {
       await api.delete('/user/avatar');
       setProfileData(prev => ({ ...prev, avatar_url: '' }));
       await updateProfile({ avatar_url: '' });
+      setAvatarError(false);
       setStatus('success');
       setTimeout(() => setStatus('idle'), 2000);
     } catch (error) {
@@ -1425,6 +1427,24 @@ const SettingsPage: React.FC = () => {
       setStatus('error');
     }
   };
+
+  const handleUseSpecificAvatar = async (url: string) => {
+    if (!url) return;
+    try {
+      setStatus('saving');
+      setLastSaved('profile');
+      setAvatarError(false);
+      setProfileData(prev => ({ ...prev, avatar_url: url }));
+      await updateProfile({ avatar_url: url });
+      setStatus('success');
+      setTimeout(() => setStatus('idle'), 2000);
+    } catch (error) {
+      console.error('Error switching avatar:', error);
+      setStatus('error');
+    }
+  };
+
+
 
   const handleChangePassword = async () => {
     setPasswordError('');
@@ -1478,11 +1498,20 @@ const SettingsPage: React.FC = () => {
             <div className={styles.avatarSection}>
               <div className={styles.avatarContainer}>
                 {(profileData.avatar_url && !avatarError) ? (
-                  <img src={profileData.avatar_url} alt="Profile Icon" className={styles.mainAvatar} onError={() => setAvatarError(true)} />
+                  <img
+                    src={profileData.avatar_url}
+                    alt="Profile Icon"
+                    className={styles.mainAvatar}
+                    referrerPolicy="no-referrer"
+                    onError={() => setAvatarError(true)}
+                  />
                 ) : (
-                  <div className={styles.avatarPlaceholderLarge} style={{ background: '#27272a' }}>
-                    <User size={36} style={{ color: 'var(--text-secondary)' }} />
-                  </div>
+                  <img
+                    src={getLoggedInDefaultAvatarUrl(user?.id)}
+                    alt="Profile Icon"
+                    className={styles.mainAvatar}
+                    referrerPolicy="no-referrer"
+                  />
                 )}
                 <OAuthBadge provider={user?.provider} size={16} style={{ bottom: 'auto', right: 'auto', top: '-4px', left: '-4px' }} />
                 <button
@@ -1509,6 +1538,24 @@ const SettingsPage: React.FC = () => {
                   >
                     {status === 'saving' && lastSaved === 'profile' ? 'Uploading...' : 'Upload Image'}
                   </button>
+                  {user?.google_avatar_url && profileData.avatar_url !== user.google_avatar_url && (
+                    <button
+                      className={styles.textActionBtn}
+                      onClick={() => handleUseSpecificAvatar(user.google_avatar_url!)}
+                      disabled={status === 'saving'}
+                    >
+                      Use Google Photo
+                    </button>
+                  )}
+                  {user?.github_avatar_url && profileData.avatar_url !== user.github_avatar_url && (
+                    <button
+                      className={styles.textActionBtn}
+                      onClick={() => handleUseSpecificAvatar(user.github_avatar_url!)}
+                      disabled={status === 'saving'}
+                    >
+                      Use GitHub Photo
+                    </button>
+                  )}
                   {profileData.avatar_url && (
                     <button className={styles.textActionBtnDanger} onClick={handleRemoveAvatar} disabled={status === 'saving'}>Remove</button>
                   )}

@@ -7,6 +7,8 @@ import styles from '../../pages/ChatPage.module.css';
 import { MessageAttachment } from './MessageAttachment';
 import { ThinkingAnimation } from './ThinkingAnimation';
 import { useChatStore } from '../../store/chat.store';
+import { useAuthStore } from '../../store/auth.store';
+import { getUserAvatarUrl, getLoggedInDefaultAvatarUrl, getAnonymousAvatarUrl } from '../../utils/avatar';
 import { parseMessageContent } from '../../utils/messageParser';
 import { extractThinkingContent as extractThinking, filterThinkingTags as defaultFilterThinkingTags } from '../../utils/thinkingFilter';
 
@@ -70,6 +72,8 @@ export const ChatMessageComponent: React.FC<ChatMessageProps> = ({
 }) => {
   const navigate = useNavigate();
   const { messages, activeConversation } = useChatStore();
+  const { user } = useAuthStore();
+  const [userAvatarError, setUserAvatarError] = useState(false);
   const [copied, setCopied] = useState(false);
   const [reasoningOpen, setReasoningOpen] = useState(false);
   const [expandedTools, setExpandedTools] = useState<Set<number | string>>(new Set());
@@ -215,7 +219,17 @@ export const ChatMessageComponent: React.FC<ChatMessageProps> = ({
       className={`${styles.messageRow} ${m.role === 'user' ? styles.user : ''} ${isStreaming ? styles.streamingRow : ''}`}
     >
       <div className={`${styles.avatar} ${m.role === 'assistant' ? styles.ai : ''}`}>
-        {m.role === 'assistant' ? <Bot size={20} /> : <User size={20} />}
+        {m.role === 'assistant' ? (
+          <Bot size={20} />
+        ) : (
+          <img
+            src={userAvatarError ? (user ? getLoggedInDefaultAvatarUrl(user.id) : getAnonymousAvatarUrl()) : getUserAvatarUrl(user)}
+            alt="User"
+            className={styles.chatUserAvatar}
+            referrerPolicy="no-referrer"
+            onError={() => setUserAvatarError(true)}
+          />
+        )}
       </div>
       <div className={`${styles.bubble} ${m.role === 'assistant' ? styles.ai : styles.user} ${m.metadata?.error ? styles.error : ''} ${isStreaming ? styles.streaming : ''}`}>
         <div

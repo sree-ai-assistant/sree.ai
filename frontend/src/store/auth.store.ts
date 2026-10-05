@@ -14,6 +14,10 @@ export interface User {
   email: string;
   display_name?: string;
   avatar_url?: string;
+  provider_avatar_url?: string;
+  google_avatar_url?: string;
+  github_avatar_url?: string;
+  providers?: string[];
   plan_type: 'free' | 'starter' | 'pro';
   requests_remaining?: number;
   credits?: number;
@@ -27,6 +31,132 @@ export interface User {
   file_upload_agreed?: boolean;
   file_upload_agreed_at?: string;
 }
+
+/**
+ * Detect the active provider for the current session.
+ * In Supabase, if a user links multiple providers (e.g. Google and GitHub),
+ * app_metadata.provider always remains the initial provider (e.g. 'google').
+ * We resolve the active provider by checking:
+ * 1. session.provider_token (e.g. 'gho_' = GitHub, 'ya29.' = Google)
+ * 2. localStorage 'last_login_method' (set when user clicks provider button)
+ * 3. Most recently used identity by last_sign_in_at in session.user.identities
+ * 4. Fallback to app_metadata.provider / first identity / 'email'
+ */
+export const resolveActiveProvider = (session: any): string => {
+  if (!session?.user) return 'email';
+
+  // 1. Check provider_token if present in session
+  const providerToken = session.provider_token;
+  if (typeof providerToken === 'string') {
+    if (providerToken.startsWith('gho_') || providerToken.startsWith('ghu_') || providerToken.startsWith('ghp_')) {
+      return 'github';
+    }
+    if (providerToken.startsWith('ya29.')) {
+      return 'google';
+    }
+  }
+
+  // 2. Check localStorage 'last_login_method'
+  try {
+    const lastLogin = localStorage.getItem('last_login_method');
+    if (lastLogin && (lastLogin === 'github' || lastLogin === 'google')) {
+      const hasIdentity = session.user.identities?.some((id: any) => id.provider === lastLogin);
+      if (hasIdentity) {
+        return lastLogin;
+      }
+    }
+  } catch (e) { }
+
+  // 3. Check identities sorted by last_sign_in_at (most recent first)
+  if (Array.isArray(session.user.identities) && session.user.identities.length > 0) {
+    const sorted = [...session.user.identities].sort((a: any, b: any) => {
+      const timeA = a.last_sign_in_at ? (Date.parse(a.last_sign_in_at) || 0) : 0;
+      const timeB = b.last_sign_in_at ? (Date.parse(b.last_sign_in_at) || 0) : 0;
+      return timeB - timeA;
+    });
+    if (sorted[0]?.provider) {
+      return sorted[0].provider;
+    }
+  }
+
+  return session.user.app_metadata?.provider ||
+    session.user.identities?.[0]?.provider ||
+    session.user.app_metadata?.providers?.[0] ||
+    'email';
+};
+
+/**
+ * Check if an avatar URL is a user-uploaded custom avatar (stored in Supabase assets bucket)
+ */
+export const isCustomUploadedAvatar = (url?: string | null): boolean => {
+  if (!url || typeof url !== 'string' || !url.trim()) return false;
+  const trimmed = url.trim().toLowerCase();
+  if (trimmed.includes('/storage/v1/object/public/assets/')) return true;
+  if (trimmed.includes('googleusercontent.com') || trimmed.includes('githubusercontent.com') || trimmed.includes('dicebear.com')) {
+    return false;
+  }
+  return true;
+};
+
+/**
+ * Extract avatar for a specific provider from session user identities or metadata
+ */
+export const getProviderAvatar = (sessionUser: any, targetProvider: string): string | null => {
+  if (!sessionUser) return null;
+
+  // 1. Check identities array (where Supabase stores per-provider payload)
+  if (Array.isArray(sessionUser.identities)) {
+    const identity = sessionUser.identities.find((id: any) => id.provider === targetProvider);
+    if (identity?.identity_data) {
+      const data = identity.identity_data;
+      if (typeof data.avatar_url === 'string' && data.avatar_url.trim()) return data.avatar_url.trim();
+      if (typeof data.picture === 'string' && data.picture.trim()) return data.picture.trim();
+    }
+  }
+
+  // 2. Check user_metadata
+  const meta = sessionUser.user_metadata || {};
+  if (targetProvider === 'google') {
+    if (meta.iss?.includes('google') || sessionUser.app_metadata?.provider === 'google') {
+      if (typeof meta.picture === 'string' && meta.picture.trim()) return meta.picture.trim();
+      if (typeof meta.avatar_url === 'string' && meta.avatar_url.trim()) return meta.avatar_url.trim();
+    }
+  }
+  if (targetProvider === 'github') {
+    if (meta.iss?.includes('github') || sessionUser.app_metadata?.provider === 'github') {
+      if (typeof meta.avatar_url === 'string' && meta.avatar_url.trim()) return meta.avatar_url.trim();
+    }
+  }
+
+  return null;
+};
+
+/**
+ * Safely extract avatar URL from OAuth provider metadata (Google picture/avatar_url, GitHub avatar_url, etc.)
+ */
+export const extractProviderAvatarUrl = (sessionUser?: any): string | null => {
+  if (!sessionUser) return null;
+  const meta = sessionUser.user_metadata || {};
+  if (typeof meta.avatar_url === 'string' && meta.avatar_url.trim()) {
+    return meta.avatar_url.trim();
+  }
+  if (typeof meta.picture === 'string' && meta.picture.trim()) {
+    return meta.picture.trim();
+  }
+  if (Array.isArray(sessionUser.identities)) {
+    for (const identity of sessionUser.identities) {
+      const idData = identity?.identity_data;
+      if (typeof idData?.avatar_url === 'string' && idData.avatar_url.trim()) {
+        return idData.avatar_url.trim();
+      }
+      if (typeof idData?.picture === 'string' && idData.picture.trim()) {
+        return idData.picture.trim();
+      }
+    }
+  }
+  return null;
+};
+
 
 interface AuthState {
   user: User | null;
@@ -64,9 +194,7 @@ async function runSignInTasks(session: { user: { id: string; email?: string; app
 
   const currentProfile = useAuthStore.getState().user;
   const provider = currentProfile?.provider ||
-    session.user.app_metadata?.provider ||
-    session.user.identities?.[0]?.provider ||
-    'email';
+    resolveActiveProvider(session);
 
   // ── PostHog: Identify the logged-in user ──────────────────────
   if (posthog.__loaded) {
@@ -195,20 +323,24 @@ export const useAuthStore = create<AuthState>((set) => ({
             .eq('id', session.user.id)
             .single();
 
-          const provider = session.user.app_metadata?.provider ||
-            session.user.identities?.[0]?.provider ||
-            (session.user.app_metadata?.providers?.[0]) ||
-            'email';
+          const activeProvider = resolveActiveProvider(session);
+          const googleAvatar = getProviderAvatar(session.user, 'google');
+          const githubAvatar = getProviderAvatar(session.user, 'github');
+          const activeProviderAvatar = activeProvider === 'github'
+            ? githubAvatar
+            : (activeProvider === 'google' ? googleAvatar : extractProviderAvatarUrl(session.user));
 
           if (profile) {
             let avatarUrl = profile.avatar_url;
-            if (!avatarUrl) {
-              const oauthAvatar = session.user.user_metadata?.avatar_url || session.user.user_metadata?.picture;
-              if (oauthAvatar) {
-                avatarUrl = oauthAvatar;
+            const hasCustomAvatar = isCustomUploadedAvatar(avatarUrl);
+
+            // If user has not uploaded a custom avatar, synchronize with current active login provider
+            if (!hasCustomAvatar && activeProviderAvatar) {
+              if (avatarUrl !== activeProviderAvatar) {
+                avatarUrl = activeProviderAvatar;
                 supabase
                   .from('profiles')
-                  .update({ avatar_url: oauthAvatar })
+                  .update({ avatar_url: activeProviderAvatar })
                   .eq('id', session.user.id)
                   .then(({ error }) => {
                     if (error) console.error('Error syncing OAuth avatar on init:', error);
@@ -222,6 +354,10 @@ export const useAuthStore = create<AuthState>((set) => ({
                 email: session.user.email || profile.email,
                 display_name: profile.display_name,
                 avatar_url: avatarUrl,
+                provider_avatar_url: activeProviderAvatar || undefined,
+                google_avatar_url: googleAvatar || undefined,
+                github_avatar_url: githubAvatar || undefined,
+                providers: session.user.app_metadata?.providers || [activeProvider],
                 plan_type: profile.plan_type as 'free' | 'starter' | 'pro',
                 requests_remaining: profile.requests_remaining,
                 credits: profile.requests_remaining,
@@ -231,7 +367,7 @@ export const useAuthStore = create<AuthState>((set) => ({
                 custom_instructions: profile.custom_instructions,
                 more_about_you: profile.more_about_you,
                 live_voice: profile.live_voice || 'Zephyr',
-                provider,
+                provider: activeProvider,
                 file_upload_agreed: profile.file_upload_agreed ?? false,
                 file_upload_agreed_at: profile.file_upload_agreed_at,
               },
@@ -244,8 +380,13 @@ export const useAuthStore = create<AuthState>((set) => ({
               user: {
                 id: session.user.id,
                 email: session.user.email || '',
+                avatar_url: activeProviderAvatar || undefined,
+                provider_avatar_url: activeProviderAvatar || undefined,
+                google_avatar_url: googleAvatar || undefined,
+                github_avatar_url: githubAvatar || undefined,
+                providers: session.user.app_metadata?.providers || [activeProvider],
                 plan_type: 'free' as 'free',
-                provider,
+                provider: activeProvider,
               },
               loading: false,
               initialized: true
@@ -270,7 +411,8 @@ export const useAuthStore = create<AuthState>((set) => ({
         supabase.auth.onAuthStateChange(async (event, session) => {
           if ((event === 'SIGNED_IN' || event === 'INITIAL_SESSION') && session?.user) {
             const currentUser = useAuthStore.getState().user;
-            const alreadyLoaded = currentUser && currentUser.id === session.user.id;
+            const activeProvider = resolveActiveProvider(session);
+            const alreadyLoaded = currentUser && currentUser.id === session.user.id && currentUser.provider === activeProvider;
 
             // ── 1. Profile fetch (skip if already loaded) ──────────────────
             // On OAuth redirects, initialize() already fetched the profile
@@ -282,14 +424,21 @@ export const useAuthStore = create<AuthState>((set) => ({
                 .eq('id', session.user.id)
                 .single();
 
+              const googleAvatar = getProviderAvatar(session.user, 'google');
+              const githubAvatar = getProviderAvatar(session.user, 'github');
+              const activeProviderAvatar = activeProvider === 'github'
+                ? githubAvatar
+                : (activeProvider === 'google' ? googleAvatar : extractProviderAvatarUrl(session.user));
+
               let avatarUrl = profile?.avatar_url;
-              if (!avatarUrl && profile) {
-                const oauthAvatar = session.user.user_metadata?.avatar_url || session.user.user_metadata?.picture;
-                if (oauthAvatar) {
-                  avatarUrl = oauthAvatar;
+              const hasCustomAvatar = isCustomUploadedAvatar(avatarUrl);
+
+              if (!hasCustomAvatar && activeProviderAvatar) {
+                if (avatarUrl !== activeProviderAvatar) {
+                  avatarUrl = activeProviderAvatar;
                   supabase
                     .from('profiles')
-                    .update({ avatar_url: oauthAvatar })
+                    .update({ avatar_url: activeProviderAvatar })
                     .eq('id', session.user.id)
                     .then(({ error }) => {
                       if (error) console.error('Error syncing OAuth avatar on auth change:', error);
@@ -297,17 +446,16 @@ export const useAuthStore = create<AuthState>((set) => ({
                 }
               }
 
-              const provider = session.user.app_metadata?.provider ||
-                session.user.identities?.[0]?.provider ||
-                (session.user.app_metadata?.providers?.[0]) ||
-                'email';
-
               set({
                 user: {
                   id: session.user.id,
                   email: session.user.email || '',
                   display_name: profile?.display_name,
                   avatar_url: avatarUrl,
+                  provider_avatar_url: activeProviderAvatar || undefined,
+                  google_avatar_url: googleAvatar || undefined,
+                  github_avatar_url: githubAvatar || undefined,
+                  providers: session.user.app_metadata?.providers || [activeProvider],
                   plan_type: (profile?.plan_type as 'free' | 'starter' | 'pro') || 'free',
                   requests_remaining: profile?.requests_remaining,
                   credits: profile?.requests_remaining,
@@ -317,7 +465,7 @@ export const useAuthStore = create<AuthState>((set) => ({
                   custom_instructions: profile?.custom_instructions,
                   more_about_you: profile?.more_about_you,
                   live_voice: profile?.live_voice || 'Zephyr',
-                  provider,
+                  provider: activeProvider,
                   file_upload_agreed: profile?.file_upload_agreed ?? false,
                   file_upload_agreed_at: profile?.file_upload_agreed_at,
                 }
@@ -393,12 +541,20 @@ export const useAuthStore = create<AuthState>((set) => ({
     try {
       const { data: profile, error } = await supabase
         .from('profiles')
-        .select('plan_type, requests_remaining')
+        .select('plan_type, requests_remaining, avatar_url')
         .eq('id', user.id)
         .single();
 
       if (!error && profile) {
-        set({ user: { ...user, plan_type: profile.plan_type as any, requests_remaining: profile.requests_remaining, credits: profile.requests_remaining } });
+        set({
+          user: {
+            ...user,
+            avatar_url: profile.avatar_url ?? user.avatar_url,
+            plan_type: profile.plan_type as any,
+            requests_remaining: profile.requests_remaining,
+            credits: profile.requests_remaining
+          }
+        });
       }
     } catch (error) {
       console.error('Fetch profile error:', error);

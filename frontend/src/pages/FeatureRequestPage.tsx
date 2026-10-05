@@ -27,6 +27,7 @@ import {
 import toast from 'react-hot-toast';
 import { DashboardLayout } from '../features/dashboard/DashboardLayout';
 import { useAuthStore } from '../store/auth.store';
+import { getLoggedInDefaultAvatarUrl } from '../utils/avatar';
 import {
   FeatureCategoryPicker,
   FEATURE_CATEGORIES,
@@ -689,9 +690,9 @@ export const FeatureRequestPage: React.FC = () => {
                       <div className={styles.userInfoGroup}>
                         <div className={styles.userAvatar}>
                           {user.avatar_url ? (
-                            <img src={user.avatar_url} alt="User" />
+                            <img src={user.avatar_url} alt="User" referrerPolicy="no-referrer" />
                           ) : (
-                            <User size={20} />
+                            <img src={getLoggedInDefaultAvatarUrl(user.id)} alt="User" referrerPolicy="no-referrer" />
                           )}
                         </div>
                         <div className={styles.userDetails}>

@@ -416,6 +416,15 @@
   background: var(--bg-surface);
   border: 1px solid var(--border-color);
   margin-top: 16px;
+  overflow: hidden;
+}
+
+.chatUserAvatar {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 50%;
+  display: block;
 }
 
 .avatar.ai {

@@ -583,7 +583,7 @@
   width: 44px;
   height: 44px;
   border-radius: 14px;
-  background: linear-gradient(135deg, var(--primary), #a855f7);
+  background: #5757fd;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1053,7 +1053,7 @@
 }
 
 .savedKeyToggle input:checked+label {
-  background: linear-gradient(135deg, var(--primary), #a855f7);
+  background: #0a6eff;
   box-shadow: 0 0 10px rgba(99, 102, 241, 0.25);
 }
 
@@ -1304,7 +1304,7 @@
 }
 
 .toggleSwitch input:checked+label {
-  background: linear-gradient(135deg, var(--primary), #a855f7);
+  background: #0a6eff;
   box-shadow: 0 0 12px rgba(99, 102, 241, 0.3);
 }
 
@@ -1836,13 +1836,16 @@
 .voiceDropdownMenu::-webkit-scrollbar {
   width: 6px;
 }
+
 .voiceDropdownMenu::-webkit-scrollbar-track {
   background: transparent;
 }
+
 .voiceDropdownMenu::-webkit-scrollbar-thumb {
   background: rgba(255, 255, 255, 0.15);
   border-radius: 3px;
 }
+
 .voiceDropdownMenu::-webkit-scrollbar-thumb:hover {
   background: rgba(255, 255, 255, 0.25);
 }
