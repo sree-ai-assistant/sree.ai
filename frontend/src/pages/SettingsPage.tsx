@@ -958,10 +958,25 @@ const SettingsPage: React.FC = () => {
   const [savedKeys, setSavedKeys] = useState<SavedApiKey[]>([]);
   const [keyModalOpen, setKeyModalOpen] = useState(false);
   const [keyModalProvider, setKeyModalProvider] = useState('');
+  const [keyToDelete, setKeyToDelete] = useState<SavedApiKey | null>(null);
+  const [deletingKey, setDeletingKey] = useState(false);
+  const [deleteKeyError, setDeleteKeyError] = useState('');
   const [status, setStatus] = useState<'idle' | 'loading' | 'saving' | 'success' | 'error'>('idle');
   const [lastSaved, setLastSaved] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [sessions, setSessions] = useState<UserSession[]>([]);
+
+  // Close delete key modal on Escape key
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && keyToDelete && !deletingKey) {
+        setKeyToDelete(null);
+        setDeleteKeyError('');
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [keyToDelete, deletingKey]);
 
   // Password Change Modal State
   const [passwordModalOpen, setPasswordModalOpen] = useState(false);
@@ -979,8 +994,9 @@ const SettingsPage: React.FC = () => {
   const [deletingAccount, setDeletingAccount] = useState(false);
 
   const handleDeleteAccount = async () => {
-    if (deleteConfirmationText !== 'DELETE') {
-      setDeleteError('Please type "DELETE" to confirm');
+    const targetEmail = (user?.email || '').trim() || 'DELETE';
+    if (deleteConfirmationText.trim().toLowerCase() !== targetEmail.toLowerCase()) {
+      setDeleteError(`Please type your email address "${targetEmail}" to confirm.`);
       return;
     }
 
@@ -1220,12 +1236,24 @@ const SettingsPage: React.FC = () => {
     }
   };
 
-  const handleDeleteKey = async (keyId: string) => {
+  const handleDeleteKey = (key: SavedApiKey) => {
+    setDeleteKeyError('');
+    setKeyToDelete(key);
+  };
+
+  const handleConfirmDeleteKey = async () => {
+    if (!keyToDelete) return;
     try {
-      await apiKeyService.deleteKey(keyId);
-      setSavedKeys(prev => prev.filter(k => k.id !== keyId));
-    } catch (error) {
+      setDeletingKey(true);
+      setDeleteKeyError('');
+      await apiKeyService.deleteKey(keyToDelete.id);
+      setSavedKeys(prev => prev.filter(k => k.id !== keyToDelete.id));
+      setKeyToDelete(null);
+    } catch (error: any) {
       console.error('Failed to delete key:', error);
+      setDeleteKeyError(error.response?.data?.message || error.message || 'Failed to delete API key. Please try again.');
+    } finally {
+      setDeletingKey(false);
     }
   };
 
@@ -1718,12 +1746,18 @@ const SettingsPage: React.FC = () => {
   );
 
   const renderKeysSection = () => {
-    const formatDate = (dateStr: string) => {
-      const d = new Date(dateStr);
-      const dd = String(d.getDate()).padStart(2, '0');
-      const mm = String(d.getMonth() + 1).padStart(2, '0');
-      const yy = String(d.getFullYear()).slice(-2);
-      return `${dd}-${mm}-${yy}`;
+    const formatDate = (dateStr?: string | null) => {
+      if (!dateStr) return 'Recently';
+      try {
+        const d = new Date(dateStr);
+        if (isNaN(d.getTime())) return 'Recently';
+        const dd = String(d.getDate()).padStart(2, '0');
+        const mm = String(d.getMonth() + 1).padStart(2, '0');
+        const yy = String(d.getFullYear()).slice(-2);
+        return `${dd}-${mm}-${yy}`;
+      } catch {
+        return 'Recently';
+      }
     };
 
     const getKeyCountForProvider = (providerId: string) =>
@@ -1826,7 +1860,7 @@ const SettingsPage: React.FC = () => {
                         </div>
                         <button
                           className={styles.savedKeyDeleteBtn}
-                          onClick={() => handleDeleteKey(key.id)}
+                          onClick={() => handleDeleteKey(key)}
                           title="Delete this API key"
                         >
                           <Trash2 size={14} />
@@ -1851,6 +1885,280 @@ const SettingsPage: React.FC = () => {
           onSave={handleSaveApiKey}
           provider={keyModalProvider}
         />
+
+        {/* Delete API Key Confirmation Modal */}
+        <AnimatePresence>
+          {keyToDelete && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              style={{
+                position: 'fixed',
+                inset: 0,
+                zIndex: 9999,
+                background: 'rgba(0, 0, 0, 0.7)',
+                backdropFilter: 'blur(8px)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                padding: '1rem'
+              }}
+              onClick={() => {
+                if (!deletingKey) {
+                  setKeyToDelete(null);
+                  setDeleteKeyError('');
+                }
+              }}
+            >
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95, y: 16 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.95, y: 16 }}
+                transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+                onClick={(e) => e.stopPropagation()}
+                style={{
+                  background: 'var(--bg-secondary, #1a1a2e)',
+                  borderRadius: 20,
+                  padding: '1.75rem',
+                  width: '100%',
+                  maxWidth: 440,
+                  border: '1px solid rgba(239, 68, 68, 0.25)',
+                  boxShadow: '0 24px 50px rgba(0,0,0,0.6), 0 0 0 1px rgba(239,68,68,0.12)'
+                }}
+              >
+                {/* Header */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                    <div style={{
+                      width: 40,
+                      height: 40,
+                      borderRadius: 12,
+                      background: 'rgba(239, 68, 68, 0.1)',
+                      border: '1px solid rgba(239, 68, 68, 0.2)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      color: '#ef4444',
+                      flexShrink: 0
+                    }}>
+                      <Trash2 size={20} />
+                    </div>
+                    <div>
+                      <h3 style={{ margin: 0, fontSize: '1.15rem', fontWeight: 700, color: '#fff' }}>
+                        Delete API Key
+                      </h3>
+                      <p style={{ margin: '2px 0 0', fontSize: '0.8rem', color: 'rgba(255,255,255,0.45)' }}>
+                        Confirm key removal
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    disabled={deletingKey}
+                    onClick={() => {
+                      setKeyToDelete(null);
+                      setDeleteKeyError('');
+                    }}
+                    style={{
+                      background: 'rgba(255,255,255,0.06)',
+                      border: 'none',
+                      borderRadius: 8,
+                      color: 'var(--text-muted, rgba(255,255,255,0.5))',
+                      cursor: deletingKey ? 'not-allowed' : 'pointer',
+                      padding: 6,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      transition: 'all 0.2s'
+                    }}
+                    onMouseEnter={(e) => (e.currentTarget.style.color = '#fff')}
+                    onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--text-muted, rgba(255,255,255,0.5))')}
+                  >
+                    <X size={18} />
+                  </button>
+                </div>
+
+                {/* Key Details Card */}
+                {(() => {
+                  const provColor = PROVIDER_COLORS[keyToDelete.provider] || '#6366f1';
+                  return (
+                    <div style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 12,
+                      padding: '0.85rem 1rem',
+                      borderRadius: 12,
+                      background: 'rgba(255, 255, 255, 0.03)',
+                      border: '1px solid rgba(255, 255, 255, 0.07)',
+                      marginBottom: '1.25rem'
+                    }}>
+                      <div style={{
+                        width: 38,
+                        height: 38,
+                        borderRadius: 10,
+                        background: `${provColor}15`,
+                        border: `1px solid ${provColor}30`,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        flexShrink: 0
+                      }}>
+                        {getProviderLogo(keyToDelete.provider, 20)}
+                      </div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{
+                          fontWeight: 600,
+                          fontSize: '0.92rem',
+                          color: '#fff',
+                          whiteSpace: 'nowrap',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis'
+                        }}>
+                          {keyToDelete.name || `${keyToDelete.provider}_key`}
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 3 }}>
+                          <span style={{
+                            fontSize: '0.75rem',
+                            fontWeight: 600,
+                            color: provColor
+                          }}>
+                            {keyToDelete.provider.charAt(0).toUpperCase() + keyToDelete.provider.slice(1)}
+                          </span>
+                          <span style={{ fontSize: '0.72rem', color: 'rgba(255,255,255,0.4)' }}>
+                            • Added {formatDate(keyToDelete.created_at)}
+                          </span>
+                          {keyToDelete.in_use && (
+                            <span style={{
+                              fontSize: '0.68rem',
+                              fontWeight: 600,
+                              color: '#10b981',
+                              background: 'rgba(16, 185, 129, 0.12)',
+                              border: '1px solid rgba(16, 185, 129, 0.25)',
+                              padding: '1px 6px',
+                              borderRadius: 4
+                            }}>
+                              Active
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })()}
+
+                {/* Warning message */}
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'flex-start',
+                  gap: 10,
+                  padding: '0.85rem 1rem',
+                  borderRadius: 10,
+                  marginBottom: '1.25rem',
+                  background: 'rgba(239, 68, 68, 0.08)',
+                  border: '1px solid rgba(239, 68, 68, 0.18)',
+                  color: '#fca5a5',
+                  fontSize: '0.84rem',
+                  lineHeight: 1.5
+                }}>
+                  <AlertCircle size={18} style={{ flexShrink: 0, marginTop: 2, color: '#ef4444' }} />
+                  <div>
+                    <span style={{ fontWeight: 600, color: '#ef4444', display: 'block', marginBottom: 2 }}>
+                      Permanent Action
+                    </span>
+                    Are you sure you want to delete this API key? This action cannot be undone. Any models or features relying on this key will stop functioning immediately.
+                  </div>
+                </div>
+
+                {/* Error Banner */}
+                {deleteKeyError && (
+                  <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 8,
+                    padding: '0.75rem 1rem',
+                    borderRadius: 10,
+                    marginBottom: '1.25rem',
+                    background: 'rgba(239, 68, 68, 0.12)',
+                    border: '1px solid rgba(239, 68, 68, 0.25)',
+                    color: '#ef4444',
+                    fontSize: '0.84rem'
+                  }}>
+                    <AlertCircle size={16} />
+                    {deleteKeyError}
+                  </div>
+                )}
+
+                {/* Action Buttons */}
+                <div style={{ display: 'flex', gap: 12 }}>
+                  <button
+                    type="button"
+                    disabled={deletingKey}
+                    onClick={() => {
+                      setKeyToDelete(null);
+                      setDeleteKeyError('');
+                    }}
+                    style={{
+                      flex: 1,
+                      padding: '0.75rem',
+                      borderRadius: 10,
+                      border: '1px solid rgba(255, 255, 255, 0.12)',
+                      background: 'rgba(255, 255, 255, 0.05)',
+                      color: 'var(--text-primary, #fff)',
+                      fontWeight: 600,
+                      fontSize: '0.9rem',
+                      cursor: deletingKey ? 'not-allowed' : 'pointer',
+                      transition: 'all 0.2s'
+                    }}
+                    onMouseEnter={(e) => {
+                      if (!deletingKey) e.currentTarget.style.background = 'rgba(255, 255, 255, 0.09)';
+                    }}
+                    onMouseLeave={(e) => {
+                      if (!deletingKey) e.currentTarget.style.background = 'rgba(255, 255, 255, 0.05)';
+                    }}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleConfirmDeleteKey}
+                    disabled={deletingKey}
+                    style={{
+                      flex: 1,
+                      padding: '0.75rem',
+                      borderRadius: 10,
+                      border: 'none',
+                      background: '#ef4444',
+                      color: '#fff',
+                      fontWeight: 700,
+                      fontSize: '0.9rem',
+                      cursor: deletingKey ? 'not-allowed' : 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: 8,
+                      opacity: deletingKey ? 0.7 : 1,
+                      boxShadow: '0 4px 14px rgba(239, 68, 68, 0.35)',
+                      transition: 'all 0.2s'
+                    }}
+                    onMouseEnter={(e) => {
+                      if (!deletingKey) e.currentTarget.style.background = '#dc2626';
+                    }}
+                    onMouseLeave={(e) => {
+                      if (!deletingKey) e.currentTarget.style.background = '#ef4444';
+                    }}
+                  >
+                    {deletingKey ? (
+                      <><RefreshCw size={16} className={styles.spinning} /> Deleting...</>
+                    ) : (
+                      <><Trash2 size={16} /> Delete Key</>
+                    )}
+                  </button>
+                </div>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </motion.div>
     );
   };
@@ -2531,20 +2839,40 @@ const SettingsPage: React.FC = () => {
               )}
 
               <div style={{ marginBottom: '1.5rem' }}>
-                <label style={{ display: 'block', fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: 8, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                  Type <span style={{ color: '#ef4444', fontFamily: 'monospace', fontSize: '0.9rem' }}>DELETE</span> to confirm
+                <label style={{ display: 'block', fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: 8, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', lineHeight: 1.5 }}>
+                  Type <span style={{ color: '#ef4444', fontFamily: 'monospace', fontSize: '0.88rem', wordBreak: 'break-all', textTransform: 'none' }}>{(user?.email || '').trim() || 'DELETE'}</span> to confirm
                 </label>
                 <input
+                  id="delete-account-confirm-email"
+                  name="delete_account_verification_code_field"
                   type="text"
+                  inputMode="text"
+                  autoComplete="off"
+                  autoCorrect="off"
+                  autoCapitalize="none"
+                  spellCheck={false}
+                  data-lpignore="true"
+                  data-1p-ignore="true"
+                  data-bwignore="true"
+                  data-form-type="other"
                   disabled={deletingAccount}
                   value={deleteConfirmationText}
                   onChange={(e) => setDeleteConfirmationText(e.target.value)}
-                  placeholder="Type DELETE"
+                  placeholder={`Type ${user?.email || 'your email'}`}
+                  className={styles.deleteConfirmInput}
                   style={{
-                    width: '100%', padding: '0.75rem 0.85rem',
-                    borderRadius: 10, border: '1px solid rgba(255,255,255,0.1)',
-                    background: 'rgba(255,255,255,0.04)', color: 'var(--text-primary, #fff)',
-                    fontSize: '0.9rem', outline: 'none', boxSizing: 'border-box'
+                    display: 'block',
+                    width: '100%',
+                    height: 44,
+                    minHeight: 44,
+                    padding: '0 0.85rem',
+                    borderRadius: 10,
+                    border: '1px solid rgba(255,255,255,0.12)',
+                    background: 'rgba(255,255,255,0.04)',
+                    color: '#ffffff',
+                    fontSize: '0.9rem',
+                    outline: 'none',
+                    boxSizing: 'border-box'
                   }}
                 />
               </div>
@@ -2564,13 +2892,14 @@ const SettingsPage: React.FC = () => {
                 </button>
                 <button
                   onClick={handleDeleteAccount}
-                  disabled={deletingAccount || deleteConfirmationText !== 'DELETE'}
+                  disabled={deletingAccount || deleteConfirmationText.trim().toLowerCase() !== ((user?.email || '').trim() || 'DELETE').toLowerCase()}
                   style={{
                     flex: 1, padding: '0.75rem', borderRadius: 10, border: 'none',
                     background: '#ef4444',
-                    color: '#fff', fontWeight: 700, fontSize: '0.9rem', cursor: 'pointer',
+                    color: '#fff', fontWeight: 700, fontSize: '0.9rem',
+                    cursor: (deleteConfirmationText.trim().toLowerCase() === ((user?.email || '').trim() || 'DELETE').toLowerCase() && !deletingAccount) ? 'pointer' : 'not-allowed',
                     display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-                    opacity: (deletingAccount || deleteConfirmationText !== 'DELETE') ? 0.6 : 1
+                    opacity: (deletingAccount || deleteConfirmationText.trim().toLowerCase() !== ((user?.email || '').trim() || 'DELETE').toLowerCase()) ? 0.6 : 1
                   }}
                 >
                   {deletingAccount ? (

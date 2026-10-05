@@ -1915,3 +1915,41 @@
   color: #8e918f;
   line-height: 1.2;
 }
+
+/* ─── Delete Account Confirmation Input (Extension-Proof) ─── */
+.deleteConfirmInput {
+  display: block !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  height: 44px !important;
+  min-height: 44px !important;
+  padding: 0 0.85rem !important;
+  border-radius: 10px !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  background-color: rgba(255, 255, 255, 0.04) !important;
+  color: #ffffff !important;
+  font-size: 0.9rem !important;
+  outline: none !important;
+  box-sizing: border-box !important;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease !important;
+}
+
+.deleteConfirmInput:focus {
+  border-color: rgba(239, 68, 68, 0.5) !important;
+  box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.2) !important;
+}
+
+.deleteConfirmInput::placeholder {
+  color: rgba(255, 255, 255, 0.35) !important;
+}
+
+/* Suppress browser & password extension autofill white-box styling */
+.deleteConfirmInput:-webkit-autofill,
+.deleteConfirmInput:-webkit-autofill:hover,
+.deleteConfirmInput:-webkit-autofill:focus,
+.deleteConfirmInput:-webkit-autofill:active {
+  -webkit-box-shadow: 0 0 0 1000px #1a1a2e inset !important;
+  -webkit-text-fill-color: #ffffff !important;
+  transition: background-color 5000s ease-in-out 0s !important;
+  caret-color: #ffffff !important;
+}

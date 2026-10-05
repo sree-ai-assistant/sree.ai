@@ -1176,7 +1176,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
             <>
               <textarea
                 ref={textareaRef}
-                className={`${styles.input} ${showReasoningSelector && !isMultiLine ? styles.inputWithReasoning : ''}`}
+                className={`${styles.input} ${showReasoningSelector ? styles.inputWithReasoning : ''}`}
                 value={internalValue}
                 onChange={(e) => setInternalValue(e.target.value)}
                 onInput={adjustHeight}

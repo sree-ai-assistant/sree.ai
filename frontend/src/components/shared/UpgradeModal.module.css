@@ -15,7 +15,7 @@
   max-width: 800px;
   background: var(--bg-surface);
   border: 1px solid var(--glass-border);
-  border-radius: 2rem;
+  border-radius: 1rem;
   overflow: hidden;
   position: relative;
   box-shadow: 0 50px 100px rgba(0, 0, 0, 0.8);
@@ -31,22 +31,25 @@
   left: -50%;
   width: 150%;
   height: 150%;
-  background: conic-gradient(
-    from 180deg at 50% 50%,
-    var(--primary-glow) 0deg,
-    transparent 120deg,
-    var(--accent-glow) 180deg,
-    transparent 300deg,
-    var(--primary-glow) 360deg
-  );
+  background: conic-gradient(from 180deg at 50% 50%,
+      var(--primary-glow) 0deg,
+      transparent 120deg,
+      var(--accent-glow) 180deg,
+      transparent 300deg,
+      var(--primary-glow) 360deg);
   animation: rotate 10s linear infinite;
   z-index: -1;
   opacity: 0.3;
 }
 
 @keyframes rotate {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
+  from {
+    transform: rotate(0deg);
+  }
+
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .content {
@@ -133,7 +136,7 @@
 .plan {
   background: rgba(255, 255, 255, 0.03);
   border: 1px solid var(--border-color);
-  border-radius: 1.5rem;
+  border-radius: 0.75rem;
   padding: 2rem;
   display: flex;
   flex-direction: column;
@@ -188,8 +191,8 @@
 
 .button {
   width: 100%;
-  padding: 1rem;
-  border-radius: 1rem;
+  padding: 0.75rem;
+  border-radius: 0.5rem;
   font-weight: 700;
   font-size: 1rem;
   cursor: pointer;
@@ -239,7 +242,7 @@
   .content {
     padding: 2.5rem 1.25rem 1.5rem;
   }
-  
+
   .close {
     top: 1rem;
     right: 1rem;
@@ -300,7 +303,7 @@
   .title {
     font-size: 1.25rem;
   }
-  
+
   .subtitle {
     font-size: 0.85rem;
   }
