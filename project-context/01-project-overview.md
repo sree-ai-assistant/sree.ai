@@ -23,7 +23,7 @@ Ai-Sass-3/
 ├── shared/            # Shared types & constants (@sree/shared)
 ├── legal/             # Watertight statutory policies (DPDP Act, IT Act Sec 79)
 ├── project-context/   # Architectural documentation & full-schema.sql
-├── supabase/          # Database migrations (29 migration files)
+├── supabase/          # Database migrations (30 migration files)
 ├── design-system/     # Design system documentation
 ├── docs/              # Legacy .docx documentation (PRD, TRD, etc.)
 ├── package.json       # Root workspace config

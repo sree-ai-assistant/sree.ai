@@ -63,7 +63,12 @@ Designed with a **dual-identity architecture**, users can start chatting immedia
 - **Dynamic Sitemaps & Agent Context**: 15 canonical URLs mapped in `sitemap.xml`, plus lightweight `llms.txt` and exhaustive `llms-full.txt` for AI agent consumption and Schema.org JSON-LD structured data.
 
 ### 🔑 Bring Your Own Key (BYOK) & Key Pooling
-- **Encrypted User Keys**: Users can supply their own API keys (encrypted via AES-256-GCM) to unlock extended quotas with a **0.2x rate multiplier**.
+- **Encrypted User Key Vault**: Users can supply their own API keys (encrypted at rest using native `AES-256-GCM` with a unique 16-byte initialization vector `iv` per key) to unlock extended quotas with a **0.2x rate multiplier**.
+- **HMAC-SHA256 Blind Indexing (`key_hash`)**: Fast cryptographic blind index prevents duplicate key submissions across user vaults without decrypting database records.
+- **Real-Time Pre-Flight Validation**: Dedicated pre-validation endpoint (`POST /api/user/settings/keys/validate`) verifies credentials against live upstream provider endpoints (NVIDIA, Google, Groq, Deepgram) prior to vault persistence.
+- **Multi-Window Submission Guardrails**: Rate-limited key endpoints (5 requests/min burst, 10 requests/hour, 15 requests/day) prevent credential abuse and brute-force testing.
+- **Full Key Lifecycle Management**: Multi-key management with masked display, user-defined labels, active toggling (`/settings/keys/:id/toggle`), and instant key revocation/deletion.
+- **Zero-Dependency Native Vector Logos**: Inlined official vector SVGs for NVIDIA (`#76B900`), Google (4-color), Deepgram (`#13EF93`), and Groq (`#F54F35`) with 0 external network requests or bulky icon library dependencies.
 - **Backend Key Pool Rotation**: Server-side API key pool that rotates round-robin and automatically fails over when provider rate limits are hit.
 
 ### 💳 Tiered Subscriptions & Razorpay Billing
@@ -298,6 +303,12 @@ stateDiagram-v2
 │   │   └── styles/           # Global styles and design system variables
 │   └── package.json
 │
+├── shared/                   # Shared TypeScript models, schemas & plan constants (@sree/shared)
+│   ├── src/
+│   │   ├── types/            # User, conversation, model, and subscription definitions
+│   │   └── constants/        # Shared tier configurations & tool limits
+│   └── package.json
+│
 ├── legal/                    # Watertight legal policies & statutory compliance suite
 │   ├── 01-privacy-policy.md
 │   ├── 02-terms-of-service.md
@@ -319,7 +330,7 @@ stateDiagram-v2
 │   ├── 10-security-and-rate-limiting.md
 │   └── full-schema.sql       # 100% production-verified ready-to-run database schema
 │
-├── supabase/migrations/      # Sequential PostgreSQL migration files
+├── supabase/migrations/      # 30 sequential PostgreSQL migration files
 ├── .env.example              # Environment variables template
 └── README.md
 ```
@@ -347,11 +358,8 @@ stateDiagram-v2
 
 2. **Install dependencies:**
    ```bash
-   # Install root and backend/frontend dependencies
+   # Install dependencies across all workspaces (root, frontend, backend, shared)
    npm install
-   cd backend && npm install
-   cd ../frontend && npm install
-   cd ..
    ```
 
 3. **Configure Environment Variables:**
@@ -375,6 +383,12 @@ stateDiagram-v2
    GROQ_API_KEY=your_groq_api_key
    # GROQ_API_KEYS=gsk-key1,gsk-key2
    DEEPGRAM_API_KEY=your_deepgram_api_key
+   # DEEPGRAM_API_KEYS=key1,key2
+
+   # Gemini Live API Voice (uses GOOGLE_API_KEY pool — no extra key needed)
+   # Models are tried in order: first → second → third (fallback cascade)
+   GEMINI_LIVE_MODELS=gemini-3.8-live,gemini-3.1-flash-live-preview,gemini-2.5-flash-native-audio-preview-12-2025
+   GEMINI_LIVE_VOICE=Puck
 
    # BYOK Key Encryption (32-character hex key)
    ENCRYPTION_KEY=your_32_character_hex_encryption_key
@@ -415,6 +429,7 @@ stateDiagram-v2
    ```env
    VITE_SUPABASE_URL=https://your-project.supabase.co
    VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
+   VITE_API_URL=http://localhost:5000/api
    VITE_API_BASE_URL=http://localhost:5000/api
 
    # PostHog Analytics & Error Tracking (Frontend)
@@ -441,7 +456,7 @@ stateDiagram-v2
 
 ## 🗄️ Database & RLS Setup
 
-The database utilizes Supabase PostgreSQL with strict Row Level Security (RLS) on all 19 tables:
+The database utilizes Supabase PostgreSQL with strict Row Level Security (RLS) on all 19 tables, managed via 30 sequential migrations in `supabase/migrations/`:
 
 - **All-In-One Production Script**: [`project-context/full-schema.sql`](file:///p:/antygravity-projects/Ai-Sass-3/project-context/full-schema.sql)
 - **Included Tables**:
@@ -452,7 +467,7 @@ The database utilizes Supabase PostgreSQL with strict Row Level Security (RLS) o
   - `file_uploads`: Cloudflare R2 content-addressable deduplication records and reference counts
   - `anonymous_users`: Identity fingerprinting and usage tracking
   - `usage_tracking`: Unified per-minute, daily, and monthly rate counters
-  - `api_keys`: Encrypted BYOK key vault
+  - `api_keys`: Encrypted BYOK key vault (with HMAC-SHA256 `key_hash` blind indexing)
   - `ai_models`: Dynamic AI model capabilities catalog (102+ models)
   - `model_error_counters`: Circuit breaker consecutive failure logs
   - `feature_requests`: Integrated ticket submission and status tracking
@@ -477,7 +492,14 @@ The database utilizes Supabase PostgreSQL with strict Row Level Security (RLS) o
 | **Billing** | `POST` | `/api/payment/cancel` | Schedules downgrade at end of current cycle |
 | **User** | `GET` | `/api/user/profile` | Retrieves profile, active plan, and real-time quotas |
 | **User** | `PATCH` | `/api/user/profile` | Updates system prompts & personal preferences |
-| **Keys** | `POST` | `/api/user/settings/keys` | Saves user BYOK API key (encrypted) |
+| **User** | `GET` | `/api/user/sessions` | Retrieves active user sessions and trusted devices |
+| **User** | `POST` | `/api/user/sessions/sync` | Syncs client device fingerprint & session state |
+| **Keys** | `POST` | `/api/user/settings/keys/validate` | Tests & validates BYOK key against provider upstream |
+| **Keys** | `POST` | `/api/user/settings/keys` | Saves user BYOK API key (encrypted AES-256-GCM) |
+| **Keys** | `GET` | `/api/user/settings/keys` | Retrieves saved BYOK keys with masked previews |
+| **Keys** | `PATCH` | `/api/user/settings/keys/:id/toggle` | Enables or disables an active BYOK key |
+| **Keys** | `DELETE` | `/api/user/settings/keys/:id` | Revokes and deletes a saved BYOK key from vault |
+| **Models** | `GET` | `/api/models/observer-status` | Live circuit breaker & error observer telemetry |
 | **Feature** | `POST` | `/api/feature-requests` | Submits feature requests / bug reports |
 | **Config** | `GET` | `/api/config/public` | Retrieves whitelisted public runtime configuration |
 | **Admin** | `POST` | `/api/admin/r2/health-check` | Performs R2 bucket integrity check (`x-admin-secret`) |
@@ -491,9 +513,12 @@ The database utilizes Supabase PostgreSQL with strict Row Level Security (RLS) o
 ## 🔒 Security & Privacy
 
 1. **Zero Raw Key Storage (BYOK)**: User-provided API keys are encrypted at rest using `AES-256-GCM` with a unique Initialization Vector (`iv`) per key.
-2. **Payment Webhook Verification**: Razorpay webhooks require strict `HMAC-SHA256` signature verification; unverified payloads are discarded immediately.
-3. **No Plaintext IP Storage**: Anonymous visitors are tracked using salted SHA-256 hashes of client fingerprints and IPs to comply with GDPR & CCPA.
-4. **Row Level Security (RLS)**: Enforced across 100% of exposed tables to isolate tenant data.
+2. **Blind Indexing for BYOK Vault (`key_hash`)**: Key lookups and duplicate prevention use HMAC-SHA256 blind indexing keyed with the master encryption secret, avoiding full-table decryption or ciphertext leakage.
+3. **Multi-Window Key Submission Guardrails**: Rate limits key save and validation routes (5 req/min burst, 10 req/hour, 15 req/day) to prevent key brute-forcing and provider quota exhaustion.
+4. **Payment Webhook Verification**: Razorpay webhooks require strict `HMAC-SHA256` signature verification; unverified payloads are discarded immediately.
+5. **No Plaintext IP Storage**: Anonymous visitors are tracked using salted SHA-256 hashes of client fingerprints and IPs to comply with GDPR & CCPA.
+6. **Row Level Security (RLS)**: Enforced across 100% of exposed tables to isolate tenant data.
+7. **Isolated Local Brand Marks**: Zero external runtime CDN hotlinking for provider branding, eliminating external telemetry or asset injection vectors.
 
 ---
 
@@ -505,9 +530,10 @@ All policies are maintained as markdown source files in [`legal/`](file:///p:/an
 
 | Policy | Markdown Document | Public App Route | Core Coverage & Statutory Protections |
 |---|---|---|---|
+| **Legal Center** | [`legal/`](legal/) | [`/legal`](https://app.sreeai.qzz.io/legal) | Central statutory compliance hub with categorized directory of all legal policies, disclaimers, and dispute pathways. |
 | **Privacy Policy** | [`legal/01-privacy-policy.md`](legal/01-privacy-policy.md) | [`/privacy`](https://app.sreeai.qzz.io/privacy) | DPDP Act 2023 data rights, 9 sub-processors, zero raw IP storage, AI provider transmission disclosures, and designated Grievance Officer. |
 | **Terms of Service** | [`legal/02-terms-of-service.md`](legal/02-terms-of-service.md) | [`/terms`](https://app.sreeai.qzz.io/terms) | Section 79 IT Act safe harbor, Zero-Liability shield for cloud/database breaches, 100% user sole liability for uploaded files/BYOK, and Indian arbitration. |
-| **Security & BYOK Policy** | [`legal/03-security-and-byok-policy.md`](legal/03-security-and-byok-policy.md) | [`/security`](https://app.sreeai.qzz.io/security) | AES-256-GCM encryption architecture, 16-byte random IVs, 100% table RLS matrix, and Shared Responsibility Framework (Supabase, Cloudflare, Razorpay, AI providers). |
+| **Security & BYOK Policy** | [`legal/03-security-and-byok-policy.md`](legal/03-security-and-byok-policy.md) | [`/security`](https://app.sreeai.qzz.io/security) | AES-256-GCM encryption architecture, HMAC-SHA256 blind indexing, 100% table RLS matrix, and Shared Responsibility Framework. |
 | **Refund & Cancellation Policy** | [`legal/04-refund-and-cancellation-policy.md`](legal/04-refund-and-cancellation-policy.md) | [`/refund-policy`](https://app.sreeai.qzz.io/refund-policy) | Consumable digital service rules, in-app self-service cancellations, 3 exception categories, and 5–7 business days Razorpay refund SLA. |
 | **Acceptable Use Policy (AUP)** | [`legal/05-acceptable-use-policy.md`](legal/05-acceptable-use-policy.md) | [`/acceptable-use`](https://app.sreeai.qzz.io/acceptable-use) | Zero-tolerance for CSAM (NCMEC referral), bans on deepfakes/malware/DDoS/proxy circumvention, and prohibitions on certified high-risk decisions. |
 | **Cookie Policy** | [`legal/06-cookie-policy.md`](legal/06-cookie-policy.md) | [`/cookies`](https://app.sreeai.qzz.io/cookies) | Complete transparency for Supabase Auth JWTs, anonymous guest tokens, PostHog telemetry cookies (zero PII), local UI preferences, and client conversion state tokens (`sree_anon_banner_dismissed`, `sree_anon_modal_last_shown_at`). |
