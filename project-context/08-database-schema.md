@@ -280,11 +280,15 @@ CREATE TRIGGER on_auth_user_created
 | `provider` | TEXT | — | NO | `nvidia` / `google` / `deepgram` / `groq` |
 | `encrypted_key` | TEXT | — | NO | AES-encrypted API key |
 | `iv` | TEXT | — | NO | Initialization vector for AES |
+| `key_hash` | TEXT | — | YES | HMAC-SHA256 blind index hash for O(1) duplicate detection without decrypting |
 | `name` | TEXT | — | YES | User-defined label |
 | `in_use` | BOOLEAN | `true` | YES | Whether key is active |
 | `created_at` | TIMESTAMPTZ | `now()` | NO | Creation time |
 | `updated_at` | TIMESTAMPTZ | `now()` | YES | Last update |
 | `last_used_at` | TIMESTAMPTZ | `now()` | YES | Last usage timestamp |
+
+**Indexes:**
+- `idx_api_keys_user_key_hash` ON `api_keys(user_id, key_hash)`
 
 **RLS Policies (1):**
 - `Users can manage their own API keys.` — ALL WHERE `auth.uid() = user_id`

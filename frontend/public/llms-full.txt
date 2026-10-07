@@ -2,7 +2,7 @@
 
 > Comprehensive reference document for Large Language Models, AI Search Engines (Perplexity, ChatGPT, Claude, Gemini), Agents, and Evaluators.
 > Application Host: https://app.sreeai.qzz.io
-> Last Updated: 2026-09-30
+> Last Updated: 2026-10-08
 
 ---
 
@@ -58,6 +58,8 @@ Requests are orchestrated by a dynamic server-side router:
 Sree AI allows users to provide personal API keys (NVIDIA NIM, Google Gemini, Groq, Deepgram):
 - **Cryptographic Algorithm**: AES-256-GCM (Galois/Counter Mode).
 - **Initialization Vector**: Each key is encrypted alongside an individualized, cryptographically secure 16-byte random IV.
+- **Cryptographic Blind Indexing**: One-way HMAC-SHA256 hash (`key_hash`) derived from raw key and server-side encryption key for constant-time $O(1)$ duplicate prevention without plaintext decryption.
+- **Submission Rate Limits**: Strictly rate-limited via sliding window (5/min burst threshold, 10/hour, 15/day).
 - **Memory Transient Decryption**: Keys are decrypted in volatile memory solely during inference execution and never written to logs or disk in plaintext.
 - **Quota Incentive**: Users operating under BYOK receive a **0.2x quota multiplier** (providing up to 5x higher platform throughput) while paying underlying token fees directly to their model provider.
 

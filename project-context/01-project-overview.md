@@ -56,8 +56,8 @@ Ai-Sass-3/
 | **Backend Services** | 17 (AI, Razorpay, Usage, Subscription, Anonymous, Abuse, API Key, API Key Pool, File, PostHog, Queue, R2, Video, Feature Request, Provider Validation, Live Voice, Model Observer) |
 | **Zustand Stores** | 9 (auth, chat, image, video, model, usage, ui, onboarding, upload-agreement) |
 | **Database Tables** | 19 (all with RLS enabled) |
-| **Database Migrations** | 29 SQL files (local `supabase/migrations/`)
-| **Middleware** | 9 (auth, anonymousIdentity, rateLimit, abuseDetection, errorHandler, uploadEnforcement, featureRequestRateLimit, queuePriority, starterPlan) |
+| **Database Migrations** | 30 SQL files (local `supabase/migrations/`) |
+| **Middleware** | 10 (auth, anonymousIdentity, rateLimit, apiKeyRateLimit, abuseDetection, errorHandler, uploadEnforcement, featureRequestRateLimit, queuePriority, starterPlan) |
 | **AI Providers** | 4 (NVIDIA NIM, Google Gemini, Groq, Deepgram) |
 | **AI Models** | 102 models registered in `ai_models` table |
 | **SEO & AEO Engine** | `robots.txt`, dynamic `sitemap.xml`, `llms.txt`, `llms-full.txt`, Schema.org JSON-LD |

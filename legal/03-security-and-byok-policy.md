@@ -98,7 +98,16 @@ Users operating under BYOK mode receive a **0.2x quota multiplier** against thei
 ### 4.2 User Responsibilities
 1. **Third-Party Charges:** You remain solely responsible for all API usage fees, token consumption, overages, and billing disputes incurred directly on your third-party provider accounts (e.g., NVIDIA, Google Cloud, Groq, Deepgram).
 2. **Key Lifecycle Management:** You are responsible for ensuring that API keys submitted to Sree AI have appropriate spending limits, permissions, and IP restrictions enabled in your provider consoles.
-3. **Key Revocation:** You may rotate, modify, or permanently delete your stored BYOK keys at any time via the Settings page. Deleting a key instantly purges both the encrypted ciphertext and initialization vector from the database.
+3. **Key Revocation:** You may rotate, modify, or permanently delete your stored BYOK keys at any time via the Settings page. Deleting a key instantly purges both the encrypted ciphertext, initialization vector, and cryptographic blind hash from the database.
+
+### 4.3 Cryptographic Blind Indexing & Duplicate Detection
+To safeguard accounts from accidental duplicate key submissions and cross-account key collisions without compromising confidentiality, Sree AI computes a one-way **HMAC-SHA256 blind index hash** (`key_hash`) derived from your raw API key and our server-side encryption key. This allows our database to enforce uniqueness lookups in constant time ($O(1)$) without ever decrypting or storing your plaintext credential.
+
+### 4.4 Key Submission Rate Limiting
+To prevent automated credential probing and brute-force key validation attempts, API key validation and addition endpoints are governed by a multi-window sliding limiter:
+- Maximum **5 submissions** per 1 minute (burst threshold)
+- Maximum **10 submissions** per 1 hour
+- Maximum **15 submissions** per 24 hours (daily cap)
 
 ---
 

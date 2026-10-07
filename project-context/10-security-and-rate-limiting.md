@@ -204,16 +204,25 @@ When datacenter IP is detected:
 ```mermaid
 graph LR
     A["User enters API key"] --> B["Frontend sends to backend"]
-    B --> C["AES-256 Encrypt (crypto-js)"]
-    C --> D["Store encrypted_key in api_keys table"]
-    D --> E["On use: Decrypt → API call → Re-encrypt"]
+    B --> C["Rate Limit (5/min, 10/h, 15/d)"]
+    C --> D["Blind Index HMAC-SHA256 (key_hash)"]
+    D --> E["Duplicate Check (O(1) Indexed Query + LRU Cache)"]
+    E --> F["AES-256-GCM Encrypt (Node native crypto)"]
+    F --> G["Store encrypted_key, iv, key_hash in api_keys table"]
+    G --> H["On use: Ephemeral Decrypt in memory → API Call"]
 ```
 
-- **Encryption:** AES-256 via `crypto-js` with `ENCRYPTION_SECRET` env var
-- **Storage:** Only encrypted keys stored in database
-- **Decryption:** Happens at request time in `ApiKeyService`
-- **Provider Validation:** Keys are validated against provider API before saving (`ProviderValidationService`)
-- **Toggle:** Users can enable/disable keys without deleting
+- **Encryption:** AES-256-GCM authenticated encryption via Node.js native `crypto` with `ENCRYPTION_KEY` env var
+- **Randomized IV:** 16-byte cryptographically secure random Initialization Vector per encryption
+- **Storage:** Only encrypted ciphertext and IV stored in database (`api_keys` table)
+- **Duplicate Prevention:** Hybrid approach using HMAC-SHA256 blind indexing (`key_hash`) + in-memory LRU cache (1,000 entries) preventing duplicate submissions per user account without plaintext decryption
+- **Submission Rate Limits:** Strictly enforced via `apiKeyRateLimit.ts` sliding window limiter:
+  - 5 requests per 1 minute (burst protection)
+  - 10 requests per 1 hour
+  - 15 requests per 24 hours (daily cap)
+- **Decryption:** Ephemeral in-memory decryption at request time in `ApiKeyService`
+- **Provider Validation:** Keys are validated against upstream provider APIs before saving (`ProviderValidationService`)
+- **Toggle:** Users can enable/disable keys without deleting (`in_use`)
 - **Multi-provider:** Supports NVIDIA, Google, Deepgram, Groq keys
 
 ### Platform API Key Pool (`apiKeyPool.service.ts`)

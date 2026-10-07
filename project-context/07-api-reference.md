@@ -163,12 +163,13 @@ data: [DONE]                                    // Stream complete
 
 ### API Keys (via User routes)
 
-| Method | Endpoint | Auth | Description |
-|--------|----------|------|-------------|
-| `POST` | `/user/settings/keys` | Auth | Save API key (with provider validation) |
-| `GET` | `/user/settings/keys` | Auth | List API keys |
-| `PATCH` | `/user/settings/keys/:id/toggle` | Auth | Toggle key |
-| `DELETE` | `/user/settings/keys/:id` | Auth | Delete key |
+| Method | Endpoint | Auth | Rate Limit | Description |
+|--------|----------|------|------------|-------------|
+| `POST` | `/user/settings/keys/validate` | Auth | 5/min, 10/h, 15/d | Validate provider key + pre-check duplicate registration |
+| `POST` | `/user/settings/keys` | Auth | 5/min, 10/h, 15/d | Save API key (blind indexed, returns 409 if duplicate) |
+| `GET` | `/user/settings/keys` | Auth | — | List user API keys (masked preview) |
+| `PATCH` | `/user/settings/keys/:id/toggle` | Auth | — | Toggle active key state (`in_use`) |
+| `DELETE` | `/user/settings/keys/:id` | Auth | — | Permanently delete API key and cipher |
 
 ### Sessions
 
