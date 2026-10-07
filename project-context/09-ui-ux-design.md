@@ -8,7 +8,7 @@
 - **Typography:** System fonts + Inter (via Tailwind defaults)
 - **Color System:** Tailwind CSS 4 with custom variables
 - **Animations:** Framer Motion for page transitions, micro-interactions, loading states
-- **Icons:** `lucide-react` (UI icons) + `@lobehub/icons` (AI model/provider logos)
+- **Icons:** `lucide-react` (UI icons) + Native SVG vector components (AI model/provider logos via `thesvg.org` specs)
 
 ### Styling Approach
 

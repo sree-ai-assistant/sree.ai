@@ -18,7 +18,7 @@
 | **react-markdown** | 10.1.x | Markdown rendering in chat |
 | **react-syntax-highlighter** | 16.1.x | Code syntax highlighting |
 | **remark-gfm** | 4.0.x | GitHub Flavored Markdown |
-| **@lobehub/icons** | 5.8.x | AI model provider icons |
+| **Provider Icons** | Native SVG | Clean inlined brand vector SVGs (thesvg.org specs) |
 | **lucide-react** | 0.474.x | General UI icons |
 | **class-variance-authority** | 0.7.x | Component variant management |
 | **clsx** / **tailwind-merge** | Latest | Conditional class utilities |
