@@ -111,8 +111,19 @@ export const SecurityPage: React.FC = () => {
       <ol>
         <li><strong>Third-Party Charges:</strong> You remain solely responsible for all API usage fees, token consumption, overages, and billing disputes incurred directly on your third-party provider accounts (e.g., NVIDIA, Google Cloud, Groq, Deepgram).</li>
         <li><strong>Key Lifecycle Management:</strong> You are responsible for ensuring that API keys submitted to Sree AI have appropriate spending limits, permissions, and IP restrictions enabled in your provider consoles.</li>
-        <li><strong>Key Revocation:</strong> You may rotate, modify, or permanently delete your stored BYOK keys at any time via the Settings page. Deleting a key instantly purges both the encrypted ciphertext and initialization vector from the database.</li>
+        <li><strong>Key Revocation:</strong> You may rotate, modify, or permanently delete your stored BYOK keys at any time via the Settings page. Deleting a key instantly purges both the encrypted ciphertext, initialization vector, and cryptographic blind hash from the database.</li>
       </ol>
+
+      <h3>4.3 Cryptographic Blind Indexing & Duplicate Detection</h3>
+      <p>To safeguard accounts from accidental duplicate key submissions and cross-account key collisions without compromising confidentiality, Sree AI computes a one-way <strong>HMAC-SHA256 blind index hash</strong> (<code>key_hash</code>) derived from your raw API key and our server-side encryption key. This allows our database to enforce uniqueness lookups in constant time (<em>O(1)</em>) without ever decrypting or storing your plaintext credential.</p>
+
+      <h3>4.4 Key Submission Rate Limiting</h3>
+      <p>To prevent automated credential probing and brute-force key validation attempts, API key validation and addition endpoints are governed by a multi-window sliding limiter:</p>
+      <ul>
+        <li>Maximum <strong>5 submissions</strong> per 1 minute (burst threshold)</li>
+        <li>Maximum <strong>10 submissions</strong> per 1 hour</li>
+        <li>Maximum <strong>15 submissions</strong> per 24 hours (daily cap)</li>
+      </ul>
 
       <hr />
 
