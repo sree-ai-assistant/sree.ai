@@ -184,12 +184,15 @@ export class ApiKeyService {
    * Only returns keys that are in_use. Falls back to environment variables.
    */
   static async getUserApiKey(userId: string | null | undefined, provider: string): Promise<{ key: string | null, source: 'user' | 'env' }> {
+    if (!provider) return { key: null, source: 'env' };
+    const normProvider = provider.toLowerCase();
+
     if (userId) {
       const { data, error } = await supabaseAdmin
         .from('api_keys')
         .select('*')
         .eq('user_id', userId)
-        .eq('provider', provider)
+        .eq('provider', normProvider)
         .eq('in_use', true)
         .order('updated_at', { ascending: false })
         .limit(1)
@@ -201,13 +204,13 @@ export class ApiKeyService {
           const decrypted = decrypt(record.encrypted_key, record.iv);
           return { key: decrypted, source: 'user' };
         } catch (e) {
-          console.error(`Failed to decrypt key for user ${userId}, provider ${provider}:`, e);
+          console.error(`Failed to decrypt key for user ${userId}, provider ${normProvider}:`, e);
         }
       }
     }
 
     // Fallback to system key if allowed
-    const envKeyName = `${provider.toUpperCase()}_API_KEY`;
+    const envKeyName = `${normProvider.toUpperCase()}_API_KEY`;
     const envKey = process.env[envKeyName] || null;
     return { key: envKey, source: 'env' };
   }
