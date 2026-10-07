@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { authMiddleware, starterPlanMiddleware, videoModelValidationMiddleware } from '../middleware/auth';
+import { apiKeySaveRateLimiter } from '../middleware/apiKeyRateLimit';
 import { flexAuthMiddleware } from '../middleware/anonymousIdentity';
 import { rateLimitMiddleware, featureGateMiddleware } from '../middleware/rateLimit';
 import { abuseDetectionMiddleware } from '../middleware/abuseDetection';
@@ -1555,7 +1556,7 @@ router.delete('/delete-api-key/:id', authMiddleware, async (req: any, res) => {
 });
 
 // Save API Key
-router.post('/save-api-key', authMiddleware, async (req: any, res) => {
+router.post('/save-api-key', authMiddleware, apiKeySaveRateLimiter, async (req: any, res) => {
   try {
     const userId = req.user?.id;
     if (!userId) {

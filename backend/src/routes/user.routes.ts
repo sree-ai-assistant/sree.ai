@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { authMiddleware } from '../middleware/auth';
+import { apiKeyValidateRateLimiter, apiKeySaveRateLimiter } from '../middleware/apiKeyRateLimit';
 import { supabaseAdmin } from '../lib/supabase';
 import { uploadAgreementMiddleware } from '../middleware/uploadEnforcement';
 import { ApiKeyService } from '../services/apiKey.service';
@@ -221,7 +222,7 @@ router.post('/change-password', authMiddleware, async (req: any, res) => {
 });
 
 // Update API Keys
-router.post('/settings/keys', authMiddleware, async (req: any, res) => {
+router.post('/settings/keys', authMiddleware, apiKeySaveRateLimiter, async (req: any, res) => {
   try {
     const userId = req.user?.id;
     if (!userId) {
@@ -442,7 +443,7 @@ router.delete('/sessions/:id', authMiddleware, async (req: any, res) => {
 // --- API Key Validation ---
 
 // Validate API Key (used by Onboarding & Settings)
-router.post('/settings/keys/validate', authMiddleware, async (req: any, res) => {
+router.post('/settings/keys/validate', authMiddleware, apiKeyValidateRateLimiter, async (req: any, res) => {
   try {
     const { provider, key } = req.body;
 
