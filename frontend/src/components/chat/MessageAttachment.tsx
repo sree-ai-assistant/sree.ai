@@ -13,6 +13,7 @@ import {
   ChevronLeft,
   ChevronRight
 } from 'lucide-react';
+import toast from 'react-hot-toast';
 import styles from './MessageAttachment.module.css';
 import { ImagePreviewModal } from './ImagePreviewModal';
 
@@ -26,6 +27,13 @@ interface MessageAttachmentProps {
   attachments: AttachmentItem[];
   hasText?: boolean;
 }
+
+const isInternalStorageUrl = (url: string): boolean => {
+  return url.includes('.r2.dev') ||
+         url.includes('.cloudflarestorage.com') ||
+         url.includes('/storage/v1/object/') ||
+         url.includes('sreeai.qzz.io');
+};
 
 const getFileColor = (name: string) => {
   const ext = name.split('.').pop()?.toLowerCase();
@@ -45,15 +53,38 @@ const getFileColor = (name: string) => {
 /**
  * Download helper for files (documents, videos, etc.)
  */
-const triggerFileDownload = async (e: React.MouseEvent | React.KeyboardEvent, url?: string, name?: string) => {
+const triggerFileDownload = async (
+  e: React.MouseEvent | React.KeyboardEvent,
+  url?: string,
+  name?: string,
+  onUnavailable?: (url: string) => void
+) => {
   e.stopPropagation();
   if (!url) return;
 
   const fileName = name || 'download';
+  const isStorage = isInternalStorageUrl(url);
+
   try {
     const downloadUrl = url.includes('?') ? `${url}&t=${Date.now()}` : `${url}?t=${Date.now()}`;
     const res = await fetch(downloadUrl);
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+    // Check if the file is missing or expired in storage (404 Not Found or 410 Gone)
+    if (res.status === 404 || res.status === 410) {
+      toast.error(`"${fileName}" has expired or is no longer available.`);
+      onUnavailable?.(url);
+      return;
+    }
+
+    if (!res.ok) {
+      if (isStorage) {
+        toast.error(`Unable to download "${fileName}". Access was denied or file is unavailable.`);
+        onUnavailable?.(url);
+        return;
+      }
+      throw new Error(`HTTP ${res.status}`);
+    }
+
     const blob = await res.blob();
     const blobUrl = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -63,16 +94,28 @@ const triggerFileDownload = async (e: React.MouseEvent | React.KeyboardEvent, ur
     a.click();
     document.body.removeChild(a);
     setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
-  } catch {
-    // Direct link fallback for external/CORS protected URLs
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = fileName;
-    a.target = '_blank';
-    a.rel = 'noopener noreferrer';
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
+  } catch (err: any) {
+    // If it's internal storage, network failures (CORS blocked on 404 error) must never open a raw tab!
+    if (isStorage) {
+      console.warn(`[MessageAttachment] Storage download failed for "${fileName}":`, err);
+      toast.error(`"${fileName}" has expired or cannot be retrieved.`);
+      onUnavailable?.(url);
+      return;
+    }
+
+    // Only for external third-party non-storage URLs where CORS blocked the blob fetch:
+    try {
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = fileName;
+      a.target = '_blank';
+      a.rel = 'noopener noreferrer';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+    } catch {
+      toast.error(`Failed to download "${fileName}".`);
+    }
   }
 };
 
@@ -424,29 +467,47 @@ const CustomAudioPlayer: React.FC<{ url: string; name: string }> = ({ url, name 
   );
 };
 
-const ImageAttachment: React.FC<{ url?: string; name: string; index?: number; total?: number; onClick: () => void }> = ({
+const ImageAttachment: React.FC<{
+  url?: string;
+  name: string;
+  index?: number;
+  total?: number;
+  isUnavailable?: boolean;
+  onUnavailable?: (url: string) => void;
+  onClick: () => void;
+}> = ({
   url,
   name,
   index,
   total = 1,
+  isUnavailable = false,
+  onUnavailable,
   onClick
 }) => {
   const [hasError, setHasError] = useState(false);
   const extension = name.split('.').pop()?.toUpperCase() || 'IMAGE';
 
-  if (hasError || !url) {
+  const handleImageError = () => {
+    setHasError(true);
+    if (url) onUnavailable?.(url);
+  };
+
+  if (hasError || isUnavailable || !url) {
     return (
       <div
-        className={styles.attachmentCard}
+        className={`${styles.attachmentCard} ${styles.clickableCard} ${isUnavailable || hasError ? styles.cardDisabled : ''}`}
         onClick={onClick}
-        title={`Click to preview ${name}`}
+        title={isUnavailable || hasError ? `Click to inspect ${name} (file may be unavailable)` : `Click to preview ${name}`}
       >
-        <div className={styles.cardIcon} style={{ backgroundColor: 'rgba(59, 130, 246, 0.12)', color: '#60a5fa' }}>
+        <div className={styles.cardIcon} style={{ backgroundColor: 'rgba(239, 68, 68, 0.12)', color: '#f87171' }}>
           <ImageIcon size={16} strokeWidth={2.2} />
         </div>
         <div className={styles.cardInfo}>
-          <span className={styles.cardFileName} title={name}>{name}</span>
-          <span className={styles.cardFileType} style={{ color: '#60a5fa' }}>
+          <div className={styles.cardHeaderLine}>
+            <span className={styles.cardFileName} title={name}>{name}</span>
+            {(isUnavailable || hasError) && <span className={styles.expiredBadge}>Expired</span>}
+          </div>
+          <span className={styles.cardFileType} style={{ color: 'rgba(255, 255, 255, 0.4)' }}>
             {extension}
           </span>
         </div>
@@ -466,7 +527,7 @@ const ImageAttachment: React.FC<{ url?: string; name: string; index?: number; to
         src={url}
         alt={name}
         className={styles.imageContent}
-        onError={() => setHasError(true)}
+        onError={handleImageError}
         loading="lazy"
       />
       <div className={styles.imageOverlay}>
@@ -481,6 +542,11 @@ const ImageAttachment: React.FC<{ url?: string; name: string; index?: number; to
 
 export const MessageAttachment: React.FC<MessageAttachmentProps> = ({ attachments, hasText = false }) => {
   const [previewImage, setPreviewImage] = useState<{ url: string; name: string } | null>(null);
+  const [unavailableUrls, setUnavailableUrls] = useState<Set<string>>(new Set());
+
+  const markUnavailable = useCallback((url: string) => {
+    setUnavailableUrls(prev => new Set(prev).add(url));
+  }, []);
 
   if (!attachments || attachments.length === 0) return null;
 
@@ -500,6 +566,8 @@ export const MessageAttachment: React.FC<MessageAttachmentProps> = ({ attachment
               name={atl.name || `Image ${idx + 1}`}
               index={idx}
               total={images.length}
+              isUnavailable={atl.url ? unavailableUrls.has(atl.url) : false}
+              onUnavailable={markUnavailable}
               onClick={() => atl.url && setPreviewImage({ url: atl.url, name: atl.name || `Image ${idx + 1}` })}
             />
           ))}
@@ -515,6 +583,7 @@ export const MessageAttachment: React.FC<MessageAttachmentProps> = ({ attachment
                               atl.type === 'audio' ? '#a855f7' :
                               atl.type === 'video' ? '#ec4899' : '#3b82f6';
             const extension = atl.name.split('.').pop()?.toUpperCase() || 'FILE';
+            const isUnavailable = atl.url ? unavailableUrls.has(atl.url) : false;
 
             if (atl.type === 'audio' && atl.url) {
               return <CustomAudioPlayer key={key} url={atl.url} name={atl.name} />;
@@ -526,15 +595,26 @@ export const MessageAttachment: React.FC<MessageAttachmentProps> = ({ attachment
             return (
               <div
                 key={key}
-                className={`${styles.attachmentCard} ${atl.url ? styles.clickableCard : ''}`}
-                onClick={(e) => atl.url && triggerFileDownload(e, atl.url, atl.name)}
-                title={atl.url ? `Click to download ${atl.name}` : atl.name}
+                className={`${styles.attachmentCard} ${atl.url && !isUnavailable ? styles.clickableCard : ''} ${isUnavailable ? styles.cardDisabled : ''}`}
+                onClick={(e) => {
+                  if (isUnavailable) {
+                    e.stopPropagation();
+                    toast.error(`"${atl.name}" has expired or is no longer available.`);
+                    return;
+                  }
+                  if (atl.url) triggerFileDownload(e, atl.url, atl.name, markUnavailable);
+                }}
+                title={isUnavailable ? `"${atl.name}" has expired and cannot be downloaded` : atl.url ? `Click to download ${atl.name}` : atl.name}
                 role={atl.url ? 'button' : undefined}
                 tabIndex={atl.url ? 0 : undefined}
                 onKeyDown={(e) => {
                   if (atl.url && (e.key === 'Enter' || e.key === ' ')) {
                     e.preventDefault();
-                    triggerFileDownload(e, atl.url, atl.name);
+                    if (isUnavailable) {
+                      toast.error(`"${atl.name}" has expired or is no longer available.`);
+                      return;
+                    }
+                    triggerFileDownload(e, atl.url, atl.name, markUnavailable);
                   }
                 }}
               >
@@ -542,18 +622,29 @@ export const MessageAttachment: React.FC<MessageAttachmentProps> = ({ attachment
                   <Icon size={16} strokeWidth={2.2} />
                 </div>
                 <div className={styles.cardInfo}>
-                  <span className={styles.cardFileName} title={atl.name}>{atl.name}</span>
-                  <span className={styles.cardFileType} style={{ color: fileColor }}>
+                  <div className={styles.cardHeaderLine}>
+                    <span className={styles.cardFileName} title={atl.name}>{atl.name}</span>
+                    {isUnavailable && <span className={styles.expiredBadge}>Expired</span>}
+                  </div>
+                  <span className={styles.cardFileType} style={{ color: isUnavailable ? 'rgba(255, 255, 255, 0.4)' : fileColor }}>
                     {extension}
                   </span>
                 </div>
                 {atl.url && (
                   <button
                     type="button"
-                    className={styles.cardDownloadBtn}
-                    onClick={(e) => triggerFileDownload(e, atl.url, atl.name)}
-                    title={`Download ${atl.name}`}
+                    className={`${styles.cardDownloadBtn} ${isUnavailable ? styles.btnDisabled : ''}`}
+                    onClick={(e) => {
+                      if (isUnavailable) {
+                        e.stopPropagation();
+                        toast.error(`"${atl.name}" has expired or is no longer available.`);
+                        return;
+                      }
+                      triggerFileDownload(e, atl.url, atl.name, markUnavailable);
+                    }}
+                    title={isUnavailable ? 'File expired' : `Download ${atl.name}`}
                     aria-label={`Download ${atl.name}`}
+                    disabled={isUnavailable}
                   >
                     <Download size={13} strokeWidth={2.2} />
                   </button>

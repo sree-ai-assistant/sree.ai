@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Download, ZoomIn, ZoomOut } from 'lucide-react';
+import { X, Download, ZoomIn, ZoomOut, AlertCircle } from 'lucide-react';
+import toast from 'react-hot-toast';
 import styles from './ImagePreviewModal.module.css';
 
 interface ImagePreviewModalProps {
@@ -10,16 +11,25 @@ interface ImagePreviewModalProps {
   onClose: () => void;
 }
 
+const isInternalStorageUrl = (url: string): boolean => {
+  return url.includes('.r2.dev') ||
+         url.includes('.cloudflarestorage.com') ||
+         url.includes('/storage/v1/object/') ||
+         url.includes('sreeai.qzz.io');
+};
+
 export const ImagePreviewModal: React.FC<ImagePreviewModalProps> = ({
   src,
   alt = 'Image preview',
   onClose
 }) => {
   const [zoomLevel, setZoomLevel] = useState<number>(1);
+  const [imageError, setImageError] = useState<boolean>(false);
 
-  // Reset zoom whenever image source changes
+  // Reset zoom and error state whenever image source changes
   useEffect(() => {
     setZoomLevel(1);
+    setImageError(false);
   }, [src]);
 
   // Handle escape key and document body scroll lock
@@ -44,18 +54,42 @@ export const ImagePreviewModal: React.FC<ImagePreviewModalProps> = ({
 
   const toggleZoom = useCallback((e?: React.MouseEvent) => {
     e?.stopPropagation();
+    if (imageError) return;
     setZoomLevel(prev => (prev === 1 ? 2 : 1));
-  }, []);
+  }, [imageError]);
 
   const handleDownload = useCallback(async (e: React.MouseEvent) => {
     e.stopPropagation();
     if (!src) return;
+
+    if (imageError) {
+      toast.error('This image is no longer available in storage.');
+      return;
+    }
+
+    const isStorage = isInternalStorageUrl(src);
+
     try {
       // Append cache-buster so fetch requests a fresh response with CORS headers from Cloudflare R2
-      // instead of reading the <img> tag's non-CORS response cached on disk
       const downloadUrl = src.includes('?') ? `${src}&t=${Date.now()}` : `${src}?t=${Date.now()}`;
       const res = await fetch(downloadUrl);
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+      // Check if file is missing in R2 (404 Not Found or 410 Gone)
+      if (res.status === 404 || res.status === 410) {
+        toast.error('This image has expired or was removed from storage.');
+        setImageError(true);
+        return;
+      }
+
+      if (!res.ok) {
+        if (isStorage) {
+          toast.error('Unable to download image. File cannot be accessed.');
+          setImageError(true);
+          return;
+        }
+        throw new Error(`HTTP ${res.status}`);
+      }
+
       const blob = await res.blob();
       const blobUrl = URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -67,10 +101,18 @@ export const ImagePreviewModal: React.FC<ImagePreviewModalProps> = ({
       document.body.removeChild(a);
       setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
     } catch (err) {
-      console.warn('[ImagePreviewModal] Direct download failed, falling back to open in new tab:', err);
+      // If storage file failed, never open raw Cloudflare error page tab!
+      if (isStorage) {
+        console.warn('[ImagePreviewModal] Storage image fetch failed:', err);
+        toast.error('This image has expired or cannot be retrieved.');
+        setImageError(true);
+        return;
+      }
+
+      // External third-party URL CORS fallback:
       window.open(src, '_blank', 'noopener,noreferrer');
     }
-  }, [src, alt]);
+  }, [src, alt, imageError]);
 
   if (typeof document === 'undefined') return null;
 
@@ -96,20 +138,22 @@ export const ImagePreviewModal: React.FC<ImagePreviewModalProps> = ({
             <div className={styles.actionsCluster}>
               <button
                 type="button"
-                className={styles.actionBtn}
+                className={`${styles.actionBtn} ${imageError ? styles.actionBtnDisabled : ''}`}
                 onClick={toggleZoom}
-                title={zoomLevel === 1 ? 'Zoom in (2x)' : 'Reset zoom (1x)'}
+                title={imageError ? 'Zoom unavailable' : zoomLevel === 1 ? 'Zoom in (2x)' : 'Reset zoom (1x)'}
                 aria-label="Toggle zoom"
+                disabled={imageError}
               >
                 {zoomLevel === 1 ? <ZoomIn size={18} /> : <ZoomOut size={18} />}
               </button>
 
               <button
                 type="button"
-                className={styles.actionBtn}
+                className={`${styles.actionBtn} ${imageError ? styles.actionBtnDisabled : ''}`}
                 onClick={handleDownload}
-                title="Download image"
+                title={imageError ? 'Image unavailable' : 'Download image'}
                 aria-label="Download image"
+                disabled={imageError}
               >
                 <Download size={18} />
               </button>
@@ -131,26 +175,46 @@ export const ImagePreviewModal: React.FC<ImagePreviewModalProps> = ({
             className={styles.imageViewport}
             onClick={onClose}
           >
-            <motion.div
-              className={styles.imageWrapper}
-              initial={{ scale: 0.92, opacity: 0, y: 12 }}
-              animate={{ scale: 1, opacity: 1, y: 0 }}
-              exit={{ scale: 0.92, opacity: 0, y: 12 }}
-              transition={{ type: 'spring', damping: 28, stiffness: 340 }}
-              onClick={(e) => e.stopPropagation()}
-            >
-              <img
-                src={src}
-                alt={alt}
-                className={styles.previewImage}
-                style={{
-                  transform: `scale(${zoomLevel})`,
-                  cursor: zoomLevel === 1 ? 'zoom-in' : 'zoom-out',
-                  transition: 'transform 0.25s cubic-bezier(0.16, 1, 0.3, 1)'
-                }}
-                onClick={toggleZoom}
-              />
-            </motion.div>
+            {imageError ? (
+              <motion.div
+                className={styles.errorContainer}
+                initial={{ scale: 0.92, opacity: 0, y: 12 }}
+                animate={{ scale: 1, opacity: 1, y: 0 }}
+                exit={{ scale: 0.92, opacity: 0, y: 12 }}
+                transition={{ type: 'spring', damping: 28, stiffness: 340 }}
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div className={styles.errorIconWrapper}>
+                  <AlertCircle size={28} />
+                </div>
+                <h4 className={styles.errorTitle}>Image Not Available</h4>
+                <p className={styles.errorSubtitle}>
+                  This file has expired or was removed from cloud storage.
+                </p>
+              </motion.div>
+            ) : (
+              <motion.div
+                className={styles.imageWrapper}
+                initial={{ scale: 0.92, opacity: 0, y: 12 }}
+                animate={{ scale: 1, opacity: 1, y: 0 }}
+                exit={{ scale: 0.92, opacity: 0, y: 12 }}
+                transition={{ type: 'spring', damping: 28, stiffness: 340 }}
+                onClick={(e) => e.stopPropagation()}
+              >
+                <img
+                  src={src}
+                  alt={alt}
+                  className={styles.previewImage}
+                  style={{
+                    transform: `scale(${zoomLevel})`,
+                    cursor: zoomLevel === 1 ? 'zoom-in' : 'zoom-out',
+                    transition: 'transform 0.25s cubic-bezier(0.16, 1, 0.3, 1)'
+                  }}
+                  onClick={toggleZoom}
+                  onError={() => setImageError(true)}
+                />
+              </motion.div>
+            )}
           </div>
         </motion.div>
       )}
