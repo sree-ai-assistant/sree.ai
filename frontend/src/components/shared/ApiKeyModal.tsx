@@ -57,7 +57,7 @@ const ApiKeyModal: React.FC<ApiKeyModalProps> = ({ isOpen, onClose, onSave, prov
       await onSave({ name: finalName, provider: provider.toLowerCase(), key: apiKey.trim() });
       onClose();
     } catch (err: any) {
-      setError(err.message || 'Failed to save API key');
+      setError(err.response?.data?.message || err.message || 'Failed to save API key');
     } finally {
       setSaving(false);
     }

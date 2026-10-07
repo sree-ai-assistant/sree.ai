@@ -2,11 +2,15 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 import { apiKeyPool } from './services/apiKeyPool.service';
+import { ApiKeyService } from './services/apiKey.service';
 import { startObserverResetCron, stopObserverResetCron } from './services/modelObserver.service';
 import { startR2MaintenanceCron, stopR2MaintenanceCron } from './services/r2.service';
 apiKeyPool.initialize();
 startObserverResetCron();
 startR2MaintenanceCron();
+ApiKeyService.backfillLegacyKeyHashes().catch((err) =>
+  console.warn('[Server] Legacy key hash backfill notice:', err)
+);
 
 import app from './app';
 import { shutdownPostHog } from './services/posthog.service';

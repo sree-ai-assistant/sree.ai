@@ -1557,19 +1557,26 @@ router.delete('/delete-api-key/:id', authMiddleware, async (req: any, res) => {
 // Save API Key
 router.post('/save-api-key', authMiddleware, async (req: any, res) => {
   try {
-    const { provider, key } = req.body;
-    const userId = req.user.id;
+    const userId = req.user?.id;
+    if (!userId) {
+      return res.status(401).json({ success: false, message: 'Unauthorized' });
+    }
 
+    const { provider, key } = req.body;
     if (!provider || !key) {
       return res.status(400).json({ success: false, message: 'Provider and key are required' });
     }
 
-    const success = await ApiKeyService.saveUserApiKey(userId, provider, key);
+    const result = await ApiKeyService.saveUserApiKey(userId, provider, key);
 
-    if (success) {
-      res.json({ success: true, message: 'API Key saved successfully' });
+    if (result.duplicate) {
+      return res.status(409).json({ success: false, duplicate: true, message: result.message });
+    }
+
+    if (result.success) {
+      res.json({ success: true, message: result.message || 'API Key saved successfully' });
     } else {
-      res.status(500).json({ success: false, message: 'Failed to save API key' });
+      res.status(500).json({ success: false, message: result.message || 'Failed to save API key' });
     }
   } catch (error: any) {
     res.status(500).json({ success: false, message: error.message });

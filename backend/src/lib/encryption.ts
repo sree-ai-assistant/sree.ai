@@ -60,3 +60,24 @@ export function decrypt(encryptedData: string, ivHex: string): string {
 
   return decrypted;
 }
+
+/**
+ * Generates a deterministic HMAC-SHA256 blind index hash of an API key using ENCRYPTION_KEY.
+ * Enables fast O(1) indexed duplicate lookups without decrypting, and protects against rainbow table attacks.
+ */
+export function hashApiKey(text: string): string {
+  const encryptionKey = process.env.ENCRYPTION_KEY;
+  if (!encryptionKey) {
+    throw new Error('ENCRYPTION_KEY is not defined in environment variables');
+  }
+
+  const keyBuffer = encryptionKey.length === 64 
+    ? Buffer.from(encryptionKey, 'hex') 
+    : Buffer.alloc(32, encryptionKey);
+
+  const clean = typeof text === 'string' ? text.trim() : '';
+  return crypto
+    .createHmac('sha256', keyBuffer)
+    .update(clean)
+    .digest('hex');
+}

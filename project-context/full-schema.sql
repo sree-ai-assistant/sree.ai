@@ -234,13 +234,17 @@ CREATE TABLE IF NOT EXISTS public.api_keys (
   encrypted_key TEXT NOT NULL,
   iv TEXT,
   name TEXT,
+  key_hash TEXT,
   in_use BOOLEAN DEFAULT TRUE,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW(),
   last_used_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+CREATE INDEX IF NOT EXISTS idx_api_keys_user_key_hash ON public.api_keys(user_id, key_hash);
+
 COMMENT ON TABLE public.api_keys IS 'User-provided API keys (BYOK) — encrypted with AES-256';
+COMMENT ON COLUMN public.api_keys.key_hash IS 'HMAC-SHA256 blind index hash for duplicate detection';
 
 -- =============================================
 -- 9. AI MODELS REGISTRY

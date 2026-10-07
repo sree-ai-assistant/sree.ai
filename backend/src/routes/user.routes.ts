@@ -223,8 +223,12 @@ router.post('/change-password', authMiddleware, async (req: any, res) => {
 // Update API Keys
 router.post('/settings/keys', authMiddleware, async (req: any, res) => {
   try {
+    const userId = req.user?.id;
+    if (!userId) {
+      return res.status(401).json({ success: false, message: 'Unauthorized' });
+    }
+
     const { nvidia_api_key, deepgram_api_key, provider, key, name } = req.body;
-    const userId = req.user.id;
 
     const finalProvider = provider || (nvidia_api_key ? 'nvidia' : (deepgram_api_key ? 'deepgram' : null));
     const finalKey = key || nvidia_api_key || deepgram_api_key;
@@ -233,13 +237,17 @@ router.post('/settings/keys', authMiddleware, async (req: any, res) => {
       return res.status(400).json({ success: false, message: 'Provider and API key are required' });
     }
 
-    const success = await ApiKeyService.saveUserApiKey(userId, finalProvider, finalKey, name);
+    const result = await ApiKeyService.saveUserApiKey(userId, finalProvider, finalKey, name);
 
-    if (!success) {
-      throw new Error('Failed to encrypt or save API key');
+    if (result.duplicate) {
+      return res.status(409).json({ success: false, duplicate: true, message: result.message });
     }
 
-    res.json({ success: true, message: `${finalProvider} API key saved successfully` });
+    if (!result.success) {
+      return res.status(500).json({ success: false, message: result.message || 'Failed to encrypt or save API key' });
+    }
+
+    res.json({ success: true, message: result.message || `${finalProvider} API key saved successfully` });
   } catch (error: any) {
     res.status(500).json({ success: false, message: error.message });
   }
@@ -440,6 +448,20 @@ router.post('/settings/keys/validate', authMiddleware, async (req: any, res) => 
 
     if (!provider || !key) {
       return res.status(400).json({ valid: false, message: 'Provider and key are required' });
+    }
+
+    // Pre-check: Ensure the key is not already registered under this user's account
+    const userId = req.user?.id;
+    if (userId) {
+      const dupCheck = await ApiKeyService.checkDuplicateKey(userId, key);
+      if (dupCheck.isDuplicate) {
+        const existingName = dupCheck.existingKey?.name || `${dupCheck.existingKey?.provider} key`;
+        return res.json({
+          valid: false,
+          duplicate: true,
+          message: `This API key has already been added to your account (saved as "${existingName}").`,
+        });
+      }
     }
 
     const result = await ProviderValidationService.validate(provider, key);
