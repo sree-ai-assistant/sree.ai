@@ -19,11 +19,22 @@ export class TokenManager {
       baseTokens = encoding.encode(content).length;
     } else if (Array.isArray(content)) {
       baseTokens = content.reduce((sum, part) => {
-        if (part.type === 'text') {
+        if (!part) return sum;
+        if (part.type === 'text' || typeof part.text === 'string') {
           return sum + encoding.encode(part.text || '').length;
         }
         if (part.type === 'image_url') {
           return sum + 1100; // More realistic token cost for high-res images in many vision models (e.g. OpenAI/NIM)
+        }
+        if (part.inlineData || part.inline_data) {
+          const mime = (part.inlineData?.mimeType || part.inline_data?.mime_type || '').toLowerCase();
+          if (mime.startsWith('video/')) return sum + 6000; // Gemini native video tokens
+          if (mime.startsWith('audio/')) return sum + 2000; // Gemini native audio tokens
+          if (mime.includes('pdf')) return sum + 3000;      // Gemini native PDF tokens
+          return sum + 1100; // Image inlineData
+        }
+        if (part.fileData || part.file_data) {
+          return sum + 5000; // Gemini File API file reference
         }
         return sum;
       }, 0);

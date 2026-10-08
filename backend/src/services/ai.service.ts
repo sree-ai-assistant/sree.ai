@@ -1,9 +1,11 @@
 import OpenAI from 'openai';
 import { DeepgramClient } from '@deepgram/sdk';
 import fs from 'fs';
+import path from 'path';
 import { Readable } from 'stream';
 import { TokenManager } from '../utils/tokenManager';
 import { supabaseAdmin } from '../lib/supabase';
+import { apiKeyPool } from './apiKeyPool.service';
 import axios from 'axios';
 
 class AiService {
@@ -150,6 +152,110 @@ class AiService {
   }
 
   /**
+   * Upload a file (large video, audio, or PDF) to the Google Gemini File API
+   * using the resumable upload protocol.
+   * Files uploaded to the File API persist for 48 hours and can be referenced
+   * in multiple prompts using fileData: { fileUri, mimeType }.
+   */
+  async uploadFileGoogle(
+    apiKey: string,
+    filePath: string,
+    mimeType: string,
+    displayName?: string
+  ): Promise<{ fileUri: string; mimeType: string; name: string }> {
+    let cleanApiKey = apiKey?.includes(',') ? apiKey.split(',')[0]!.trim() : (apiKey?.trim() || '');
+    if (!cleanApiKey) {
+      cleanApiKey = apiKeyPool.getNextHealthyKey('google')?.key || '';
+    }
+    const stats = fs.statSync(filePath);
+    const numBytes = stats.size;
+    const rawName = displayName || path.basename(filePath);
+    const name = rawName.replace(/[\x00-\x1F\x7F]/g, '').slice(0, 500);
+
+    console.log(`[AiService] Initiating Google File API upload for ${name} (${numBytes} bytes, ${mimeType})...`);
+
+    try {
+      // Step 1: Start resumable upload session
+      const startUrl = `https://generativelanguage.googleapis.com/upload/v1beta/files?key=${encodeURIComponent(cleanApiKey)}`;
+      const startResponse = await axios.post(
+        startUrl,
+        { file: { display_name: name } },
+        {
+          headers: {
+            'X-Goog-Upload-Protocol': 'resumable',
+            'X-Goog-Upload-Command': 'start',
+            'X-Goog-Upload-Header-Content-Length': String(numBytes),
+            'X-Goog-Upload-Header-Content-Type': mimeType,
+            'Content-Type': 'application/json',
+          },
+          timeout: 30000,
+        }
+      );
+
+      const uploadUrl = startResponse.headers['x-goog-upload-url'] || startResponse.headers['location'];
+      if (!uploadUrl) {
+        throw new Error(`Google File API did not return an upload URL. Headers: ${JSON.stringify(startResponse.headers)}`);
+      }
+
+      console.log(`[AiService] Uploading file bytes to Google File API...`);
+
+      // Step 2: Upload actual binary stream
+      const fileStream = fs.createReadStream(filePath);
+      const uploadResponse = await axios.post(uploadUrl, fileStream, {
+        headers: {
+          'Content-Length': String(numBytes),
+          'X-Goog-Upload-Offset': '0',
+          'X-Goog-Upload-Command': 'upload, finalize',
+        },
+        maxBodyLength: Infinity,
+        maxContentLength: Infinity,
+        timeout: 180000, // 3 minutes timeout
+      });
+
+      const fileInfo = uploadResponse.data?.file;
+      if (!fileInfo || !fileInfo.uri) {
+        throw new Error(`Google File API upload failed. Response: ${JSON.stringify(uploadResponse.data)}`);
+      }
+
+      console.log(`[AiService] Google File API upload completed. URI: ${fileInfo.uri}, Initial state: ${fileInfo.state}`);
+
+      // Step 3: If file is in PROCESSING state (e.g. for video), wait until ACTIVE
+      let currentState = fileInfo.state;
+      const resourceName = fileInfo.name; // e.g., "files/xyz123"
+
+      let attempts = 0;
+      const maxAttempts = 20; // 20 * 2s = 40s max wait
+      while (currentState === 'PROCESSING' && attempts < maxAttempts) {
+        await new Promise((r) => setTimeout(r, 2000));
+        attempts++;
+        try {
+          const checkUrl = `https://generativelanguage.googleapis.com/v1beta/${resourceName}?key=${encodeURIComponent(cleanApiKey)}`;
+          const checkResp = await axios.get(checkUrl, { timeout: 10000 });
+          currentState = checkResp.data?.state;
+          console.log(`[AiService] Polling file status (${attempts}/${maxAttempts}): ${currentState}`);
+        } catch (err: any) {
+          console.warn(`[AiService] File status check attempt ${attempts} warning: ${err.message}`);
+        }
+      }
+
+      if (currentState === 'FAILED') {
+        throw new Error(`Google File API processing failed for ${name}`);
+      }
+
+      return {
+        fileUri: fileInfo.uri,
+        mimeType: fileInfo.mimeType || mimeType,
+        name: resourceName,
+      };
+    } catch (err: any) {
+      const status = err.response?.status;
+      const detail = err.response?.data?.error?.message || JSON.stringify(err.response?.data || err.message);
+      console.error(`[AiService] Google File API upload failed for ${name} (Status ${status}): ${detail}`);
+      throw err;
+    }
+  }
+
+  /**
    * Native Google Gemini streaming via streamGenerateContent SSE endpoint.
    * This is required because Google's OpenAI-compatible endpoint does NOT stream
    * raw thought tokens (it only returns an encrypted thought_signature).
@@ -175,32 +281,78 @@ class AiService {
     const systemMsg = messages.find(m => m.role === 'system');
     const nonSystemMsgs = messages.filter(m => m.role !== 'system');
 
-    const contents = nonSystemMsgs.map(m => {
-      let parts: any[] = [];
-      if (typeof m.content === 'string') {
-        parts = [{ text: m.content }];
-      } else if (Array.isArray(m.content)) {
-        parts = m.content.map((p: any) => {
-          if (p.type === 'text') return { text: p.text };
-          if (p.type === 'image_url' && p.image_url?.url) {
-            const match = p.image_url.url.match(/^data:([^;]+);base64,(.+)$/);
-            if (match) {
-              return {
+    const contents = await Promise.all(
+      nonSystemMsgs.map(async (m) => {
+        let parts: any[] = [];
+        if (typeof m.content === 'string') {
+          parts = [{ text: m.content || ' ' }];
+        } else if (Array.isArray(m.content)) {
+          for (const p of m.content) {
+            if (!p) continue;
+
+            // 1. Native inlineData (video, audio, image, pdf)
+            if (p.inlineData || p.inline_data) {
+              const id = p.inlineData || p.inline_data;
+              parts.push({
                 inlineData: {
-                  mimeType: match[1],
-                  data: match[2]
+                  mimeType: id.mimeType || id.mime_type,
+                  data: id.data,
+                },
+              });
+            }
+            // 2. Google File API reference
+            else if (p.fileData || p.file_data) {
+              const fd = p.fileData || p.file_data;
+              parts.push({
+                fileData: {
+                  fileUri: fd.fileUri || fd.file_uri,
+                  mimeType: fd.mimeType || fd.mime_type,
+                },
+              });
+            }
+            // 3. OpenAI image_url part
+            else if (p.type === 'image_url' && p.image_url?.url) {
+              const url = p.image_url.url;
+              const match = url.match(/^data:([^;]+);base64,(.+)$/);
+              if (match) {
+                parts.push({
+                  inlineData: {
+                    mimeType: match[1],
+                    data: match[2],
+                  },
+                });
+              } else if (url.startsWith('http')) {
+                try {
+                  const b64Uri = await this.urlToBase64(url);
+                  const b64Match = b64Uri.match(/^data:([^;]+);base64,(.+)$/);
+                  if (b64Match) {
+                    parts.push({
+                      inlineData: {
+                        mimeType: b64Match[1],
+                        data: b64Match[2],
+                      },
+                    });
+                  }
+                } catch (err: any) {
+                  console.warn(`[AiService] Failed to load remote image for Google inlineData:`, err.message);
                 }
-              };
+              }
+            }
+            // 4. Text part
+            else if (p.type === 'text' || typeof p.text === 'string') {
+              if (p.text) parts.push({ text: p.text });
             }
           }
-          return { text: '' };
-        });
-      }
-      return {
-        role: m.role === 'assistant' ? 'model' : 'user',
-        parts
-      };
-    });
+          if (parts.length === 0) {
+            parts.push({ text: ' ' });
+          }
+        }
+        return {
+          role: m.role === 'assistant' ? 'model' : 'user',
+          parts,
+        };
+      })
+    );
 
     const payload: any = {
       contents,
@@ -511,6 +663,19 @@ class AiService {
           let content = m.content;
 
           if (Array.isArray(content)) {
+            // Check for any multimodal parts: image_url, inlineData, fileData
+            const hasMultimodal = content.some((part: any) =>
+              part.type === 'image_url' ||
+              part.inlineData || part.inline_data ||
+              part.fileData || part.file_data
+            );
+
+            if (provider === 'google') {
+              // Google Gemini handles native multimodal parts (inlineData, fileData, image_url).
+              // streamGoogleNative will package all parts properly for Gemini API.
+              return { role: m.role, content: content || " " };
+            }
+
             const imageParts = content.filter((part: any) => part.type === 'image_url');
             const hasImages = imageParts.length > 0;
 
@@ -1517,7 +1682,7 @@ class AiService {
    * Helper to convert a remote image URL to a base64 string
    * This is useful for multimodal models that might have trouble fetching external URLs
    */
-  private async urlToBase64(url: string): Promise<string> {
+  public async urlToBase64(url: string): Promise<string> {
     try {
       const response = await axios.get(url, { responseType: 'arraybuffer' });
       const buffer = Buffer.from(response.data, 'binary');

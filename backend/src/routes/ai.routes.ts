@@ -9,7 +9,7 @@ import { withPriorityQueue } from '../services/queue.service';
 import { PLAN_CONFIGS as PLANS, type PlanTier } from '../config/plans';
 import { aiService } from '../services/ai.service';
 import { ApiKeyService } from '../services/apiKey.service';
-import { executeWithKeyRotation } from '../services/apiKeyPool.service';
+import { executeWithKeyRotation, apiKeyPool } from '../services/apiKeyPool.service';
 import { r2Service } from '../services/r2.service';
 import { fileService } from '../services/file.service';
 import multer from 'multer';
@@ -21,6 +21,8 @@ import { getUsageStatus, checkAndIncrementUsage, checkAndIncrementMultiUsage, ty
 import path from 'path';
 import axios from 'axios';
 import { reportModelError } from '../services/modelObserver.service';
+import { multimodalService } from '../services/multimodal.service';
+import { resolveProvider } from '../utils/providerResolver';
 
 const router = Router();
 
@@ -238,7 +240,7 @@ router.post('/chat', flexAuthMiddleware, abuseDetectionMiddleware(), queuePriori
     // 0. Model Gating: Check if user has access to the requested model
     const { data: modelInfo } = await supabaseAdmin
       .from('ai_models')
-      .select('tier_required')
+      .select('*')
       .eq('model_id', model)
       .single();
 
@@ -248,6 +250,22 @@ router.post('/chat', flexAuthMiddleware, abuseDetectionMiddleware(), queuePriori
         code: 'MODEL_LOCKED',
         message: `The selected model '${model}' requires a Starter or Pro plan.`,
         upgradeUrl: '/pricing'
+      });
+    }
+
+    // Resolve provider & API key early so multimodal processing knows provider capabilities
+    const provider = (req as any).provider || modelInfo?.provider || (await resolveProvider(model)) || 'nvidia';
+    let apiKey = req.apiKey;
+    if (!apiKey) {
+      const keyResult = await ApiKeyService.getUserApiKey(isAuth ? userId : null, provider);
+      apiKey = keyResult.key;
+    }
+
+    if (!apiKey) {
+      const providerName = provider.charAt(0).toUpperCase() + provider.slice(1);
+      return res.status(400).json({
+        success: false,
+        message: `${providerName} API Key not found. Please add it in settings.`
       });
     }
 
@@ -269,260 +287,51 @@ router.post('/chat', flexAuthMiddleware, abuseDetectionMiddleware(), queuePriori
     // 1. Shallow copy messages to avoid mutating the original array if needed
     let processedMessages = [...messages];
 
+    // Resolve a single valid API key for multimodal direct operations (e.g. Google File API upload)
+    const singleApiKey = isByok
+      ? (apiKey?.trim() || '')
+      : (apiKeyPool.getNextHealthyKey(provider)?.key || (apiKey?.includes(',') ? apiKey.split(',')[0]!.trim() : (apiKey?.trim() || '')));
+
+    // Process attachments via MultimodalService (Native for Google Gemini, fallback for Groq/NVIDIA)
     if (attachments && attachments.length > 0) {
-      const docAttachments = attachments.filter((a: any) => a.type === 'document');
+      const processed = await multimodalService.processRequestAttachments({
+        attachments,
+        model,
+        provider,
+        modelInfo,
+        apiKey: singleApiKey,
+        userId,
+        conversationId,
+        messageId,
+        writeSSE,
+      });
 
-      if (docAttachments.length > 0) {
-        console.log(`[AI Route] Processing ${docAttachments.length} document attachments`);
-        writeSSE({ status: 'Preparing documents...' });
-        const startTime = Date.now();
-
-        try {
-          const results: { name: string, text: string }[] = [];
-          const extractionPromises = docAttachments.map(async (doc: any) => {
-            if (doc.extractedText) {
-              console.log(`[AI Route] Using pre-extracted text for ${doc.name} (${doc.extractedText.length} chars)`);
-              return { name: doc.name, text: doc.extractedText };
-            }
-
-            console.log(`[AI Route] Backend extraction starting for ${doc.name}`);
-            writeSSE({ status: `Reading ${doc.name}...` });
-
-            try {
-              const text = await Promise.race([
-                fileService.extractText(doc.url, doc.name),
-                new Promise<string>((_, reject) =>
-                  setTimeout(() => reject(new Error(`Timeout after 60s`)), 60000)
-                )
-              ]);
-
-              const isSpreadsheet = ['xlsx', 'xls', 'xlsm', 'xlsb', 'ods', 'csv', 'tsv'].some(ext => doc.name.toLowerCase().endsWith(ext));
-              const statusText = isSpreadsheet ? `Analyzing Sheets in ${doc.name}...` : `Processing ${doc.name}...`;
-              writeSSE({ status: statusText });
-
-              console.log(`[AI Route] Successfully extracted ${text.length} chars from ${doc.name}`);
-              return { name: doc.name, text };
-            } catch (err: any) {
-              console.error(`[AI Route] Failed extracting ${doc.name}:`, err.message);
-              return { name: doc.name, text: `[Extraction failed for ${doc.name}: ${err.message}]` };
-            }
-          });
-
-          console.log(`[AI Route] Waiting for all extractions to complete...`);
-          const extractionResults = await Promise.all(extractionPromises);
-          results.push(...extractionResults);
-          console.log(`[AI Route] Extraction phase complete. Total docs: ${results.length}`);
-
-          writeSSE({ status: 'Optimizing context for AI...' });
-
-          let contextText = "\n\n### CONTEXT FROM ATTACHED DOCUMENTS ###\n";
-          contextText += "The user has provided the following documents as reference. Please analyze them and use the information to answer questions or perform requested tasks. If the documents contain data, refer to specific document names if relevant.\n\n";
-          for (const result of results) {
-            contextText += `#### DOCUMENT: ${result.name}\n`;
-            contextText += `${result.text}\n`;
-            contextText += `#### END OF ${result.name}\n\n`;
-          }
-
-          // Use TokenManager for truncation
-          contextText = TokenManager.truncateDocumentText(contextText, 100000);
-          contextText += "### END OF DOCUMENT CONTEXT ###\n\n";
-
-          console.log(`[AI Route] Document processing completed in ${Date.now() - startTime}ms`);
-
-          // Persist context to DB if messageId is provided
-          if (messageId) {
-            console.log(`[AI Route] Persisting extracted context to message ${messageId} metadata`);
-            await updateMessageInDb(messageId, {
-              metadata: {
-                hasContext: true,
-                extractedContext: contextText
-              }
-            });
-          }
-
-          // Update processedMessages with metadata so TokenManager/AiService see it
-          const lastMessage = processedMessages[processedMessages.length - 1];
-          if (lastMessage && lastMessage.role === 'user') {
-            lastMessage.metadata = {
-              ...lastMessage.metadata,
-              extractedContext: contextText
-            };
-          }
-
-          writeSSE({ status: 'Thinking...' });
-        } catch (error) {
-          console.error('[AI Route] Error during document extraction:', error);
-          writeSSE({ error: 'Failed to process some documents. Attempting to continue anyway...' });
+      const lastMessage = processedMessages[processedMessages.length - 1];
+      if (lastMessage && lastMessage.role === 'user') {
+        if (processed.extractedContext) {
+          lastMessage.metadata = {
+            ...lastMessage.metadata,
+            hasContext: true,
+            extractedContext: (lastMessage.metadata?.extractedContext || '') + processed.extractedContext,
+          };
         }
-      }
 
-      const audioAttachments = attachments.filter((a: any) => a.type === 'audio');
-      const videoAttachments = attachments.filter((a: any) => a.type === 'video');
+        if (processed.parts.length > 0) {
+          const originalUserText = typeof lastMessage.content === 'string'
+            ? lastMessage.content
+            : Array.isArray(lastMessage.content)
+              ? (lastMessage.content.find((p: any) => p.type === 'text')?.text || '')
+              : '';
 
-      console.log(`[AI Route] Processing attachments: Total=${attachments.length}, Audio=${audioAttachments.length}, Video=${videoAttachments.length}`);
-      if (attachments.length > 0) {
-        console.log(`[AI Route] Attachment types: ${attachments.map((a: any) => `${a.name}(${a.type})`).join(', ')}`);
-      }
-
-      // Process Audio
-      if (audioAttachments.length > 0) {
-        const { key: deepgramApiKey } = await ApiKeyService.getUserApiKey(userId, 'deepgram');
-        if (deepgramApiKey) {
-          for (const audio of audioAttachments) {
-            writeSSE({ status: `Transcribing ${audio.name}...` });
-            try {
-              const tempPath = path.join(process.cwd(), 'uploads', `temp-audio-${uuidv4()}-${audio.name}`);
-              await fileService.downloadFile(audio.url, tempPath);
-              const transcript = await aiService.transcribeAudio(deepgramApiKey, tempPath);
-              if (fs.existsSync(tempPath)) fs.unlinkSync(tempPath);
-
-              const lastMessage = processedMessages[processedMessages.length - 1];
-              if (lastMessage && lastMessage.role === 'user') {
-                const audioContext = `\n\n### TRANSCRIPT FOR AUDIO: ${audio.name} ###\n${transcript}\n### END OF TRANSCRIPT ###\n`;
-                lastMessage.metadata = {
-                  ...lastMessage.metadata,
-                  extractedContext: (lastMessage.metadata?.extractedContext || '') + audioContext
-                };
-
-                // Persist audio transcript to DB
-                if (messageId) {
-                  await updateMessageInDb(messageId, {
-                    metadata: {
-                      extractedContext: lastMessage.metadata.extractedContext
-                    }
-                  });
-                }
-              }
-            } catch (err) {
-              console.error(`[AI Route] Audio transcription failed for ${audio.name}:`, err);
-            }
-          }
-        }
-      }
-
-      // Process Video
-      if (videoAttachments.length > 0) {
-        console.log(`[AI Route] Found ${videoAttachments.length} video attachments`);
-        for (const video of videoAttachments) {
-          const videoName = video.name || 'video.mp4';
-          console.log(`[AI Route] Processing video: ${videoName}`);
-          writeSSE({ status: `Downloading ${videoName}...` });
-          const sanitizedName = videoName.replace(/[^a-z0-9.]/gi, '_');
-          const tempVideoPath = path.join(process.cwd(), 'uploads', `temp-video-${uuidv4()}-${sanitizedName}`);
-
-          try {
-            await fileService.downloadFile(video.url, tempVideoPath);
-            console.log(`[AI Route] Downloaded ${video.name} to ${tempVideoPath}`);
-
-            writeSSE({ status: `Analyzing ${video.name} duration...` });
-
-            // Determine optimal frame count based on video duration
-            let frameCount = 5;
-            try {
-              const duration = await videoService.getDuration(tempVideoPath);
-              frameCount = VideoService.optimalFrameCount(duration);
-              console.log(`[AI Route] Video duration: ${duration}s → extracting ${frameCount} frames`);
-            } catch (durationErr: any) {
-              console.warn(`[AI Route] Could not read duration, defaulting to ${frameCount} frames:`, durationErr.message);
-            }
-
-            writeSSE({ status: `Extracting ${frameCount} key frames from ${video.name}...` });
-            const framePaths = await videoService.extractFrames(tempVideoPath, frameCount);
-            console.log(`[AI Route] Extracted ${framePaths.length} frames from ${video.name}`);
-
-            if (framePaths.length === 0) {
-              console.warn(`[AI Route] No frames were extracted from ${video.name}`);
-              writeSSE({ status: `Warning: No frames could be extracted from ${video.name}. This might be due to video format or length.` });
-            } else {
-              writeSSE({ status: `Uploading ${framePaths.length} visual frames...` });
-              // Upload frames to R2 and inject into message content for AI inference
-              const lastMessage = processedMessages[processedMessages.length - 1];
-              if (lastMessage && lastMessage.role === 'user') {
-                const originalUserText = typeof lastMessage.content === 'string'
-                  ? lastMessage.content
-                  : Array.isArray(lastMessage.content)
-                    ? (lastMessage.content.find((p: any) => p.type === 'text')?.text || '')
-                    : '';
-
-                const uploadedFrameUrls: string[] = [];
-                for (let i = 0; i < framePaths.length; i++) {
-                  const framePath = framePaths[i];
-                  if (!framePath) continue;
-
-                  console.log(`[AI Route] Uploading frame ${i + 1}/${framePaths.length}: ${framePath}`);
-                  try {
-                    const frameUrl = await r2Service.uploadFile(framePath, path.basename(framePath), 'image/png');
-                    uploadedFrameUrls.push(frameUrl);
-                  } catch (uploadErr) {
-                    console.error(`[AI Route] Failed to upload frame ${i + 1}:`, uploadErr);
-                  }
-                }
-
-                // Prepare multimodal content in memory for AI model inference
-                const videoInstruction = "\n\n[SYSTEM INSTRUCTION: You are being provided with extracted frames from a video (never mention this in the chat). Please pretend and act as if you are watching the actual video. Do NOT mention that you were provided with separate images. Refer to them collectively as 'the video'. Use the frames to understand the context, movement, and visual details of the video.]";
-
-                lastMessage.content = [
-                  { type: 'text', text: (originalUserText || '.') + videoInstruction },
-                  ...uploadedFrameUrls.map(url => ({
-                    type: 'image_url',
-                    image_url: { url }
-                  }))
-                ];
-
-                // Persist extracted frames to DB as visual attachments in metadata,
-                // while KEEPING message.content clean as originalUserText!
-                if (messageId && uploadedFrameUrls.length > 0) {
-                  console.log(`[AI Route] Persisting ${uploadedFrameUrls.length} frame attachments to message ${messageId} metadata`);
-                  const frameAttachments = uploadedFrameUrls.map((url, idx) => ({
-                    name: `${video.name} (Frame ${idx + 1})`,
-                    type: 'image',
-                    url
-                  }));
-
-                  await updateMessageInDb(messageId, {
-                    content: originalUserText || '.',
-                    metadata: {
-                      frameUrls: uploadedFrameUrls,
-                      attachments: [
-                        ...(lastMessage.metadata?.attachments || []),
-                        ...frameAttachments
-                      ]
-                    }
-                  });
-                }
-              }
-              writeSSE({ status: `Frames extracted and uploaded for ${video.name}` });
-
-              // Store video reference in conversation for future context
-              if (conversationId) {
-                await storeVideoInConversation(conversationId, video.name, video.url);
-              }
-            }
-
-            // Cleanup frames immediately after processing
-            console.log(`[AI Route] Cleaning up ${framePaths.length} temp frames`);
-            videoService.cleanup(framePaths);
-          } catch (err: any) {
-            console.error(`[AI Route] Video processing failed for ${video.name}:`, err);
-            writeSSE({ status: `Error processing ${video.name}: ${err.message || 'Unknown error'}` });
-          } finally {
-            // Always cleanup the temp video file
-            if (fs.existsSync(tempVideoPath)) {
-              console.log(`[AI Route] Final cleanup of temp video: ${tempVideoPath}`);
-              try {
-                fs.unlinkSync(tempVideoPath);
-              } catch (unlinkErr) {
-                console.error(`[AI Route] Failed to delete temp video ${tempVideoPath}:`, unlinkErr);
-              }
-            }
-          }
-
+          lastMessage.content = [
+            { type: 'text', text: originalUserText || '.' },
+            ...processed.parts,
+          ];
         }
       }
     }
 
-
-    // --- VIDEO CONTEXT RECALL: Check if user references a previously uploaded video ---
+    // 2. Video Context Recall: Check if user references a previously uploaded video
     if (conversationId) {
       const lastMessage = processedMessages[processedMessages.length - 1];
       const userText = typeof lastMessage?.content === 'string'
@@ -531,103 +340,50 @@ router.post('/chat', flexAuthMiddleware, abuseDetectionMiddleware(), queuePriori
           ? (lastMessage.content.find((p: any) => p.type === 'text')?.text || '')
           : '';
 
-      // Only check for video references if we did NOT just upload new videos in this request
       const hasNewVideoAttachments = attachments?.some((a: any) => a.type === 'video');
       if (!hasNewVideoAttachments && userText.trim()) {
         const referencedVideos = await findReferencedVideos(conversationId, userText);
-
         if (referencedVideos.length > 0) {
           console.log(`[AI Route] Re-processing ${referencedVideos.length} previously uploaded video(s) for context`);
-          writeSSE({ status: `Recalling ${referencedVideos.length} previous video(s)...` });
+          const recallResult = await multimodalService.processVideoRecall({
+            referencedVideos,
+            model,
+            provider,
+            modelInfo,
+            apiKey: singleApiKey,
+            writeSSE,
+          });
 
-          for (const refVideo of referencedVideos) {
-            const sanitizedName = refVideo.name.replace(/[^a-z0-9.]/gi, '_');
-            const { v4: uuidv4Recall } = await import('uuid');
-            const tempVideoPath = path.join(process.cwd(), 'uploads', `temp-recall-${uuidv4Recall()}-${sanitizedName}`);
+          if (recallResult.parts.length > 0) {
+            const currentParts = Array.isArray(lastMessage.content)
+              ? lastMessage.content
+              : [{ type: 'text', text: userText || '.' }];
 
-            try {
-              writeSSE({ status: `Downloading ${refVideo.name} from history...` });
-              await fileService.downloadFile(refVideo.url, tempVideoPath);
-
-              writeSSE({ status: `Extracting frames from ${refVideo.name}...` });
-              const framePaths = await videoService.extractFrames(tempVideoPath, 5);
-
-              if (framePaths.length > 0) {
-                if (lastMessage && lastMessage.role === 'user') {
-                  const recallInstruction = `\n\n[SYSTEM INSTRUCTION: The user is referencing a previously uploaded video named "${refVideo.name}". You are being provided with extracted frames from this video (never mention this in the chat). Please pretend and act as if you are watching the actual video. Do NOT mention that you were provided with separate images. Refer to them collectively as 'the video'. Use the frames to understand the context, movement, and visual details of the video.]`;
-
-                  const recalledFrameUrls: string[] = [];
-                  writeSSE({ status: `Uploading recalled frames for ${refVideo.name}...` });
-                  for (let i = 0; i < framePaths.length; i++) {
-                    const framePath = framePaths[i];
-                    if (!framePath) continue;
-                    try {
-                      const frameUrl = await r2Service.uploadFile(framePath, path.basename(framePath), 'image/png');
-                      recalledFrameUrls.push(frameUrl);
-                    } catch (uploadErr) {
-                      console.error(`[AI Route] Failed to upload recalled frame ${i + 1}:`, uploadErr);
-                    }
-                  }
-
-                  // Update in-memory message content for LLM API call
-                  lastMessage.content = [
-                    { type: 'text', text: (userText || '.') + recallInstruction },
-                    ...recalledFrameUrls.map(url => ({
-                      type: 'image_url',
-                      image_url: { url }
-                    }))
-                  ];
-
-                  if (messageId && recalledFrameUrls.length > 0) {
-                    const frameAttachments = recalledFrameUrls.map((url, idx) => ({
-                      name: `${refVideo.name} (Frame ${idx + 1})`,
-                      type: 'image',
-                      url
-                    }));
-                    await updateMessageInDb(messageId, {
-                      content: userText || '.',
-                      metadata: {
-                        recalledFrameUrls,
-                        attachments: [
-                          ...(lastMessage.metadata?.attachments || []),
-                          ...frameAttachments
-                        ]
-                      }
-                    });
-                  }
-                }
-
-                writeSSE({ status: `Video "${refVideo.name}" recalled successfully` });
-              }
-
-              videoService.cleanup(framePaths);
-            } catch (err: any) {
-              console.error(`[AI Route] Failed to recall video ${refVideo.name}:`, err);
-              writeSSE({ status: `Could not recall ${refVideo.name}: ${err.message}` });
-            } finally {
-              if (fs.existsSync(tempVideoPath)) {
-                try { fs.unlinkSync(tempVideoPath); } catch (_) { }
+            if (recallResult.contextInstruction) {
+              const textPart = currentParts.find((p: any) => p.type === 'text');
+              if (textPart) {
+                textPart.text += recallResult.contextInstruction;
               }
             }
+
+            lastMessage.content = [...currentParts, ...recallResult.parts];
           }
         }
       }
     }
 
-
-    // --- IMAGE ATTACHMENTS: Process all messages for multimodal content ---
-    // We create a specific copy for the API call to avoid corrupting the DB version with JSON arrays
+    // 3. Prepare apiMessages for model inference
     let apiMessages = processedMessages.map((msg: any, index: number) => {
-      // If msg.content is already a multimodal array (e.g. prepared from video frames), preserve it
+      // If msg.content is already a multimodal array (e.g. prepared from multimodal parts), preserve it
       if (Array.isArray(msg.content)) {
         return { role: msg.role, content: msg.content, metadata: msg.metadata };
       }
 
-      // 1. Get images from message metadata (for history)
+      // 1. Get images from message metadata (for conversation history)
       const msgAttachments = msg.metadata?.attachments || [];
       const msgImages = msgAttachments.filter((a: any) => a.type === 'image' || a.type?.startsWith('image/'));
 
-      // 2. For the last message, also include the top-level attachments if they aren't already there
+      // 2. For the last message, also include the top-level image attachments if they aren't already there
       if (index === processedMessages.length - 1 && attachments && attachments.length > 0) {
         const topLevelImages = attachments.filter((a: any) => a.type === 'image' || a.type?.startsWith('image/'));
         topLevelImages.forEach((img: any) => {
@@ -637,43 +393,24 @@ router.post('/chat', flexAuthMiddleware, abuseDetectionMiddleware(), queuePriori
         });
       }
 
-      if (msgImages.length > 0) {
+      if (msgImages.length > 0 && modelInfo?.is_vision) {
         console.log(`[AI Route] Converting message ${index} to multimodal (${msgImages.length} images)`);
         const textContent = typeof msg.content === 'string' ? msg.content : '';
         return {
           role: msg.role,
           content: [
-            { type: 'text', text: textContent },
+            { type: 'text', text: textContent || '.' },
             ...msgImages.map((img: any) => ({
               type: 'image_url',
-              image_url: { url: img.url }
-            }))
+              image_url: { url: img.url },
+            })),
           ],
-          metadata: msg.metadata
+          metadata: msg.metadata,
         };
       }
 
       return { role: msg.role, content: msg.content, metadata: msg.metadata };
     });
-
-
-    // Get API key from middleware (which handles user overrides)
-    const apiKey = req.apiKey;
-    const provider = (req as any).provider || 'nvidia';
-
-    if (!apiKey) {
-      const providerName = provider.charAt(0).toUpperCase() + provider.slice(1);
-      if (!res.headersSent) {
-        return res.status(400).json({
-          success: false,
-          message: `${providerName} API Key not found. Please add it in settings.`
-        });
-      } else {
-        writeSSE({ error: `${providerName} API Key not found` });
-        res.end();
-        return;
-      }
-    }
 
     // Optimize token usage by compressing history
     const optimizedMessages = TokenManager.compressMessages(apiMessages);
