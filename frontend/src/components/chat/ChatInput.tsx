@@ -626,44 +626,53 @@ export const ChatInput: React.FC<ChatInputProps> = ({
   }, [attachments, setVisionRequired]);
 
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const [isMultiLine, setIsMultiLine] = useState(false);
+  const [isExpanded, setIsExpanded] = useState(false);
 
-  const adjustHeight = () => {
+  const adjustHeight = React.useCallback(() => {
     const textarea = textareaRef.current;
-    if (textarea) {
-      // Reset height to 0px temporarily to get exact scrollHeight without stale height caching
-      textarea.style.height = '0px';
+    if (!textarea) return;
+
+    // Preserve caret position to prevent cursor jumping
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+
+    const val = textarea.value;
+
+    if (!val || val.trim().length === 0) {
+      // Revert to normal single-row shape ONLY when all text is removed
+      setIsExpanded(false);
+      textarea.style.height = '';
+      textarea.style.overflowY = 'hidden';
+    } else {
+      // Use 'auto' instead of destructive '0px' to prevent 0-height layout collapse and caret reset
+      textarea.style.height = 'auto';
       const scrollHeight = textarea.scrollHeight;
-
-      const val = textarea.value;
-      const hasNewline = val.includes('\n');
-      const isMulti = hasNewline || scrollHeight > 46;
-
-      if (val.trim().length === 0) {
-        setIsMultiLine(false);
-      } else if (isMulti) {
-        setIsMultiLine(true);
-      } else if (!hasNewline && scrollHeight <= 42) {
-        setIsMultiLine(false);
-      }
-
-      const minH = isMulti ? 42 : 36;
-      const targetHeight = Math.min(Math.max(scrollHeight, minH), 200);
+      const targetHeight = Math.min(Math.max(scrollHeight, 38), 200);
       textarea.style.height = `${targetHeight}px`;
       textarea.style.overflowY = scrollHeight > 200 ? 'auto' : 'hidden';
+
+      const hasNewline = val.includes('\n');
+      // When words or lines increase beyond single-row: expand upward into stacked shape
+      if (hasNewline || scrollHeight > 46) {
+        setIsExpanded(true);
+      }
+      // Once expanded, it remains in this upward shape until all text is removed
     }
-  };
 
-  React.useEffect(() => {
+    // Explicitly restore caret selection to ensure stable typing across all browsers
+    if (start !== null && end !== null && document.activeElement === textarea) {
+      textarea.setSelectionRange(start, end);
+    }
+  }, []);
+
+  React.useLayoutEffect(() => {
     adjustHeight();
-  }, [internalValue]);
+  }, [internalValue, isExpanded, adjustHeight]);
 
   React.useEffect(() => {
-    const raf = requestAnimationFrame(() => {
-      adjustHeight();
-    });
-    return () => cancelAnimationFrame(raf);
-  }, [isMultiLine]);
+    window.addEventListener('resize', adjustHeight);
+    return () => window.removeEventListener('resize', adjustHeight);
+  }, [adjustHeight]);
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (disabled) return;
@@ -690,6 +699,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
       if (internalValue.trim() || validAttachments.length > 0) {
         onSend(internalValue);
         setInternalValue(''); // Clear local state after sending
+        setIsExpanded(false); // Reset to normal shape
       }
     }
   };
@@ -1133,7 +1143,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
           </AttachmentScrollableRow>
         )}
 
-        <div className={`${styles.inputInner} ${isMultiLine ? styles.isMultiLine : ''}`}>
+        <div className={`${styles.inputInner} ${isExpanded ? styles.isExpanded : ''}`}>
           {isDictating ? (
             <div className={styles.dictateContainer}>
               <div className={styles.dictateWaveSection}>
@@ -1179,7 +1189,6 @@ export const ChatInput: React.FC<ChatInputProps> = ({
                 className={`${styles.input} ${showReasoningSelector ? styles.inputWithReasoning : ''}`}
                 value={internalValue}
                 onChange={(e) => setInternalValue(e.target.value)}
-                onInput={adjustHeight}
                 onKeyDown={handleKeyDown}
                 placeholder={placeholderText || "Ask anything"}
                 disabled={disabled}

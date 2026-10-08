@@ -1218,25 +1218,29 @@
     padding-right: 125px;
   }
 
-  /* When multi-line on mobile: stacked layout, textarea expands full width up, action buttons underneath */
-  .isMultiLine {
+  /* When expanded on mobile: stacked layout, textarea expands full width up, action buttons underneath */
+  .isExpanded {
     flex-direction: column !important;
     align-items: stretch !important;
     gap: 4px !important;
     padding: 0 !important;
   }
 
-  .isMultiLine .input {
+  .isExpanded .input {
     position: static !important;
     flex: none !important;
     width: 100% !important;
-    padding: 6px 8px 2px 8px !important;
-    min-height: 42px !important;
+    padding: 6px 10px 4px 10px !important;
+    min-height: 38px !important;
     box-sizing: border-box !important;
     font-size: 0.95rem;
   }
 
-  .isMultiLine .bottomToolbar {
+  .isExpanded .inputWithReasoning {
+    padding-right: 10px !important;
+  }
+
+  .isExpanded .bottomToolbar {
     position: static !important;
     inset: auto !important;
     pointer-events: auto !important;
@@ -1248,13 +1252,13 @@
     border-top: 1px solid rgba(255, 255, 255, 0.05) !important;
   }
 
-  .isMultiLine .plusBtn {
+  .isExpanded .plusBtn {
     position: static !important;
     left: auto !important;
     bottom: auto !important;
   }
 
-  .isMultiLine .inputActions {
+  .isExpanded .inputActions {
     position: static !important;
     right: auto !important;
     bottom: auto !important;
