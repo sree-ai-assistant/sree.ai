@@ -45,6 +45,12 @@ const GOOGLE_THINKING_OPTIONS: { value: ReasoningEffort; label: string; desc: st
   { value: 'high', label: 'High', desc: 'Maximum depth for complex problems' },
 ];
 
+const GOOGLE_NON_MINIMAL_THINKING_OPTIONS: { value: ReasoningEffort; label: string; desc: string; isDefault?: boolean }[] = [
+  { value: 'low', label: 'Low', desc: 'Light thinking for simple logic' },
+  { value: 'medium', label: 'Medium', desc: 'Balanced thinking depth', isDefault: true },
+  { value: 'high', label: 'High', desc: 'Maximum depth for complex problems' },
+];
+
 const GROQ_REASONING_OPTIONS: { value: ReasoningEffort; label: string; desc: string; isDefault?: boolean }[] = [
   { value: 'default', label: 'Default', desc: 'Model default reasoning effort', isDefault: true },
   { value: 'none', label: 'None', desc: 'Disable reasoning completely' },
@@ -382,12 +388,22 @@ export const ChatInput: React.FC<ChatInputProps> = ({
   const isNvidia = provider === 'nvidia';
   const showReasoningSelector = (isGoogle || isGroq) && !isNvidia;
 
-  const reasoningOptions = isGoogle ? GOOGLE_THINKING_OPTIONS : GROQ_REASONING_OPTIONS;
+  const isNonMinimalGoogle = isGoogle && Boolean(
+    selectedModel?.model_id?.includes('3.7') ||
+    selectedModel?.model_id?.includes('3.8') ||
+    selectedModel?.model_id?.includes('3.1-pro')
+  );
+
+  const reasoningOptions = isGoogle
+    ? (isNonMinimalGoogle ? GOOGLE_NON_MINIMAL_THINKING_OPTIONS : GOOGLE_THINKING_OPTIONS)
+    : GROQ_REASONING_OPTIONS;
   const menuTitle = isGoogle ? 'Thinking Level' : 'Reasoning Level';
+
+  const defaultEffortForModel: ReasoningEffort = isNonMinimalGoogle ? 'medium' : (isGoogle ? 'minimal' : 'default');
 
   const effectiveEffort: ReasoningEffort = reasoningOptions.some((o) => o.value === reasoningEffort)
     ? reasoningEffort
-    : (isGoogle ? 'minimal' : 'default');
+    : defaultEffortForModel;
 
   const activeOption = reasoningOptions.find((o) => o.value === effectiveEffort) || reasoningOptions[0];
 

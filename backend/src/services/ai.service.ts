@@ -274,8 +274,16 @@ class AiService {
       const budgetMap: Record<string, number> = { minimal: 1024, low: 2048, medium: 8192, high: 24576 };
       thinkingConfig.thinkingBudget = budgetMap[reasoningEffort] || 1024;
     } else {
-      const levelMap: Record<string, string> = { minimal: 'MINIMAL', low: 'LOW', medium: 'MEDIUM', high: 'HIGH' };
-      thinkingConfig.thinkingLevel = levelMap[reasoningEffort] || 'LOW';
+      // Gemini 3 models: 3.7 Flash, 3.8 Flash, and 3.1 Pro do NOT support 'MINIMAL' (returns HTTP 400 INVALID_ARGUMENT).
+      // Map 'minimal' to 'LOW' for these models, and 'default' to 'MEDIUM'.
+      const isNonMinimal = model.includes('3.7') || model.includes('3.8') || model.includes('3.1-pro');
+      if (isNonMinimal) {
+        const levelMap: Record<string, string> = { minimal: 'LOW', low: 'LOW', medium: 'MEDIUM', high: 'HIGH' };
+        thinkingConfig.thinkingLevel = levelMap[reasoningEffort] || 'MEDIUM';
+      } else {
+        const levelMap: Record<string, string> = { minimal: 'MINIMAL', low: 'LOW', medium: 'MEDIUM', high: 'HIGH' };
+        thinkingConfig.thinkingLevel = levelMap[reasoningEffort] || 'LOW';
+      }
     }
 
     const systemMsg = messages.find(m => m.role === 'system');
@@ -371,7 +379,7 @@ class AiService {
 
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:streamGenerateContent?key=${encodeURIComponent(apiKey)}&alt=sse`;
 
-    const response = await fetch(url, {
+    let response = await fetch(url, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -382,9 +390,26 @@ class AiService {
 
     if (!response.ok) {
       const errText = await response.text();
-      const error: any = new Error(`Google native stream error ${response.status}: ${errText}`);
-      error.status = response.status;
-      throw error;
+      // Auto-recovery: If Google rejects thinking level for any reason, retry with 'LOW'
+      if (errText.includes('Thinking level') && payload.generationConfig?.thinkingConfig?.thinkingLevel) {
+        console.warn(`[AiService] Google rejected thinking level for ${model}. Retrying with LOW...`);
+        payload.generationConfig.thinkingConfig.thinkingLevel = 'LOW';
+        response = await fetch(url, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-goog-api-key': apiKey
+          },
+          body: JSON.stringify(payload)
+        });
+      }
+
+      if (!response.ok) {
+        const finalErr = await response.text().catch(() => errText);
+        const error: any = new Error(`Google native stream error ${response.status}: ${finalErr || errText}`);
+        error.status = response.status;
+        throw error;
+      }
     }
 
     if (!response.body) {
@@ -771,8 +796,11 @@ class AiService {
         if (provider === 'google') {
           // Google's OpenAI-compatible endpoint does NOT stream raw thought tokens (only returns thought_signature).
           // streamGoogleNative connects to Google's native SSE endpoint to stream true protocol-level thoughts instantly.
+          const isNonMinimal = apiModel.includes('3.7') || apiModel.includes('3.8') || apiModel.includes('3.1-pro');
           const googleEffort: 'minimal' | 'low' | 'medium' | 'high' =
-            (reasoningEffort === 'default' || reasoningEffort === 'none') ? 'minimal' : reasoningEffort;
+            (reasoningEffort === 'default' || reasoningEffort === 'none')
+              ? (isNonMinimal ? 'low' : 'minimal')
+              : (isNonMinimal && reasoningEffort === 'minimal' ? 'low' : reasoningEffort);
           return this.streamGoogleNative(apiKey, apiModel, sanitized, reservedTokens, googleEffort);
         }
 

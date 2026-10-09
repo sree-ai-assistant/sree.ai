@@ -149,6 +149,7 @@ describe('MultimodalService', () => {
       // No text extraction needed for native PDF on Gemini
       expect(extractTextSpy).not.toHaveBeenCalled();
       expect(result.parts).toHaveLength(1);
+      expect(result.extractedContext).toContain('document.pdf');
       expect(result.parts[0]).toEqual({
         inlineData: {
           mimeType: 'application/pdf',

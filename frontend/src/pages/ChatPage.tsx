@@ -1137,11 +1137,28 @@ const ChatPage: React.FC = () => {
           messageId: userMsg?.id,
           conversationId: currentConvId,
           mode: isVoiceRoute ? 'voice' : 'chat',
-          reasoning_effort: (selectedModel?.provider === 'google' && (reasoningEffort === 'default' || reasoningEffort === 'none'))
-            ? 'minimal'
-            : (selectedModel?.provider === 'groq' && reasoningEffort === 'minimal')
-              ? 'default'
-              : (reasoningEffort || (selectedModel?.provider === 'groq' ? 'default' : 'minimal'))
+          reasoning_effort: (() => {
+            const isGoogle = selectedModel?.provider === 'google';
+            const isNonMinimal = isGoogle && Boolean(
+              selectedModel?.model_id?.includes('3.7') ||
+              selectedModel?.model_id?.includes('3.8') ||
+              selectedModel?.model_id?.includes('3.1-pro')
+            );
+            if (isNonMinimal) {
+              return (reasoningEffort === 'minimal' || reasoningEffort === 'default' || reasoningEffort === 'none')
+                ? 'medium'
+                : reasoningEffort;
+            }
+            if (isGoogle) {
+              return (reasoningEffort === 'default' || reasoningEffort === 'none')
+                ? 'minimal'
+                : reasoningEffort;
+            }
+            if (selectedModel?.provider === 'groq') {
+              return reasoningEffort === 'minimal' ? 'default' : (reasoningEffort || 'default');
+            }
+            return reasoningEffort || 'minimal';
+          })()
         }),
         signal: abortController.signal,
       });

@@ -140,6 +140,7 @@ export class MultimodalService {
     if (docAttachments.length > 0) {
       writeSSE({ status: 'Processing documents...' });
       const docResults: { name: string; text: string }[] = [];
+      const nativePdfNames: string[] = [];
 
       for (const doc of docAttachments) {
         const isPdf = doc.name.toLowerCase().endsWith('.pdf');
@@ -163,6 +164,7 @@ export class MultimodalService {
                   data: base64Data,
                 },
               });
+              nativePdfNames.push(doc.name);
             } else {
               console.log(`[MultimodalService] PDF ${doc.name} size: ${fileSize} bytes > 50MB. Uploading via Gemini File API.`);
               writeSSE({ status: `Uploading large PDF to Gemini File API...` });
@@ -173,6 +175,7 @@ export class MultimodalService {
                   mimeType: uploaded.mimeType,
                 },
               });
+              nativePdfNames.push(doc.name);
             }
           } catch (err: any) {
             console.error(`[MultimodalService] Failed native PDF upload for ${doc.name}:`, err.message);
@@ -195,6 +198,10 @@ export class MultimodalService {
             docResults.push({ name: doc.name, text });
           }
         }
+      }
+
+      if (nativePdfNames.length > 0) {
+        extractedContext += `\n\n[SYSTEM INSTRUCTION: The user has attached ${nativePdfNames.length} PDF document(s): ${nativePdfNames.join(', ')}. Please carefully examine and analyze these attached document(s) in your response.]\n`;
       }
 
       if (docResults.length > 0) {
