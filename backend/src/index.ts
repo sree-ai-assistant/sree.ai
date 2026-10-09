@@ -5,9 +5,11 @@ import { apiKeyPool } from './services/apiKeyPool.service';
 import { ApiKeyService } from './services/apiKey.service';
 import { startObserverResetCron, stopObserverResetCron } from './services/modelObserver.service';
 import { startR2MaintenanceCron, stopR2MaintenanceCron } from './services/r2.service';
+import { startTempCleanupCron, stopTempCleanupCron } from './services/tempCleanup.service';
 apiKeyPool.initialize();
 startObserverResetCron();
 startR2MaintenanceCron();
+startTempCleanupCron();
 ApiKeyService.backfillLegacyKeyHashes().catch((err) =>
   console.warn('[Server] Legacy key hash backfill notice:', err)
 );
@@ -49,6 +51,7 @@ const gracefulShutdown = async (signal: string) => {
   await shutdownPostHog();
   stopObserverResetCron();
   stopR2MaintenanceCron();
+  stopTempCleanupCron();
 
   // Close all active WebSocket connections
   wss.clients.forEach((client) => {
