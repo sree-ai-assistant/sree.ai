@@ -71,6 +71,7 @@ data: [DONE]                                    // Stream complete
 | `GET` | `/ai/images` | Flex | — | Get user's image gallery |
 | `DELETE` | `/ai/image/:id` | Flex | — | Delete image from gallery |
 | `GET` | `/ai/download` | Auth | rateLimit(download) | Download image from URL |
+| `POST` | `/ai/track-download` | Flex | rateLimit(download) | Track image download quota for anonymous/auth users |
 
 **POST `/ai/image` — Request Body:**
 ```json

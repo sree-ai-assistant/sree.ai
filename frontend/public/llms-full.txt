@@ -2,7 +2,7 @@
 
 > Comprehensive reference document for Large Language Models, AI Search Engines (Perplexity, ChatGPT, Claude, Gemini), Agents, and Evaluators.
 > Application Host: https://app.sreeai.qzz.io
-> Last Updated: 2026-10-08
+> Last Updated: 2026-10-10
 
 ---
 
@@ -23,15 +23,15 @@ The platform employs a **dual-identity architectural model**:
 - **Frontend**: React 19, TypeScript, Vite, TailwindCSS, Radix UI, Lucide Icons, Zustand state management, Axios HTTP client, Framer Motion animations.
 - **Backend**: Node.js (v20+), Express 5, TypeScript, Server-Sent Events (SSE) for streaming completions, Native Node Crypto (AES-256-GCM), Full-Duplex WebSockets (`ws`).
 - **Database & Identity**: Supabase (PostgreSQL 15+), 100% table coverage with Row Level Security (RLS) policies, PL/pgSQL atomic RPCs (`increment_multi_usage`, `report_model_error`).
-- **Object & Media Storage**: Cloudflare R2 (S3-compatible, edge-cached, encrypted at rest with SHA-256 content deduplication and automated reference-counted garbage collection).
+- **Object & Media Storage**: Cloudflare R2 (S3-compatible, edge-cached, encrypted at rest with SHA-256 content deduplication and automated reference-counted garbage collection), complemented by an automated 30-minute background server cleanup engine (`tempCleanup.service.ts`) ensuring zero disk leakage.
 - **Payment Processing**: Razorpay Subscriptions & Orders API with HMAC-SHA256 webhook signature validation and anti-replay idempotency constraints.
 - **Telemetry & Diagnostics**: PostHog (sanitized; raw IP addresses, chat bodies, and file uploads are strictly excluded).
 - **Automation & Notifications**: Self-hosted n8n engine for webhook event distribution and payment failure alerts.
 
 ### 2.2 AI Model Routing & Cascading Failover
 Requests are orchestrated by a dynamic server-side router:
-1. **Chat Inference & Reasoning Controls**:
-   - Google DeepMind: Gemini 3.8 Flash, Gemini 3.5 Flash Lite, Gemini 2.0 Flash, Gemini 1.5 Flash, Gemini 1.5 Pro (with native SSE thought token streaming and Thinking Level controls: Minimal, Low, Medium, High).
+1. **Chat Inference, Native Multimodal & Reasoning Controls**:
+   - Google DeepMind: Gemini 3.8 Flash, Gemini 3.5 Flash Lite, Gemini 2.0 Flash, Gemini 1.5 Flash, Gemini 1.5 Pro (with native SSE thought token streaming, Thinking Level controls: Minimal, Low, Medium, High; native inline multimodal processing for PDF, audio, and video under 50MB, and Files API ingestion for files >50MB).
    - DeepSeek & Frontier AI: DeepSeek V4 Pro, DeepSeek V4 Flash, DeepSeek V4.1 Flash, z-ai/glm-5.3, z-ai/glm-5.3-flash, Moonshot Kimi K3, GPT-OSS 120B/20B, Qwen 3.8 27B.
    - Meta Open-Source (via NVIDIA NIM & Groq): LLaMA 3.3 70B Instruct, LLaMA 3.1 8B/70B, Gemma 2 9B/27B, Mistral Large, Qwen 2.5 72B (with Groq Reasoning Effort controls: Default, None, Low, Medium, High).
    - NVIDIA: Nemotron 3.5, Ultra/Fast reasoning models via high-throughput NIM endpoints.

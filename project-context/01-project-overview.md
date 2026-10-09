@@ -53,7 +53,7 @@ Ai-Sass-3/
 |--------|-------|
 | **Frontend Pages** | 18 (Chat, Image, Video, Dashboard, Settings, Pricing, Onboarding, Feature Request, Login, Signup, Forgot Password, plus 7 Legal Suite pages) |
 | **Backend Route Files** | 8 HTTP (AI, Payment, User, Models, Health, Config, Feature Requests, Admin) + STT delegated to AI routes + 1 WebSocket (Live Voice) |
-| **Backend Services** | 17 (AI, Razorpay, Usage, Subscription, Anonymous, Abuse, API Key, API Key Pool, File, PostHog, Queue, R2, Video, Feature Request, Provider Validation, Live Voice, Model Observer) |
+| **Backend Services** | 19 (AI, Multimodal, Razorpay, Usage, Subscription, Anonymous, Abuse, API Key, API Key Pool, File, PostHog, Queue, R2, Video, Feature Request, Provider Validation, Live Voice, Model Observer, Temp Cleanup) |
 | **Zustand Stores** | 9 (auth, chat, image, video, model, usage, ui, onboarding, upload-agreement) |
 | **Database Tables** | 19 (all with RLS enabled) |
 | **Database Migrations** | 30 SQL files (local `supabase/migrations/`) |

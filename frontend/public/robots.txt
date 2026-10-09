@@ -77,6 +77,11 @@ Allow: /llms.txt
 Allow: /llms-full.txt
 Disallow: /api/
 Disallow: /settings
+Disallow: /onboarding
+Disallow: /forgot-password
+Disallow: /login
+Disallow: /signup
+Disallow: /upgrade
 
 # ------------------------------------------------------------------------------
 # 3. Sitemaps and Host

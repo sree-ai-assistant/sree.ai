@@ -326,9 +326,35 @@ In-memory sliding window limiter on screenshot uploads (`featureRequestScreensho
 }
 ```
 
+### API Key Submission & Validation Rate Limits
+
+In-memory sliding window rate limiters protect external AI provider APIs and the database from credential stuffing and automated key-probing attacks (`apiKeyRateLimit.ts`):
+
+| Endpoint | Cooldown / Burst | Hourly Cap | Daily Cap | Target Identity |
+|----------|-----------------|------------|-----------|-----------------|
+| `/api/settings/keys/validate` | 15 req / min | 60 req / hr | 150 req / 24h | `user.id` or client IP |
+| `/api/settings/keys` (Save) | 10 req / min | 30 req / hr | 80 req / 24h | `user.id` or client IP |
+
+Expired sliding window timestamps are pruned every 10 minutes via background garbage collection.
+
 ---
 
-## Data Privacy
+## Data Privacy & Encryption
+
+### BYOK Cryptographic Blind Indexing & AES-256-GCM Storage
+
+User-submitted AI provider keys are protected through a two-layer cryptographic scheme:
+1. **At-Rest Encryption**: Encrypted with AES-256-GCM using `ENCRYPTION_SECRET`, generating an initialization vector (`iv`), ciphertext, and authentication tag (`auth_tag`).
+2. **Cryptographic Blind Indexing (`key_hash`)**: An HMAC-SHA256 hash is computed over the normalized raw key using `ENCRYPTION_SECRET`. This allows constant-time $O(1)$ duplicate key detection and cross-account key collision prevention via database index `idx_api_keys_user_key_hash` without decrypting stored ciphertext.
+
+### Server Disk Defense & Temporary Upload Cleanup (`TempCleanupService`)
+
+To prevent server disk space exhaustion from unlinked, aborted, or transient upload artifacts:
+- **Startup Delay**: Cron initializes 5 seconds after server startup.
+- **Hourly Execution**: Scans the `uploads/` directory and subdirectories (`frames`, `avatars`, `screenshots`) every 1 hour.
+- **30-Minute Max Age**: Only purges files with an `mtime` older than 30 minutes (`DEFAULT_MAX_AGE_MS = 1,800,000ms`), preserving active in-flight uploads.
+- **Protected File Invariants**: Automatically skips dotfiles, directories, and repository markers (`.gitkeep`, `.gitignore`, `nothing.txt`).
+- **Resilient File Handling**: Catches Windows file locks (`EBUSY` / `EPERM`) cleanly without crashing the daemon.
 
 ### IP Address Handling
 

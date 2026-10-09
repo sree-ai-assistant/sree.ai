@@ -278,23 +278,21 @@ sequenceDiagram
     API->>MW: flexAuth → abuseDetection → queuePriority → featureGate → rateLimit
     MW->>AIRoute: Authorized + within limits
 
-    alt Has document attachments
-        AIRoute->>AIRoute: Extract text (PDF/DOCX/XLSX)
-        AIRoute->>AIRoute: TokenManager.truncateDocumentText (100K limit)
-        AIRoute->>AIRoute: Append context to last user message
+    alt Has media or document attachments
+        AIRoute->>MultimodalService: processRequestAttachments(attachments, model, provider)
+        alt Google Gemini native model
+            MultimodalService->>MultimodalService: Package inlineData (PDF/Audio/Video <=20MB) or Gemini File API (>20MB)
+        else Vision model (Groq/NVIDIA)
+            MultimodalService->>MultimodalService: FFmpeg frame extraction (capped at 3 frames) + text extraction
+        else Audio fallback
+            MultimodalService->>Provider: Groq Whisper / Deepgram Nova-2 STT transcription
+        end
+        MultimodalService-->>AIRoute: {parts, extractedContext, cleanAttachments}
+        AIRoute->>AIRoute: TokenManager.truncateDocumentText (100K safety cap)
+        AIRoute->>AIRoute: Hydrate parts & context into user message
     end
 
-    alt Has audio attachments
-        AIRoute->>Provider: Deepgram.transcribe(audio)
-        Provider-->>AIRoute: Transcript text
-        AIRoute->>AIRoute: Append transcript to context
-    end
-
-    alt Has video attachments
-        AIRoute->>AIRoute: ffmpeg → extract frames
-        AIRoute->>AIRoute: Convert frames to base64
-        AIRoute->>AIRoute: Add as vision content parts
-    end
+    Note over Backend: TempCleanupService periodically purges unlinked temp upload files (>30m old)
 
     AIRoute->>AIRoute: Resolve provider for model
     AIRoute->>AIRoute: Check BYOK vs platform key
