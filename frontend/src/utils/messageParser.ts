@@ -9,23 +9,43 @@ export interface ParsedMessageContent {
   injectedAttachments: InjectedAttachment[];
 }
 
+export interface ParseMessageOptions {
+  /**
+   * The role of the message ('user' | 'assistant' | 'system').
+   * For user messages, user-entered prompt instructions are preserved verbatim.
+   */
+  role?: string;
+  /**
+   * Explicitly control whether to strip [SYSTEM INSTRUCTION: ...] blocks.
+   * If not provided: false when role === 'user', true for assistant/system or undefined.
+   */
+  stripSystemInstructions?: boolean;
+}
+
 /**
  * Normalizes and extracts clean text and visual attachments from message content.
  * 
  * Handles cases where:
  * 1. content was stored as an OpenAI multimodal JSON array string:
  *    `[{"type":"text","text":"..."},{"type":"image_url","image_url":{"url":"..."}}]`
- * 2. content contains injected `[SYSTEM INSTRUCTION: ...]` text that should never be shown in UI.
- * 3. content is an array of content parts.
+ * 2. content is an array of content parts.
+ * 3. assistant content contains injected `[SYSTEM INSTRUCTION: ...]` text that should be hidden from UI.
+ *    (User messages preserve user-typed prompts verbatim).
  */
-export function parseMessageContent(rawContent: any): ParsedMessageContent {
+export function parseMessageContent(rawContent: any, options?: ParseMessageOptions): ParsedMessageContent {
   if (!rawContent) {
     return { cleanText: '', injectedAttachments: [] };
   }
 
+  // Determine whether system instruction blocks should be stripped.
+  // User messages represent verbatim user input and must NOT be stripped unless explicitly requested.
+  const shouldStrip = options?.stripSystemInstructions !== undefined
+    ? options.stripSystemInstructions
+    : options?.role !== 'user';
+
   // If already an array in memory
   if (Array.isArray(rawContent)) {
-    return extractFromPartsArray(rawContent);
+    return extractFromPartsArray(rawContent, shouldStrip);
   }
 
   if (typeof rawContent !== 'string') {
@@ -43,17 +63,17 @@ export function parseMessageContent(rawContent: any): ParsedMessageContent {
     try {
       const parsed = JSON.parse(trimmed);
       if (Array.isArray(parsed)) {
-        return extractFromPartsArray(parsed);
+        return extractFromPartsArray(parsed, shouldStrip);
       }
     } catch (_) {
       // Fall through if not valid JSON
     }
   }
 
-  // Remove any system instruction blocks that might have leaked into clean text
-  const clean = trimmed
-    .replace(/\[SYSTEM INSTRUCTION[\s\S]*?(?:\]|$)/gi, '')
-    .trim();
+  // Remove any system instruction blocks if stripping is enabled (assistant/system or explicit)
+  const clean = shouldStrip
+    ? trimmed.replace(/\[SYSTEM INSTRUCTION[\s\S]*?(?:\]|$)/gi, '').trim()
+    : trimmed;
 
   return {
     cleanText: clean,
@@ -61,7 +81,7 @@ export function parseMessageContent(rawContent: any): ParsedMessageContent {
   };
 }
 
-function extractFromPartsArray(parts: any[]): ParsedMessageContent {
+function extractFromPartsArray(parts: any[], shouldStrip = true): ParsedMessageContent {
   let combinedText = '';
   const injectedAttachments: InjectedAttachment[] = [];
 
@@ -70,9 +90,11 @@ function extractFromPartsArray(parts: any[]): ParsedMessageContent {
 
     // Handle text part
     if (part.type === 'text' || typeof part.text === 'string') {
-      const text = (part.text || '')
-        .replace(/\[SYSTEM INSTRUCTION[\s\S]*?(?:\]|$)/gi, '')
-        .trim();
+      const rawText = part.text || '';
+      const text = (shouldStrip
+        ? rawText.replace(/\[SYSTEM INSTRUCTION[\s\S]*?(?:\]|$)/gi, '')
+        : rawText
+      ).trim();
 
       if (text) {
         combinedText = combinedText ? `${combinedText}\n\n${text}` : text;

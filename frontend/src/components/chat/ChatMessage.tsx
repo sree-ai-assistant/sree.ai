@@ -174,8 +174,8 @@ export const ChatMessageComponent: React.FC<ChatMessageProps> = ({
 
   // Normalize message content in case it has raw JSON parts from multimodal frames
   const parsedContent = useMemo(() => {
-    return parseMessageContent(m.content);
-  }, [m.content]);
+    return parseMessageContent(m.content, { role: m.role });
+  }, [m.content, m.role]);
 
   // Combine metadata attachments with any attachments extracted from content
   const allAttachments = useMemo(() => {

@@ -131,7 +131,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
           m.content.trim().startsWith('[') &&
           (m.content.includes('"type"') || m.content.includes('"image_url"'))
         ) {
-          const parsed = parseMessageContent(m.content);
+          const parsed = parseMessageContent(m.content, { role: m.role });
           const existingAttachments = m.metadata?.attachments || [];
           const existingUrls = new Set(existingAttachments.map((a: any) => a.url));
           const newAttachments = [
