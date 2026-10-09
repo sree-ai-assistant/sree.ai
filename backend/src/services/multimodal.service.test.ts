@@ -157,6 +157,36 @@ describe('MultimodalService', () => {
         },
       });
     });
+
+    it('packages audio files directly as native inlineData with context instructions for Gemini', async () => {
+      const mockWriteSSE = vi.fn();
+      const audioBytes = Buffer.from('fake audio data');
+
+      vi.spyOn(fileService, 'downloadFile').mockResolvedValue('test.mp3' as any);
+      vi.spyOn(fs, 'existsSync').mockReturnValue(true);
+      vi.spyOn(fs, 'statSync').mockReturnValue({ size: 12000 } as any);
+      vi.spyOn(fs, 'readFileSync').mockReturnValue(audioBytes as any);
+      vi.spyOn(fs, 'unlinkSync').mockImplementation(() => {});
+
+      const result = await multimodalService.processRequestAttachments({
+        attachments: [{ name: 'bell.mp3', type: 'audio', url: 'https://r2.example.com/bell.mp3' }],
+        model: 'gemini-2.5-flash',
+        provider: 'google',
+        modelInfo: { is_vision: true },
+        apiKey: 'test-google-key',
+        writeSSE: mockWriteSSE,
+      });
+
+      expect(result.parts).toHaveLength(1);
+      expect(result.extractedContext).toContain('bell.mp3');
+      expect(result.extractedContext).toContain('listen carefully to the attached audio');
+      expect(result.parts[0]).toEqual({
+        inlineData: {
+          mimeType: 'audio/mp3',
+          data: audioBytes.toString('base64'),
+        },
+      });
+    });
   });
 
   describe('processRequestAttachments - Groq & NVIDIA Fallbacks', () => {

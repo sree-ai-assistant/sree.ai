@@ -308,6 +308,29 @@ router.post('/chat', flexAuthMiddleware, abuseDetectionMiddleware(), queuePriori
 
       const lastMessage = processedMessages[processedMessages.length - 1];
       if (lastMessage && lastMessage.role === 'user') {
+        let originalUserText = typeof lastMessage.content === 'string'
+          ? lastMessage.content.trim()
+          : Array.isArray(lastMessage.content)
+            ? (lastMessage.content.find((p: any) => p.type === 'text')?.text || '').trim()
+            : '';
+
+        // If the user didn't write any prompt or only sent placeholder dots, provide an intelligent default prompt
+        if (!originalUserText || originalUserText === '.' || originalUserText === '...') {
+          const hasAudio = attachments.some((a: any) => a.type === 'audio' || a.name?.match(/\.(mp3|wav|ogg|m4a|aac|webm|flac)$/i));
+          const hasVideo = attachments.some((a: any) => a.type === 'video' || a.name?.match(/\.(mp4|mov|webm|avi|mkv)$/i));
+          const hasDoc = attachments.some((a: any) => a.type === 'document' || a.name?.match(/\.(pdf|docx|xlsx|csv|txt)$/i));
+
+          if (hasAudio) {
+            originalUserText = 'Please listen to the attached audio, describe what you hear in detail, and transcribe any spoken words or speech.';
+          } else if (hasVideo) {
+            originalUserText = 'Please watch and analyze the attached video, and provide a clear, comprehensive summary of its visual and auditory content.';
+          } else if (hasDoc) {
+            originalUserText = 'Please carefully review and summarize the key information from the attached document(s).';
+          } else {
+            originalUserText = 'Please analyze the attached media in detail.';
+          }
+        }
+
         if (processed.extractedContext) {
           lastMessage.metadata = {
             ...lastMessage.metadata,
@@ -317,16 +340,12 @@ router.post('/chat', flexAuthMiddleware, abuseDetectionMiddleware(), queuePriori
         }
 
         if (processed.parts.length > 0) {
-          const originalUserText = typeof lastMessage.content === 'string'
-            ? lastMessage.content
-            : Array.isArray(lastMessage.content)
-              ? (lastMessage.content.find((p: any) => p.type === 'text')?.text || '')
-              : '';
-
           lastMessage.content = [
-            { type: 'text', text: originalUserText || '.' },
+            { type: 'text', text: originalUserText },
             ...processed.parts,
           ];
+        } else {
+          lastMessage.content = originalUserText;
         }
       }
     }

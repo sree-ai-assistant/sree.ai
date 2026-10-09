@@ -223,6 +223,8 @@ export class MultimodalService {
       if (isGoogle) {
         // Google Gemini natively understands audio (tone, background sounds, accents, music)!
         console.log(`[MultimodalService] Native audio processing for Google Gemini (${audioAttachments.length} files)`);
+        const nativeAudioNames: string[] = [];
+
         for (const audio of audioAttachments) {
           writeSSE({ status: `Preparing audio ${audio.name} for Gemini...` });
           const tempAudioPath = path.join(process.cwd(), 'uploads', `temp-audio-${uuidv4()}-${audio.name.replace(/[^a-z0-9.]/gi, '_')}`);
@@ -241,6 +243,7 @@ export class MultimodalService {
                   data: base64Data,
                 },
               });
+              nativeAudioNames.push(audio.name);
             } else {
               console.log(`[MultimodalService] Audio ${audio.name} size: ${fileSize} bytes > 20MB. Uploading via Gemini File API.`);
               writeSSE({ status: `Uploading large audio to Gemini File API...` });
@@ -251,6 +254,7 @@ export class MultimodalService {
                   mimeType: uploaded.mimeType,
                 },
               });
+              nativeAudioNames.push(audio.name);
             }
           } catch (err: any) {
             console.error(`[MultimodalService] Failed native audio processing for ${audio.name}:`, err.message);
@@ -259,6 +263,10 @@ export class MultimodalService {
               try { fs.unlinkSync(tempAudioPath); } catch (_) {}
             }
           }
+        }
+
+        if (nativeAudioNames.length > 0) {
+          extractedContext += `\n\n[SYSTEM INSTRUCTION: The user has attached ${nativeAudioNames.length} audio file(s): ${nativeAudioNames.join(', ')}. Please listen carefully to the attached audio, analyze its audio content (speech, tone, sounds, music, background noise), and respond accurately to the user's prompt (or describe and transcribe what you hear if no specific question was asked).]\n`;
         }
       } else {
         // Groq / NVIDIA: Chat completions do not accept audio binaries, run STT fallback!
@@ -304,6 +312,7 @@ export class MultimodalService {
       if (isGoogle) {
         // Google Gemini natively understands video! Zero frame extraction needed!
         console.log(`[MultimodalService] Native video processing for Google Gemini (${videoAttachments.length} video(s))`);
+        const nativeVideoNames: string[] = [];
 
         for (const video of videoAttachments) {
           writeSSE({ status: `Preparing video ${video.name} for Gemini...` });
@@ -323,6 +332,7 @@ export class MultimodalService {
                   data: base64Data,
                 },
               });
+              nativeVideoNames.push(video.name);
             } else {
               console.log(`[MultimodalService] Video ${video.name} size: ${fileSize} bytes > 20MB. Uploading via Gemini File API.`);
               writeSSE({ status: `Uploading ${video.name} to Gemini File API (processing video)...` });
@@ -334,6 +344,7 @@ export class MultimodalService {
                     mimeType: uploaded.mimeType,
                   },
                 });
+                nativeVideoNames.push(video.name);
               } catch (uploadErr: any) {
                 console.warn(`[MultimodalService] Gemini File API upload failed (${uploadErr.message}). Falling back to visual frame extraction...`);
                 writeSSE({ status: `Gemini File API unavailable. Extracting visual frames as fallback for ${video.name}...` });
@@ -371,6 +382,10 @@ export class MultimodalService {
               try { fs.unlinkSync(tempVideoPath); } catch (_) {}
             }
           }
+        }
+
+        if (nativeVideoNames.length > 0) {
+          extractedContext += `\n\n[SYSTEM INSTRUCTION: The user has attached ${nativeVideoNames.length} video file(s): ${nativeVideoNames.join(', ')}. Please watch and analyze both the visual and auditory content of the video carefully to answer the user's prompt (or provide a comprehensive overview if no prompt was provided).]\n`;
         }
       } else if (isVision) {
         // Groq / NVIDIA Vision models: Frame extraction fallback!
