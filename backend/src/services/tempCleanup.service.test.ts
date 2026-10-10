@@ -154,6 +154,22 @@ describe('TempCleanupService', () => {
     unlinkSpy.mockRestore();
   });
 
+  it('refuses to clean any directory that is not an uploads folder', async () => {
+    const nonUploadsDir = path.join(process.cwd(), 'temp_test_other_dir');
+    fs.mkdirSync(nonUploadsDir, { recursive: true });
+    const dummyFile = path.join(nonUploadsDir, 'important.txt');
+    fs.writeFileSync(dummyFile, 'do not delete');
+
+    try {
+      const result = await cleanTempUploads({ uploadsDir: nonUploadsDir });
+      expect(result.deleted).toBe(0);
+      expect(result.errors).toBe(1);
+      expect(fs.existsSync(dummyFile)).toBe(true);
+    } finally {
+      fs.rmSync(nonUploadsDir, { recursive: true, force: true });
+    }
+  });
+
   it('starts and stops cron timers cleanly', () => {
     expect(isTempCleanupCronRunning()).toBe(false);
 

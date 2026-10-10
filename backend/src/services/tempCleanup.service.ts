@@ -77,6 +77,16 @@ export async function cleanTempUploads(options?: CleanTempOptions): Promise<Clea
     return result;
   }
 
+  const normalizedBase = path.resolve(uploadsDir);
+  const baseFolderName = path.basename(normalizedBase).toLowerCase();
+
+  // Fail-safe 1: Strictly ensure target directory is an uploads directory
+  if (!baseFolderName.includes('uploads')) {
+    console.error(`[TempCleanup] 🛑 Security Refusal: Target directory "${normalizedBase}" is not an uploads directory.`);
+    result.errors++;
+    return result;
+  }
+
   const now = Date.now();
 
   for (const subDir of TARGET_SUBDIRECTORIES) {
@@ -97,11 +107,19 @@ export async function cleanTempUploads(options?: CleanTempOptions): Promise<Clea
 
     for (const entry of entries) {
       // 1. Skip protected files and dotfiles
-      if (entry.startsWith('.') || PROTECTED_FILENAMES.has(entry.toLowerCase())) {
+      if (!entry || entry.startsWith('.') || PROTECTED_FILENAMES.has(entry.toLowerCase())) {
         continue;
       }
 
       const filePath = path.join(dirPath, entry);
+      const resolvedPath = path.resolve(filePath);
+
+      // Fail-safe 2: Strict boundary check to ensure file is strictly within uploads directory
+      if (!resolvedPath.startsWith(normalizedBase + path.sep)) {
+        console.warn(`[TempCleanup] ⚠️ Security Warning: Path "${resolvedPath}" escaped uploads directory. Skipping.`);
+        result.errors++;
+        continue;
+      }
 
       try {
         const stat = fs.statSync(filePath);
