@@ -1677,6 +1677,60 @@ class AiService {
     }
   }
 
+  /**
+   * Transcribe audio using NVIDIA Parakeet TDT 0.6B (FastConformer-TDT).
+   * Strictly expects a 16kHz mono 16-bit WAV file.
+   *
+   * @param apiKey - NVIDIA API key (nvapi-...)
+   * @param filePath - Path to 16kHz mono WAV audio file
+   * @param language - BCP-47 language tag (defaults to 'en-GB')
+   */
+  async transcribeAudioParakeet(
+    apiKey: string,
+    filePath: string,
+    language: string = 'en-GB'
+  ): Promise<{ text: string }> {
+    const FormData = (await import('form-data')).default;
+    const formData = new FormData();
+    const fileStream = fs.createReadStream(filePath);
+    formData.append('file', fileStream);
+
+    // Normalize language: The European NVCF endpoint accepts BCP-47 codes.
+    // 'en' or 'en-US' return 404 on this deployment, so we normalize English to 'en-GB'.
+    let normalizedLang = (language || 'en-GB').trim();
+    if (normalizedLang.toLowerCase() === 'en' || normalizedLang.toLowerCase() === 'en-us') {
+      normalizedLang = 'en-GB';
+    } else if (!/^[a-zA-Z]{2,3}(-[a-zA-Z0-9]{2,4})?$/.test(normalizedLang)) {
+      // Guard against malformed or injection strings
+      normalizedLang = 'en-GB';
+    }
+    formData.append('language', normalizedLang);
+
+    const url = process.env.NVIDIA_PARAKEET_URL ||
+      'https://2b940e91-a70e-4483-a958-d50408b96589.invocation.api.nvcf.nvidia.com/v1/audio/transcriptions';
+
+    try {
+      const response = await axios.post(url, formData, {
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          Accept: 'application/json',
+          ...formData.getHeaders(),
+        },
+        timeout: 35_000,
+      });
+
+      const transcript = response.data?.text || '';
+      return { text: transcript };
+    } catch (error: any) {
+      // Ensure file stream is closed immediately on error so Windows file locks are released
+      try { fileStream.destroy(); } catch {}
+      const status = error.response?.status;
+      const detail = error.response?.data?.detail || error.response?.data?.error?.message || error.message;
+      console.error(`[AiService] NVIDIA Parakeet STT Error:`, status, detail);
+      throw error;
+    }
+  }
+
   /** Resolve MIME type from filename for Groq audio upload */
   private getMimeFromFilename(filename: string): string {
     const ext = filename.split('.').pop()?.toLowerCase() || '';

@@ -23,6 +23,7 @@ import axios from 'axios';
 import { reportModelError } from '../services/modelObserver.service';
 import { multimodalService } from '../services/multimodal.service';
 import { resolveProvider } from '../utils/providerResolver';
+import { convertTo16kHzMonoWav } from '../utils/audioConversion';
 
 const router = Router();
 
@@ -1060,21 +1061,35 @@ router.post('/voice', flexAuthMiddleware, abuseDetectionMiddleware(), queuePrior
   }
 }));
 
-// Speech to Text (Dictate Mode) — Groq Whisper primary, Deepgram fallback
+// Speech to Text (Dictate Mode) — NVIDIA Parakeet primary, Groq Whisper fallback, Deepgram final fallback
 router.post('/stt', flexAuthMiddleware, abuseDetectionMiddleware(), queuePriorityMiddleware, featureGateMiddleware('voiceToText'), rateLimitMiddleware('stt'), upload.single('file'), uploadSizeValidator, withPriorityQueue(async (req: any, res) => {
+  let convertedWavPath: string | null = null;
   try {
     const file = req.file;
     const userId = req.user?.id;
     const anonId = req.anonId;
     const tier = (req as any).userTier || 'anonymous';
+    const language = (req.body?.language || req.query?.language || 'en-GB') as string;
 
-    if (!file) {
-      return res.status(400).json({ success: false, message: 'Audio file is required' });
+    if (!file || file.size === 0) {
+      if (file && fs.existsSync(file.path)) {
+        try { fs.unlinkSync(file.path); } catch {}
+      }
+      return res.status(400).json({ success: false, message: 'Audio file is empty or missing' });
     }
 
-    console.log(`[STT Route] Processing speech transcription: ${file.originalname} (${file.size} bytes, ${file.mimetype})`);
+    console.log(`[STT Route] Processing speech transcription: ${file.originalname} (${file.size} bytes, ${file.mimetype}, lang: ${language})`);
 
-    // Resolve BYOK keys for both providers
+    // ── Pre-process audio: Transcode to 16kHz Mono 16-bit WAV for NVIDIA Parakeet ──
+    try {
+      convertedWavPath = await convertTo16kHzMonoWav(file.path);
+      console.log(`[STT Route] Audio converted to 16kHz mono WAV: ${convertedWavPath}`);
+    } catch (convErr: any) {
+      console.warn(`[STT Route] Audio conversion to 16kHz WAV failed, will use original for fallbacks:`, convErr.message);
+    }
+
+    // Resolve BYOK keys for all providers
+    const nvidiaResult = await ApiKeyService.getUserApiKey(userId, 'nvidia');
     const groqResult = await ApiKeyService.getUserApiKey(userId, 'groq');
     const deepgramResult = await ApiKeyService.getUserApiKey(userId, 'deepgram');
 
@@ -1082,17 +1097,54 @@ router.post('/stt', flexAuthMiddleware, abuseDetectionMiddleware(), queuePriorit
     let usedByok = false;
     let providerUsed = '';
 
-    // Resolve original filename for Groq (needs extension for file type detection)
+    // Original filename with extension for Groq Whisper
     const originalFilename = file.originalname || 'audio.webm';
 
-    // ── CASCADE 1: Groq BYOK (whisper-large-v3 → whisper-large-v3-turbo) ──
-    if (groqResult.source === 'user' && groqResult.key) {
+    // ── CASCADE 1: NVIDIA BYOK (parakeet-tdt-0.6b) ──
+    if (convertedWavPath && nvidiaResult.source === 'user' && nvidiaResult.key) {
+      console.log('[STT Route] Trying NVIDIA BYOK (parakeet-tdt-0.6b)...');
+      try {
+        const result = await aiService.transcribeAudioParakeet(nvidiaResult.key, convertedWavPath, language);
+        transcriptText = (result?.text || '').trim();
+        if (transcriptText) {
+          usedByok = true;
+          providerUsed = 'nvidia-byok';
+        }
+      } catch (e0: any) {
+        console.warn('[STT Route] NVIDIA BYOK failed:', e0.message);
+      }
+    }
+
+    // ── CASCADE 2: NVIDIA App Key Pool (parakeet-tdt-0.6b — Primary System) ──
+    if (!transcriptText && convertedWavPath) {
+      try {
+        console.log('[STT Route] Trying NVIDIA app key pool (parakeet-tdt-0.6b)...');
+        const result = await executeWithKeyRotation(
+          'nvidia',
+          false,
+          null,
+          (rotatedKey) => aiService.transcribeAudioParakeet(rotatedKey, convertedWavPath!, language)
+        );
+        transcriptText = (typeof result === 'string' ? result : (result?.text || '')).trim();
+        if (transcriptText) {
+          usedByok = false;
+          providerUsed = 'nvidia-app';
+        }
+      } catch (eNvidia: any) {
+        console.warn('[STT Route] NVIDIA app key pool failed:', eNvidia.message);
+      }
+    }
+
+    // ── CASCADE 3: Groq BYOK (whisper-large-v3 → whisper-large-v3-turbo) ──
+    if (!transcriptText && groqResult.source === 'user' && groqResult.key) {
       console.log('[STT Route] Trying Groq BYOK (whisper-large-v3)...');
       try {
         const result = await aiService.transcribeAudioGroq(groqResult.key, file.path, 'whisper-large-v3', originalFilename);
         transcriptText = (result?.text || '').trim();
-        usedByok = true;
-        providerUsed = 'groq-byok';
+        if (transcriptText) {
+          usedByok = true;
+          providerUsed = 'groq-byok';
+        }
       } catch (e1: any) {
         console.warn('[STT Route] Groq BYOK v3 failed:', e1.message);
         // Fallback to whisper-large-v3-turbo with same BYOK key
@@ -1100,15 +1152,17 @@ router.post('/stt', flexAuthMiddleware, abuseDetectionMiddleware(), queuePriorit
           console.log('[STT Route] Trying Groq BYOK (whisper-large-v3-turbo)...');
           const result = await aiService.transcribeAudioGroq(groqResult.key, file.path, 'whisper-large-v3-turbo', originalFilename);
           transcriptText = (result?.text || '').trim();
-          usedByok = true;
-          providerUsed = 'groq-byok';
+          if (transcriptText) {
+            usedByok = true;
+            providerUsed = 'groq-byok';
+          }
         } catch (e2: any) {
           console.warn('[STT Route] Groq BYOK turbo also failed:', e2.message);
         }
       }
     }
 
-    // ── CASCADE 2: Groq App Key (whisper-large-v3 → whisper-large-v3-turbo) ──
+    // ── CASCADE 4: Groq App Key (whisper-large-v3 → whisper-large-v3-turbo) ──
     if (!transcriptText) {
       try {
         console.log('[STT Route] Trying Groq app key (whisper-large-v3)...');
@@ -1119,8 +1173,10 @@ router.post('/stt', flexAuthMiddleware, abuseDetectionMiddleware(), queuePriorit
           (rotatedKey) => aiService.transcribeAudioGroq(rotatedKey, file.path, 'whisper-large-v3', originalFilename)
         );
         transcriptText = (typeof result === 'string' ? result : (result?.text || '')).trim();
-        usedByok = false;
-        providerUsed = 'groq-app';
+        if (transcriptText) {
+          usedByok = false;
+          providerUsed = 'groq-app';
+        }
       } catch (e3: any) {
         console.warn('[STT Route] Groq app v3 failed:', e3.message);
         // Fallback to whisper-large-v3-turbo with app key
@@ -1133,28 +1189,32 @@ router.post('/stt', flexAuthMiddleware, abuseDetectionMiddleware(), queuePriorit
             (rotatedKey) => aiService.transcribeAudioGroq(rotatedKey, file.path, 'whisper-large-v3-turbo', originalFilename)
           );
           transcriptText = (typeof result === 'string' ? result : (result?.text || '')).trim();
-          usedByok = false;
-          providerUsed = 'groq-app';
+          if (transcriptText) {
+            usedByok = false;
+            providerUsed = 'groq-app';
+          }
         } catch (e4: any) {
           console.warn('[STT Route] Groq app turbo also failed:', e4.message);
         }
       }
     }
 
-    // ── CASCADE 3: Deepgram BYOK ──
+    // ── CASCADE 5: Deepgram BYOK ──
     if (!transcriptText && deepgramResult.source === 'user' && deepgramResult.key) {
       try {
         console.log('[STT Route] Trying Deepgram BYOK...');
         const result = await aiService.transcribeAudio(deepgramResult.key, file.path);
         transcriptText = (typeof result === 'string' ? result : (result?.text || '')).trim();
-        usedByok = true;
-        providerUsed = 'deepgram-byok';
+        if (transcriptText) {
+          usedByok = true;
+          providerUsed = 'deepgram-byok';
+        }
       } catch (e5: any) {
         console.warn('[STT Route] Deepgram BYOK failed:', e5.message);
       }
     }
 
-    // ── CASCADE 4: Deepgram App Key ──
+    // ── CASCADE 6: Deepgram App Key ──
     if (!transcriptText) {
       try {
         console.log('[STT Route] Trying Deepgram app key...');
@@ -1165,33 +1225,44 @@ router.post('/stt', flexAuthMiddleware, abuseDetectionMiddleware(), queuePriorit
           (rotatedKey) => aiService.transcribeAudio(rotatedKey, file.path)
         );
         transcriptText = (typeof result === 'string' ? result : (result?.text || '')).trim();
-        usedByok = false;
-        providerUsed = 'deepgram-app';
+        if (transcriptText) {
+          usedByok = false;
+          providerUsed = 'deepgram-app';
+        }
       } catch (e6: any) {
         console.warn('[STT Route] Deepgram app key also failed:', e6.message);
       }
     }
 
-    // Cleanup temp file
-    if (fs.existsSync(file.path)) fs.unlinkSync(file.path);
+    // Cleanup temp files
+    if (convertedWavPath && fs.existsSync(convertedWavPath)) {
+      try { fs.unlinkSync(convertedWavPath); } catch {}
+    }
+    if (fs.existsSync(file.path)) {
+      try { fs.unlinkSync(file.path); } catch {}
+    }
 
     // ── Charge credits: BYOK = 0.2, App key = 1.0 ──
     let creditsCharged = 0;
     if (transcriptText) {
-      const chargeAmount = usedByok ? 0.2 : 1;
-      const identity: RateLimitIdentity = userId
-        ? { type: 'authenticated', userId, tier }
-        : { type: 'anonymous', anonId: anonId || 'unknown', tier: 'anonymous' as any };
+      if (req.destroyed || res.writableEnded) {
+        console.log('[STT Route] Client disconnected before completion, skipping credit deduction');
+      } else {
+        const chargeAmount = usedByok ? 0.2 : 1;
+        const identity: RateLimitIdentity = userId
+          ? { type: 'authenticated', userId, tier }
+          : { type: 'anonymous', anonId: anonId || 'unknown', tier: 'anonymous' as any };
 
-      try {
-        const { checkAndIncrementMultiUsage } = await import('../services/usage.service');
-        await checkAndIncrementMultiUsage(identity, [
-          { tool: 'stt', amount: chargeAmount, isByok: usedByok, bypassLimits: true }
-        ]);
-        creditsCharged = chargeAmount;
-        console.log(`[STT Route] Charged ${chargeAmount} stt credit(s) via ${providerUsed} [${usedByok ? 'BYOK' : 'APP'}] (user: ${userId || anonId})`);
-      } catch (chargeErr) {
-        console.error('[STT Route] Failed to charge credit:', chargeErr);
+        try {
+          const { checkAndIncrementMultiUsage } = await import('../services/usage.service');
+          await checkAndIncrementMultiUsage(identity, [
+            { tool: 'stt', amount: chargeAmount, isByok: usedByok, bypassLimits: true }
+          ]);
+          creditsCharged = chargeAmount;
+          console.log(`[STT Route] Charged ${chargeAmount} stt credit(s) via ${providerUsed} [${usedByok ? 'BYOK' : 'APP'}] (user: ${userId || anonId})`);
+        } catch (chargeErr) {
+          console.error('[STT Route] Failed to charge credit:', chargeErr);
+        }
       }
     } else {
       console.log(`[STT Route] Empty transcript or all providers failed. No credits charged.`);
@@ -1207,7 +1278,12 @@ router.post('/stt', flexAuthMiddleware, abuseDetectionMiddleware(), queuePriorit
     res.json({ success: true, text: transcriptText, data: transcriptText, creditsCharged, provider: providerUsed });
   } catch (error: any) {
     console.error('STT Route Error:', error.response?.data || error.message);
-    if (req.file && fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path);
+    if (convertedWavPath && fs.existsSync(convertedWavPath)) {
+      try { fs.unlinkSync(convertedWavPath); } catch {}
+    }
+    if (req.file && fs.existsSync(req.file.path)) {
+      try { fs.unlinkSync(req.file.path); } catch {}
+    }
 
     const status = error.response?.status || 500;
     const message = error.response?.data?.message || error.message || 'Internal Server Error';
