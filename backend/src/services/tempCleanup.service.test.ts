@@ -52,6 +52,7 @@ describe('TempCleanupService', () => {
     expect(result.scanned).toBe(2);
     expect(result.deleted).toBe(1);
     expect(result.bytesFreed).toBe('old content'.length);
+    expect(result.deletedFiles).toEqual(['stale_upload_123.tmp']);
 
     expect(fs.existsSync(oldFile)).toBe(false);
     expect(fs.existsSync(freshFile)).toBe(true);
@@ -77,6 +78,13 @@ describe('TempCleanupService', () => {
     });
 
     expect(result.deleted).toBe(3);
+    expect(result.deletedFiles).toEqual(
+      expect.arrayContaining([
+        'frames/frame_stale_1.png',
+        'avatars/avatar_stale_2.png',
+        'screenshots/screen_stale_3.png',
+      ])
+    );
     expect(fs.existsSync(oldFrame)).toBe(false);
     expect(fs.existsSync(oldAvatar)).toBe(false);
     expect(fs.existsSync(oldScreenshot)).toBe(false);

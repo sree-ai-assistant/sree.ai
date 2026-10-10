@@ -34,6 +34,7 @@ export interface CleanupResult {
   deleted: number;
   bytesFreed: number;
   errors: number;
+  deletedFiles?: string[];
 }
 
 export interface CleanTempOptions {
@@ -69,6 +70,7 @@ export async function cleanTempUploads(options?: CleanTempOptions): Promise<Clea
     deleted: 0,
     bytesFreed: 0,
     errors: 0,
+    deletedFiles: [],
   };
 
   if (!fs.existsSync(uploadsDir)) {
@@ -115,9 +117,12 @@ export async function cleanTempUploads(options?: CleanTempOptions): Promise<Clea
         const ageMs = now - stat.mtimeMs;
         if (ageMs >= maxAgeMs) {
           const fileSize = stat.size;
+          const relativeName = subDir ? `${subDir}/${entry}` : entry;
           fs.unlinkSync(filePath);
           result.deleted++;
           result.bytesFreed += fileSize;
+          result.deletedFiles?.push(relativeName);
+          console.log(`[TempCleanup] 🗑️ Deleted stale file: ${relativeName} (${(fileSize / 1024).toFixed(1)} KB)`);
         }
       } catch (err: any) {
         // Handle race conditions or file locks (e.g. EBUSY on Windows)
@@ -131,8 +136,11 @@ export async function cleanTempUploads(options?: CleanTempOptions): Promise<Clea
 
   if (result.deleted > 0) {
     const kbFreed = (result.bytesFreed / 1024).toFixed(1);
+    const filesList = result.deletedFiles && result.deletedFiles.length <= 5
+      ? `: ${result.deletedFiles.join(', ')}`
+      : `: ${result.deletedFiles?.slice(0, 5).join(', ')}... (+${result.deletedFiles!.length - 5} more)`;
     console.log(
-      `[TempCleanup] 🧹 Purged ${result.deleted} stale file(s) (${kbFreed} KB freed).`
+      `[TempCleanup] 🧹 Purged ${result.deleted} stale file(s)${filesList} (${kbFreed} KB freed).`
     );
   }
 
