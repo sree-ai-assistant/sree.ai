@@ -1064,6 +1064,11 @@ router.post('/voice', flexAuthMiddleware, abuseDetectionMiddleware(), queuePrior
 // Speech to Text (Dictate Mode) — NVIDIA Parakeet primary, Groq Whisper fallback, Deepgram final fallback
 router.post('/stt', flexAuthMiddleware, abuseDetectionMiddleware(), queuePriorityMiddleware, featureGateMiddleware('voiceToText'), rateLimitMiddleware('stt'), upload.single('file'), uploadSizeValidator, withPriorityQueue(async (req: any, res) => {
   let convertedWavPath: string | null = null;
+  // Track actual client disconnection via socket close event, NOT req.destroyed
+  // (req.destroyed becomes true after the upload body is consumed, not when the client disconnects)
+  let clientDisconnected = false;
+  const onClientClose = () => { clientDisconnected = true; };
+  req.on('close', onClientClose);
   try {
     const file = req.file;
     const userId = req.user?.id;
@@ -1245,8 +1250,9 @@ router.post('/stt', flexAuthMiddleware, abuseDetectionMiddleware(), queuePriorit
     // ── Charge credits: BYOK = 0.2, App key = 1.0 ──
     let creditsCharged = 0;
     if (transcriptText) {
-      if (req.destroyed || res.writableEnded) {
-        console.log('[STT Route] Client disconnected before completion, skipping credit deduction');
+      // Only skip credits if the client TCP socket actually disconnected (not just request stream consumed)
+      if (clientDisconnected && (!res.socket || res.socket.destroyed)) {
+        console.log('[STT Route] Client TCP socket disconnected before completion, skipping credit deduction');
       } else {
         const chargeAmount = usedByok ? 0.2 : 1;
         const identity: RateLimitIdentity = userId
@@ -1275,8 +1281,10 @@ router.post('/stt', flexAuthMiddleware, abuseDetectionMiddleware(), queuePriorit
       });
     }
 
+    req.removeListener('close', onClientClose);
     res.json({ success: true, text: transcriptText, data: transcriptText, creditsCharged, provider: providerUsed });
   } catch (error: any) {
+    req.removeListener('close', onClientClose);
     console.error('STT Route Error:', error.response?.data || error.message);
     if (convertedWavPath && fs.existsSync(convertedWavPath)) {
       try { fs.unlinkSync(convertedWavPath); } catch {}
