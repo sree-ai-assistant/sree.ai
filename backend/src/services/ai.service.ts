@@ -1719,6 +1719,9 @@ class AiService {
         timeout: 35_000,
       });
 
+      // Close file stream immediately after upload completes to release Windows file locks
+      try { fileStream.destroy(); } catch {}
+
       const transcript = response.data?.text || '';
       return { text: transcript };
     } catch (error: any) {
