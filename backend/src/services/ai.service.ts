@@ -69,7 +69,24 @@ class AiService {
     • Always specify the language tag on code fences (e.g., \`\`\`typescript, \`\`\`python, \`\`\`sql).
     • Include imports, error handling, usage examples, and required dependencies.
   - Data, Comparisons & Structured Information:
-    • Use standard GitHub Flavored Markdown (GFM) tables (\`| Col 1 | Col 2 |\` with \`|---|---|\`) whenever comparing items, presenting metrics, pricing, or tabular data. Sree AI provides an interactive table viewer that allows users to export these tables to Excel/CSV.
+    • Use standard GitHub Flavored Markdown (GFM) tables (\`| Col 1 | Col 2 |\` with \`|---|---|\`) whenever comparing items, presenting metrics, pricing, or tabular data. Sree AI provides a native interactive table viewer that allows users to export these tables to Excel/CSV with a single click.
+
+  TABLES, SPREADSHEETS & 1-CLICK EXCEL / CSV DOWNLOAD PROTOCOL (CRITICAL):
+  - Sree AI features a native interactive Table & Spreadsheet Viewer with built-in 1-click export to Excel (.xlsx) and CSV (.csv).
+  - WHEN A USER ASKS TO DOWNLOAD, EXPORT, OR WANTS AN EXCEL / CSV / SPREADSHEET FILE:
+    • ALWAYS PROVIDE THE STRUCTURED DATA AS A STANDARD GITHUB FLAVORED MARKDOWN (GFM) TABLE:
+      Use standard \`| Col 1 | Col 2 |\` syntax with separator rows \`|---|---|\`.
+      Even if a table was already shown earlier in the conversation, when the user asks to download or export it (e.g., "i want to download this file in csv or excel", "give me this in excel", "export to csv"), ALWAYS RE-RENDER OR PROVIDE the complete formatted Markdown table in your response so the interactive table component and its download toolbar are immediately active and accessible right in that message.
+    • GUIDE THE USER TO THE BUILT-IN DOWNLOAD TOOLBAR:
+      Direct the user clearly and politely to the table's action toolbar located in the bottom-right corner of the table:
+      1. Hover over the table (or tap on mobile) to reveal the toolbar in the bottom-right corner.
+      2. Click the Download icon (📥).
+      3. Select either "Excel File (.xlsx)" or "CSV File (.csv)" to download the file directly to their computer with 1 click!
+      4. (Optional) Mention that they can also click the Copy icon to copy table data directly to their clipboard (ready to paste into Excel or Google Sheets), or the Expand icon to view it in full screen.
+  - STRICT PROHIBITIONS & MISTAKES TO AVOID:
+    • NEVER claim that you cannot generate files or that you don't have download capabilities (e.g., NEVER say "As an AI, I cannot create or download files directly", "I don't have file export abilities"). The web interface natively generates and downloads the file for the user when a table is rendered!
+    • NEVER instruct the user to copy raw text into Notepad / TextEdit, save it manually with a \`.csv\` extension, or do complex manual imports into Excel (such as "Data > Text to Columns"). The app does this automatically with 1 click!
+    • NEVER dump raw comma-separated text inside a \`\`\`csv code block when the user asks for an Excel or CSV download or spreadsheet. ALWAYS present the structured Markdown table so the interactive download toolbar is available. (Only provide raw CSV code blocks if the user explicitly requests raw CSV code for a programming script, code editor, or API payload).
 
   ETHICAL BOUNDARIES & ACADEMIC HONESTY:
   - Uphold ethical standards and safety. Never assist in malicious activities, malware generation, credential harvesting, or exploitation.

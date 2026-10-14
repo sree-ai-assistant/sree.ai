@@ -219,8 +219,8 @@ export const TableBlock: React.FC<TableBlockProps> = ({ children, className }) =
               e.stopPropagation();
               setShowDownloadMenu(prev => !prev);
             }}
-            title="Download table"
-            aria-label="Download table"
+            title="Download table (CSV / Excel)"
+            aria-label="Download table as CSV or Excel"
           >
             {isDownloading ? <Loader2 size={14} className={styles.spinner} /> : <Download size={14} />}
           </button>
@@ -304,8 +304,8 @@ export const TableBlock: React.FC<TableBlockProps> = ({ children, className }) =
                       e.stopPropagation();
                       setShowModalDownloadMenu(prev => !prev);
                     }}
-                    title="Download table"
-                    aria-label="Download table"
+                    title="Download table (CSV / Excel)"
+                    aria-label="Download table as CSV or Excel"
                   >
                     {isDownloading ? <Loader2 size={15} className={styles.spinner} /> : <Download size={15} />}
                   </button>
