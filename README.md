@@ -519,6 +519,10 @@ The database utilizes Supabase PostgreSQL with strict Row Level Security (RLS) o
 5. **No Plaintext IP Storage**: Anonymous visitors are tracked using salted SHA-256 hashes of client fingerprints and IPs to comply with GDPR & CCPA.
 6. **Row Level Security (RLS)**: Enforced across 100% of exposed tables to isolate tenant data.
 7. **Isolated Local Brand Marks**: Zero external runtime CDN hotlinking for provider branding, eliminating external telemetry or asset injection vectors.
+8. **Constant-Time Cryptographic Verification**: Admin maintenance routes, feature request webhooks, and Razorpay signatures use `crypto.timingSafeEqual` with length matching to eliminate timing side-channel attacks.
+9. **Server-Side Request Forgery (SSRF) Defense**: Media asset download endpoints enforce host allowlisting and strictly block connections to loopback (`127.0.0.0/8`), private subnets (RFC1918), and cloud metadata (`169.254.169.254`).
+10. **Prompt Injection Sandboxing & System Immutability**: Base system prompts remain strictly immutable; client overrides are capped and sandboxed, and parsed document attachments are isolated within structural data boundaries (`<document_content>`).
+11. **Account Password Hardening**: Mandatory 8+ character password policy with uppercase, lowercase, and numeric complexity enforcement, with manual tier upgrades strictly gated to development environments.
 
 ---
 

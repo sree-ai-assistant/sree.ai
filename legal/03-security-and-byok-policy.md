@@ -69,6 +69,9 @@ flowchart TD
 - **Zero Plaintext IP Storage:** Client IP addresses are never stored in raw form. IP addresses are passed through a salted **SHA-256** one-way cryptographic hash before being referenced in rate limiting or abuse logs.
 - **Client Fingerprint Privacy:** Browser fingerprints are securely hashed using SHA-256 to detect automated botnets and abuse vectors without storing personal hardware serials or unhashed identifiers.
 
+### 2.4 Network Guardrails & SSRF Mitigation
+- Outbound media asset download proxies enforce strict destination hostname allowlists and categorically block connections to loopback interfaces (`127.0.0.0/8`), private IPv4 subnets (RFC1918), and cloud infrastructure metadata endpoints (`169.254.169.254`).
+
 ---
 
 ## 3. Database Security & Row Level Security (RLS)
@@ -131,17 +134,19 @@ Security in Sree AI operates under a **Shared Responsibility Framework**:
 ## 6. Payment Security & Webhook Idempotency
 
 - **PCI-DSS Compliance:** All payment transactions, checkout sessions, and recurring subscription billing are handled by **Razorpay Software Private Limited**, a certified **PCI-DSS Level 1** Service Provider.
-- **HMAC-SHA256 Webhook Verification:** Inbound payment webhooks (`subscription.charged`, `payment.failed`, `subscription.cancelled`) are validated using cryptographic **HMAC-SHA256** signatures against `RAZORPAY_WEBHOOK_SECRET`. Unsigned or mismatched payloads are rejected immediately.
+- **HMAC-SHA256 Webhook Verification:** Inbound payment webhooks (`subscription.charged`, `payment.failed`, `subscription.cancelled`) are validated using cryptographic **HMAC-SHA256** signatures against `RAZORPAY_WEBHOOK_SECRET` evaluated in constant time (`crypto.timingSafeEqual`) to eliminate timing side-channel leakage. Unsigned, missing, or mismatched payloads are rejected immediately with zero fail-open states.
 - **Idempotency Safeguards:** Every payment ID (`razorpay_payment_id`) is enforced as a unique constraint in the `payment_history` database table, preventing duplicate subscription credits or double-billing in the event of webhook replay attacks.
 
 ---
 
-## 7. Abuse Prevention & Rate-Limiting Engine
+## 7. Abuse Prevention & Platform Safety Engine
 
-To protect system availability from automated botnets, credential stuffers, and distributed denial-of-service (DDoS) threats, Sree AI employs an automated protection pipeline:
+To protect system availability from automated botnets, credential stuffers, prompt injection, and distributed denial-of-service (DDoS) threats, Sree AI employs an automated protection pipeline:
 1. **Atomic Quota Engine:** Quotas are enforced in a single transaction via PostgreSQL RPC (`increment_multi_usage`) with row-level locks (`FOR UPDATE`), preventing concurrent burst bypasses.
 2. **Datacenter & VPN Heuristics:** Automated abuse detection middleware flags suspicious high-frequency requests originating from automated hosting proxies or disposable accounts.
 3. **Automated Storage Purging:** S3-compatible Cloudflare R2 temporary media buckets are regularly audited and purged via background cleanup jobs (`cleanup_logs`) to prevent orphaned data accumulation.
+4. **Prompt Injection & System Prompt Containment:** Base system prompts remain strictly immutable. Client-provided instructions and extracted document contents are sandboxed within structural data boundaries (`<document_content>`) to prevent prompt injection from executing unauthorized instructions.
+5. **Account Credential Security:** Authentication requires strict password complexity (minimum 8 characters, requiring uppercase, lowercase, and numeric digits) to guard against dictionary and brute-force attacks.
 
 ---
 

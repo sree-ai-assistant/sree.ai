@@ -70,7 +70,7 @@ data: [DONE]                                    // Stream complete
 | `POST` | `/ai/image` | Flex | abuseDetect, queuePriority, featureGate(imageGeneration), rateLimit(image) | Generate image from prompt |
 | `GET` | `/ai/images` | Flex | — | Get user's image gallery |
 | `DELETE` | `/ai/image/:id` | Flex | — | Delete image from gallery |
-| `GET` | `/ai/download` | Auth | rateLimit(download) | Download image from URL |
+| `GET` | `/ai/download` | Auth | rateLimit(download) | Download image from URL (SSRF protected: restricts to allowed storage hosts, blocks loopback, RFC1918 private subnets, and cloud metadata 169.254.169.254) |
 | `POST` | `/ai/track-download` | Flex | rateLimit(download) | Track image download quota for anonymous/auth users |
 
 **POST `/ai/image` — Request Body:**
@@ -160,7 +160,7 @@ data: [DONE]                                    // Stream complete
 
 | Method | Endpoint | Auth | Description |
 |--------|----------|------|-------------|
-| `POST` | `/user/change-password` | Auth | Change password (min 6 chars) |
+| `POST` | `/user/change-password` | Auth | Change password (min 8 chars, requires uppercase, lowercase, and digit; max 128 chars) |
 
 ### API Keys (via User routes)
 
@@ -188,6 +188,7 @@ data: [DONE]                                    // Stream complete
 |--------|----------|------|-------------|
 | `DELETE` | `/user/account` | Auth | Delete account (cascading: cancel sub, delete data, delete auth user) |
 | `POST` | `/user/migrate` | Auth | Migrate anonymous data to authenticated account |
+| `POST` | `/user/subscription/upgrade` | Auth (Dev Only) | Direct tier switch gated strictly to non-production environments (`NODE_ENV !== 'production'`) |
 
 ---
 
@@ -225,7 +226,7 @@ data: [DONE]                                    // Stream complete
 | `POST` | `/feature-requests/upload-screenshot` | Flex | multer (10MB, image/*), featureRequestScreenshotRateLimiter | Upload bug report screenshot to R2 `feature-request` bucket |
 | `GET` | `/feature-requests/my` | Flex | — | Get current user's feature requests |
 | `GET` | `/feature-requests/public` | None | — | Get public roadmap (limit param, default 50) |
-| `PATCH` | `/feature-requests/:ticketId/status` | Webhook Secret | — | Update request status (admin/n8n) |
+| `PATCH` | `/feature-requests/:ticketId/status` | Header Secret | — | Update request status (n8n/admin; verified via `X-Webhook-Secret` header using `crypto.timingSafeEqual`) |
 
 **POST `/feature-requests` — Request Body:**
 ```json
@@ -268,7 +269,7 @@ data: [DONE]                                    // Stream complete
 
 ## Admin Maintenance Routes (`/api/admin`)
 
-> Internal infrastructure and maintenance endpoints. Protected by `x-admin-secret` header matching `ADMIN_SECRET` environment variable.
+> Internal infrastructure and maintenance endpoints. Protected by `x-admin-secret` header verified using `crypto.timingSafeEqual` against `ADMIN_SECRET` environment variable to eliminate timing side-channels.
 
 | Method | Endpoint | Auth | Description |
 |--------|----------|------|-------------|

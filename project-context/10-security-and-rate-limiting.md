@@ -382,6 +382,32 @@ To prevent server disk space exhaustion from unlinked, aborted, or transient upl
 - **File Upload Cap**: Hard client-side and server-side limit of **10 attachments per prompt** in Chat to prevent request buffer exhaustion and denial-of-service vectors.
 - **Crawler & Scraping Control (`robots.txt`)**: Allows search engine indexing while explicitly gating training bots and disallowing private user routes (`/api/`, `/settings`, `/onboarding`).
 
+### Server-Side Request Forgery (SSRF) Defense
+- **Image & Asset Download Guard**: `/api/ai/download` resolves target URLs and inspects destination hostnames against an allowlist of verified storage origins (Cloudflare R2, image generation hosts, Supabase storage).
+- **Prohibited Target IP Ranges**: Strictly blocks connections to loopback (`127.0.0.0/8`, `::1`), link-local/cloud metadata (`169.254.169.254`), and RFC1918 private IPv4 subnets (`10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`) to eliminate internal network probing or AWS/GCP metadata exfiltration.
+
+### Constant-Time Verification (Timing Attack Defense)
+- **Administrative Secrets & Webhooks**: Replaced standard string equality (`===`) with `crypto.timingSafeEqual` across:
+  - Admin maintenance route authorization (`x-admin-secret` vs `ADMIN_SECRET`)
+  - Feature request status webhook authorization (`X-Webhook-Secret` header only)
+  - Razorpay payment and webhook signatures (`verifyPaymentSignature` and `verifyWebhookSignature`)
+- **Buffer Safety**: Safely handles buffer length discrepancies without crashing or leaking execution time.
+- **Zero Fail-Open**: Webhook validation strictly returns `false` / 400 if secrets are undefined in the environment.
+
+### Prompt Injection & System Prompt Sandboxing
+- **Immutable Base System Prompt**: Core platform system instructions (`DEFAULT_SYSTEM_PROMPT` in chat and base prompt in live voice mode) cannot be replaced, overridden, or deleted by client requests.
+- **Sandboxed Client Instructions**:
+  - Chat completions: Client-provided `system` role messages are encapsulated within a distinct `<user_system_instructions>` boundary and capped at 4,000 characters.
+  - Live voice mode: Dynamic instructions (`?systemInstruction=...`) are sandboxed and capped at 2,000 characters.
+- **Indirect Prompt Injection Containment**: Text extracted from parsed documents (PDF, DOCX, XLSX) in `multimodal.service.ts` is framed inside `<document_content>` tags with explicit directives instructing the LLM to treat the content as reference data rather than executable operational instructions.
+- **High-Utility Deliverables**: System prompts explicitly instruct the AI to generate complete, high-quality deliverables (long-form essays, production-ready code, LaTeX equations, GFM tables) without evasive refusals while maintaining core safety guardrails.
+
+### Account Credential & Password Standards
+- **Minimum 8 Characters**: Upgraded minimum password length from 6 to 8 characters.
+- **Complexity Enforcement**: Passwords must contain at least one uppercase letter, one lowercase letter, and one numeric digit.
+- **Length Upper Bound**: Capped at 128 characters to mitigate hash computation Denial of Service (DoS) attacks.
+- **Environment Gated Plan Switching**: The `/api/user/subscription/upgrade` test endpoint is gated strictly to non-production environments (`NODE_ENV !== 'production'`).
+
 ---
 
 ## CORS Configuration

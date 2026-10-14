@@ -7,8 +7,10 @@ Sree AI supports three identity modes:
 | Mode | Method | Capabilities |
 |------|--------|-------------|
 | **Anonymous** | Browser fingerprint + IP hash | Limited chat (3/day, 1/min), no image/video/voice |
-| **Free** | Email/password or Google OAuth | Chat (25/day), Image (3/day), Voice (5/day), 10MB uploads |
+| **Free** | Email/password (8+ chars, upper/lower/digit) or Google OAuth | Chat (25/day), Image (3/day), Voice (5/day), 10MB uploads |
 | **Paid (Starter/Pro)** | Same as Free + active subscription | Full feature access with higher limits |
+
+> **Password Policy**: Enforces a minimum of 8 characters, at least one uppercase letter, one lowercase letter, one numeric digit, and a maximum length of 128 characters. Manual tier switching via `/api/user/subscription/upgrade` is strictly restricted to development/testing environments (`NODE_ENV !== 'production'`).
 
 ---
 

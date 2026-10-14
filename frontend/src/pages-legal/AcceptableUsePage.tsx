@@ -46,6 +46,7 @@ export const AcceptableUsePage: React.FC = () => {
         <li><strong>Malware & Exploit Development:</strong> Creating computer viruses, ransomware, keyloggers, rootkits, zero-day exploits, or automated attack scripts.</li>
         <li><strong>Phishing & Social Engineering:</strong> Generating deceptive phishing lures, credential-harvesting pages, scam scripts, or fraudulent financial schemes.</li>
         <li><strong>System Attacking & Stress Testing:</strong> Conducting unauthorized penetration testing, vulnerability scanning, or Denial of Service (DoS/DDoS) attacks against Sree AI servers or databases.</li>
+        <li><strong>Adversarial Prompt Injection & Jailbreaking:</strong> Attempting to manipulate, bypass, jailbreak, or disable system safety guardrails, prompt boundaries, or behavioral filters through adversarial prompt injection, hidden instruction embedding, or indirect document payload exploitation.</li>
       </ul>
 
       <h3>2.3 Platform Abuse & Circumvention</h3>
@@ -53,6 +54,7 @@ export const AcceptableUsePage: React.FC = () => {
         <li><strong>Rate Limit Bypassing:</strong> Using automated scripts, multiple dummy accounts, or rotating IP proxies to bypass platform tier rate limits, token quotas, or anonymous trial boundaries.</li>
         <li><strong>API Key Abuse:</strong> Attempting to inject stolen, unauthorized, or compromised third-party API keys into the Bring Your Own Key (BYOK) system.</li>
         <li><strong>Unauthorized Scraping:</strong> Using scrapers, automated spiders, or extraction bots to harvest conversation data, model outputs, or proprietary system configurations without written authorization.</li>
+        <li><strong>SSRF & Internal Network Probing:</strong> Attempting to force the platform to fetch unauthorized internal IP addresses, local loopback services, or cloud infrastructure metadata endpoints.</li>
       </ul>
 
       <hr />

@@ -49,6 +49,11 @@ export const SecurityPage: React.FC = () => {
         <li><strong>Client Fingerprint Privacy:</strong> Browser fingerprints are securely hashed using SHA-256 to detect automated botnets and abuse vectors without storing personal hardware serials or unhashed identifiers.</li>
       </ul>
 
+      <h3>2.4 Network Guardrails & SSRF Mitigation</h3>
+      <ul>
+        <li>Outbound media asset download proxies enforce strict destination hostname allowlists and categorically block connections to loopback interfaces (<code>127.0.0.0/8</code>), private IPv4 subnets (RFC1918), and cloud infrastructure metadata endpoints (<code>169.254.169.254</code>).</li>
+      </ul>
+
       <hr />
 
       <h2>3. Database Security & Row Level Security (RLS)</h2>
@@ -187,18 +192,20 @@ export const SecurityPage: React.FC = () => {
       <h2>6. Payment Security & Webhook Idempotency</h2>
       <ul>
         <li><strong>PCI-DSS Compliance:</strong> All payment transactions, checkout sessions, and recurring subscription billing are handled by <strong>Razorpay Software Private Limited</strong>, a certified <strong>PCI-DSS Level 1</strong> Service Provider.</li>
-        <li><strong>HMAC-SHA256 Webhook Verification:</strong> Inbound payment webhooks (<code>subscription.charged</code>, <code>payment.failed</code>, <code>subscription.cancelled</code>) are validated using cryptographic <strong>HMAC-SHA256</strong> signatures against <code>RAZORPAY_WEBHOOK_SECRET</code>. Unsigned or mismatched payloads are rejected immediately.</li>
+        <li><strong>HMAC-SHA256 Webhook Verification:</strong> Inbound payment webhooks (<code>subscription.charged</code>, <code>payment.failed</code>, <code>subscription.cancelled</code>) are validated using cryptographic <strong>HMAC-SHA256</strong> signatures against <code>RAZORPAY_WEBHOOK_SECRET</code> evaluated in constant time (<code>crypto.timingSafeEqual</code>) to eliminate timing side-channels. Unsigned, missing, or mismatched payloads are rejected immediately with zero fail-open states.</li>
         <li><strong>Idempotency Safeguards:</strong> Every payment ID (<code>razorpay_payment_id</code>) is enforced as a unique constraint in the <code>payment_history</code> database table, preventing duplicate subscription credits or double-billing in the event of webhook replay attacks.</li>
       </ul>
 
       <hr />
 
-      <h2>7. Abuse Prevention & Rate-Limiting Engine</h2>
-      <p>To protect system availability from automated botnets, credential stuffers, and distributed denial-of-service (DDoS) threats, Sree AI employs an automated protection pipeline:</p>
+      <h2>7. Abuse Prevention & Platform Safety Engine</h2>
+      <p>To protect system availability from automated botnets, credential stuffers, prompt injection, and distributed denial-of-service (DDoS) threats, Sree AI employs an automated protection pipeline:</p>
       <ol>
         <li><strong>Atomic Quota Engine:</strong> Quotas are enforced in a single transaction via PostgreSQL RPC (<code>increment_multi_usage</code>) with row-level locks (<code>FOR UPDATE</code>), preventing concurrent burst bypasses.</li>
         <li><strong>Datacenter & VPN Heuristics:</strong> Automated abuse detection middleware flags suspicious high-frequency requests originating from automated hosting proxies or disposable accounts.</li>
         <li><strong>Automated Storage Purging:</strong> S3-compatible Cloudflare R2 temporary media buckets are regularly audited and purged via background cleanup jobs (<code>cleanup_logs</code>) to prevent orphaned data accumulation.</li>
+        <li><strong>Prompt Injection & System Prompt Containment:</strong> Base system prompts remain strictly immutable. Client-provided instructions and extracted document contents are sandboxed within structural data boundaries (<code>&lt;document_content&gt;</code>) to prevent prompt injection from executing unauthorized instructions.</li>
+        <li><strong>Account Credential Security:</strong> Authentication requires strict password complexity (minimum 8 characters, requiring uppercase, lowercase, and numeric digits) to guard against dictionary and brute-force attacks.</li>
       </ol>
 
       <hr />

@@ -29,11 +29,13 @@ You agree not to use Sree AI, its chat completions, voice synthesis, image/video
 - **Malware & Exploit Development:** Creating computer viruses, ransomware, keyloggers, rootkits, zero-day exploits, or automated attack scripts.
 - **Phishing & Social Engineering:** Generating deceptive phishing lures, credential-harvesting pages, scam scripts, or fraudulent financial schemes.
 - **System Attacking & Stress Testing:** Conducting unauthorized penetration testing, vulnerability scanning, or Denial of Service (DoS/DDoS) attacks against Sree AI servers or databases.
+- **Adversarial Prompt Injection & Jailbreaking:** Attempting to manipulate, bypass, jailbreak, or disable system safety guardrails, prompt boundaries, or behavioral filters through adversarial prompt injection, hidden instruction embedding, or indirect document payload exploitation.
 
 ### 2.3 Platform Abuse & Circumvention
 - **Rate Limit Bypassing:** Using automated scripts, multiple dummy accounts, or rotating IP proxies to bypass platform tier rate limits, token quotas, or anonymous trial boundaries.
 - **API Key Abuse:** Attempting to inject stolen, unauthorized, or compromised third-party API keys into the Bring Your Own Key (BYOK) system.
 - **Unauthorized Scraping:** Using scrapers, automated spiders, or extraction bots to harvest conversation data, model outputs, or proprietary system configurations without written authorization.
+- **SSRF & Internal Network Probing:** Attempting to force the platform to fetch unauthorized internal IP addresses, local loopback services, or cloud infrastructure metadata endpoints.
 
 ---
 

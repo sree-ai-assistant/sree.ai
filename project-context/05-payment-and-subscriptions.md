@@ -231,8 +231,8 @@ The webhook payload sent to n8n includes:
 | `resumeSubscription(subId)` | Resume a paused subscription |
 | `fetchSubscription(subId)` | Get subscription details from Razorpay |
 | `fetchInvoice(invoiceId)` | Get invoice details for payment failure lookup |
-| `verifyPaymentSignature(paymentId, subId, signature)` | HMAC-SHA256 signature verification |
-| `verifyWebhookSignature(body, signature)` | Webhook signature verification |
+| `verifyPaymentSignature(paymentId, subId, signature)` | HMAC-SHA256 constant-time signature verification (`crypto.timingSafeEqual`) |
+| `verifyWebhookSignature(body, signature)` | Constant-time webhook verification (rejects/returns false if secret is unset or mismatched; zero fail-open) |
 | `syncAllPlans()` | Sync plans on Razorpay (called at server startup) |
 | `getKeyId()` | Get Razorpay Key ID for frontend checkout |
 
