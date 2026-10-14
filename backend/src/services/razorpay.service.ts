@@ -261,12 +261,26 @@ export function verifyPaymentSignature(
   subscriptionId: string,
   signature: string,
 ): boolean {
+  const secret = process.env.RAZORPAY_KEY_SECRET;
+  if (!secret || !signature || typeof signature !== 'string') {
+    return false;
+  }
+
   const expected = crypto
-    .createHmac('sha256', process.env.RAZORPAY_KEY_SECRET!)
+    .createHmac('sha256', secret)
     .update(`${paymentId}|${subscriptionId}`)
     .digest('hex');
 
-  return expected === signature;
+  // SECURITY (FINDING-04): Use timing-safe comparison to prevent
+  // side-channel attacks that could incrementally forge valid signatures.
+  try {
+    return crypto.timingSafeEqual(
+      Buffer.from(expected, 'hex'),
+      Buffer.from(signature, 'hex')
+    );
+  } catch {
+    return false; // length mismatch or invalid hex
+  }
 }
 
 /**
@@ -279,8 +293,10 @@ export function verifyWebhookSignature(
 ): boolean {
   const secret = process.env.RAZORPAY_WEBHOOK_SECRET;
   if (!secret) {
-    console.warn('[Razorpay] RAZORPAY_WEBHOOK_SECRET not set — skipping webhook verification');
-    return true; // Allow in dev when secret isn't configured
+    // SECURITY (FINDING-03): Never skip verification — reject the webhook.
+    // A missing secret in production would allow anyone to forge plan activations.
+    console.error('[Razorpay] RAZORPAY_WEBHOOK_SECRET not set — rejecting webhook for safety');
+    return false;
   }
 
   const expected = crypto
@@ -288,7 +304,15 @@ export function verifyWebhookSignature(
     .update(rawBody)
     .digest('hex');
 
-  return expected === signature;
+  // SECURITY (FINDING-04): Use timing-safe comparison.
+  try {
+    return crypto.timingSafeEqual(
+      Buffer.from(expected, 'hex'),
+      Buffer.from(signature, 'hex')
+    );
+  } catch {
+    return false; // length mismatch or invalid hex
+  }
 }
 
 /* ------------------------------------------------------------------ */

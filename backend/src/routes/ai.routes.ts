@@ -35,15 +35,95 @@ const router = Router();
 router.get('/download', authMiddleware, rateLimitMiddleware('download'), async (req: any, res: any) => {
   const { url } = req.query;
 
-  if (!url) {
+  if (!url || typeof url !== 'string') {
     return res.status(400).json({ success: false, message: 'URL is required' });
   }
+
+  // ── SSRF Protection (FINDING-01) ──────────────────────────────────────
+  // Only allow HTTPS URLs from trusted image-hosting domains.
+  // Blocks: file://, gopher://, http://169.254.x.x (cloud metadata),
+  //         internal network IPs, and localhost.
+  try {
+    const parsed = new URL(url);
+
+    if (parsed.protocol !== 'https:') {
+      return res.status(400).json({ success: false, message: 'Only HTTPS URLs are allowed for download' });
+    }
+
+    // Block private/internal IP ranges and localhost
+    const hostname = parsed.hostname.toLowerCase();
+    const BLOCKED_PATTERNS = [
+      /^localhost$/i,
+      /^127\./,
+      /^10\./,
+      /^172\.(1[6-9]|2\d|3[01])\./,
+      /^192\.168\./,
+      /^169\.254\./,              // AWS/cloud metadata
+      /^0\./,
+      /^\[::1\]$/,                // IPv6 localhost
+      /^\[fc/i, /^\[fd/i,        // IPv6 private
+      /^\[fe80:/i,               // IPv6 link-local
+      /metadata\.google/i,       // GCP metadata
+    ];
+
+    if (BLOCKED_PATTERNS.some(p => p.test(hostname))) {
+      console.warn(`[SSRF] Blocked download attempt to internal host: ${hostname}`);
+      return res.status(400).json({ success: false, message: 'Download URL points to a restricted host' });
+    }
+
+    // Allowlist: Only permit known image-hosting domains, configured R2 buckets,
+    // and verified AI generation CDNs.
+    const extractHost = (raw?: string | null): string | null => {
+      if (!raw) return null;
+      try {
+        const trimmed = raw.trim();
+        const withProto = trimmed.startsWith('http://') || trimmed.startsWith('https://')
+          ? trimmed
+          : `https://${trimmed}`;
+        return new URL(withProto).hostname.toLowerCase();
+      } catch {
+        return null;
+      }
+    };
+
+    const r2Host = extractHost(process.env.CLOUDFLARE_R2_PUBLIC_URL);
+    const imgGenHost = extractHost(process.env.IMAGE_GENERATION_PUBLIC_URL);
+    const videoGenHost = extractHost(process.env.VIDEO_GENERATION_PUBLIC_URL);
+    const featureRequestHost = extractHost(process.env.FEATURE_REQUEST_R2_PUBLIC_URL);
+
+    const ALLOWED_EXACT_HOSTS = [
+      r2Host,
+      imgGenHost,
+      videoGenHost,
+      featureRequestHost,
+      'oaidalleapiprodscus.blob.core.windows.net',  // OpenAI DALL-E
+      'replicate.delivery',                          // Replicate
+      'fal.media',                                   // fal.ai
+    ].filter(Boolean) as string[];
+
+    const isAllowedHost =
+      ALLOWED_EXACT_HOSTS.some(h => hostname === h || hostname.endsWith(`.${h}`)) ||
+      hostname.endsWith('.r2.dev') ||
+      hostname.endsWith('.sreeai.qzz.io') ||
+      hostname === 'sreeai.qzz.io' ||
+      hostname.endsWith('.sreesai.qzz.io') ||
+      hostname === 'sreesai.qzz.io';
+
+    if (!isAllowedHost) {
+      console.warn(`[SSRF] Blocked download from non-allowlisted host: ${hostname}`);
+      return res.status(400).json({ success: false, message: 'Download URL host is not allowed' });
+    }
+  } catch (urlError: any) {
+    return res.status(400).json({ success: false, message: 'Invalid download URL' });
+  }
+  // ── End SSRF Protection ───────────────────────────────────────────────
 
   try {
     // 1. Download the image from URL
     const response = await axios.get(url as string, {
       responseType: 'stream',
-      timeout: 15000 // 15s timeout
+      timeout: 15000, // 15s timeout
+      maxRedirects: 3, // Limit redirect-based SSRF
     });
 
     // 2. Stream back to client
@@ -587,8 +667,14 @@ router.post('/image', flexAuthMiddleware, abuseDetectionMiddleware(), queuePrior
     }
 
 
-    if (!prompt || !prompt.trim()) {
+    if (!prompt || typeof prompt !== 'string' || !prompt.trim()) {
       return res.status(400).json({ success: false, message: 'Prompt is required' });
+    }
+    if (prompt.length > 2000) {
+      return res.status(400).json({ success: false, message: 'Prompt must be 2000 characters or fewer' });
+    }
+    if (negative_prompt && (typeof negative_prompt !== 'string' || negative_prompt.length > 500)) {
+      return res.status(400).json({ success: false, message: 'Negative prompt must be 500 characters or fewer' });
     }
 
     const apiKey = req.apiKey;

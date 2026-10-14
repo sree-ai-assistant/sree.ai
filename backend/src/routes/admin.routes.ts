@@ -1,4 +1,5 @@
 import { Router, Request, Response } from 'express';
+import crypto from 'crypto';
 import { r2Service } from '../services/r2.service';
 
 const router = Router();
@@ -24,7 +25,25 @@ const adminGuard = (req: Request, res: Response, next: Function) => {
     });
   }
 
-  if (secret !== expected) {
+  if (typeof secret !== 'string') {
+    return res.status(403).json({
+      success: false,
+      message: 'Invalid admin secret.',
+    });
+  }
+
+  // Use timing-safe comparison to prevent side-channel attacks (NV-02)
+  let isValid = false;
+  try {
+    isValid = crypto.timingSafeEqual(
+      Buffer.from(secret, 'utf8'),
+      Buffer.from(expected, 'utf8')
+    );
+  } catch {
+    isValid = false; // length mismatch
+  }
+
+  if (!isValid) {
     return res.status(403).json({
       success: false,
       message: 'Invalid admin secret.',

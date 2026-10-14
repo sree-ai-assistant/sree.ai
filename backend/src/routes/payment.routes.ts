@@ -353,14 +353,12 @@ router.post('/webhook', paymentRateLimit(30), async (req: Request, res: Response
   try {
     const signature = req.headers['x-razorpay-signature'] as string;
 
-    // Verify webhook signature (if secret is configured)
-    if (process.env.RAZORPAY_WEBHOOK_SECRET) {
-      const rawBody = (req as any).rawBody || JSON.stringify(req.body);
-      const isValid = verifyWebhookSignature(rawBody, signature);
-      if (!isValid) {
-        console.error('[Webhook] Signature verification failed');
-        return res.status(400).json({ error: 'Invalid webhook signature' });
-      }
+    // Verify webhook signature (FINDING-03: always verify, never skip)
+    const rawBody = (req as any).rawBody || JSON.stringify(req.body);
+    const isValid = verifyWebhookSignature(rawBody, signature);
+    if (!isValid) {
+      console.error('[Webhook] Signature verification failed');
+      return res.status(400).json({ error: 'Invalid webhook signature' });
     }
 
     const event = req.body.event;

@@ -205,8 +205,25 @@ router.post('/change-password', authMiddleware, async (req: any, res) => {
   try {
     const { new_password } = req.body;
 
-    if (!new_password || new_password.length < 6) {
-      return res.status(400).json({ success: false, message: 'Password must be at least 6 characters' });
+    if (!new_password || typeof new_password !== 'string') {
+      return res.status(400).json({ success: false, message: 'Password is required' });
+    }
+
+    // Password strength validation
+    if (new_password.length < 8) {
+      return res.status(400).json({ success: false, message: 'Password must be at least 8 characters' });
+    }
+    if (new_password.length > 128) {
+      return res.status(400).json({ success: false, message: 'Password must be 128 characters or fewer' });
+    }
+    if (!/[A-Z]/.test(new_password)) {
+      return res.status(400).json({ success: false, message: 'Password must contain at least one uppercase letter' });
+    }
+    if (!/[a-z]/.test(new_password)) {
+      return res.status(400).json({ success: false, message: 'Password must contain at least one lowercase letter' });
+    }
+    if (!/[0-9]/.test(new_password)) {
+      return res.status(400).json({ success: false, message: 'Password must contain at least one number' });
     }
 
     const { error } = await supabaseAdmin.auth.admin.updateUserById(req.user.id, {
@@ -623,72 +640,82 @@ router.delete('/account', authMiddleware, async (req: any, res) => {
 });
 
 // Upgrade or modify plan (Phase 8 Subscription Simulation)
-router.post('/subscription/upgrade', authMiddleware, async (req: any, res) => {
-  try {
-    const { tier } = req.body;
-    const userId = req.user.id;
+// ⚠️ SECURITY (FINDING-02): This endpoint bypasses payment verification.
+//    It is gated to development mode only. In production, plan upgrades
+//    MUST go through the Razorpay payment flow in payment.routes.ts.
+if (process.env.NODE_ENV === 'development') {
+  router.post('/subscription/upgrade', authMiddleware, async (req: any, res) => {
+    try {
+      const { tier } = req.body;
+      const userId = req.user.id;
 
-    if (!tier || !['free', 'starter', 'pro'].includes(tier)) {
-      return res.status(400).json({ success: false, message: 'Invalid tier selection' });
-    }
+      if (!tier || !['free', 'starter', 'pro'].includes(tier)) {
+        return res.status(400).json({ success: false, message: 'Invalid tier selection' });
+      }
 
-    // 1. Update profiles table
-    const { error: profileError } = await supabaseAdmin
-      .from('profiles')
-      .update({
-        plan_type: tier,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', userId);
-
-    if (profileError) throw profileError;
-
-    // 2. Upsert subscriptions record to ensure getUserTier resolves it correctly
-    const now = new Date();
-    const cycleEnd = new Date();
-    cycleEnd.setDate(now.getDate() + 30); // 30-day billing cycle simulation
-
-    const { error: subError } = await supabaseAdmin
-      .from('subscriptions')
-      .upsert({
-        user_id: userId,
-        tier,
-        status: 'active',
-        plan_id: `plan_${tier}`,
-        billing_cycle_start: now.toISOString(),
-        billing_cycle_end: cycleEnd.toISOString(),
-        created_at: now.toISOString(),
-      }, {
-        onConflict: 'user_id'
-      });
-
-    if (subError) throw subError;
-
-    // Sync limits to profiles table immediately so UI updates instantly
-    const plan = PLAN_CONFIGS[tier as keyof typeof PLAN_CONFIGS];
-    if (plan) {
-      await supabaseAdmin
+      // 1. Update profiles table
+      const { error: profileError } = await supabaseAdmin
         .from('profiles')
         .update({
-          chat_limit_daily: plan.limits.chat.daily,
-          chat_limit_monthly: plan.limits.chat.monthly,
-          voice_limit_daily: plan.limits.voice.daily,
-          voice_limit_monthly: plan.limits.voice.monthly,
-          image_limit_daily: plan.limits.image.daily,
-          image_limit_monthly: plan.limits.image.monthly,
+          plan_type: tier,
+          updated_at: new Date().toISOString(),
         })
         .eq('id', userId);
-    }
 
-    res.json({
-      success: true,
-      message: `Successfully updated plan to ${tier.charAt(0).toUpperCase() + tier.slice(1)}`,
-      data: { tier }
-    });
-  } catch (error: any) {
-    console.error('Subscription upgrade error:', error);
-    res.status(500).json({ success: false, message: error.message || 'Failed to update subscription' });
-  }
-});
+      if (profileError) throw profileError;
+
+      // 2. Upsert subscriptions record to ensure getUserTier resolves it correctly
+      const now = new Date();
+      const cycleEnd = new Date();
+      cycleEnd.setDate(now.getDate() + 30); // 30-day billing cycle simulation
+
+      const { error: subError } = await supabaseAdmin
+        .from('subscriptions')
+        .upsert({
+          user_id: userId,
+          tier,
+          status: 'active',
+          plan_id: `plan_${tier}`,
+          billing_cycle_start: now.toISOString(),
+          billing_cycle_end: cycleEnd.toISOString(),
+          created_at: now.toISOString(),
+        }, {
+          onConflict: 'user_id'
+        });
+
+      if (subError) throw subError;
+
+      // Sync limits to profiles table immediately so UI updates instantly
+      const plan = PLAN_CONFIGS[tier as keyof typeof PLAN_CONFIGS];
+      if (plan) {
+        await supabaseAdmin
+          .from('profiles')
+          .update({
+            chat_limit_daily: plan.limits.chat.daily,
+            chat_limit_monthly: plan.limits.chat.monthly,
+            voice_limit_daily: plan.limits.voice.daily,
+            voice_limit_monthly: plan.limits.voice.monthly,
+            image_limit_daily: plan.limits.image.daily,
+            image_limit_monthly: plan.limits.image.monthly,
+          })
+          .eq('id', userId);
+      }
+
+      res.json({
+        success: true,
+        message: `[DEV ONLY] Successfully updated plan to ${tier.charAt(0).toUpperCase() + tier.slice(1)}`,
+        data: { tier }
+      });
+    } catch (error: any) {
+      console.error('Subscription upgrade error:', error);
+      res.status(500).json({ success: false, message: error.message || 'Failed to update subscription' });
+    }
+  });
+} else {
+  // In production, return 404 so the endpoint doesn't exist at all
+  router.post('/subscription/upgrade', (_req, res) => {
+    res.status(404).json({ success: false, message: 'Not found' });
+  });
+}
 
 export default router;

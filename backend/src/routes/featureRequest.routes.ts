@@ -1,4 +1,5 @@
 import { Router, type Request, type Response, type NextFunction } from 'express';
+import crypto from 'crypto';
 import multer from 'multer';
 import fs from 'fs';
 import path from 'path';
@@ -217,22 +218,37 @@ router.get('/public', async (req: Request, res: Response, next: NextFunction) =>
  */
 router.patch('/:ticketId/status', async (req: Request, res: Response, next: NextFunction) => {
   try {
+    // NV-04: Only accept secret via headers (never from body — body secrets leak into logs)
     const secretHeader =
-      req.headers['x-webhook-secret'] ||
+      req.headers['x-webhook-secret'] as string ||
       (req.headers.authorization?.startsWith('Bearer ')
         ? req.headers.authorization.split(' ')[1]
         : null);
 
-    const bodySecret = req.body.secret || req.body.webhook_secret;
-
-    if (
-      secretHeader !== FEATURE_REQUEST_WEBHOOK_SECRET &&
-      bodySecret !== FEATURE_REQUEST_WEBHOOK_SECRET
-    ) {
+    if (!secretHeader || typeof secretHeader !== 'string' || !FEATURE_REQUEST_WEBHOOK_SECRET) {
       return res.status(401).json({
         success: false,
         code: 'UNAUTHORIZED',
-        message: 'Invalid webhook secret header or token.',
+        message: 'Invalid or missing webhook secret header.',
+      });
+    }
+
+    // Timing-safe comparison
+    let isSecretValid = false;
+    try {
+      isSecretValid = crypto.timingSafeEqual(
+        Buffer.from(secretHeader, 'utf8'),
+        Buffer.from(FEATURE_REQUEST_WEBHOOK_SECRET, 'utf8')
+      );
+    } catch {
+      isSecretValid = false;
+    }
+
+    if (!isSecretValid) {
+      return res.status(401).json({
+        success: false,
+        code: 'UNAUTHORIZED',
+        message: 'Invalid webhook secret header.',
       });
     }
 
