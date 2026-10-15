@@ -11,7 +11,8 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { getOrCreateAnonymousIdentity, getStoredAnonId, generateFingerprintHash } from '../lib/fingerprint';
 import styles from './ChatPage.module.css';
 import { VoiceOverlay } from '../components/voice/VoiceOverlay';
-import { ChatInput, type Attachment } from '../components/chat/ChatInput';
+import { ChatInput, type Attachment, type ChatInputRef, extractFilesFromClipboard } from '../components/chat/ChatInput';
+import { DragDropOverlay } from '../components/chat/DragDropOverlay';
 import { ModelSelector } from '../components/chat/ModelSelector';
 import { useModelStore } from '../store/model.store';
 import { useLocation } from 'react-router-dom';
@@ -568,6 +569,130 @@ const ChatPage: React.FC = () => {
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [autoScrollEnabled, setAutoScrollEnabled] = useState(true);
   const [showScrollButton, setShowScrollButton] = useState(false);
+  const chatInputRef = useRef<ChatInputRef>(null);
+  const [isDraggingOver, setIsDraggingOver] = useState(false);
+  const dragCounterRef = useRef(0);
+
+  // Prevent browser from navigating to dropped file anywhere in window
+  useEffect(() => {
+    const handleGlobalDragOver = (e: DragEvent) => {
+      e.preventDefault();
+    };
+
+    const handleGlobalDrop = (e: DragEvent) => {
+      e.preventDefault();
+    };
+
+    window.addEventListener('dragover', handleGlobalDragOver);
+    window.addEventListener('drop', handleGlobalDrop);
+
+    return () => {
+      window.removeEventListener('dragover', handleGlobalDragOver);
+      window.removeEventListener('drop', handleGlobalDrop);
+    };
+  }, []);
+
+  // Handle Drag & Drop detection across the Chat Page
+  useEffect(() => {
+    const isFilesDrag = (e: DragEvent) => {
+      if (!e.dataTransfer) return false;
+      const types = e.dataTransfer.types;
+      return Boolean(types && Array.from(types).includes('Files'));
+    };
+
+    const handleDragEnter = (e: DragEvent) => {
+      if (!isFilesDrag(e)) return;
+      e.preventDefault();
+      dragCounterRef.current++;
+      setIsDraggingOver(true);
+    };
+
+    const handleDragOver = (e: DragEvent) => {
+      if (!isFilesDrag(e)) return;
+      e.preventDefault();
+      if (e.dataTransfer) {
+        e.dataTransfer.dropEffect = 'copy';
+      }
+    };
+
+    const handleDragLeave = (e: DragEvent) => {
+      if (!isFilesDrag(e)) return;
+      e.preventDefault();
+      dragCounterRef.current--;
+      if (dragCounterRef.current <= 0) {
+        dragCounterRef.current = 0;
+        setIsDraggingOver(false);
+      }
+    };
+
+    const handleDrop = (e: DragEvent) => {
+      if (!isFilesDrag(e)) return;
+      e.preventDefault();
+      dragCounterRef.current = 0;
+      setIsDraggingOver(false);
+
+      if (e.dataTransfer?.files && e.dataTransfer.files.length > 0) {
+        const droppedFiles = Array.from(e.dataTransfer.files);
+        chatInputRef.current?.processFiles(droppedFiles);
+        chatInputRef.current?.focus();
+      }
+    };
+
+    const handleBlur = () => {
+      dragCounterRef.current = 0;
+      setIsDraggingOver(false);
+    };
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        dragCounterRef.current = 0;
+        setIsDraggingOver(false);
+      }
+    };
+
+    window.addEventListener('dragenter', handleDragEnter);
+    window.addEventListener('dragover', handleDragOver);
+    window.addEventListener('dragleave', handleDragLeave);
+    window.addEventListener('drop', handleDrop);
+    window.addEventListener('blur', handleBlur);
+    window.addEventListener('keydown', handleKeyDown);
+
+    return () => {
+      window.removeEventListener('dragenter', handleDragEnter);
+      window.removeEventListener('dragover', handleDragOver);
+      window.removeEventListener('dragleave', handleDragLeave);
+      window.removeEventListener('drop', handleDrop);
+      window.removeEventListener('blur', handleBlur);
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, []);
+
+  // Handle window-level clipboard paste (e.g. user takes screenshot with Win+Shift+S or Win+V and hits Ctrl+V anywhere on chat page)
+  useEffect(() => {
+    const handleWindowPaste = (e: ClipboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      // Do not hijack paste if user is typing in another input, search box, or editable area
+      // (The chat textarea has its own local onPaste handler)
+      if (
+        target &&
+        (target.tagName === 'INPUT' ||
+          target.tagName === 'TEXTAREA' ||
+          target.isContentEditable)
+      ) {
+        return;
+      }
+
+      const files = extractFilesFromClipboard(e.clipboardData);
+      if (files.length > 0) {
+        e.preventDefault();
+        chatInputRef.current?.processFiles(files);
+        chatInputRef.current?.focus();
+      }
+    };
+
+    window.addEventListener('paste', handleWindowPaste);
+    return () => window.removeEventListener('paste', handleWindowPaste);
+  }, []);
 
   // Anonymous Sign-Up Prompt Banner (appears after 2nd completed response for unauthenticated users)
   const [isAnonBannerDismissed, setIsAnonBannerDismissed] = useState<boolean>(() => {
@@ -1524,6 +1649,8 @@ const ChatPage: React.FC = () => {
     >
       <>
         <div className={styles.container}>
+          <DragDropOverlay isVisible={isDraggingOver} />
+
           <div className={styles.header}>
             <ModelSelector />
           </div>
@@ -1772,6 +1899,7 @@ const ChatPage: React.FC = () => {
             </AnimatePresence>
 
             <ChatInput
+              ref={chatInputRef}
               onSend={(text) => handleSend(text, false)}
               onStop={handleStop}
               isGenerating={isGenerating}

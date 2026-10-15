@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState, useEffect, useCallback, useImperativeHandle } from 'react';
 import { Plus, Mic, ArrowUp, X, FileText, Table, Music, Video, Image as ImageIcon, AudioLines, Check, Trash2, Loader2, RotateCcw, ChevronLeft, ChevronRight, Brain, ChevronDown } from 'lucide-react';
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
 import { toast } from 'react-hot-toast';
@@ -23,6 +23,154 @@ export interface Attachment {
   hasFailed?: boolean;
   errorMessage?: string;
   extractedText?: string;
+}
+
+export interface ChatInputRef {
+  processFiles: (files: File[]) => Promise<void>;
+  focus: () => void;
+  getTextareaElement: () => HTMLTextAreaElement | null;
+}
+
+export function extractFilesFromClipboard(clipboardData: DataTransfer | null): File[] {
+  if (!clipboardData) return [];
+  const files: File[] = [];
+
+  // 1. Check clipboardData.files
+  if (clipboardData.files && clipboardData.files.length > 0) {
+    for (let i = 0; i < clipboardData.files.length; i++) {
+      const f = clipboardData.files[i];
+      if (f && f.size > 0) {
+        files.push(ensureDescriptiveFileName(f));
+      }
+    }
+  }
+
+  // 2. If no files in .files, check .items (where OS screenshots / snippets live)
+  if (files.length === 0 && clipboardData.items) {
+    for (let i = 0; i < clipboardData.items.length; i++) {
+      const item = clipboardData.items[i];
+      if (item.kind === 'file') {
+        const f = item.getAsFile();
+        if (f && f.size > 0) {
+          files.push(ensureDescriptiveFileName(f));
+        }
+      }
+    }
+  }
+
+  return files;
+}
+
+function ensureDescriptiveFileName(file: File): File {
+  const isGeneric = !file.name || file.name === 'image.png' || file.name === 'blob';
+  if (isGeneric) {
+    const ext = (file.type.split('/')[1] || 'png').replace('+xml', '');
+    const now = new Date();
+    const pad = (n: number) => String(n).padStart(2, '0');
+    const timestamp = `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}_${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`;
+    const newName = `pasted_image_${timestamp}.${ext}`;
+    try {
+      return new File([file], newName, { type: file.type, lastModified: Date.now() });
+    } catch {
+      return file;
+    }
+  }
+  return file;
+}
+
+async function extractTextFromFile(file: File): Promise<string> {
+  const isImage = file.type.startsWith('image/');
+  const isAudio = file.type.startsWith('audio/');
+  const isVideo = file.type.startsWith('video/');
+  if (isImage || isAudio || isVideo) return '';
+
+  let extractedText = '';
+  try {
+    const textFiles = ['txt', 'md', 'js', 'ts', 'tsx', 'json', 'css', 'html', 'py', 'c', 'cpp', 'rs', 'go', 'sh', 'yaml', 'yml', 'sql', 'xml', 'log'];
+    const extension = file.name.split('.').pop()?.toLowerCase() || '';
+
+    if (textFiles.includes(extension)) {
+      extractedText = await file.text();
+    } else if (extension === 'ipynb') {
+      const content = await file.text();
+      const data = JSON.parse(content);
+      if (data.cells) {
+        extractedText = data.cells
+          .filter((c: any) => c.cell_type === 'markdown' || c.cell_type === 'code')
+          .map((c: any) => `\n--- ${c.cell_type} ---\n${Array.isArray(c.source) ? c.source.join('') : c.source}`)
+          .join('\n');
+      }
+    } else if (extension === 'pdf') {
+      try {
+        const pdfjs = await import('pdfjs-dist');
+        pdfjs.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
+
+        const arrayBuffer = await file.arrayBuffer();
+        const pdf = await pdfjs.getDocument({ data: arrayBuffer }).promise;
+        let fullText = '';
+
+        for (let i = 1; i <= Math.min(pdf.numPages, 10); i++) {
+          const page = await pdf.getPage(i);
+          const content = await page.getTextContent();
+          const pageText = content.items.map((item: any) => (item as any).str).join(' ');
+          fullText += pageText + '\n';
+        }
+        extractedText = fullText;
+      } catch (pdfError) {
+        console.error('PDF extraction failed:', pdfError);
+      }
+    } else if (['docx', 'doc', 'odt', 'rtf'].includes(extension)) {
+      try {
+        const mammoth = await import('mammoth');
+        const arrayBuffer = await file.arrayBuffer();
+        const result = await mammoth.extractRawText({ arrayBuffer });
+        extractedText = result.value;
+      } catch (err) {
+        console.error('Doc extraction failed:', err);
+      }
+    } else if (['xlsx', 'xls', 'xlsm', 'xlsb', 'ods', 'csv', 'tsv', 'tab', 'prn'].includes(extension)) {
+      try {
+        const XLSX = await import('xlsx');
+        const arrayBuffer = await file.arrayBuffer();
+        const workbook = XLSX.read(arrayBuffer, {
+          type: 'array',
+          cellDates: true,
+          cellText: true
+        });
+        let excelText = '';
+        workbook.SheetNames.forEach((sheetName, index) => {
+          const worksheet = workbook.Sheets[sheetName];
+          if (worksheet) {
+            const sheetCsv = XLSX.utils.sheet_to_csv(worksheet, {
+              skipHidden: true,
+              blankrows: false
+            });
+            if (sheetCsv.trim()) {
+              const isMultiSheet = workbook.SheetNames.length > 1 || !['Sheet1', 'sheet1', file.name].includes(sheetName);
+              if (isMultiSheet) {
+                excelText += `\n--- SHEET ${index + 1}: ${sheetName} ---\n`;
+              }
+              excelText += sheetCsv;
+              if (isMultiSheet) {
+                excelText += `\n--- END OF SHEET ${index + 1} ---\n`;
+              }
+            }
+          }
+        });
+        extractedText = excelText;
+      } catch (err) {
+        console.error('Spreadsheet extraction failed:', err);
+      }
+    }
+
+    if (extractedText.length > 50000) {
+      extractedText = extractedText.slice(0, 50000) + '... [TRUNCATED]';
+    }
+  } catch (e) {
+    console.error('Frontend extraction error:', e);
+  }
+
+  return extractedText;
 }
 
 interface ChatInputProps {
@@ -362,7 +510,7 @@ const AttachmentScrollableRow: React.FC<{ children: React.ReactNode }> = ({ chil
   );
 };
 
-export const ChatInput: React.FC<ChatInputProps> = ({
+export const ChatInput = React.forwardRef<ChatInputRef, ChatInputProps>(({
   onSend,
   onStop,
   isGenerating = false,
@@ -373,7 +521,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
   disabled = false,
   placeholderText,
   onAuthRequired
-}) => {
+}, ref) => {
   const [internalValue, setInternalValue] = React.useState('');
   const [isVoiceHovered, setIsVoiceHovered] = React.useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -381,6 +529,11 @@ export const ChatInput: React.FC<ChatInputProps> = ({
   const [previewImage, setPreviewImage] = React.useState<{ url: string; name: string } | null>(null);
   const { selectedModel, setVisionRequired, reasoningEffort, setReasoningEffort } = useModelStore();
   const { user } = useAuthStore();
+
+  const attachmentsRef = useRef(attachments);
+  useEffect(() => {
+    attachmentsRef.current = attachments;
+  }, [attachments]);
 
   const provider = selectedModel?.provider?.toLowerCase();
   const isGoogle = provider === 'google';
@@ -720,190 +873,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
     }
   };
 
-  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files || []);
-
-    if (attachments.length + files.length > 10) {
-      toast.error('You can only upload up to 10 files per prompt.', {
-        style: {
-          background: '#ff4757',
-          color: '#fff',
-          fontWeight: 'bold',
-        },
-        iconTheme: {
-          primary: '#fff',
-          secondary: '#ff4757',
-        },
-      });
-      if (fileInputRef.current) fileInputRef.current.value = '';
-      if (imageInputRef.current) imageInputRef.current.value = '';
-      return;
-    }
-
-    // Block anonymous users from uploading files
-    if (!user) {
-      onAuthRequired?.();
-      if (fileInputRef.current) fileInputRef.current.value = '';
-      if (imageInputRef.current) imageInputRef.current.value = '';
-      return;
-    }
-
-    // Require user agreement to the content upload policy
-    const agreed = await useUploadAgreementStore.getState().checkAgreement();
-    if (!agreed) {
-      if (fileInputRef.current) fileInputRef.current.value = '';
-      if (imageInputRef.current) imageInputRef.current.value = '';
-      return;
-    }
-
-    const tier = user.plan_type || 'free';
-    const MAX_SIZE_MB = tier === 'pro' ? 250 : tier === 'starter' ? 50 : 10;
-    const MAX_SIZE = MAX_SIZE_MB * 1024 * 1024;
-
-    const validFiles = files.filter(file => file.size <= MAX_SIZE);
-
-    if (validFiles.length < files.length) {
-      toast.error(`File Size Limit Exceeded! Your plan (${tier}) allows up to ${MAX_SIZE_MB}MB per file.`, {
-        style: {
-          background: '#ff4757',
-          color: '#fff',
-          fontWeight: 'bold',
-        },
-        iconTheme: {
-          primary: '#fff',
-          secondary: '#ff4757',
-        },
-      });
-    }
-
-    if (validFiles.length === 0) {
-      if (fileInputRef.current) fileInputRef.current.value = '';
-      if (imageInputRef.current) imageInputRef.current.value = '';
-      return;
-    }
-
-    const newAttachments: Attachment[] = await Promise.all(validFiles.map(async file => {
-      const isImage = file.type.startsWith('image/');
-      const isAudio = file.type.startsWith('audio/');
-      const isVideo = file.type.startsWith('video/');
-      let extractedText = '';
-
-      if (!isImage && !isAudio && !isVideo) {
-        try {
-          const textFiles = ['txt', 'md', 'js', 'ts', 'tsx', 'json', 'css', 'html', 'py', 'c', 'cpp', 'rs', 'go', 'sh', 'yaml', 'yml', 'sql', 'xml', 'log'];
-          const extension = file.name.split('.').pop()?.toLowerCase();
-
-          if (textFiles.includes(extension || '')) {
-            extractedText = await file.text();
-          } else if (extension === 'ipynb') {
-            const content = await file.text();
-            const data = JSON.parse(content);
-            if (data.cells) {
-              extractedText = data.cells
-                .filter((c: any) => c.cell_type === 'markdown' || c.cell_type === 'code')
-                .map((c: any) => `\n--- ${c.cell_type} ---\n${Array.isArray(c.source) ? c.source.join('') : c.source}`)
-                .join('\n');
-            }
-          } else if (extension === 'pdf') {
-            try {
-              const pdfjs = await import('pdfjs-dist');
-              pdfjs.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
-
-              const arrayBuffer = await file.arrayBuffer();
-              const pdf = await pdfjs.getDocument({ data: arrayBuffer }).promise;
-              let fullText = '';
-
-              for (let i = 1; i <= Math.min(pdf.numPages, 10); i++) {
-                const page = await pdf.getPage(i);
-                const content = await page.getTextContent();
-                const pageText = content.items.map((item: any) => item.str).join(' ');
-                fullText += pageText + '\n';
-              }
-              extractedText = fullText;
-            } catch (pdfError) {
-              console.error('PDF extraction failed:', pdfError);
-            }
-          } else if (['docx', 'doc', 'odt', 'rtf'].includes(extension || '')) {
-            try {
-              const mammoth = await import('mammoth');
-              const arrayBuffer = await file.arrayBuffer();
-              const result = await mammoth.extractRawText({ arrayBuffer });
-              extractedText = result.value;
-            } catch (err) {
-              console.error('Doc extraction failed:', err);
-            }
-          } else if (['xlsx', 'xls', 'xlsm', 'xlsb', 'ods', 'csv', 'tsv', 'tab', 'prn'].includes(extension || '')) {
-            try {
-              const XLSX = await import('xlsx');
-              const arrayBuffer = await file.arrayBuffer();
-              const workbook = XLSX.read(arrayBuffer, {
-                type: 'array',
-                cellDates: true,
-                cellText: true
-              });
-              let excelText = '';
-              workbook.SheetNames.forEach((sheetName, index) => {
-                const worksheet = workbook.Sheets[sheetName];
-                if (worksheet) {
-                  const sheetCsv = XLSX.utils.sheet_to_csv(worksheet, {
-                    skipHidden: true,
-                    blankrows: false
-                  });
-                  if (sheetCsv.trim()) {
-                    const isMultiSheet = workbook.SheetNames.length > 1 || !['Sheet1', 'sheet1', file.name].includes(sheetName);
-                    if (isMultiSheet) {
-                      excelText += `\n--- SHEET ${index + 1}: ${sheetName} ---\n`;
-                    }
-                    excelText += sheetCsv;
-                    if (isMultiSheet) {
-                      excelText += `\n--- END OF SHEET ${index + 1} ---\n`;
-                    }
-                  }
-                }
-              });
-              extractedText = excelText;
-            } catch (err) {
-              console.error('Spreadsheet extraction failed:', err);
-            }
-          }
-
-          if (extractedText.length > 50000) {
-            extractedText = extractedText.slice(0, 50000) + '... [TRUNCATED]';
-          }
-        } catch (e) {
-          console.error('Frontend extraction error:', e);
-        }
-      }
-
-      let type: 'image' | 'document' | 'audio' | 'video' = 'document';
-      if (isImage) type = 'image';
-      else if (isAudio) type = 'audio';
-      else if (isVideo) type = 'video';
-
-      return {
-        id: `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
-        file,
-        preview: isImage ? URL.createObjectURL(file) : '',
-        type,
-        isUploading: true,
-        progress: 0,
-        hasFailed: false,
-        extractedText: extractedText || undefined
-      };
-    }));
-
-    const updated = [...attachments, ...newAttachments];
-    onAttachmentsChange(updated);
-
-    newAttachments.forEach((atl) => {
-      handleUploadSingleAttachment(atl.id, atl.file);
-    });
-
-    if (fileInputRef.current) fileInputRef.current.value = '';
-    if (imageInputRef.current) imageInputRef.current.value = '';
-  };
-
-  const handleUploadSingleAttachment = async (attachmentId: string, file: File) => {
+  const handleUploadSingleAttachment = useCallback(async (attachmentId: string, file: File) => {
     // Create an AbortController for this specific upload
     const controller = new AbortController();
     uploadAbortControllersRef.current.set(attachmentId, controller);
@@ -1007,7 +977,133 @@ export const ChatInput: React.FC<ChatInputProps> = ({
         },
       });
     }
+  }, [onAttachmentsChange]);
+
+  const processFiles = useCallback(async (files: File[]) => {
+    if (!files || files.length === 0) return;
+
+    const currentCount = attachmentsRef.current.length;
+    if (currentCount >= 10) {
+      toast.error('You can only upload up to 10 files per prompt.', {
+        style: {
+          background: '#ff4757',
+          color: '#fff',
+          fontWeight: 'bold',
+        },
+        iconTheme: {
+          primary: '#fff',
+          secondary: '#ff4757',
+        },
+      });
+      return;
+    }
+
+    let filesToProcess = files;
+    if (currentCount + filesToProcess.length > 10) {
+      const allowed = 10 - currentCount;
+      toast.error(`Maximum 10 files allowed per prompt. Only the first ${allowed} file(s) will be attached.`, {
+        style: {
+          background: '#ff4757',
+          color: '#fff',
+          fontWeight: 'bold',
+        },
+        iconTheme: {
+          primary: '#fff',
+          secondary: '#ff4757',
+        },
+      });
+      filesToProcess = filesToProcess.slice(0, allowed);
+    }
+
+    // Block anonymous users from uploading files
+    if (!user) {
+      onAuthRequired?.();
+      return;
+    }
+
+    // Require user agreement to the content upload policy
+    const agreed = await useUploadAgreementStore.getState().checkAgreement();
+    if (!agreed) {
+      return;
+    }
+
+    const tier = user.plan_type || 'free';
+    const MAX_SIZE_MB = tier === 'pro' ? 250 : tier === 'starter' ? 50 : 10;
+    const MAX_SIZE = MAX_SIZE_MB * 1024 * 1024;
+
+    const validFiles = filesToProcess.filter(file => file.size <= MAX_SIZE);
+
+    if (validFiles.length < filesToProcess.length) {
+      toast.error(`File Size Limit Exceeded! Your plan (${tier}) allows up to ${MAX_SIZE_MB}MB per file.`, {
+        style: {
+          background: '#ff4757',
+          color: '#fff',
+          fontWeight: 'bold',
+        },
+        iconTheme: {
+          primary: '#fff',
+          secondary: '#ff4757',
+        },
+      });
+    }
+
+    if (validFiles.length === 0) {
+      return;
+    }
+
+    const newAttachments: Attachment[] = await Promise.all(validFiles.map(async file => {
+      const isImage = file.type.startsWith('image/');
+      const isAudio = file.type.startsWith('audio/');
+      const isVideo = file.type.startsWith('video/');
+      const extractedText = await extractTextFromFile(file);
+
+      let type: 'image' | 'document' | 'audio' | 'video' = 'document';
+      if (isImage) type = 'image';
+      else if (isAudio) type = 'audio';
+      else if (isVideo) type = 'video';
+
+      return {
+        id: `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
+        file,
+        preview: isImage ? URL.createObjectURL(file) : '',
+        type,
+        isUploading: true,
+        progress: 0,
+        hasFailed: false,
+        extractedText: extractedText || undefined
+      };
+    }));
+
+    onAttachmentsChange(prev => [...prev, ...newAttachments]);
+
+    newAttachments.forEach((atl) => {
+      handleUploadSingleAttachment(atl.id, atl.file);
+    });
+  }, [user, onAuthRequired, onAttachmentsChange, handleUploadSingleAttachment]);
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    if (fileInputRef.current) fileInputRef.current.value = '';
+    if (imageInputRef.current) imageInputRef.current.value = '';
+    await processFiles(files);
   };
+
+  const handleTextareaPaste = (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
+    const files = extractFilesFromClipboard(e.clipboardData);
+    if (files.length > 0) {
+      // Intercept file/image pastes only
+      e.preventDefault();
+      e.stopPropagation();
+      processFiles(files);
+    }
+    // If no files (regular text/link/code paste), do nothing! Browser native paste executes normally.
+  };
+
+  useImperativeHandle(ref, () => ({
+    processFiles,
+    focus: () => textareaRef.current?.focus(),
+    getTextareaElement: () => textareaRef.current,
+  }), [processFiles]);
 
   const handleRetry = (id: string, e?: React.MouseEvent) => {
     e?.stopPropagation();
@@ -1028,6 +1124,18 @@ export const ChatInput: React.FC<ChatInputProps> = ({
       if (controller) {
         controller.abort();
         uploadAbortControllersRef.current.delete(targetId);
+      }
+    }
+
+    const target = typeof idOrIndex === 'string'
+      ? attachments.find(a => a.id === idOrIndex)
+      : attachments[idOrIndex];
+
+    if (target?.preview && target.preview.startsWith('blob:')) {
+      try {
+        URL.revokeObjectURL(target.preview);
+      } catch (err) {
+        // ignore
       }
     }
 
@@ -1206,6 +1314,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
                 value={internalValue}
                 onChange={(e) => setInternalValue(e.target.value)}
                 onKeyDown={handleKeyDown}
+                onPaste={handleTextareaPaste}
                 placeholder={placeholderText || "Ask anything"}
                 disabled={disabled}
                 rows={1}
@@ -1430,5 +1539,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
       />
     </div>
   );
-};
+});
+
+ChatInput.displayName = 'ChatInput';
 
