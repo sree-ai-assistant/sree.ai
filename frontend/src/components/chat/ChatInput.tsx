@@ -845,12 +845,37 @@ export const ChatInput = React.forwardRef<ChatInputRef, ChatInputProps>(({
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (disabled) return;
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      if (isGenerating) {
-        onStop?.();
-      } else {
-        handleAction();
+
+    // Do not trigger send while IME composition (predictive typing/autocorrect) is active
+    if (e.nativeEvent.isComposing || (e as any).keyCode === 229) {
+      return;
+    }
+
+    if (e.key === 'Enter') {
+      // Check if on a mobile/phone touch device
+      const isTouch = typeof window !== 'undefined' && (
+        ('ontouchstart' in window) ||
+        (navigator.maxTouchPoints > 0) ||
+        window.matchMedia?.('(pointer: coarse)').matches
+      );
+      const isMobileUA = typeof navigator !== 'undefined' && /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
+      const isSmallScreen = typeof window !== 'undefined' && window.innerWidth <= 768;
+      const isMobile = (isTouch && isSmallScreen) || isMobileUA;
+
+      // On mobile devices, Enter on virtual keyboard should always insert a newline, not send!
+      // Users on mobile tap the dedicated Send button (up arrow) to send.
+      if (isMobile) {
+        return;
+      }
+
+      // On desktop: Shift+Enter inserts a newline, while Enter sends the message
+      if (!e.shiftKey) {
+        e.preventDefault();
+        if (isGenerating) {
+          onStop?.();
+        } else {
+          handleAction();
+        }
       }
     }
   };
