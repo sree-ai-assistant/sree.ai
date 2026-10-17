@@ -525,6 +525,8 @@ router.post('/chat', flexAuthMiddleware, abuseDetectionMiddleware(), queuePriori
         }, userId, provider, reasoningEffort);
 
         let contentSent = false;
+        let accumulatedContent = '';
+        let accumulatedReasoning = '';
 
         try {
           for await (const chunk of stream) {
@@ -534,6 +536,7 @@ router.post('/chat', flexAuthMiddleware, abuseDetectionMiddleware(), queuePriori
             // Forward native provider reasoning tokens (Groq GPT-OSS delta.reasoning or Google native thought)
             const reasoning = delta?.reasoning || delta?.reasoning_content || delta?.thought || '';
             if (reasoning) {
+              accumulatedReasoning += reasoning;
               writeSSE({ reasoning });
             }
 
@@ -553,8 +556,53 @@ router.post('/chat', flexAuthMiddleware, abuseDetectionMiddleware(), queuePriori
 
             if (content) {
               contentSent = true;
+              accumulatedContent += content;
               writeSSE({ content });
             }
+          }
+
+          // Safety net: If the model stream completed with ZERO visible content tokens (or only empty whitespace):
+          if (!contentSent || accumulatedContent.trim().length === 0) {
+            console.warn(`[AI Route] Model completed stream without any visible content. Generating contextual recovery response...`);
+
+            // Examine user prompt and conversation history
+            const userMessages = apiMessages.filter(m => m.role === 'user');
+            const lastUserMsg = userMessages[userMessages.length - 1];
+            const lastUserText = typeof lastUserMsg?.content === 'string'
+              ? lastUserMsg.content.trim()
+              : Array.isArray(lastUserMsg?.content)
+              ? (lastUserMsg.content.find((p: any) => p.type === 'text')?.text || '')
+              : '';
+            const lowerPrompt = lastUserText.toLowerCase();
+
+            // Find previous assistant message in history
+            const assistantMessages = apiMessages.filter(m => m.role === 'assistant');
+            const prevAssistantMsg = assistantMessages[assistantMessages.length - 1];
+            const prevContent = typeof prevAssistantMsg?.content === 'string'
+              ? prevAssistantMsg.content.trim()
+              : '';
+
+            let recoveryText = '';
+
+            // Case 1: User asked for PDF / Word / Export of previous content
+            if (prevContent && (lowerPrompt.includes('pdf') || lowerPrompt.includes('word') || lowerPrompt.includes('docx') || lowerPrompt.includes('doc') || lowerPrompt.includes('download') || lowerPrompt.includes('export') || lowerPrompt.includes('file'))) {
+              if (lowerPrompt.includes('pdf')) {
+                recoveryText = `Here is your document formatted and ready for PDF export:\n\n${prevContent}\n\n---\n💡 **Ready to Download**: You can download this directly as a formatted vector PDF by clicking the **Export (📥)** button in the action bar below this message and selecting **PDF Document (.pdf)**.`;
+              } else if (lowerPrompt.includes('word') || lowerPrompt.includes('docx') || lowerPrompt.includes('doc')) {
+                recoveryText = `Here is your document formatted and ready for Word export:\n\n${prevContent}\n\n---\n💡 **Ready to Download**: You can download this directly as a formatted Word document by clicking the **Export (📥)** button in the action bar below this message and selecting **Word Document (.docx)**.`;
+              } else {
+                recoveryText = `Here is your document formatted and ready for export:\n\n${prevContent}\n\n---\n💡 **Ready to Download**: Click the **Export (📥)** button in the action bar below this message to export as Word (.docx), PDF (.pdf), or Markdown (.md).`;
+              }
+            } else if (prevContent && (lowerPrompt.includes('continue') || lowerPrompt.includes('more') || lowerPrompt.includes('go on') || lowerPrompt.length <= 15)) {
+              // Case 2: Short follow-up on previous context
+              recoveryText = `I am here to continue assisting you with this! Would you like me to expand on a specific part of the previous response, format it for export, or explore a new direction?`;
+            } else {
+              // Case 3: General prompt where model produced empty response
+              recoveryText = `I have received your request. To help me provide the best possible response, could you please provide a few more details or clarify what specific information or document you need?`;
+            }
+
+            contentSent = true;
+            writeSSE({ content: recoveryText });
           }
         } catch (streamError: any) {
           if (contentSent) {

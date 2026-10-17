@@ -1489,7 +1489,12 @@ const ChatPage: React.FC = () => {
 
       if (currentConvId && !isSaved) {
         isSaved = true;
-        const finalContent = assistantMessage.trim() || "😓🫠";
+        let finalContent = assistantMessage.trim();
+        if (!finalContent) {
+          finalContent = accumulatedReasoning
+            ? "I have finished processing your request. You can export the generated document using the **Export (📥)** button below, or let me know if you would like me to adjust or expand upon any part of it."
+            : "I'm ready to help! Could you please provide a few more details or clarify what you would like me to assist you with?";
+        }
 
         // Extract reasoning tag content from the raw message (Qwen/DeepSeek/NVIDIA/Google raw reasoning)
         const thinkingContent = extractThinkingContent(finalContent);

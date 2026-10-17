@@ -12,9 +12,16 @@ interface CodeBlockProps {
 export const CodeBlock: React.FC<CodeBlockProps> = memo(({ language, value }) => {
   const [copied, setCopied] = useState(false);
 
-  const displayLanguage = (language || 'code').toLowerCase().trim();
+  const rawLang = (language || '').toLowerCase().trim();
+  const isAsciiDiagram =
+    rawLang === 'diagram' ||
+    ((['text', 'txt', 'plaintext', 'ascii', 'code', ''].includes(rawLang)) &&
+      /[\^|v\+\-]|\b\[.*?\]\b|-->|<--|\+--|==|--/.test(value));
+
+  const displayLanguage = isAsciiDiagram ? 'Diagram' : (rawLang || 'code');
   const prismLanguage = (() => {
-    switch (displayLanguage) {
+    if (isAsciiDiagram) return 'text';
+    switch (rawLang) {
       case 'c++':
         return 'cpp';
       case 'c#':
@@ -39,7 +46,7 @@ export const CodeBlock: React.FC<CodeBlockProps> = memo(({ language, value }) =>
       case 'diagram':
         return 'text';
       default:
-        return displayLanguage || 'text';
+        return rawLang || 'text';
     }
   })();
 
@@ -74,7 +81,7 @@ export const CodeBlock: React.FC<CodeBlockProps> = memo(({ language, value }) =>
           background: 'transparent',
           padding: '1rem',
         }}
-        className={styles.codeContent}
+        className={`${styles.codeContent} ${isAsciiDiagram ? styles.diagramContent : ''}`}
       >
         {value}
       </SyntaxHighlighter>

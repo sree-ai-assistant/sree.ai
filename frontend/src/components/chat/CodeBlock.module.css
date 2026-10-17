@@ -28,7 +28,7 @@
 }
 
 .language {
-  text-transform: lowercase;
+  text-transform: none;
   font-weight: 500;
 }
 
@@ -67,3 +67,8 @@
   border-bottom-left-radius: 11px;
   border-bottom-right-radius: 11px;
 }
+
+.diagramContent {
+  line-height: 1.22 !important;
+  font-size: 0.82rem !important;
+}

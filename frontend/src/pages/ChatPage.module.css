@@ -1138,12 +1138,13 @@
   align-items: center;
   gap: 8px;
   margin-top: 12px;
-  opacity: 0.6;
-  transition: opacity 0.2s ease;
+  position: relative;
+  z-index: 20;
 }
 
-.responseActions:hover {
-  opacity: 1;
+.messageRow.activeExportRow {
+  position: relative;
+  z-index: 500;
 }
 
 .actionBtn {
@@ -1183,6 +1184,201 @@
     box-shadow: 0 0 12px rgba(59, 130, 246, 0.3);
   }
 }
+
+/* Export Dropdown in message actions */
+.exportWrapper {
+  position: relative;
+  display: inline-flex;
+  z-index: 510;
+}
+
+.actionBtn.active {
+  color: var(--text-primary);
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+.chevronOpen {
+  transform: rotate(180deg);
+  transition: transform 0.18s ease;
+}
+
+.exportDropdown {
+  position: absolute;
+  left: 0;
+  min-width: 195px;
+  background: #1A1A1A !important;
+  opacity: 1 !important;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 10px;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.7), 0 8px 10px -6px rgba(0, 0, 0, 0.6);
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  z-index: 1000;
+}
+
+.exportDropdown.openDown {
+  top: calc(100% + 6px);
+  bottom: auto;
+  animation: exportFadeDown 0.15s ease-out;
+}
+
+.exportDropdown.openUp {
+  bottom: calc(100% + 6px);
+  top: auto;
+  animation: exportFadeUp 0.15s ease-out;
+}
+
+@keyframes exportFadeDown {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes exportFadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.exportDropdownItem {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 8px 10px;
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  color: #e2e8f0;
+  font-size: 0.8rem;
+  font-weight: 500;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.exportDropdownItem:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: #ffffff;
+}
+
+.exportDropdownItem:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.exportItemLabel {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+}
+
+.docxIcon {
+  color: #3b82f6;
+  flex-shrink: 0;
+}
+
+.pptxIcon {
+  color: #f97316;
+  flex-shrink: 0;
+}
+
+.pdfIcon {
+  color: #ef4444;
+  flex-shrink: 0;
+}
+
+.mdIcon {
+  color: #10b981;
+  flex-shrink: 0;
+}
+
+.exportBadge {
+  font-size: 0.65rem;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.08);
+  color: #94a3b8;
+  font-family: var(--font-mono, monospace);
+  font-weight: 500;
+  white-space: nowrap;
+  flex-shrink: 0;
+  margin-left: 10px;
+}
+
+.exportCreditNote {
+  font-size: 0.68rem;
+  color: #64748b;
+  padding: 6px 10px 2px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  margin-top: 2px;
+}
+
+/* Slide Deck Markdown Outline Toggle */
+.slideDeckToggleRow {
+  display: flex;
+  align-items: center;
+  margin-top: 6px;
+  margin-bottom: 10px;
+}
+
+.slideDeckToggleBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 6px;
+  color: #94a3b8;
+  font-size: 0.78rem;
+  padding: 5px 10px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.slideDeckToggleBtn:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: #f1f5f9;
+  border-color: rgba(255, 255, 255, 0.15);
+}
+
+/* Presentation Integrated AI Guidance Text (Top & Bottom) */
+.presentationTopText {
+  margin-bottom: 0.75rem;
+  line-height: 1.6;
+}
+
+.presentationBottomText {
+  margin-top: 0.85rem;
+  line-height: 1.6;
+}
+
+.presentationOutlineContent {
+  margin: 0.5rem 0 0.85rem 0;
+  padding: 14px 18px;
+  background: rgba(255, 255, 255, 0.025);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 8px;
+  max-height: 400px;
+  overflow-y: auto;
+}
+
 
 /* User Prompt Copy Button */
 .userCopyButton {

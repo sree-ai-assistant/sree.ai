@@ -1,6 +1,6 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Bot, User, AlertCircle, RefreshCw, Copy, Check, Volume2, VolumeX, Play, Pause, Loader2, Bug, Brain, Wrench, ChevronDown, ChevronRight, Globe, Code2, Clock, Terminal } from 'lucide-react';
+import { Bot, User, AlertCircle, RefreshCw, Copy, Check, Volume2, VolumeX, Play, Pause, Loader2, Bug, Brain, Wrench, ChevronDown, ChevronRight, Globe, Code2, Clock, Terminal, Download, FileText, FileCode } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import styles from '../../pages/ChatPage.module.css';
@@ -11,6 +11,9 @@ import { useAuthStore } from '../../store/auth.store';
 import { getUserAvatarUrl, getLoggedInDefaultAvatarUrl, getAnonymousAvatarUrl } from '../../utils/avatar';
 import { parseMessageContent } from '../../utils/messageParser';
 import { extractThinkingContent as extractThinking, filterThinkingTags as defaultFilterThinkingTags } from '../../utils/thinkingFilter';
+import { exportDocument, type ExportFormat } from '../../utils/documentExportService';
+import { splitPresentationContent } from '../../utils/pptxExporter';
+import { SlideDeckPreview } from './SlideDeckPreview';
 
 interface ChatMessageProps {
   message: any;
@@ -91,6 +94,59 @@ export const ChatMessageComponent: React.FC<ChatMessageProps> = ({
 
   const messageId = m.id || `msg_${i}`;
   const isPlayingThisTts = activeTtsMessageId === messageId;
+
+  // Document Export state
+  const [showExportMenu, setShowExportMenu] = useState(false);
+  const [isExporting, setIsExporting] = useState<ExportFormat | null>(null);
+  const [dropdownPlacement, setDropdownPlacement] = useState<'up' | 'down'>('down');
+  const exportDropdownRef = useRef<HTMLDivElement>(null);
+  const exportButtonRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (exportDropdownRef.current && !exportDropdownRef.current.contains(e.target as Node)) {
+        setShowExportMenu(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const toggleExportMenu = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!showExportMenu && exportButtonRef.current) {
+      const rect = exportButtonRef.current.getBoundingClientRect();
+      const spaceBelow = window.innerHeight - rect.bottom;
+      const spaceAbove = rect.top;
+      const dropdownHeight = 200; // estimated dropdown height
+
+      // If close to bottom of screen and there is more room above, open upwards
+      if (spaceBelow < dropdownHeight && spaceAbove > spaceBelow) {
+        setDropdownPlacement('up');
+      } else {
+        setDropdownPlacement('down');
+      }
+    }
+    setShowExportMenu(prev => !prev);
+  };
+
+  const handleExport = async (format: ExportFormat, theme?: any) => {
+    setShowExportMenu(false);
+    setIsExporting(format);
+    try {
+      const headingMatch = filteredContent.match(/^#\s+(.+)$/m)?.[1]?.trim();
+      const title = headingMatch || activeConversation?.title || 'Document';
+
+      // Clean watermark-free export: no author, no date watermark header
+      await exportDocument(format, filteredContent, {
+        title,
+        includeMetadata: false,
+        theme,
+      });
+    } finally {
+      setIsExporting(null);
+    }
+  };
 
   // Resolve reasoning: from metadata (saved) or inline <think> tags
   const reasoning = useMemo(() => {
@@ -196,6 +252,15 @@ export const ChatMessageComponent: React.FC<ChatMessageProps> = ({
     : displayContent;
   const trimmedContent = (filteredContent || '').trim();
 
+  // Dedicated Interactive Presentation Deck & Conversational Guidance Split
+  const presentationData = useMemo(() => {
+    if (m.role !== 'assistant' || isStreaming) return null;
+    const split = splitPresentationContent(filteredContent, activeConversation?.title);
+    return split.hasPresentation ? split : null;
+  }, [m.role, isStreaming, filteredContent, activeConversation?.title]);
+
+  const [showTextOutline, setShowTextOutline] = useState(false);
+
   // If text is empty or is merely a placeholder dot with attachments, suppress rendering markdown
   const shouldRenderMarkdown = trimmedContent !== '' && !(allAttachments.length > 0 && (trimmedContent === '.' || trimmedContent === '...'));
 
@@ -216,7 +281,7 @@ export const ChatMessageComponent: React.FC<ChatMessageProps> = ({
 
   return (
     <div
-      className={`${styles.messageRow} ${m.role === 'user' ? styles.user : ''} ${isStreaming ? styles.streamingRow : ''}`}
+      className={`${styles.messageRow} ${m.role === 'user' ? styles.user : ''} ${isStreaming ? styles.streamingRow : ''} ${showExportMenu ? styles.activeExportRow : ''}`}
     >
       <div className={`${styles.avatar} ${m.role === 'assistant' ? styles.ai : ''}`}>
         {m.role === 'assistant' ? (
@@ -343,13 +408,76 @@ export const ChatMessageComponent: React.FC<ChatMessageProps> = ({
                 </div>
               ) : (
                 <>
-                  {shouldRenderMarkdown && (
-                    <ReactMarkdown
-                      remarkPlugins={[remarkGfm]}
-                      components={markdownComponents}
-                    >
-                      {filteredContent}
-                    </ReactMarkdown>
+                  {/* Presentation Message with Integrated Top/Bottom AI Guidance */}
+                  {presentationData ? (
+                    <>
+                      {/* Top Conversational Guidance Text (if present) */}
+                      {presentationData.topText && (
+                        <div className={styles.presentationTopText}>
+                          <ReactMarkdown
+                            remarkPlugins={[remarkGfm]}
+                            components={markdownComponents}
+                          >
+                            {presentationData.topText}
+                          </ReactMarkdown>
+                        </div>
+                      )}
+
+                      {/* Dedicated Interactive 1:1 Presentation Slide Carousel */}
+                      <SlideDeckPreview
+                        slideDeck={presentationData.slideDeck!}
+                        onDownload={(format, theme) => handleExport(format, theme)}
+                        isExporting={isExporting === 'pptx'}
+                      />
+
+                      {/* Collapsible Slide Markdown Outline Toggle */}
+                      <div className={styles.slideDeckToggleRow}>
+                        <button
+                          type="button"
+                          className={styles.slideDeckToggleBtn}
+                          onClick={() => setShowTextOutline(!showTextOutline)}
+                          aria-expanded={showTextOutline}
+                          title={showTextOutline ? 'Collapse slide markdown outline' : 'Expand full slide markdown text'}
+                        >
+                          <FileText size={13} />
+                          <span>{showTextOutline ? 'Hide slide text outline' : 'View slide text outline'}</span>
+                          {showTextOutline ? <ChevronDown size={13} /> : <ChevronRight size={13} />}
+                        </button>
+                      </div>
+
+                      {/* Collapsible Slide Outline (Only the slides, without duplicating top/bottom text) */}
+                      {showTextOutline && (
+                        <div className={styles.presentationOutlineContent}>
+                          <ReactMarkdown
+                            remarkPlugins={[remarkGfm]}
+                            components={markdownComponents}
+                          >
+                            {presentationData.slideOutline}
+                          </ReactMarkdown>
+                        </div>
+                      )}
+
+                      {/* Bottom Conversational Guidance Text (if present) */}
+                      {presentationData.bottomText && (
+                        <div className={styles.presentationBottomText}>
+                          <ReactMarkdown
+                            remarkPlugins={[remarkGfm]}
+                            components={markdownComponents}
+                          >
+                            {presentationData.bottomText}
+                          </ReactMarkdown>
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    shouldRenderMarkdown && (
+                      <ReactMarkdown
+                        remarkPlugins={[remarkGfm]}
+                        components={markdownComponents}
+                      >
+                        {filteredContent}
+                      </ReactMarkdown>
+                    )
                   )}
 
                   {m.metadata?.interrupted && (
@@ -359,39 +487,103 @@ export const ChatMessageComponent: React.FC<ChatMessageProps> = ({
                     </div>
                   )}
 
-                  {m.role === 'assistant' && !isStreaming && onPlayTts && (
+                  {m.role === 'assistant' && !isStreaming && (
                     <div className={styles.responseActions}>
-                      <button
-                        className={`${styles.actionBtn} ${isPlayingThisTts ? styles.playing : ''}`}
-                        onClick={() => onPlayTts?.(messageId, filteredContent)}
-                      >
-                        {isPlayingThisTts ? (
-                          <>
-                            {ttsStatus === 'preparing' && <Loader2 size={15} className={styles.spinner} />}
-                            {ttsStatus === 'playing' && <Pause size={15} />}
-                            {ttsStatus === 'paused' && <Play size={15} />}
-                            {(!ttsStatus || ttsStatus === 'idle') && <Volume2 size={15} />}
-                          </>
-                        ) : (
-                          <Volume2 size={15} />
-                        )}
-                        <span>
+                      {onPlayTts && (
+                        <button
+                          className={`${styles.actionBtn} ${isPlayingThisTts ? styles.playing : ''}`}
+                          onClick={() => onPlayTts?.(messageId, filteredContent)}
+                        >
                           {isPlayingThisTts ? (
                             <>
-                              {ttsStatus === 'preparing' && 'Preparing'}
-                              {ttsStatus === 'playing' && 'Pause'}
-                              {ttsStatus === 'paused' && 'Play'}
-                              {(!ttsStatus || ttsStatus === 'idle') && 'Read'}
+                              {ttsStatus === 'preparing' && <Loader2 size={15} className={styles.spinner} />}
+                              {ttsStatus === 'playing' && <Pause size={15} />}
+                              {ttsStatus === 'paused' && <Play size={15} />}
+                              {(!ttsStatus || ttsStatus === 'idle') && <Volume2 size={15} />}
                             </>
                           ) : (
-                            'Read'
+                            <Volume2 size={15} />
                           )}
-                        </span>
-                      </button>
+                          <span>
+                            {isPlayingThisTts ? (
+                              <>
+                                {ttsStatus === 'preparing' && 'Preparing'}
+                                {ttsStatus === 'playing' && 'Pause'}
+                                {ttsStatus === 'paused' && 'Play'}
+                                {(!ttsStatus || ttsStatus === 'idle') && 'Read'}
+                              </>
+                            ) : (
+                              'Read'
+                            )}
+                          </span>
+                        </button>
+                      )}
                       <button className={styles.actionBtn} onClick={handleCopy}>
                         {copied ? <Check size={15} /> : <Copy size={15} />}
                         <span>{copied ? 'Copied' : 'Copy'}</span>
                       </button>
+
+                      <div className={styles.exportWrapper} ref={exportDropdownRef}>
+                        <button
+                          ref={exportButtonRef}
+                          type="button"
+                          className={`${styles.actionBtn} ${showExportMenu ? styles.active : ''}`}
+                          onClick={toggleExportMenu}
+                          title="Export as Word (.docx), PDF (.pdf), or Markdown (.md)"
+                          aria-label="Export document"
+                        >
+                          {isExporting ? <Loader2 size={14} className={styles.spinner} /> : <Download size={14} />}
+                          <span>Export</span>
+                          <ChevronDown size={12} className={showExportMenu ? styles.chevronOpen : ''} />
+                        </button>
+
+                        {showExportMenu && (
+                          <div className={`${styles.exportDropdown} ${dropdownPlacement === 'up' ? styles.openUp : styles.openDown}`}>
+                            <button
+                              type="button"
+                              className={styles.exportDropdownItem}
+                              onClick={() => handleExport('docx')}
+                              disabled={isExporting !== null}
+                            >
+                              <span className={styles.exportItemLabel}>
+                                <FileText size={15} className={styles.docxIcon} />
+                                <span>Word Document</span>
+                              </span>
+                              <span className={styles.exportBadge}>.docx</span>
+                            </button>
+
+                            <button
+                              type="button"
+                              className={styles.exportDropdownItem}
+                              onClick={() => handleExport('pdf')}
+                              disabled={isExporting !== null}
+                            >
+                              <span className={styles.exportItemLabel}>
+                                <FileText size={15} className={styles.pdfIcon} />
+                                <span>PDF Document</span>
+                              </span>
+                              <span className={styles.exportBadge}>.pdf</span>
+                            </button>
+
+                            <button
+                              type="button"
+                              className={styles.exportDropdownItem}
+                              onClick={() => handleExport('md')}
+                              disabled={isExporting !== null}
+                            >
+                              <span className={styles.exportItemLabel}>
+                                <FileCode size={15} className={styles.mdIcon} />
+                                <span>Markdown</span>
+                              </span>
+                              <span className={styles.exportBadge}>.md</span>
+                            </button>
+
+                            <div className={styles.exportCreditNote}>
+                              1 download credit for Word & PDF
+                            </div>
+                          </div>
+                        )}
+                      </div>
                     </div>
                   )}
                 </>
