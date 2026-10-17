@@ -573,24 +573,6 @@ const ChatPage: React.FC = () => {
   const [isDraggingOver, setIsDraggingOver] = useState(false);
   const dragCounterRef = useRef(0);
 
-  // Prevent browser from navigating to dropped file anywhere in window
-  useEffect(() => {
-    const handleGlobalDragOver = (e: DragEvent) => {
-      e.preventDefault();
-    };
-
-    const handleGlobalDrop = (e: DragEvent) => {
-      e.preventDefault();
-    };
-
-    window.addEventListener('dragover', handleGlobalDragOver);
-    window.addEventListener('drop', handleGlobalDrop);
-
-    return () => {
-      window.removeEventListener('dragover', handleGlobalDragOver);
-      window.removeEventListener('drop', handleGlobalDrop);
-    };
-  }, []);
 
   // Handle Drag & Drop detection across the Chat Page
   useEffect(() => {

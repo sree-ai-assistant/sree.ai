@@ -1099,6 +1099,74 @@ export const ChatInput = React.forwardRef<ChatInputRef, ChatInputProps>(({
     // If no files (regular text/link/code paste), do nothing! Browser native paste executes normally.
   };
 
+  const handleTextareaDragOver = (e: React.DragEvent<HTMLTextAreaElement>) => {
+    // Calling preventDefault is required in HTML5 drag and drop to allow dropping
+    e.preventDefault();
+    if (e.dataTransfer) {
+      e.dataTransfer.dropEffect = 'copy';
+    }
+  };
+
+  const handleTextareaDrop = (e: React.DragEvent<HTMLTextAreaElement>) => {
+    // If files are dropped directly onto the textarea, delegate to processFiles
+    const hasFiles = Boolean(
+      (e.dataTransfer.types && Array.from(e.dataTransfer.types).includes('Files')) ||
+      (e.dataTransfer.files && e.dataTransfer.files.length > 0)
+    );
+
+    if (hasFiles) {
+      e.preventDefault();
+      e.stopPropagation();
+      const files = Array.from(e.dataTransfer.files || []);
+      if (files.length > 0) {
+        processFiles(files);
+      }
+      return;
+    }
+
+    // Handle dragged text
+    const droppedText = e.dataTransfer.getData('text/plain') || e.dataTransfer.getData('text');
+    if (droppedText) {
+      e.preventDefault();
+      e.stopPropagation();
+
+      const textarea = textareaRef.current;
+      if (textarea) {
+        let insertIndex = textarea.selectionStart;
+
+        // Obtain precise caret drop position if supported by the browser
+        if (typeof (document as any).caretPositionFromPoint === 'function') {
+          const pos = (document as any).caretPositionFromPoint(e.clientX, e.clientY);
+          if (pos && pos.offsetNode === textarea) {
+            insertIndex = pos.offset;
+          }
+        } else if (typeof (document as any).caretRangeFromPoint === 'function') {
+          const range = (document as any).caretRangeFromPoint(e.clientX, e.clientY);
+          if (range) {
+            insertIndex = range.startOffset;
+          }
+        }
+
+        if (insertIndex === null || insertIndex === undefined || insertIndex < 0 || insertIndex > internalValue.length) {
+          insertIndex = internalValue.length;
+        }
+
+        const before = internalValue.slice(0, insertIndex);
+        const after = internalValue.slice(insertIndex);
+        const newValue = before + droppedText + after;
+        setInternalValue(newValue);
+
+        const newCursorPos = insertIndex + droppedText.length;
+        requestAnimationFrame(() => {
+          textarea.focus();
+          textarea.setSelectionRange(newCursorPos, newCursorPos);
+        });
+      } else {
+        setInternalValue(prev => prev + droppedText);
+      }
+    }
+  };
+
   useImperativeHandle(ref, () => ({
     processFiles,
     focus: () => textareaRef.current?.focus(),
@@ -1315,6 +1383,8 @@ export const ChatInput = React.forwardRef<ChatInputRef, ChatInputProps>(({
                 onChange={(e) => setInternalValue(e.target.value)}
                 onKeyDown={handleKeyDown}
                 onPaste={handleTextareaPaste}
+                onDragOver={handleTextareaDragOver}
+                onDrop={handleTextareaDrop}
                 placeholder={placeholderText || "Ask anything"}
                 disabled={disabled}
                 rows={1}
