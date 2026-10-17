@@ -36,8 +36,8 @@ yarn-error.log*
 Thumbs.db
 node_modules
 
-
 .agent
-
+.wrangler
+.dev.vars*
 frontend/public/test-cycle.html
 backend/uploads/

@@ -23,5 +23,8 @@ dist-ssr
 *.sln
 *.sw?
 
+# Cloudflare
+.wrangler
+.dev.vars*
 
 frontend/public/test-cycle.html
