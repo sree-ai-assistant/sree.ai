@@ -51,7 +51,7 @@ graph TD
 | **Auth** | Hybrid — works for anonymous + authenticated users |
 | **Route Guard** | `HybridOnboardingGuard` |
 | **Middleware** | `flexAuth → abuseDetection → queuePriority → featureGate('basicChat') → rateLimit('chat')` |
-| **Features** | Multi-model AI chat, SSE streaming, Perplexity-style collapsible reasoning drawer for `<think>` thinking streams with duration clocks and step trace, model-aware thinking level selector (Minimal, Low, Medium, High adapted per model architecture), file upload (max 10 attachments per prompt) with per-file cancellation and drag-and-scroll attachment strip, interactive table utilities (Copy, CSV export, XLSX export, expand modal), code highlighting with sticky headers, resilient user message wrapping (`word-break: break-word`, `overflow-wrap: anywhere`), markdown rendering, conversation history, model selector with responsive viewports, sequenced thinking model notifications (30s initial notification followed by `"🔊 I Will Notify You, Once Done !!!"` 30s alert), 2nd-response anonymous bottom CTA banner (`.anonBanner`), and 5th-response 24-hour recurring high-intent auth modal (`AnonAuthModal`) |
+| **Features** | Multi-model AI chat, SSE streaming, Perplexity-style collapsible reasoning drawer for `<think>` thinking streams with duration clocks and step trace, model-aware thinking level selector (Minimal, Low, Medium, High adapted per model architecture), universal document export (PowerPoint PPTX, Word DOCX, PDF, Markdown), interactive Slide Deck Previewer & Slideshow mode, file upload (max 10 attachments per prompt) with per-file cancellation and drag-and-scroll attachment strip, interactive table utilities (Copy, CSV export, XLSX export, expand modal), code highlighting with sticky headers, resilient user message wrapping (`word-break: break-word`, `overflow-wrap: anywhere`), markdown rendering, conversation history, model selector with responsive viewports, sequenced thinking model notifications (30s initial notification followed by `"🔊 I Will Notify You, Once Done !!!"` 30s alert), 2nd-response anonymous bottom CTA banner (`.anonBanner`), and 5th-response 24-hour recurring high-intent auth modal (`AnonAuthModal`) |
 | **Models** | 102+ models from NVIDIA NIM, Google Gemini, Groq — featuring flagships: **Gemini 3.8 Flash**, **DeepSeek V4 Pro**, **DeepSeek V4 Flash**, **DeepSeek V4.1 Flash**, **z-ai/glm-5.3**, **z-ai/glm-5.3-flash**, **Moonshot Kimi K3**, **GPT-OSS 120B/20B**, **Qwen 3.8 27B**, **Gemini 3.5 Flash Lite**, **LLaMA 3.3**, and **Nemotron 3.5** |
 | **Attachments** | Documents (PDF, DOCX, XLSX, CSV, TXT), Images (PNG, JPG, GIF), Audio (WebM, MP3, WAV), Video (MP4, WebM) — max 10 files per prompt enforced in UI & client validation; individual upload abort controller for instant cancellation |
 | **Upload Agreement** | Mandatory policy modal (`UploadAgreementModal`) detailing external AI model inference transmission and Indian IT Act Sec 79 compliance |
@@ -68,12 +68,24 @@ graph TD
 | **Protocol** | Full-duplex bidirectional streaming via WebSocket (`/api/live/voice/ws`) with Web Audio API PCM Worklet (`pcmWorklet.js`) |
 | **Models** | Priority Google Gemini Live models (`gemini-3.8-live`, `gemini-3.1-flash-live-preview`, `gemini-2.5-flash-native-audio-preview-12-2025`) |
 | **Voice Personas** | 30+ Google AI Studio voice options (*Aoede*, *Puck*, *Zephyr*, *Fenrir*, *Despina*, etc.) with live preview audio samples and user preference persistence in `profiles.live_voice` |
-| **Cascading Fallback** | Automatic failover to Deepgram Nova-2 STT $\rightarrow$ Chat LLM $\rightarrow$ TTS if WebSocket disconnects or encounters upstream rate limits |
+| **Cascading Fallback** | 6-tier fallback cascade: NVIDIA Parakeet TDT 0.6B ASR primary (with 16kHz mono audio conversion) $\rightarrow$ Groq Whisper Large V3 $\rightarrow$ Deepgram Nova-2 STT $\rightarrow$ Chat LLM $\rightarrow$ TTS |
 | **Session Guardrails** | Tier-based session duration limits (Free, Starter, Pro) with real-time countdown popups and high-traffic notices |
 | **Audio Feedback & Visualizer** | Wake-up tune (`Voice-mode-wakeup-tune.mp3`), background tab chat completion chime (`chat-inactive-completion-notifier.mp3`), organic Canvas particle ring with thinking mode, waking-up transitions, and stream disconnect auto-recovery |
 | **Quick Launch & Error Recovery** | Conditional voice mode button on empty chat input with interactive tooltip; automatic bug report pre-fill on `FeatureRequestPage` upon model or voice stream failure |
 
-### 1.2 Self-Healing AI Model Error Observer System
+### 1.2 Universal Document Export & Slide Deck Generator
+
+| Aspect | Detail |
+|--------|--------|
+| **Supported Formats** | PowerPoint (`.pptx`), Word (`.docx`), PDF (`.pdf`), Markdown (`.md`) |
+| **Execution Architecture** | 100% client-side conversion via `pptxgenjs`, `docx`, and `jspdf` running in browser volatile memory with 0 cloud conversion API leaks |
+| **Presentation Themes** | 5 built-in themes: Corporate Blue, Minimal Dark/Light, Creative Amber, Cyberpunk Neon, Tech Emerald (`presentationThemes.ts`) |
+| **Slide Layout Engine** | Title, two-column, cards, quotes, timeline, stats, centered diagrams, and syntax-highlighted code blocks |
+| **SlideDeckPreview Modal** | Interactive in-app previewer with slide-by-slide navigation cards, full-screen slideshow presentation mode with keyboard arrows, and 1-click PPTX download |
+| **Watermark & Tier Rules** | Free & anonymous downloads feature subtle Sree AI badge watermark; Starter and Pro tier subscribers receive clean, unbranded slide decks |
+| **Quota & Rate Limiting** | Tracked via `POST /api/ai/track-download` with atomic usage accounting under `rateLimitMiddleware('download')` |
+
+### 1.3 Self-Healing AI Model Error Observer System
 
 | Aspect | Detail |
 |--------|--------|

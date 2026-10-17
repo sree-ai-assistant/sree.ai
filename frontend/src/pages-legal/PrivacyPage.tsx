@@ -9,7 +9,7 @@ export const PrivacyPage: React.FC = () => {
       title="Privacy Policy"
       subtitle="How Sree AI collects, processes, encrypts, and safeguards your personal data in strict compliance with the Indian DPDP Act 2023, GDPR, and CCPA."
       badge="Privacy & Data Protection"
-      lastUpdated="August 20, 2026"
+      lastUpdated="October 18, 2026"
     >
       <div className={styles.callout}>
         <ShieldCheck className={styles.calloutIcon} size={20} />
@@ -36,6 +36,7 @@ export const PrivacyPage: React.FC = () => {
         <li><strong>Account Registration Data:</strong> When creating an account via Supabase Auth (Email or OAuth providers such as Google/GitHub), we collect your email address, display name, nickname, avatar URL, occupation, and optional onboarding profile details.</li>
         <li><strong>User Customization & Instructions:</strong> Custom system prompts, tone preferences (<code>custom_instructions</code>), and personal background details (<code>more_about_you</code>) you choose to supply to customize AI interactions.</li>
         <li><strong>Chat Inputs & Media Content:</strong> Prompts, text messages, questions, uploaded files (PDFs, Word documents, Excel spreadsheets, images), voice audio recordings, and generated AI assets (images/videos).</li>
+        <li><strong>Exported Documents & Presentations:</strong> AI responses can be exported directly into PowerPoint presentations (<code>.pptx</code>), Word documents (<code>.docx</code>), PDF files (<code>.pdf</code>), or Markdown (<code>.md</code>). All document conversions are performed 100% locally on your client device using browser-based WebAssembly/JavaScript libraries. Exported document contents are generated directly in client volatile memory and are NEVER transmitted to external third-party file conversion servers or cloud APIs.</li>
         <li><strong>Bring Your Own Key (BYOK) Credentials:</strong> If you opt into the BYOK feature, you provide external API keys (e.g., NVIDIA NIM, Google Gemini, Groq, Deepgram). These keys are encrypted immediately using <strong>AES-256-GCM</strong> before database insertion and are never stored in plaintext.</li>
         <li><strong>Support & Feature Requests:</strong> Information submitted through our ticket system, including your name, email, issue descriptions, and screenshots.</li>
       </ul>
@@ -120,9 +121,9 @@ export const PrivacyPage: React.FC = () => {
               <td>Global</td>
             </tr>
             <tr>
-              <td><strong>NVIDIA Corporation (NIM)</strong></td>
-              <td>AI Model Inference Provider</td>
-              <td>User prompt text & context (Transient)</td>
+              <td><strong>NVIDIA Corporation (NIM / Parakeet ASR)</strong></td>
+              <td>AI Model Inference & Speech-to-Text Transcription</td>
+              <td>User prompt text & context; transient audio data for Parakeet STT (Transient)</td>
               <td>US / Global</td>
             </tr>
             <tr>
@@ -166,6 +167,7 @@ export const PrivacyPage: React.FC = () => {
           <br />1. Sree AI does NOT sell your personal data or user conversations.
           <br />2. When you upload files, documents (PDF, DOCX, XLSX), images, or audio prompts during chat, these inputs are transmitted directly to the selected AI provider (Google LLC, NVIDIA Corporation, Groq LLC, Deepgram Inc.) to execute inference.
           <br />3. Each AI model provider processes data in accordance with their respective enterprise API terms and privacy policies. While enterprise API endpoints generally do not train on customer inputs, some providers may retain transient logs for safety monitoring or process data under their standard terms. Sree AI disclaims all liability for upstream model provider data handling, retention, or processing practices.
+          <br />4. <strong>Document Exports (PPTX, DOCX, PDF, MD):</strong> All document conversions are executed 100% on the client device in local browser memory without transmitting your document contents to third-party file conversion APIs or external microservices.
         </div>
       </div>
 

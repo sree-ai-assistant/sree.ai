@@ -44,7 +44,7 @@ Designed with a **dual-identity architecture**, users can start chatting immedia
 - **Gemini Live Bidirectional Streaming**: Ultra-low-latency real-time voice mode powered by Google Gemini Live WebSockets (`/api/live/voice/ws`) with Web Audio API PCM Worklets (`pcmWorklet.js`).
 - **30+ Google AI Studio Voice Personas**: User-selectable voices (*Aoede*, *Puck*, *Zephyr*, *Fenrir*, *Despina*, etc.) with live in-app audio previews and prompt personalization.
 - **Audio Chimes & Visualizer**: Includes native voice wake-up chime (`Voice-mode-wakeup-tune.mp3`), background tab chat completion notification (`chat-inactive-completion-notifier.mp3`), and organic Canvas thinking ring animation.
-- **Cascading STT & TTS Fallback**: Automatic failover to Deepgram Nova-2 STT $\rightarrow$ Chat LLM $\rightarrow$ TTS if WebSocket or network conditions degrade.
+- **Cascading STT & TTS Fallback**: 6-tier fallback cascade featuring NVIDIA Parakeet TDT 0.6B ASR primary (with automated 16kHz mono audio conversion via ffmpeg-static) $\rightarrow$ Groq Whisper Large V3 $\rightarrow$ Deepgram Nova-2 STT $\rightarrow$ Chat LLM $\rightarrow$ TTS if WebSocket or network conditions degrade.
 - **Tier-Based Session Guardrails**: Tiered session duration limits (Free, Starter, Pro) with real-time countdown popups and high-traffic notices.
 
 ### 🩺 Self-Healing AI Model Error Observer
@@ -52,6 +52,13 @@ Designed with a **dual-identity architecture**, users can start chatting immedia
 - **Smart Circuit Breaker**: Auto-flags models as `in_maintenance = true` upon encountering **5 consecutive failures** of status codes 404, 410, 500, 502, or 503, preventing repeated user disruption.
 - **12-Hour Self-Healing Window**: Stale unflagged counters automatically purge every 12 hours via `reset_stale_error_counters` RPC.
 - **Live Diagnostics API**: Instant visibility into in-memory counters and active database flags via `GET /api/models/observer-status`.
+
+### 📊 Universal Document & Presentation Export Studio
+- **PowerPoint Presentation Generator (`.pptx`)**: Direct conversion of AI chat completions into multi-slide presentations with 5 curated themes (Corporate Blue, Minimal Dark/Light, Creative Amber, Cyberpunk Neon, Tech Emerald), intelligent slide layout engine (Title, Two-Column, Cards, Quote, Timeline, Stats), centered ASCII/diagrams, and syntax-highlighted code blocks with indentation preserved.
+- **Interactive In-App Slide Deck Previewer**: Dedicated `SlideDeckPreview` modal allowing users to inspect slides with thumbnail cards, full-screen interactive slideshow presentation mode (with keyboard arrow navigation), and 1-click PPTX download.
+- **Word Document (`.docx`), PDF (`.pdf`), and Markdown (`.md`) Exports**: Client-side conversion executed in browser volatile memory with zero cloud converter data leaks.
+- **Tier-Aware Watermark Badges**: Free and anonymous downloads feature a subtle Sree AI brand badge watermark; Starter and Pro tier subscribers receive clean, unbranded exports.
+- **Download Quota Tracking**: Atomic rate limiting via `POST /api/ai/track-download` (`download` tool type).
 
 ### 🎨 Creative Studio (Images & Videos)
 - **AI Image Generation**: Prioritizes **FLUX.2 klein** as the default high-speed studio model, alongside FLUX.1 (Dev/Schnell), SDXL, and SD 3.5 Large with local settings persistence, aspect ratios, and instant downloads.
@@ -378,6 +385,8 @@ stateDiagram-v2
    # AI Provider Keys (supports single or comma-separated keys for pool rotation)
    NVIDIA_API_KEY=your_nvidia_api_key
    # NVIDIA_API_KEYS=nvapi-key1,nvapi-key2
+   # NVIDIA Parakeet TDT 0.6B ASR endpoint (optional, defaults to NVCF URL)
+   NVIDIA_PARAKEET_URL=https://2b940e91-a70e-4483-a958-d50408b96589.invocation.api.nvcf.nvidia.com/v1/audio/transcriptions
    GOOGLE_API_KEY=your_google_gemini_key
    # GOOGLE_API_KEYS=key1,key2
    GROQ_API_KEY=your_groq_api_key

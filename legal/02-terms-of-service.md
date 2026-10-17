@@ -1,7 +1,7 @@
 # Terms of Service — Sree AI
 
 **Effective Date:** August 20, 2026  
-**Last Updated:** August 20, 2026  
+**Last Updated:** October 18, 2026  
 **Application:** Sree AI (accessible via [https://app.sreeai.qzz.io](https://app.sreeai.qzz.io))
 
 ---
@@ -75,6 +75,7 @@ You retain all ownership rights in the prompts, text, images, audio recordings, 
 To the maximum extent permitted by applicable intellectual property law:
 - As between you and Sree AI, you own all outputs (text responses, generated images, synthesized speech, generated videos) generated in response to your prompts ("Output Content").
 - You are free to use your Output Content for personal, academic, or commercial purposes.
+- **Exported Presentations & Documents:** Presentations (`.pptx`), Word documents (`.docx`), PDFs (`.pdf`), and Markdown (`.md`) exported via Sree AI's document exporter are considered Output Content. Free and anonymous tier downloads feature a subtle Sree AI brand badge watermark. You agree not to remove, obfuscate, or tamper with the watermark badge on free tier presentations. Paid Starter and Pro tier subscribers receive clean, watermark-free document exports with full unencumbered commercial presentation rights.
 
 ### 5.3 Nature of AI Outputs & Disclaimers
 - **Probabilistic Technology:** AI models generate responses using statistical pattern matching. Outputs may occasionally be inaccurate, incomplete, misleading, or offensive ("Hallucinations").

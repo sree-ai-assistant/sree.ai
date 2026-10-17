@@ -9,7 +9,7 @@ export const RefundPolicyPage: React.FC = () => {
       title="Refund and Cancellation Policy"
       subtitle="Terms and conditions governing subscription cancellations, recurring billing cycles, refund eligibility, and Razorpay dispute resolution."
       badge="Billing & Cancellation"
-      lastUpdated="August 20, 2026"
+      lastUpdated="October 18, 2026"
     >
       <div className={styles.callout}>
         <Receipt className={styles.calloutIcon} size={20} />

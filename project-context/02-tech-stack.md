@@ -23,6 +23,9 @@
 | **class-variance-authority** | 0.7.x | Component variant management |
 | **clsx** / **tailwind-merge** | Latest | Conditional class utilities |
 | **mammoth** | 1.12.x | `.docx` file extraction (frontend) |
+| **pptxgenjs** | 4.0.x | Client-side PowerPoint presentation generation (`.pptx`) |
+| **docx** | 9.11.x | Client-side Word document generation (`.docx`) |
+| **jspdf** / **jspdf-autotable** | 4.2.x | Client-side PDF generation (`.pdf`) |
 | **pdfjs-dist** | 5.4.x | PDF file parsing (frontend) |
 | **xlsx** | 0.18.x | Excel/spreadsheet parsing |
 | **@supabase/supabase-js** | 2.103.x | Supabase client (auth + DB queries) |

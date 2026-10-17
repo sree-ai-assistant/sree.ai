@@ -9,7 +9,7 @@ export const CookiePolicyPage: React.FC = () => {
       title="Cookie Policy"
       subtitle="Transparency regarding strictly necessary tokens, privacy-preserving PostHog diagnostics, and interface preferences on Sree AI."
       badge="Cookie & Storage Transparency"
-      lastUpdated="September 30, 2026"
+      lastUpdated="October 18, 2026"
     >
       <div className={styles.callout}>
         <Shield className={styles.calloutIcon} size={20} />

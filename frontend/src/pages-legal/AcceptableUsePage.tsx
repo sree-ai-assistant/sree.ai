@@ -9,7 +9,7 @@ export const AcceptableUsePage: React.FC = () => {
       title="Acceptable Use Policy (AUP)"
       subtitle="Behavioral standards, safety guidelines, and prohibited computing activities across the Sree AI ecosystem."
       badge="Safety & Compliance"
-      lastUpdated="August 20, 2026"
+      lastUpdated="October 18, 2026"
     >
       <div className={`${styles.callout} ${styles.calloutDanger}`}>
         <ShieldAlert className={styles.calloutIcon} size={20} />

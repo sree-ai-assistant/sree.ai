@@ -83,7 +83,7 @@ export async function exportDocument(
     } else if (format === 'pptx') {
       // Free and anonymous users receive the subtle Sree AI clickable watermark badge
       const user = useAuthStore.getState().user;
-      const usageStatus = useUsageStore.getState().usageStatus;
+      const usageStatus = useUsageStore.getState().status;
       const currentTier = (user?.plan_type || usageStatus?.tier || 'anonymous').toLowerCase();
       const isPaidUser = currentTier === 'starter' || currentTier === 'pro';
       const showWatermark = options?.showWatermark !== undefined ? options.showWatermark : !isPaidUser;

@@ -2,7 +2,7 @@
 
 ## What is Sree AI?
 
-**Sree AI** is a multi-modal AI SaaS platform developed by **NilStudio**. It provides users with a unified interface to interact with AI through text chat, voice, image generation, and video generation — all powered by a multi-provider backend that routes requests to NVIDIA NIM, Google Gemini, Groq, and Deepgram.
+**Sree AI** is a multi-modal AI SaaS platform developed by **NilStudio**. It provides users with a unified interface to interact with AI through text chat, bidirectional voice mode, studio-grade image/video generation, and universal document & presentation export (PowerPoint, Word, PDF) — powered by a multi-provider backend routing requests across NVIDIA NIM, Google Gemini, Groq, and Deepgram.
 
 The app supports **anonymous usage** (no signup required for basic chat), **freemium tiers** (Free → Starter → Pro), and **Bring Your Own Key (BYOK)** to let power users plug in their own API keys.
 

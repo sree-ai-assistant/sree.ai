@@ -1,7 +1,7 @@
 # Privacy Policy — Sree AI
 
 **Effective Date:** August 20, 2026  
-**Last Updated:** August 20, 2026  
+**Last Updated:** October 18, 2026  
 **Application:** Sree AI (accessible via [https://app.sreeai.qzz.io](https://app.sreeai.qzz.io))
 
 ---
@@ -22,6 +22,7 @@ If you do not agree with the terms of this Privacy Policy, please do not access 
 - **Account Registration Data:** When creating an account via Supabase Auth (Email or OAuth providers such as Google/GitHub), we collect your email address, display name, nickname, avatar URL, occupation, and optional onboarding profile details.
 - **User Customization & Instructions:** Custom system prompts, tone preferences (`custom_instructions`), and personal background details (`more_about_you`) you choose to supply to customize AI interactions.
 - **Chat Inputs & Media Content:** Prompts, text messages, questions, uploaded files (PDFs, Word documents, Excel spreadsheets, images), voice audio recordings, and generated AI assets (images/videos).
+- **Exported Documents & Presentations:** AI responses can be exported directly into PowerPoint presentations (`.pptx`), Word documents (`.docx`), PDF files (`.pdf`), or Markdown (`.md`). All document conversions are performed 100% locally on your client device using browser-based WebAssembly/JavaScript libraries. Exported document contents are generated directly in client volatile memory and are NEVER transmitted to external third-party file conversion servers or cloud APIs.
 - **Bring Your Own Key (BYOK) Credentials:** If you opt into the BYOK feature, you provide external API keys (e.g., NVIDIA, Google Gemini, Groq, Deepgram). These keys are encrypted immediately using AES-256-GCM before database insertion and are never stored in plaintext.
 - **Support & Feature Requests:** Information submitted through our ticket system, including your name, email, issue descriptions, and screenshots.
 
@@ -72,7 +73,7 @@ We share necessary data with trusted sub-processors strictly for technical execu
 | **Supabase Inc.** | Cloud Database, Auth & Realtime Engine | User profiles, chat history, encrypted API keys, session logs | Global / US |
 | **Razorpay Software Private Limited** | Payment Gateway & Subscription Billing | Billing email, transaction amounts, subscription status | India |
 | **Cloudflare Inc. (R2)** | S3-Compatible Media & Document Storage | Uploaded chat attachments, generated AI images/videos | Global |
-| **NVIDIA Corporation (NIM)** | AI Model Inference Provider | User prompt text & context (Transient) | US / Global |
+| **NVIDIA Corporation (NIM / Parakeet ASR)** | AI Model Inference & Speech-to-Text Transcription | User prompt text & context; transient audio data for Parakeet STT (Transient) | US / Global |
 | **Google Cloud (Gemini / Veo / Live API)** | AI Model, Video & Gemini Live Audio Inference Provider | User prompt text, document content, bidirectional real-time audio streams (Transient) | US / Global |
 | **Groq Inc.** | High-Speed Inference & Whisper STT | Prompts & Audio data (Transient) | US |
 | **Deepgram Inc.** | Speech-To-Text (STT) Audio Processing | Audio voice stream recordings (Transient) | US |
@@ -83,6 +84,7 @@ We share necessary data with trusted sub-processors strictly for technical execu
 > 1. Sree AI does not sell your personal data or user conversations.
 > 2. When you upload files, documents (PDF, DOCX, XLSX), images, or audio prompts during chat, these inputs are transmitted directly to the selected AI provider (e.g., Google LLC, NVIDIA Corporation, Groq LLC, Deepgram Inc.) to execute inference.
 > 3. Each AI model provider processes data in accordance with their respective enterprise API terms and privacy policies. While enterprise API endpoints generally do not train on customer inputs, some providers may retain transient logs for safety monitoring or process data under their standard terms. Sree AI disclaims all liability for upstream model provider data handling, retention, or processing practices.
+> 4. **Document Exports (PPTX, DOCX, PDF, MD):** All document conversions are executed 100% on the client device in local browser memory without transmitting your document contents to third-party file conversion APIs or external microservices.
 
 ---
 

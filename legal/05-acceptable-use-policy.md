@@ -1,7 +1,7 @@
 # Acceptable Use Policy (AUP) — Sree AI
 
 **Effective Date:** August 20, 2026  
-**Last Updated:** August 20, 2026  
+**Last Updated:** October 18, 2026  
 **Application:** Sree AI (accessible via [https://app.sreeai.qzz.io](https://app.sreeai.qzz.io))
 
 ---

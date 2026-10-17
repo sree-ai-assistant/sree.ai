@@ -9,7 +9,7 @@ export const SecurityPage: React.FC = () => {
       title="Security & BYOK Policy"
       subtitle="Technical architecture, cryptographic AES-256-GCM vaulting, Row Level Security, and Shared Responsibility Framework on Sree AI."
       badge="Security Architecture"
-      lastUpdated="August 20, 2026"
+      lastUpdated="October 18, 2026"
     >
       <div className={styles.callout}>
         <Lock className={styles.calloutIcon} size={20} />

@@ -71,7 +71,7 @@ data: [DONE]                                    // Stream complete
 | `GET` | `/ai/images` | Flex | — | Get user's image gallery |
 | `DELETE` | `/ai/image/:id` | Flex | — | Delete image from gallery |
 | `GET` | `/ai/download` | Auth | rateLimit(download) | Download image from URL (SSRF protected: restricts to allowed storage hosts, blocks loopback, RFC1918 private subnets, and cloud metadata 169.254.169.254) |
-| `POST` | `/ai/track-download` | Flex | rateLimit(download) | Track image download quota for anonymous/auth users |
+| `POST` | `/ai/track-download` | Flex | rateLimit(download) | Track document (pptx, docx, pdf, md) and image download quotas for anonymous/auth users |
 
 **POST `/ai/image` — Request Body:**
 ```json
@@ -117,7 +117,7 @@ data: [DONE]                                    // Stream complete
 | Method | Endpoint | Auth | Middleware | Description |
 |--------|----------|------|-----------|-------------|
 | `POST` | `/ai/voice` | Flex | abuseDetect, queuePriority, featureGate(voiceToText), rateLimit(voice), upload | Transcribe audio (Deepgram) |
-| `POST` | `/ai/stt` | Flex | abuseDetect, queuePriority, featureGate(voiceToText), rateLimit(stt), upload | Dictate mode STT (Groq → Deepgram cascade) |
+| `POST` | `/ai/stt` | Flex | abuseDetect, queuePriority, featureGate(voiceToText), rateLimit(stt), upload | Dictate mode STT (NVIDIA Parakeet TDT 0.6B primary with 16kHz mono audio conversion → Groq Whisper Large V3 → Deepgram Nova-2 cascade) |
 | `POST` | `/ai/tts` | Flex | abuseDetect, queuePriority, rateLimit(voice) | Text-to-speech (Deepgram, returns audio stream) |
 | `POST` | `/ai/voice-complete` | Flex | — | Charge voice credits after full voice flow |
 | `WSS` | `/api/live/voice/ws` | Flex | auth token / anonId validation, rateLimit | Bidirectional full-duplex WebSocket live audio streaming with Gemini Live API, model fallback cascade, and 30+ voice personas |

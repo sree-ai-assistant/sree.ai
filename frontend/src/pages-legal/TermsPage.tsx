@@ -9,7 +9,7 @@ export const TermsPage: React.FC = () => {
       title="Terms of Service"
       subtitle="The binding legal agreement governing your access, usage, subscriptions, BYOK, and multi-modal AI capabilities on Sree AI."
       badge="Terms of Service"
-      lastUpdated="August 20, 2026"
+      lastUpdated="October 18, 2026"
     >
       <div className={styles.callout}>
         <Scale className={styles.calloutIcon} size={20} />
@@ -96,6 +96,7 @@ export const TermsPage: React.FC = () => {
       <ul>
         <li>As between you and Sree AI, you own all outputs (text responses, generated images, synthesized speech, generated videos) generated in response to your prompts ("Output Content").</li>
         <li>You are free to use your Output Content for personal, academic, or commercial purposes.</li>
+        <li><strong>Exported Presentations & Documents:</strong> Presentations (<code>.pptx</code>), Word documents (<code>.docx</code>), PDFs (<code>.pdf</code>), and Markdown (<code>.md</code>) exported via Sree AI's document exporter are considered Output Content. Free and anonymous tier downloads feature a subtle Sree AI brand badge watermark. You agree not to remove, obfuscate, or tamper with the watermark badge on free tier presentations. Paid Starter and Pro tier subscribers receive clean, watermark-free document exports with full unencumbered commercial presentation rights.</li>
       </ul>
 
       <h3>5.3 Nature of AI Outputs & Disclaimers</h3>
