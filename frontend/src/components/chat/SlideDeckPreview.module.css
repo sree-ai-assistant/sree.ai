@@ -7,14 +7,16 @@
 .slideDeckContainer {
   position: relative;
   margin: 1.25rem 0 1rem 0;
-  width: 100%;
+  width: 94%;
+  box-sizing: border-box;
   border-radius: 8px;
   background: #0B0F17;
   border: 1px solid rgba(255, 255, 255, 0.1);
   box-shadow: 0 8px 30px rgba(0, 0, 0, 0.45);
   display: flex;
   flex-direction: column;
-  overflow: visible; /* Allows dropdowns to float over adjacent content */
+  overflow: visible;
+  /* Allows dropdowns to float over adjacent content */
   transition: border-color 0.2s ease, box-shadow 0.2s ease;
   user-select: none;
 }
@@ -35,7 +37,8 @@
   border-radius: 8px 8px 0 0;
   gap: 12px;
   position: relative;
-  z-index: 50; /* Above slideViewport so dropdowns float on top */
+  z-index: 50;
+  /* Above slideViewport so dropdowns float on top */
 }
 
 .headerLeft {
@@ -67,6 +70,8 @@
   overflow: hidden;
   text-overflow: ellipsis;
   letter-spacing: -0.01em;
+  min-width: 0;
+  flex: 1 1 auto;
 }
 
 .deckBadge {
@@ -187,7 +192,8 @@
   border-radius: 10px;
   box-shadow: 0 16px 45px rgba(0, 0, 0, 0.85), 0 0 20px rgba(0, 0, 0, 0.6);
   padding: 6px;
-  z-index: 1005; /* Way above all slide content */
+  z-index: 1005;
+  /* Way above all slide content */
   display: flex;
   flex-direction: column;
   gap: 4px;
@@ -314,7 +320,8 @@
   border-radius: 10px;
   box-shadow: 0 16px 45px rgba(0, 0, 0, 0.85);
   padding: 6px;
-  z-index: 1005; /* Way above all slide content */
+  z-index: 1005;
+  /* Way above all slide content */
   display: flex;
   flex-direction: column;
   gap: 3px;
@@ -476,8 +483,7 @@
   position: relative;
   width: 100%;
   aspect-ratio: 16 / 9;
-  min-height: 240px;
-  max-height: 480px;
+  max-height: min(65vh, 600px);
   background: #0F172A;
   overflow: hidden;
   display: flex;
@@ -541,28 +547,29 @@
   justify-content: center;
   align-items: center;
   text-align: center;
-  padding: clamp(24px, 4cqw, 64px) clamp(28px, 5cqw, 80px);
+  padding: clamp(20px, 3.5cqw, 64px) clamp(24px, 4.5cqw, 80px);
   position: relative;
   height: 100%;
   min-height: 100%;
   flex: 1;
   box-sizing: border-box;
+  overflow-y: auto;
 }
 
 .titleSlideHeading {
-  font-size: clamp(1.4rem, 4.2cqw, 3.6rem);
+  font-size: clamp(1.15rem, 3.8cqw, 3.6rem);
   font-weight: 700;
   line-height: 1.24;
   letter-spacing: -0.02em;
   max-width: 90%;
-  margin: 0 0 clamp(12px, 1.8cqw, 28px) 0;
+  margin: 0 0 clamp(10px, 1.6cqw, 28px) 0;
   text-align: center;
 }
 
 .titleSlideSubtitle {
-  font-size: clamp(0.92rem, 2.2cqw, 1.8rem);
+  font-size: clamp(0.85rem, 2.0cqw, 1.8rem);
   line-height: 1.5;
-  max-width: 82%;
+  max-width: 85%;
   margin: 0;
   font-weight: 400;
   text-align: center;
@@ -987,6 +994,13 @@
   display: flex;
   align-items: center;
   gap: 6px;
+  max-width: 100%;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.progressDots::-webkit-scrollbar {
+  display: none;
 }
 
 .dot {
@@ -1045,7 +1059,8 @@
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
   gap: 16px;
   position: relative;
-  z-index: 1000; /* Stacks way above modalContentWrapper so dropdowns are never cut off */
+  z-index: 1000;
+  /* Stacks way above modalContentWrapper so dropdowns are never cut off */
 }
 
 .modalHeaderLeft {
@@ -1155,7 +1170,8 @@
   padding: 24px 32px;
   position: relative;
   overflow: hidden;
-  z-index: 1; /* Below modalHeader (1000) */
+  z-index: 1;
+  /* Below modalHeader (1000) */
 }
 
 .modalSlideCanvas {
@@ -1608,6 +1624,7 @@
   .slideDeckContainer {
     margin: 0.75rem 0;
     border-radius: 8px;
+    width: 100%;
   }
 
   .headerBar {
@@ -1617,11 +1634,14 @@
 
   .headerLeft {
     gap: 6px;
+    min-width: 0;
+    flex: 1;
   }
 
   .deckTitle {
-    font-size: 0.8rem;
-    max-width: 110px;
+    font-size: 0.82rem;
+    max-width: none;
+    min-width: 0;
   }
 
   .deckBadgeDesktop {
@@ -1679,7 +1699,7 @@
   }
 
   .slideViewport {
-    min-height: 200px;
+    max-height: min(65vh, 520px);
   }
 
   .slideCanvas {
