@@ -16,6 +16,7 @@ import { TableBlock } from '../chat/TableBlock';
 import styles from './VoiceOverlay.module.css';
 import { getStoredAnonId, generateFingerprintHash } from '../../lib/fingerprint';
 import { filterThinkingTags as filterThinkingTagsUtil } from '../../utils/thinkingFilter';
+import { sanitizeSpuriousLanguageLeakage, hasUserSpokenSpanishOrPortuguese } from '../../utils/languageFilter';
 
 interface VoiceOverlayProps {
   onClose: () => void;
@@ -475,9 +476,16 @@ export const VoiceOverlay: React.FC<VoiceOverlayProps> = ({ onClose, initialConv
         // 1. Save user prompt first
         await addMessage(currentConvId, 'user', finalUserText, { mode: 'voice-live' });
 
-        // 2. Save assistant response second
+        // 2. Sanitize and save assistant response second
         if (aiText) {
-          await addMessage(currentConvId, 'assistant', aiText, { mode: 'voice-live' });
+          const userSpeaksSpanish = hasUserSpokenSpanishOrPortuguese(
+            messagesRef.current || [],
+            finalUserText
+          );
+          const cleanAiText = sanitizeSpuriousLanguageLeakage(aiText, userSpeaksSpanish);
+          if (cleanAiText) {
+            await addMessage(currentConvId, 'assistant', cleanAiText, { mode: 'voice-live' });
+          }
         }
       }
     } catch (err) {
@@ -706,15 +714,19 @@ export const VoiceOverlay: React.FC<VoiceOverlayProps> = ({ onClose, initialConv
               // Gemini finished speaking this turn — save user query + AI response to chat store & DB
               saveCompletedTurn();
               setStatus('listening');
-              // Ensure code fences are balanced and clean line breaks at end of turn without trailing space leakage
+              // Ensure spurious language hallucinations are cleaned and code fences balanced
               setDisplayedAiResponse((prev) => {
                 if (!prev) return '';
-                let cleaned = prev.trimEnd();
+                const userSpeaksSpanish = hasUserSpokenSpanishOrPortuguese(
+                  messagesRef.current || [],
+                  currentTurnUserTextRef.current
+                );
+                let cleaned = sanitizeSpuriousLanguageLeakage(prev, userSpeaksSpanish).trimEnd();
                 const fenceCount = (cleaned.match(/(?:^|\n)[ \t]*```/g) || []).length;
                 if (fenceCount % 2 !== 0) {
                   cleaned += '\n```';
                 }
-                return cleaned + '\n\n';
+                return cleaned ? cleaned + '\n\n' : '';
               });
               break;
             }
