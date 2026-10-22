@@ -71,6 +71,7 @@
   display: flex;
   align-items: center;
   justify-content: flex-end;
+  gap: 0.6rem;
   flex-shrink: 0;
   pointer-events: auto;
   z-index: 2;
@@ -155,6 +156,47 @@
   background: rgba(255, 59, 48, 0.2);
   border-color: rgba(255, 59, 48, 0.5);
   transform: rotate(90deg);
+}
+
+.speakerToggleBtn {
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: white;
+  width: 3rem;
+  height: 3rem;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  flex-shrink: 0;
+}
+
+.speakerToggleBtn:hover {
+  background: rgba(255, 255, 255, 0.18);
+  border-color: rgba(255, 255, 255, 0.35);
+  transform: translateY(-1px);
+}
+
+.speakerToggleBtnOff {
+  background: rgba(245, 158, 11, 0.18);
+  border-color: rgba(245, 158, 11, 0.45);
+  color: #fbbf24;
+}
+
+.speakerToggleBtnOff:hover {
+  background: rgba(245, 158, 11, 0.28);
+  border-color: rgba(245, 158, 11, 0.7);
+}
+
+/* Ensure speaker toggle is strictly hidden on desktop */
+@media (min-width: 961px) {
+  .speakerToggleBtn {
+    display: none !important;
+  }
 }
 
 .statusIndicator {
