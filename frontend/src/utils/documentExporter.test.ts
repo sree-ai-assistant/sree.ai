@@ -348,10 +348,16 @@ Let me know if you would like me to adjust any slide content, expand on the ritu
     expect(split.bottomText).toBe('Let me know if you would like me to adjust any slide content, expand on the rituals, or change the theme styling!');
   });
 
-  it('preserves all subsequent AI responses in bottomText after PPT generation across multi-turn conversation', () => {
-    const multiTurnVoiceResponse = `I'm here and ready to help. What would you like to discuss or work on today?
-I am here and ready to help. What would you like to discuss or work on next?
-I'm sorry, I didn't quite catch that. Could you please say that again?
+  it('preserves all prior chat turns in topText and subsequent AI responses in bottomText across multi-turn conversation', () => {
+    const multiTurnVoiceResponse = `what dangers you are referring to?
+I am here to assist you professionally. Please let me know what topic or task you would like to work on next.
+Please let me know what you would like to discuss or explore next regarding Elon Musk.
+I'm sorry, I didn't quite catch that. Could you please repeat what you said?
+না, এলন মাস্ক বেঁচে আছেন। তিনি বর্তমানে বিভিন্ন কোম্পানিতে কাজ করছেন এবং নতুন প্রজেক্ট নিয়ে ব্যস্ত আছেন।
+আপনার কথা স্পষ্ট শোনা যাচ্ছে না, অনেক নয়েজ আসছে। আপনি কি দয়া করে আবার বলবেন?
+আমি দুঃখিত, আপনার কথা স্পষ্ট বুঝতে পারছি না। দয়া করে আরেকবার বলবেন?
+
+<!-- theme: navyGold -->
 
 # Elon Musk
 ## Visionary Entrepreneur
@@ -375,19 +381,74 @@ Elon Musk's net worth is estimated to be over $200 billion. He is the founder of
     expect(split.slideDeck?.title).toBe('Elon Musk');
     expect(split.slideDeck?.slides.length).toBe(2);
 
-    // Verify topText preserves prior conversation preamble
-    expect(split.topText).toContain("I'm here and ready to help");
-    expect(split.topText).toContain("I'm sorry, I didn't quite catch that");
+    // CRITICAL: topText must preserve all prior conversation turns preceding the presentation
+    expect(split.topText).toContain("what dangers you are referring to?");
+    expect(split.topText).toContain("regarding Elon Musk");
+    expect(split.topText).toContain("না, এলন মাস্ক বেঁচে আছেন");
+    expect(split.topText).toContain("আপনার কথা স্পষ্ট শোনা যাচ্ছে না");
+    expect(split.topText).not.toContain("# Elon Musk");
+    expect(split.topText).not.toContain("Early Life and Education");
 
     // Verify slideOutline only contains the presentation
     expect(split.slideOutline).toContain('# Elon Musk');
     expect(split.slideOutline).toContain('Early Life and Education');
+    expect(split.slideOutline).not.toContain("what dangers you are referring to");
+    expect(split.slideOutline).not.toContain("না, এলন মাস্ক বেঁচে আছেন");
     expect(split.slideOutline).not.toContain("Elon Musk's net worth is estimated");
 
     // CRITICAL: bottomText must contain all subsequent conversational responses!
     expect(split.bottomText).toContain("I've placed your presentation on screen!");
     expect(split.bottomText).toContain("Elon Musk's net worth is estimated to be over $200 billion");
     expect(split.bottomText).toContain("He is the founder of SpaceX and CEO of Tesla");
+  });
+
+  it('preserves multi-lingual and Bengali prior chat, slides, and bottom outro text', () => {
+    const bengaliVoiceResponse = `আপনার সাথে কথা বলে ভালো লাগল।
+আপনি কি অন্য কোনো বিষয়ে জানতে চান?
+আমি আপনাকে কীভাবে সাহায্য করতে পারি?
+
+<!-- theme: midnightPurple -->
+
+# এলন মাস্ক এবং মহাকাশ বিজ্ঞান
+## একটি বিস্তারিত প্রেজেন্টেশন
+
+---
+
+## স্পেসএক্স এর ইতিহাস
+- ২০০২ সালে প্রতিষ্ঠিত।
+- পুনর্ব্যবহারযোগ্য রকেট প্রযুক্তির উদ্ভাবক।
+- ফ্যালকন ৯ এবং স্টারশিপ এর নির্মাতা।
+
+---
+
+## ভবিষ্যতের লক্ষ্য
+- মঙ্গলে মানব বসতি স্থাপন।
+- বৈশ্বিক স্যাটেলাইট ইন্টারনেট স্টারলিংক।
+
+আমি আপনার জন্য এলন মাস্কের প্রেজেন্টেশনটি তৈরি করে দিয়েছি। আপনি এটি ডাউনলোড করতে পারেন।
+পরবর্তী পদক্ষেপে আপনি কী জানতে চান?`;
+
+    const split = splitPresentationContent(bengaliVoiceResponse);
+    expect(split.hasPresentation).toBe(true);
+    expect(split.slideDeck).not.toBeNull();
+    expect(split.slideDeck?.title).toContain('এলন মাস্ক');
+    expect(split.slideDeck?.slides.length).toBe(3);
+
+    // Prior chat preserved in topText
+    expect(split.topText).toContain('আপনার সাথে কথা বলে ভালো লাগল');
+    expect(split.topText).toContain('আমি আপনাকে কীভাবে সাহায্য করতে পারি?');
+    expect(split.topText).not.toContain('স্পেসএক্স এর ইতিহাস');
+
+    // Slide outline contains only slides
+    expect(split.slideOutline).toContain('এলন মাস্ক এবং মহাকাশ বিজ্ঞান');
+    expect(split.slideOutline).toContain('ভবিষ্যতের লক্ষ্য');
+    expect(split.slideOutline).not.toContain('আপনার সাথে কথা বলে ভালো লাগল');
+    expect(split.slideOutline).not.toContain('পরবর্তী পদক্ষেপে আপনি কী জানতে চান?');
+
+    // Bottom text contains outro conversation
+    expect(split.bottomText).toContain('আমি আপনার জন্য এলন মাস্কের প্রেজেন্টেশনটি তৈরি করে দিয়েছি');
+    expect(split.bottomText).toContain('পরবর্তী পদক্ষেপে আপনি কী জানতে চান?');
+    expect(split.bottomText).not.toContain('ভবিষ্যতের লক্ষ্য');
   });
 
   it('correctly handles blockquotes, italics, and excludes How to get your file from slides', () => {

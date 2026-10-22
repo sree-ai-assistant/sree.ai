@@ -1497,71 +1497,136 @@ export function splitPresentationContent(
 
   const lines = cleanMd.split('\n');
 
-  // 1. Find where the slide deck starts (slideStartIndex)
-  let slideStartIndex = 0;
-  const firstSlideTitle = slideDeck.title ? slideDeck.title.toLowerCase().replace(/[^a-z0-9]/g, '') : '';
+  // 1. Locate the last slide's title line (lastSlideLineIdx)
+  const lastSlide = slideDeck.slides[slideDeck.slides.length - 1];
+  const cleanLastTitle = lastSlide?.title ? lastSlide.title.toLowerCase().replace(/[^\p{L}\p{N}]/gu, '') : '';
+  let lastSlideLineIdx = -1;
 
-  for (let i = 0; i < lines.length; i++) {
-    const trimmed = lines[i].trim();
-    if (!trimmed || trimmed.startsWith('<!--')) continue;
-
-    // Check if line is a divider immediately preceding a heading
-    if (/^[-*_]{3,}$/.test(trimmed)) {
-      const nextNonEmpty = lines.slice(i + 1).find(l => l.trim().length > 0)?.trim() || '';
-      if (/^#{1,4}\s+/i.test(nextNonEmpty) || /^(slide\s*\d+|title\s*slide)/i.test(nextNonEmpty)) {
-        slideStartIndex = i + 1;
+  if (cleanLastTitle) {
+    // Scan backwards from the end of the lines to find the last slide heading
+    for (let i = lines.length - 1; i >= 0; i--) {
+      const trimmed = lines[i].trim();
+      const cleanLine = trimmed.toLowerCase().replace(/[^\p{L}\p{N}]/gu, '');
+      if (
+        (cleanLine.includes(cleanLastTitle) || (cleanLine.length >= 4 && cleanLastTitle.includes(cleanLine))) &&
+        (/^#{1,4}\s+/i.test(trimmed) || /^(slide\s*\d+|title\s*slide)/i.test(trimmed))
+      ) {
+        lastSlideLineIdx = i;
         break;
       }
     }
+  }
 
-    // Check if line is the main title heading (# Title, or Title Slide, or Slide 1)
-    const cleanLine = trimmed.toLowerCase().replace(/[^a-z0-9]/g, '');
-    const isMatchingTitle = firstSlideTitle && cleanLine.includes(firstSlideTitle);
-    const isExplicitHeading =
-      /^#\s+/i.test(trimmed) ||
-      /^#{1,4}\s*(slide\s*1\b|title\s*slide)/i.test(trimmed);
+  // Fallback 1: Scan backwards for earlier slide titles in reverse order
+  if (lastSlideLineIdx === -1 && slideDeck.slides.length > 1) {
+    for (let sIdx = slideDeck.slides.length - 2; sIdx >= 0; sIdx--) {
+      const sTitle = slideDeck.slides[sIdx]?.title?.toLowerCase().replace(/[^\p{L}\p{N}]/gu, '') || '';
+      if (!sTitle) continue;
+      for (let i = lines.length - 1; i >= 0; i--) {
+        const trimmed = lines[i].trim();
+        const cleanLine = trimmed.toLowerCase().replace(/[^\p{L}\p{N}]/gu, '');
+        if (
+          (cleanLine.includes(sTitle) || (cleanLine.length >= 4 && sTitle.includes(cleanLine))) &&
+          (/^#{1,4}\s+/i.test(trimmed) || /^(slide\s*\d+|title\s*slide)/i.test(trimmed))
+        ) {
+          lastSlideLineIdx = i;
+          break;
+        }
+      }
+      if (lastSlideLineIdx !== -1) break;
+    }
+  }
 
-    if (isExplicitHeading || isMatchingTitle) {
+  // Fallback 2: If not found by cleanLastTitle, look for slide number pattern (e.g. Slide 6 or 6.)
+  if (lastSlideLineIdx === -1 && slideDeck.slides.length > 1) {
+    const totalSlides = slideDeck.slides.length;
+    const slideNumRegex = new RegExp(`^(?:#{1,4}\\s+)?(?:slide\\s*0*${totalSlides}|0*${totalSlides}\\.\\s*)`, 'i');
+    for (let i = lines.length - 1; i >= 0; i--) {
+      if (slideNumRegex.test(lines[i].trim())) {
+        lastSlideLineIdx = i;
+        break;
+      }
+    }
+  }
+
+  // Fallback 3: Look backwards for the last explicit heading line in the file
+  if (lastSlideLineIdx === -1) {
+    for (let i = lines.length - 1; i >= 0; i--) {
+      const trimmed = lines[i].trim();
+      if (/^#{1,4}\s+/i.test(trimmed) || /^(slide\s*\d+|title\s*slide)/i.test(trimmed)) {
+        lastSlideLineIdx = i;
+        break;
+      }
+    }
+  }
+
+  // 2. Find where the slide deck starts (slideStartIndex)
+  // Scan backwards from lastSlideLineIdx to locate the title slide or opening divider
+  let slideStartIndex = 0;
+  const firstSlideTitle = slideDeck.title ? slideDeck.title.toLowerCase().replace(/[^\p{L}\p{N}]/gu, '') : '';
+  const firstSlideItemTitle = slideDeck.slides[0]?.title ? slideDeck.slides[0].title.toLowerCase().replace(/[^\p{L}\p{N}]/gu, '') : '';
+  const searchStartFrom = lastSlideLineIdx !== -1 ? lastSlideLineIdx : lines.length - 1;
+
+  for (let i = searchStartFrom - 1; i >= 0; i--) {
+    const trimmed = lines[i].trim();
+    if (!trimmed) continue;
+
+    const cleanLine = trimmed.toLowerCase().replace(/[^\p{L}\p{N}]/gu, '');
+
+    // A. Explicit theme directive immediately preceding the title slide
+    if (/^<!--\s*theme:\s*[a-zA-Z0-9_-]+\s*-->/i.test(trimmed)) {
       slideStartIndex = i;
+      break;
+    }
+
+    // B. Main title heading (# Title, or Title Slide, or Slide 1)
+    const isHeading =
+      /^#\s+/i.test(trimmed) ||
+      /^#{1,4}\s*(slide\s*0*1\b|title\s*slide)/i.test(trimmed);
+    const isMatchingTitle =
+      (firstSlideTitle && (cleanLine.includes(firstSlideTitle) || (cleanLine.length >= 3 && firstSlideTitle.includes(cleanLine)))) ||
+      (firstSlideItemTitle && (cleanLine.includes(firstSlideItemTitle) || (cleanLine.length >= 3 && firstSlideItemTitle.includes(cleanLine))));
+
+    if (isHeading && (isMatchingTitle || /^#{1,4}\s*(slide\s*0*1\b|title\s*slide)/i.test(trimmed) || /^#\s+/i.test(trimmed))) {
+      slideStartIndex = i;
+
+      // Check if preceding non-empty line was a theme directive or divider
+      for (let j = i - 1; j >= 0; j--) {
+        const prevTrimmed = lines[j].trim();
+        if (!prevTrimmed) continue;
+        if (/^<!--\s*theme:/i.test(prevTrimmed) || /^[-*_]{3,}$/.test(prevTrimmed)) {
+          slideStartIndex = j;
+          for (let k = j - 1; k >= 0; k--) {
+            const beforeDivider = lines[k].trim();
+            if (!beforeDivider) continue;
+            if (/^<!--\s*theme:/i.test(beforeDivider)) {
+              slideStartIndex = k;
+            }
+            break;
+          }
+        }
+        break;
+      }
       break;
     }
   }
 
-  // 2. Find where the slide deck ends (slideEndIndex)
-  // Locate the last slide's title line
-  const lastSlide = slideDeck.slides[slideDeck.slides.length - 1];
-  const cleanLastTitle = lastSlide?.title ? lastSlide.title.toLowerCase().replace(/[^a-z0-9]/g, '') : '';
-  let lastSlideLineIdx = -1;
-
-  if (cleanLastTitle) {
-    for (let i = slideStartIndex; i < lines.length; i++) {
-      const cleanLine = lines[i].toLowerCase().replace(/[^a-z0-9]/g, '');
-      if (
-        cleanLine.includes(cleanLastTitle) &&
-        (/^#{1,4}\s+/i.test(lines[i].trim()) || /^(slide\s*\d+|title\s*slide)/i.test(lines[i].trim()))
-      ) {
-        lastSlideLineIdx = i;
-      }
-    }
-  }
-
-  // Fallback 1: If not found by cleanLastTitle, look for slide number pattern (e.g. Slide 6 or 6.)
-  if (lastSlideLineIdx === -1 && slideDeck.slides.length > 1) {
-    const totalSlides = slideDeck.slides.length;
-    const slideNumRegex = new RegExp(`^(?:#{1,4}\\s+)?(?:slide\\s*0*${totalSlides}|0*${totalSlides}\\.\\s*)`, 'i');
-    for (let i = slideStartIndex; i < lines.length; i++) {
-      if (slideNumRegex.test(lines[i].trim())) {
-        lastSlideLineIdx = i;
-      }
-    }
-  }
-
-  // Fallback 2: Look backwards for the last explicit heading line after slideStartIndex
-  if (lastSlideLineIdx === -1) {
-    for (let i = lines.length - 1; i >= slideStartIndex; i--) {
+  // Forward fallback for slideStartIndex if backward scan didn't hit an explicit title heading
+  if (slideStartIndex === 0) {
+    for (let i = 0; i < searchStartFrom; i++) {
       const trimmed = lines[i].trim();
-      if (/^#{1,4}\s+/i.test(trimmed) || /^(slide\s*\d+|title\s*slide)/i.test(trimmed)) {
-        lastSlideLineIdx = i;
+      if (!trimmed) continue;
+      if (/^<!--\s*theme:/i.test(trimmed)) {
+        slideStartIndex = i;
+        break;
+      }
+      const isHeading = /^#\s+/i.test(trimmed) || /^#{1,4}\s*(slide\s*0*1\b|title\s*slide)/i.test(trimmed);
+      const cleanLine = trimmed.toLowerCase().replace(/[^\p{L}\p{N}]/gu, '');
+      if (
+        isHeading &&
+        (firstSlideTitle ? (cleanLine.includes(firstSlideTitle) || firstSlideTitle.includes(cleanLine)) : true)
+      ) {
+        slideStartIndex = i;
         break;
       }
     }
@@ -1620,9 +1685,9 @@ export function splitPresentationContent(
     }
 
     // - Slide paragraphs parsed as part of lastSlide
-    const cleanLine = trimmed.toLowerCase().replace(/[^a-z0-9]/g, '');
+    const cleanLine = trimmed.toLowerCase().replace(/[^\p{L}\p{N}]/gu, '');
     const isSlideParagraph = lastSlide?.paragraphs?.some(p => {
-      const cleanP = p.toLowerCase().replace(/[^a-z0-9]/g, '');
+      const cleanP = p.toLowerCase().replace(/[^\p{L}\p{N}]/gu, '');
       return cleanP && (cleanLine.includes(cleanP) || cleanP.includes(cleanLine));
     });
 
