@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, AlertTriangle, Clock, ArrowRight, Sparkles, Zap, RotateCcw, Volume2, Phone, Hourglass, Eye, EyeOff, WifiOff, CheckCircle, Bug } from 'lucide-react';
+import { X, AlertTriangle, Clock, ArrowRight, Sparkles, Zap, RotateCcw, Volume2, Hourglass, Eye, EyeOff, WifiOff, CheckCircle, Bug } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { useChatStore } from '../../store/chat.store';
@@ -192,16 +192,6 @@ export const VoiceOverlay: React.FC<VoiceOverlayProps> = ({ onClose, initialConv
   // ─── Live Mode State ───────────────────────────────────────────────
   const [voiceMode, setVoiceMode] = useState<'connecting' | 'live' | 'legacy'>('connecting');
   const [liveModel, setLiveModel] = useState<string>('');
-  const [isSpeakerOn, setIsSpeakerOn] = useState<boolean>(true);
-
-  // Mobile phone device detection (speaker toggle will strictly be visible on mobile devices)
-  const isMobileDevice = useMemo(() => {
-    if (typeof navigator === 'undefined' || typeof window === 'undefined') return false;
-    const ua = navigator.userAgent || '';
-    const isMobileUA = /Android|iPhone|iPad|iPod|Mobile|BlackBerry|IEMobile|Opera Mini/i.test(ua);
-    const isClientHintMobile = Boolean((navigator as any).userAgentData?.mobile);
-    return isMobileUA || isClientHintMobile;
-  }, []);
   const liveWsRef = useRef<WebSocket | null>(null);
   const liveAudioRef = useRef<LiveAudioManager | null>(null);
   const liveSessionIdRef = useRef<string | null>(null);
@@ -677,7 +667,6 @@ export const VoiceOverlay: React.FC<VoiceOverlayProps> = ({ onClose, initialConv
                 audioManager.startPlayback();
 
                 liveAudioRef.current = audioManager;
-                setIsSpeakerOn(audioManager.isSpeakerphoneOn);
                 setStream(micStream);
                 setStatus('listening');
               } catch (audioErr) {
@@ -976,7 +965,6 @@ export const VoiceOverlay: React.FC<VoiceOverlayProps> = ({ onClose, initialConv
       liveAudioRef.current.destroy();
       liveAudioRef.current = null;
     }
-    setIsSpeakerOn(true);
     setStream(null);
   }, [clearStallTimer]);
 
@@ -2242,13 +2230,6 @@ export const VoiceOverlay: React.FC<VoiceOverlayProps> = ({ onClose, initialConv
     onClose();
   };
 
-  const handleToggleSpeaker = useCallback(async () => {
-    if (!liveAudioRef.current) return;
-    const nextState = !isSpeakerOn;
-    setIsSpeakerOn(nextState);
-    await liveAudioRef.current.setSpeakerphone(nextState);
-  }, [isSpeakerOn]);
-
   // ─── Error Recovery Handlers ──────────────────────────────────────
   const handleErrorRetryLive = () => {
     setConnectionError(null);
@@ -2503,18 +2484,8 @@ export const VoiceOverlay: React.FC<VoiceOverlayProps> = ({ onClose, initialConv
           </AnimatePresence>
         </div>
 
-        {/* Right Slot: Speaker Toggle (Live Mode on Mobile) & Close Button */}
+        {/* Right Slot: Close Button */}
         <div className={styles.topBarRight}>
-          {voiceMode === 'live' && isMobileDevice && (
-            <button
-              onClick={handleToggleSpeaker}
-              className={`${styles.speakerToggleBtn} ${!isSpeakerOn ? styles.speakerToggleBtnOff : ''}`}
-              title={isSpeakerOn ? 'Audio output: Loudspeaker (click to switch to earpiece)' : 'Audio output: Earpiece (click to switch to loudspeaker)'}
-              aria-label={isSpeakerOn ? 'Switch to earpiece' : 'Switch to loudspeaker'}
-            >
-              {isSpeakerOn ? <Volume2 size={18} /> : <Phone size={18} />}
-            </button>
-          )}
           <button onClick={handleManualClose} className={styles.closeButton} title="Close voice overlay" aria-label="Close voice overlay">
             <X size={22} />
           </button>
