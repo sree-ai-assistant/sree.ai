@@ -451,6 +451,90 @@ Elon Musk's net worth is estimated to be over $200 billion. He is the founder of
     expect(split.bottomText).not.toContain('ভবিষ্যতের লক্ষ্য');
   });
 
+  it('correctly splits MULTIPLE presentations into separate interactive slide deck segments without merging slide counts or dumping previous PPTs as text', () => {
+    const multiPptSessionResponse = `হ্যাঁ, আমি ভালো আছি। আপনি কেমন আছেন? আমি আপনাকে কীভাবে সাহায্য করতে পারি?
+
+<!-- theme: navyGold -->
+# Elon Musk
+## Visionary Entrepreneur
+
+---
+
+## Early Life and Education
+- Born in Pretoria, South Africa, in 1971.
+- Taught himself computer programming at age 12.
+
+---
+
+## Founding SpaceX
+- Founded in 2002 to reduce space transportation costs.
+- Developed Falcon 9 reusable rockets.
+
+আমি আপনার জন্য এলন মাস্কের প্রথম প্রেজেন্টেশনটি তৈরি করে স্ক্রিনে দিয়েছি। আপনি এটি ডাউনলোড করতে পারেন।
+বলুন, আপনার জন্য আর কী করতে পারি?
+
+<!-- theme: midnightPurple -->
+# Tesla: Accelerating Clean Energy
+## The Electric Vehicle Revolution
+
+---
+
+## Tesla Roadster and Model S
+- Proven that electric cars can be compelling and high-performance.
+- Global mass market revolution with Model 3 and Model Y.
+
+---
+
+## Energy and Storage
+- Powerwall, Megapack, and solar roof systems.
+- Accelerating the transition to sustainable energy.
+
+আমি আপনার জন্য টেসলার দ্বিতীয় প্রেজেন্টেশনটিও তৈরি করে স্ক্রিনে দিয়েছি! আপনি চাইলে এটিও ডাউনলোড করতে পারেন।`;
+
+    const split = splitPresentationContent(multiPptSessionResponse);
+    expect(split.hasPresentation).toBe(true);
+
+    // Verify segments exist and contain both presentations
+    const presentationSegments = split.segments.filter(s => s.type === 'presentation');
+    expect(presentationSegments.length).toBe(2);
+
+    const firstDeckSeg = presentationSegments[0] as any;
+    const secondDeckSeg = presentationSegments[1] as any;
+
+    // First presentation deck validation
+    expect(firstDeckSeg.title).toBe('Elon Musk');
+    expect(firstDeckSeg.slideDeck.slides.length).toBe(3); // 1 title + 2 content slides (NOT merged with second deck!)
+    expect(firstDeckSeg.slideDeck.slides[1].title).toBe('Early Life and Education');
+    expect(firstDeckSeg.slideDeck.slides[2].title).toBe('Founding SpaceX');
+    expect(firstDeckSeg.rawMarkdown).toContain('Early Life and Education');
+    expect(firstDeckSeg.rawMarkdown).not.toContain('Tesla: Accelerating Clean Energy');
+
+    // Second presentation deck validation
+    expect(secondDeckSeg.title).toBe('Tesla: Accelerating Clean Energy');
+    expect(secondDeckSeg.slideDeck.slides.length).toBe(3); // 1 title + 2 content slides (NOT merged with first deck!)
+    expect(secondDeckSeg.slideDeck.slides[1].title).toBe('Tesla Roadster and Model S');
+    expect(secondDeckSeg.slideDeck.slides[2].title).toBe('Energy and Storage');
+    expect(secondDeckSeg.rawMarkdown).toContain('Tesla Roadster and Model S');
+    expect(secondDeckSeg.rawMarkdown).not.toContain('Early Life and Education');
+
+    // Text segments validation
+    const textSegments = split.segments.filter(s => s.type === 'text');
+    expect(textSegments.length).toBe(3);
+    // 1. Initial greeting
+    expect((textSegments[0] as any).content).toContain('হ্যাঁ, আমি ভালো আছি');
+    // 2. Chat between presentations
+    expect((textSegments[1] as any).content).toContain('আমি আপনার জন্য এলন মাস্কের প্রথম প্রেজেন্টেশনটি');
+    expect((textSegments[1] as any).content).toContain('বলুন, আপনার জন্য আর কী করতে পারি?');
+    // 3. Outro after second presentation
+    expect((textSegments[2] as any).content).toContain('আমি আপনার জন্য টেসলার দ্বিতীয় প্রেজেন্টেশনটিও তৈরি করে স্ক্রিনে দিয়েছি');
+
+    // Verify NONE of the text segments contain raw slide content of either presentation
+    for (const t of textSegments) {
+      expect((t as any).content).not.toContain('## Early Life and Education');
+      expect((t as any).content).not.toContain('## Tesla Roadster and Model S');
+    }
+  });
+
   it('correctly handles blockquotes, italics, and excludes How to get your file from slides', () => {
     const rawAiResponse = `
 Here is the clean, refined version of your presentation, ready for your use.

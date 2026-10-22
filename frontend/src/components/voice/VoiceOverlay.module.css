@@ -321,6 +321,10 @@
   border-top: 1px solid rgba(255, 255, 255, 0.06);
 }
 
+.voicePresentationSegmentText {
+  margin: 0.6rem 0;
+}
+
 /* ── Voice Markdown Styles ── */
 .voiceMdH1 {
   font-size: 1.35rem;
@@ -1676,6 +1680,12 @@
   .voicePresentationBottomText {
     margin-top: 0.5rem;
     padding-top: 0.5rem;
+    font-size: 0.90rem;
+    line-height: 1.5;
+  }
+
+  .voicePresentationSegmentText {
+    margin: 0.35rem 0;
     font-size: 0.90rem;
     line-height: 1.5;
   }

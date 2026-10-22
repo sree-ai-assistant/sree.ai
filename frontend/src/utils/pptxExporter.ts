@@ -1361,9 +1361,10 @@ export function isPresentationMarkdown(markdown: string): boolean {
     if (parsed.slides.length >= 1) return true;
   }
 
-  // 4. Multiple dividers (>= 2) with explicit presentation / slide vocabulary
+  // 4. Multiple dividers (>= 2) with explicit presentation / slide vocabulary (English, Bengali, Hindi, Spanish, etc.)
   // This ensures standard tutorials, roadmaps, articles, or Word/PDF guides with `---` are NOT misidentified as PPTX.
-  const hasPresentationKeywords = /\b(presentation|slide\s*deck|slides?\s+on\b|slide-by-slide|powerpoint|\.pptx|presentation\s+carousel)\b/i.test(clean);
+  const hasPresentationKeywords =
+    /\b(presentation|slide\s*deck|slides?\s+on\b|slide-by-slide|powerpoint|\.pptx|presentation\s+carousel)\b|প্রেজেন্টেশন|স্লাইড|प्रेजेंटेशन|स्लाइड|presentaci[oó]n/i.test(clean);
 
   if (hasPresentationKeywords && dividerCount >= 1) {
     const parsed = parseMarkdownToSlides(clean);
@@ -1449,22 +1450,33 @@ export function extractSlideDeck(
   };
 }
 
+export interface PresentationSegmentText {
+  type: 'text';
+  content: string;
+}
+
+export interface PresentationSegmentDeck {
+  type: 'presentation';
+  slideDeck: SlideDeckData;
+  rawMarkdown: string;
+  title: string;
+}
+
+export type PresentationSegment = PresentationSegmentText | PresentationSegmentDeck;
+
 export interface PresentationSplitResult {
   hasPresentation: boolean;
   topText: string;
-  slideDeck: ReturnType<typeof extractSlideDeck>;
+  slideDeck: SlideDeckData | null;
   slideOutline: string;
   bottomText: string;
+  segments: PresentationSegment[];
 }
 
 /**
- * Splits assistant message content into:
- * 1. topText: Conversational introduction & guidance preceding the slides
- * 2. slideDeck: Structured presentation deck data for SlideDeckPreview
- * 3. slideOutline: Raw markdown of the slides only (for the collapsible outline view)
- * 4. bottomText: Conversational outro & next-step instructions following the slides
+ * Splits assistant message content for a single presentation deck (scanning from the end).
  */
-export function splitPresentationContent(
+export function splitSinglePresentation(
   markdown: string,
   fallbackTitle?: string,
   preferredTheme?: PresentationTheme | string
@@ -1476,17 +1488,19 @@ export function splitPresentationContent(
       slideDeck: null,
       slideOutline: '',
       bottomText: '',
+      segments: [{ type: 'text', content: markdown }],
     };
   }
 
-  const slideDeck = extractSlideDeck(markdown, fallbackTitle, preferredTheme);
-  if (!slideDeck || slideDeck.slides.length < 2) {
+  const initialDeck = extractSlideDeck(markdown, fallbackTitle, preferredTheme);
+  if (!initialDeck || initialDeck.slides.length < 2) {
     return {
       hasPresentation: false,
       topText: markdown,
       slideDeck: null,
       slideOutline: '',
       bottomText: '',
+      segments: [{ type: 'text', content: markdown }],
     };
   }
 
@@ -1498,7 +1512,7 @@ export function splitPresentationContent(
   const lines = cleanMd.split('\n');
 
   // 1. Locate the last slide's title line (lastSlideLineIdx)
-  const lastSlide = slideDeck.slides[slideDeck.slides.length - 1];
+  const lastSlide = initialDeck.slides[initialDeck.slides.length - 1];
   const cleanLastTitle = lastSlide?.title ? lastSlide.title.toLowerCase().replace(/[^\p{L}\p{N}]/gu, '') : '';
   let lastSlideLineIdx = -1;
 
@@ -1518,9 +1532,9 @@ export function splitPresentationContent(
   }
 
   // Fallback 1: Scan backwards for earlier slide titles in reverse order
-  if (lastSlideLineIdx === -1 && slideDeck.slides.length > 1) {
-    for (let sIdx = slideDeck.slides.length - 2; sIdx >= 0; sIdx--) {
-      const sTitle = slideDeck.slides[sIdx]?.title?.toLowerCase().replace(/[^\p{L}\p{N}]/gu, '') || '';
+  if (lastSlideLineIdx === -1 && initialDeck.slides.length > 1) {
+    for (let sIdx = initialDeck.slides.length - 2; sIdx >= 0; sIdx--) {
+      const sTitle = initialDeck.slides[sIdx]?.title?.toLowerCase().replace(/[^\p{L}\p{N}]/gu, '') || '';
       if (!sTitle) continue;
       for (let i = lines.length - 1; i >= 0; i--) {
         const trimmed = lines[i].trim();
@@ -1538,8 +1552,8 @@ export function splitPresentationContent(
   }
 
   // Fallback 2: If not found by cleanLastTitle, look for slide number pattern (e.g. Slide 6 or 6.)
-  if (lastSlideLineIdx === -1 && slideDeck.slides.length > 1) {
-    const totalSlides = slideDeck.slides.length;
+  if (lastSlideLineIdx === -1 && initialDeck.slides.length > 1) {
+    const totalSlides = initialDeck.slides.length;
     const slideNumRegex = new RegExp(`^(?:#{1,4}\\s+)?(?:slide\\s*0*${totalSlides}|0*${totalSlides}\\.\\s*)`, 'i');
     for (let i = lines.length - 1; i >= 0; i--) {
       if (slideNumRegex.test(lines[i].trim())) {
@@ -1563,8 +1577,8 @@ export function splitPresentationContent(
   // 2. Find where the slide deck starts (slideStartIndex)
   // Scan backwards from lastSlideLineIdx to locate the title slide or opening divider
   let slideStartIndex = 0;
-  const firstSlideTitle = slideDeck.title ? slideDeck.title.toLowerCase().replace(/[^\p{L}\p{N}]/gu, '') : '';
-  const firstSlideItemTitle = slideDeck.slides[0]?.title ? slideDeck.slides[0].title.toLowerCase().replace(/[^\p{L}\p{N}]/gu, '') : '';
+  const firstSlideTitle = initialDeck.title ? initialDeck.title.toLowerCase().replace(/[^\p{L}\p{N}]/gu, '') : '';
+  const firstSlideItemTitle = initialDeck.slides[0]?.title ? initialDeck.slides[0].title.toLowerCase().replace(/[^\p{L}\p{N}]/gu, '') : '';
   const searchStartFrom = lastSlideLineIdx !== -1 ? lastSlideLineIdx : lines.length - 1;
 
   for (let i = searchStartFrom - 1; i >= 0; i--) {
@@ -1686,10 +1700,12 @@ export function splitPresentationContent(
 
     // - Slide paragraphs parsed as part of lastSlide
     const cleanLine = trimmed.toLowerCase().replace(/[^\p{L}\p{N}]/gu, '');
-    const isSlideParagraph = lastSlide?.paragraphs?.some(p => {
-      const cleanP = p.toLowerCase().replace(/[^\p{L}\p{N}]/gu, '');
-      return cleanP && (cleanLine.includes(cleanP) || cleanP.includes(cleanLine));
-    });
+    const isSlideParagraph = initialDeck?.slides?.some(s =>
+      s.paragraphs?.some(p => {
+        const cleanP = p.toLowerCase().replace(/[^\p{L}\p{N}]/gu, '');
+        return cleanP && (cleanLine.includes(cleanP) || cleanP.includes(cleanLine));
+      })
+    );
 
     if (isSlideParagraph) {
       continue;
@@ -1704,7 +1720,6 @@ export function splitPresentationContent(
 
   // Extract raw sections
   let topText = lines.slice(0, slideStartIndex).join('\n').trim();
-  topText = topText.replace(/<!--\s*theme:[\s\S]*?-->/gi, '').trim();
 
   let slideOutline = lines.slice(slideStartIndex, slideEndIndex).join('\n').trim();
   slideOutline = slideOutline.replace(/[-*_]{3,}\s*$/, '').trim();
@@ -1716,12 +1731,144 @@ export function splitPresentationContent(
   let bottomText = bottomTextLines.join('\n').trim();
   bottomText = bottomText.replace(/<!--\s*theme:[\s\S]*?-->/gi, '').trim();
 
+  // CRITICAL: Extract slide deck from the ISOLATED slideOutline, NOT from the full multi-presentation markdown!
+  const isolatedDeck = extractSlideDeck(slideOutline, fallbackTitle, preferredTheme);
+  const slideDeck = (isolatedDeck && isolatedDeck.slides && isolatedDeck.slides.length >= 2)
+    ? isolatedDeck
+    : initialDeck;
+
+  const segments: PresentationSegment[] = [];
+  if (topText) {
+    segments.push({ type: 'text', content: topText });
+  }
+  segments.push({
+    type: 'presentation',
+    slideDeck,
+    rawMarkdown: slideOutline,
+    title: slideDeck.title || fallbackTitle || 'Presentation',
+  });
+  if (bottomText) {
+    segments.push({ type: 'text', content: bottomText });
+  }
+
   return {
     hasPresentation: true,
     topText,
     slideDeck,
     slideOutline,
     bottomText,
+    segments,
+  };
+}
+
+/**
+ * Splits assistant message content into structured presentation segments and text guidance.
+ * Fully supports MULTIPLE presentation decks within the same conversation, ensuring every deck
+ * is extracted as its own standalone SlideDeckData without merging slide counts or dumping previous
+ * presentations as raw markdown text.
+ */
+export function splitPresentationContent(
+  markdown: string,
+  fallbackTitle?: string,
+  preferredTheme?: PresentationTheme | string
+): PresentationSplitResult {
+  if (!isPresentationMarkdown(markdown)) {
+    return {
+      hasPresentation: false,
+      topText: markdown,
+      slideDeck: null,
+      slideOutline: '',
+      bottomText: '',
+      segments: [{ type: 'text', content: markdown }],
+    };
+  }
+
+  // Extract all presentations iteratively from bottom up
+  interface ExtractedDeck {
+    deck: SlideDeckData;
+    outline: string;
+    bottomText: string;
+    title: string;
+  }
+
+  const decksReversed: ExtractedDeck[] = [];
+  let currentMarkdown = markdown;
+  let remainingTopText = '';
+  let iterations = 0;
+  const MAX_DECKS = 10;
+
+  while (isPresentationMarkdown(currentMarkdown) && iterations < MAX_DECKS) {
+    iterations++;
+    const split = splitSinglePresentation(currentMarkdown, fallbackTitle, preferredTheme);
+    if (!split.hasPresentation || !split.slideDeck) {
+      break;
+    }
+
+    decksReversed.push({
+      deck: split.slideDeck,
+      outline: split.slideOutline,
+      bottomText: split.bottomText,
+      title: split.slideDeck.title || fallbackTitle || 'Presentation',
+    });
+
+    remainingTopText = split.topText;
+
+    // Safety guard: stop if no topText remains or if topText didn't shrink
+    if (!split.topText || split.topText.length >= currentMarkdown.length) {
+      break;
+    }
+    currentMarkdown = split.topText;
+  }
+
+  if (decksReversed.length === 0) {
+    return {
+      hasPresentation: false,
+      topText: markdown,
+      slideDeck: null,
+      slideOutline: '',
+      bottomText: '',
+      segments: [{ type: 'text', content: markdown }],
+    };
+  }
+
+  // Put in chronological order (oldest first, newest last)
+  const decksChronological = [...decksReversed].reverse();
+  const segments: PresentationSegment[] = [];
+
+  if (remainingTopText.trim()) {
+    segments.push({
+      type: 'text',
+      content: remainingTopText.trim(),
+    });
+  }
+
+  for (let i = 0; i < decksChronological.length; i++) {
+    const item = decksChronological[i];
+    segments.push({
+      type: 'presentation',
+      slideDeck: item.deck,
+      rawMarkdown: item.outline,
+      title: item.title,
+    });
+
+    if (item.bottomText.trim()) {
+      segments.push({
+        type: 'text',
+        content: item.bottomText.trim(),
+      });
+    }
+  }
+
+  // The latest (most recent) deck for backwards compatibility with single-deck consumers
+  const latest = decksReversed[0];
+
+  return {
+    hasPresentation: true,
+    topText: remainingTopText,
+    slideDeck: latest.deck,
+    slideOutline: latest.outline,
+    bottomText: latest.bottomText,
+    segments,
   };
 }
 

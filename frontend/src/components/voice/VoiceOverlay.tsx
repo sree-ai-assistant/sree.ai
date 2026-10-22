@@ -284,13 +284,14 @@ export const VoiceOverlay: React.FC<VoiceOverlayProps> = ({ onClose, initialConv
   }, [displayedAiResponse]);
 
   // PPTX export handler for voice overlay slide deck
-  const handleVoicePptxExport = useCallback(async (_format: 'pptx', theme?: any) => {
+  const handleVoicePptxExport = useCallback(async (_format: 'pptx', theme?: any, customMarkdown?: string, customTitle?: string) => {
     if (isExportingPptx || !displayedAiResponse) return;
     setIsExportingPptx(true);
     try {
-      const headingMatch = displayedAiResponse.match(/^#\s+(.+)$/m)?.[1]?.trim();
-      const title = headingMatch || 'Presentation';
-      await exportDocument('pptx', displayedAiResponse, {
+      const markdownToExport = customMarkdown || displayedAiResponse;
+      const headingMatch = markdownToExport.match(/^#\s+(.+)$/m)?.[1]?.trim();
+      const title = customTitle || headingMatch || 'Presentation';
+      await exportDocument('pptx', markdownToExport, {
         title,
         includeMetadata: false,
         theme,
@@ -2869,40 +2870,36 @@ export const VoiceOverlay: React.FC<VoiceOverlayProps> = ({ onClose, initialConv
                 >
                   <div ref={aiResponseScrollRef} className={styles.aiResponseScroll}>
                     <div className={styles.aiText}>
-                      {voicePresentationData ? (
+                      {voicePresentationData && voicePresentationData.segments && voicePresentationData.segments.length > 0 ? (
                         <>
-                          {/* Top conversational text (intro before slides) */}
-                          {voicePresentationData.topText && (
-                            <div className={styles.voicePresentationTopText}>
-                              <ReactMarkdown
-                                remarkPlugins={[remarkGfm]}
-                                components={voiceMarkdownComponents}
-                              >
-                                {cleanMarkdownTranscript(voicePresentationData.topText)}
-                              </ReactMarkdown>
-                            </div>
-                          )}
-
-                          {/* Interactive Slide Deck Carousel with Download */}
-                          <div className={styles.voiceSlideDeckWrapper}>
-                            <SlideDeckPreview
-                              slideDeck={voicePresentationData.slideDeck!}
-                              onDownload={(format, theme) => handleVoicePptxExport(format, theme)}
-                              isExporting={isExportingPptx}
-                            />
-                          </div>
-
-                          {/* Bottom conversational text (outro after slides) */}
-                          {voicePresentationData.bottomText && (
-                            <div className={styles.voicePresentationBottomText}>
-                              <ReactMarkdown
-                                remarkPlugins={[remarkGfm]}
-                                components={voiceMarkdownComponents}
-                              >
-                                {cleanMarkdownTranscript(voicePresentationData.bottomText)}
-                              </ReactMarkdown>
-                            </div>
-                          )}
+                          {voicePresentationData.segments.map((seg, idx) => {
+                            if (seg.type === 'presentation') {
+                              return (
+                                <div key={`voice-deck-${idx}-${seg.title}`} className={styles.voiceSlideDeckWrapper}>
+                                  <SlideDeckPreview
+                                    slideDeck={seg.slideDeck}
+                                    onDownload={(format, theme) =>
+                                      handleVoicePptxExport(format, theme, seg.rawMarkdown, seg.title)
+                                    }
+                                    isExporting={isExportingPptx}
+                                  />
+                                </div>
+                              );
+                            }
+                            if (seg.content && seg.content.trim()) {
+                              return (
+                                <div key={`voice-text-${idx}`} className={styles.voicePresentationSegmentText}>
+                                  <ReactMarkdown
+                                    remarkPlugins={[remarkGfm]}
+                                    components={voiceMarkdownComponents}
+                                  >
+                                    {cleanMarkdownTranscript(seg.content)}
+                                  </ReactMarkdown>
+                                </div>
+                              );
+                            }
+                            return null;
+                          })}
                         </>
                       ) : (
                         <ReactMarkdown
