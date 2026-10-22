@@ -603,7 +603,14 @@ export function parseMarkdownToSlides(markdown: string, fallbackTitle?: string):
       // G. Standard paragraph text (including blockquotes and descriptions)
       if (!slideTitle && !trimmedLine.startsWith('>')) {
         slideTitle = cleanSlideTitle(trimmedLine);
-      } else {
+      } else if (trimmedLine.startsWith('>')) {
+        const cleanP = stripMarkdownFormatting(trimmedLine);
+        if (cleanP && !/^[-*_]{3,}$/.test(cleanP)) {
+          paragraphs.push(cleanP);
+        }
+      } else if (bullets.length === 0) {
+        // Only accept slide descriptive paragraphs BEFORE any bullet list begins.
+        // Plain paragraphs occurring after bullet lists are conversational outro/subsequent responses.
         const cleanP = stripMarkdownFormatting(trimmedLine);
         if (cleanP && !/^[-*_]{3,}$/.test(cleanP)) {
           paragraphs.push(cleanP);
@@ -1358,7 +1365,7 @@ export function isPresentationMarkdown(markdown: string): boolean {
   // This ensures standard tutorials, roadmaps, articles, or Word/PDF guides with `---` are NOT misidentified as PPTX.
   const hasPresentationKeywords = /\b(presentation|slide\s*deck|slides?\s+on\b|slide-by-slide|powerpoint|\.pptx|presentation\s+carousel)\b/i.test(clean);
 
-  if (hasPresentationKeywords && dividerCount >= 2) {
+  if (hasPresentationKeywords && dividerCount >= 1) {
     const parsed = parseMarkdownToSlides(clean);
     const totalSlideCount = (parsed.title ? 1 : 0) + parsed.slides.length;
     if (totalSlideCount >= 2) return true;
@@ -1538,29 +1545,96 @@ export function splitPresentationContent(
     }
   }
 
+  // Fallback 1: If not found by cleanLastTitle, look for slide number pattern (e.g. Slide 6 or 6.)
+  if (lastSlideLineIdx === -1 && slideDeck.slides.length > 1) {
+    const totalSlides = slideDeck.slides.length;
+    const slideNumRegex = new RegExp(`^(?:#{1,4}\\s+)?(?:slide\\s*0*${totalSlides}|0*${totalSlides}\\.\\s*)`, 'i');
+    for (let i = slideStartIndex; i < lines.length; i++) {
+      if (slideNumRegex.test(lines[i].trim())) {
+        lastSlideLineIdx = i;
+      }
+    }
+  }
+
+  // Fallback 2: Look backwards for the last explicit heading line after slideStartIndex
+  if (lastSlideLineIdx === -1) {
+    for (let i = lines.length - 1; i >= slideStartIndex; i--) {
+      const trimmed = lines[i].trim();
+      if (/^#{1,4}\s+/i.test(trimmed) || /^(slide\s*\d+|title\s*slide)/i.test(trimmed)) {
+        lastSlideLineIdx = i;
+        break;
+      }
+    }
+  }
+
   const searchFrom = lastSlideLineIdx !== -1 ? lastSlideLineIdx : slideStartIndex;
   let slideEndIndex = lines.length;
+  let inCodeFence = false;
 
   for (let i = searchFrom + 1; i < lines.length; i++) {
     const trimmed = lines[i].trim();
 
-    // Check for divider separating slides from outro or subsequent deliverable
-    if (/^[-*_]{3,}$/.test(trimmed)) {
-      const remaining = lines.slice(i + 1).map(l => l.trim()).filter(Boolean);
-      if (remaining.length > 0) {
-        const nextContentLine = remaining[0];
-        if (isPostPresentationBoundary(nextContentLine)) {
-          slideEndIndex = i;
-          break;
-        }
-      }
-    }
+    // Skip empty lines between slide elements
+    if (!trimmed) continue;
 
-    // Check for post-presentation boundary (Mermaid, ASCII preview, Word/PDF doc, or download guide)
-    if (isPostPresentationBoundary(trimmed)) {
+    // 1. Divider line (---, ***, ___) marks presentation end
+    if (!inCodeFence && /^[-*_]{3,}$/.test(trimmed)) {
       slideEndIndex = i;
       break;
     }
+
+    // 2. Post-presentation boundary (Mermaid, ASCII preview, Word/PDF doc, or download guide)
+    if (!inCodeFence && isPostPresentationBoundary(trimmed)) {
+      slideEndIndex = i;
+      break;
+    }
+
+    // 3. Track code fence inside slide (e.g. ```python ... ```)
+    if (/^```/.test(trimmed)) {
+      inCodeFence = !inCodeFence;
+      continue;
+    }
+    if (inCodeFence) {
+      continue;
+    }
+
+    // 4. Slide content elements:
+    // - Bullet points: "- point", "* point", "+ point", "1. point"
+    if (/^[-*+]\s+/.test(trimmed) || /^\d+\.\s+/.test(trimmed)) {
+      continue;
+    }
+
+    // - Table row: "| col | col |"
+    if (trimmed.startsWith('|') && trimmed.endsWith('|')) {
+      continue;
+    }
+
+    // - Blockquote: "> quote"
+    if (trimmed.startsWith('>')) {
+      continue;
+    }
+
+    // - Slide comment or theme directive: "<!-- ... -->"
+    if (trimmed.startsWith('<!--')) {
+      continue;
+    }
+
+    // - Slide paragraphs parsed as part of lastSlide
+    const cleanLine = trimmed.toLowerCase().replace(/[^a-z0-9]/g, '');
+    const isSlideParagraph = lastSlide?.paragraphs?.some(p => {
+      const cleanP = p.toLowerCase().replace(/[^a-z0-9]/g, '');
+      return cleanP && (cleanLine.includes(cleanP) || cleanP.includes(cleanLine));
+    });
+
+    if (isSlideParagraph) {
+      continue;
+    }
+
+    // 5. Line is outside code fence, not a divider, not a bullet/table/blockquote/slide comment,
+    // and not a slide paragraph. This means the slide deck has ended, and conversational
+    // text / subsequent responses begin here!
+    slideEndIndex = i;
+    break;
   }
 
   // Extract raw sections

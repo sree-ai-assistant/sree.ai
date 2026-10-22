@@ -1699,30 +1699,91 @@
   }
 
   .slideViewport {
-    max-height: min(65vh, 520px);
+    aspect-ratio: auto;
+    min-height: 280px;
+    max-height: none;
+    overflow: hidden;
   }
 
   .slideCanvas {
-    padding: 14px 16px;
+    padding: 14px 14px 16px;
+    overflow-y: visible;
+    height: auto;
+    min-height: 280px;
   }
 
   .titleSlideCanvas {
-    padding: 18px 16px;
+    padding: 24px 16px;
+    min-height: 280px;
+    justify-content: center;
   }
 
+  /* Hide the duplicate watermark slide counter inside slide canvas on mobile
+     since .footerBar already clearly displays "Slide 2 of 6" */
   .slideNumberBottomRight {
-    right: 14px;
-    bottom: 8px;
-    font-size: 0.65rem;
+    display: none !important;
+  }
+
+  .contentSlideHeader {
+    margin-bottom: 6px;
+    gap: 8px;
+  }
+
+  .contentSlideTitle {
+    font-size: clamp(1.05rem, 4.4vw, 1.28rem);
+    line-height: 1.25;
+  }
+
+  .slideAccentLine {
+    width: 55px;
+    height: 3px;
+    margin-top: 4px;
+    margin-bottom: 8px;
+  }
+
+  .contentSlideBody {
+    gap: 8px;
+    padding-bottom: 4px;
+    overflow-y: visible;
+  }
+
+  .slideBulletList {
+    gap: 8px;
+  }
+
+  .slideBulletItem {
+    font-size: clamp(0.78rem, 3.2vw, 0.90rem);
+    line-height: 1.45;
+    gap: 8px;
+  }
+
+  .bulletDot {
+    width: 5px;
+    height: 5px;
+    margin-top: 6px;
+  }
+
+  .slideParagraph {
+    font-size: clamp(0.78rem, 3.2vw, 0.90rem);
+    line-height: 1.45;
   }
 
   .footerBar {
-    padding: 8px 10px;
+    padding: 7px 10px;
   }
 
   .navBtn {
-    padding: 5px 10px;
+    padding: 5px 9px;
     font-size: 0.75rem;
+  }
+
+  .dot {
+    width: 5px;
+    height: 5px;
+  }
+
+  .dot.active {
+    width: 14px;
   }
 
   /* Fullscreen Modal Mobile Adaptations */

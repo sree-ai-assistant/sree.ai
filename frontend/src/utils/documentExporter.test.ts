@@ -348,6 +348,48 @@ Let me know if you would like me to adjust any slide content, expand on the ritu
     expect(split.bottomText).toBe('Let me know if you would like me to adjust any slide content, expand on the rituals, or change the theme styling!');
   });
 
+  it('preserves all subsequent AI responses in bottomText after PPT generation across multi-turn conversation', () => {
+    const multiTurnVoiceResponse = `I'm here and ready to help. What would you like to discuss or work on today?
+I am here and ready to help. What would you like to discuss or work on next?
+I'm sorry, I didn't quite catch that. Could you please say that again?
+
+# Elon Musk
+## Visionary Entrepreneur
+
+---
+
+## Early Life and Education
+- Born in Pretoria, South Africa, in 1971.
+- Taught himself computer programming at age 12.
+- Moved to North America for university, attending Queen's University and transferring to the University of Pennsylvania.
+- Earned degrees in Physics and Economics.
+- Briefly attended Stanford University before dropping out to pursue the dot-com boom.
+
+I've placed your presentation on screen! You can browse through the slides or download the .pptx file.
+
+Elon Musk's net worth is estimated to be over $200 billion. He is the founder of SpaceX and CEO of Tesla.`;
+
+    const split = splitPresentationContent(multiTurnVoiceResponse);
+    expect(split.hasPresentation).toBe(true);
+    expect(split.slideDeck).not.toBeNull();
+    expect(split.slideDeck?.title).toBe('Elon Musk');
+    expect(split.slideDeck?.slides.length).toBe(2);
+
+    // Verify topText preserves prior conversation preamble
+    expect(split.topText).toContain("I'm here and ready to help");
+    expect(split.topText).toContain("I'm sorry, I didn't quite catch that");
+
+    // Verify slideOutline only contains the presentation
+    expect(split.slideOutline).toContain('# Elon Musk');
+    expect(split.slideOutline).toContain('Early Life and Education');
+    expect(split.slideOutline).not.toContain("Elon Musk's net worth is estimated");
+
+    // CRITICAL: bottomText must contain all subsequent conversational responses!
+    expect(split.bottomText).toContain("I've placed your presentation on screen!");
+    expect(split.bottomText).toContain("Elon Musk's net worth is estimated to be over $200 billion");
+    expect(split.bottomText).toContain("He is the founder of SpaceX and CEO of Tesla");
+  });
+
   it('correctly handles blockquotes, italics, and excludes How to get your file from slides', () => {
     const rawAiResponse = `
 Here is the clean, refined version of your presentation, ready for your use.

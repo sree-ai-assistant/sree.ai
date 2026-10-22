@@ -1425,6 +1425,25 @@
     width: 2.75rem;
     height: 2.75rem;
   }
+
+  .contentOverlay {
+    width: min(calc(100% - 20px), 800px);
+  }
+
+  .aiResponseArea {
+    border-radius: 1rem;
+    max-height: 70vh;
+  }
+
+  .aiResponseScroll {
+    padding: 1rem 1rem;
+    max-height: 70vh;
+  }
+
+  .voiceSlideDeckWrapper {
+    margin: 0.5rem 0;
+    border-radius: 0.85rem;
+  }
 }
 
 @media (max-height: 640px) {
@@ -1622,6 +1641,43 @@
   .latencyNoticeDismiss {
     width: 22px;
     height: 22px;
+  }
+
+  .contentOverlay {
+    width: calc(100% - 12px);
+  }
+
+  .aiResponseArea {
+    border-radius: 0.85rem;
+    max-height: 74vh;
+  }
+
+  .aiResponseScroll {
+    padding: 0.65rem 0.5rem;
+    max-height: 74vh;
+  }
+
+  .voiceSlideDeckWrapper {
+    margin: 0.35rem 0;
+    border-radius: 0.65rem;
+  }
+
+  .aiText {
+    font-size: 0.94rem;
+    line-height: 1.55;
+  }
+
+  .voicePresentationTopText {
+    margin-bottom: 0.35rem;
+    font-size: 0.90rem;
+    line-height: 1.5;
+  }
+
+  .voicePresentationBottomText {
+    margin-top: 0.5rem;
+    padding-top: 0.5rem;
+    font-size: 0.90rem;
+    line-height: 1.5;
   }
 }
 

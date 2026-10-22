@@ -116,6 +116,7 @@ export function formatPresentationMarkdownFromTool(args: any): string {
         md += `- ${bullet}\n`;
       }
     }
+    md += '\n---\n';
 
     return md;
   } catch (err) {
