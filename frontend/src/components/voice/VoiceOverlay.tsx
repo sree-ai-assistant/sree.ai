@@ -275,13 +275,13 @@ export const VoiceOverlay: React.FC<VoiceOverlayProps> = ({ onClose, initialConv
   const [loadingMessage, setLoadingMessage] = useState('');
   const [isExportingPptx, setIsExportingPptx] = useState(false);
 
-  // Detect presentation slide deck in the AI response (only when not mid-stream)
+  // Detect presentation slide deck in the AI response
   const voicePresentationData = useMemo(() => {
-    if (!displayedAiResponse || status === 'speaking' || status === 'thinking') return null;
+    if (!displayedAiResponse) return null;
     const split = splitPresentationContent(displayedAiResponse);
-    // Defensive: only return presentation data if both hasPresentation AND slideDeck are truthy
-    return (split.hasPresentation && split.slideDeck) ? split : null;
-  }, [displayedAiResponse, status]);
+    // Defensive: only return presentation data if both hasPresentation AND slideDeck with valid slides are truthy
+    return (split.hasPresentation && split.slideDeck && split.slideDeck.slides && split.slideDeck.slides.length > 0) ? split : null;
+  }, [displayedAiResponse]);
 
   // PPTX export handler for voice overlay slide deck
   const handleVoicePptxExport = useCallback(async (_format: 'pptx', theme?: any) => {
@@ -711,7 +711,8 @@ export const VoiceOverlay: React.FC<VoiceOverlayProps> = ({ onClose, initialConv
                     msg.text.startsWith('```') ||
                     msg.text.startsWith('|') ||
                     msg.text.startsWith('#') ||
-                    msg.text.startsWith('---')
+                    msg.text.startsWith('---') ||
+                    msg.text.startsWith('<!--')
                   ) {
                     return trimmedPrev + '\n\n' + msg.text;
                   }

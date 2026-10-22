@@ -36,6 +36,94 @@ interface UserPersonalizationProfile {
   more_about_you?: string | null;
 }
 
+/**
+ * Safely sanitizes and converts tool call arguments from Gemini Live into
+ * pristine Markdown format compatible with Sree AI's SlideDeckPreview and PPTX exporter.
+ */
+export function formatPresentationMarkdownFromTool(args: any): string {
+  try {
+    let parsedArgs = args;
+    if (typeof parsedArgs === 'string') {
+      try {
+        parsedArgs = JSON.parse(parsedArgs);
+      } catch {
+        parsedArgs = {};
+      }
+    }
+    if (!parsedArgs || typeof parsedArgs !== 'object') {
+      parsedArgs = {};
+    }
+
+    // 1. Sanitize title
+    let title = typeof parsedArgs.title === 'string' ? parsedArgs.title.trim() : '';
+    if (!title) {
+      title = 'Presentation';
+    }
+    title = title.replace(/<[^>]*>/g, '').slice(0, 200).trim();
+
+    // 2. Sanitize subtitle
+    let subtitle = typeof parsedArgs.subtitle === 'string' ? parsedArgs.subtitle.trim() : '';
+    subtitle = subtitle.replace(/<[^>]*>/g, '').slice(0, 250).trim();
+
+    // 3. Theme validation against whitelist
+    const VALID_THEMES = ['modernLight', 'navyGold', 'emeraldTech', 'crimsonNight', 'slateMonochrome', 'executiveDark'];
+    const rawTheme = typeof parsedArgs.theme === 'string' ? parsedArgs.theme.trim() : '';
+    const theme = VALID_THEMES.includes(rawTheme) ? rawTheme : 'navyGold';
+
+    // 4. Sanitize slides
+    const rawSlides = Array.isArray(parsedArgs.slides) ? parsedArgs.slides : [];
+    const validSlides: Array<{ title: string; bullets: string[] }> = [];
+
+    for (const s of rawSlides.slice(0, 20)) {
+      if (!s || typeof s !== 'object') continue;
+      const sTitle = (typeof s.title === 'string' ? s.title.trim() : '').replace(/<[^>]*>/g, '').slice(0, 150).trim();
+      let bullets: string[] = [];
+      if (Array.isArray(s.bullets)) {
+        bullets = s.bullets
+          .filter((b: any) => typeof b === 'string' && b.trim().length > 0)
+          .map((b: string) => b.trim().replace(/<[^>]*>/g, '').slice(0, 300).trim())
+          .slice(0, 8);
+      } else if (typeof s.bullets === 'string' && s.bullets.trim()) {
+        bullets = [s.bullets.trim().replace(/<[^>]*>/g, '').slice(0, 300).trim()];
+      }
+
+      if (sTitle || bullets.length > 0) {
+        validSlides.push({
+          title: sTitle || 'Key Insights',
+          bullets: bullets.length > 0 ? bullets : ['Key point and strategic discussion.'],
+        });
+      }
+    }
+
+    // Defensive fallback if model supplied 0 valid slides
+    if (validSlides.length === 0) {
+      validSlides.push(
+        { title: 'Overview & Background', bullets: ['Core concepts and key foundational principles.', 'Strategic objectives and market positioning.'] },
+        { title: 'Key Developments & Innovations', bullets: ['Key technological breakthroughs and milestones.', 'Operational execution and growth dynamics.'] },
+        { title: 'Impact & Future Outlook', bullets: ['Industry transformation and global footprint.', 'Long-term vision and future milestones.'] }
+      );
+    }
+
+    // 5. Construct pristine Markdown with theme directive
+    let md = `<!-- theme: ${theme} -->\n\n# ${title}\n`;
+    if (subtitle) {
+      md += `## ${subtitle}\n`;
+    }
+
+    for (const slide of validSlides) {
+      md += `\n---\n\n## ${slide.title}\n`;
+      for (const bullet of slide.bullets) {
+        md += `- ${bullet}\n`;
+      }
+    }
+
+    return md;
+  } catch (err) {
+    console.error('[LiveVoice] Failed to format presentation markdown from tool:', err);
+    return `# Presentation\n\n---\n\n## Overview\n- Presentation content generated.`;
+  }
+}
+
 export function buildLiveSystemPrompt(
   profile?: UserPersonalizationProfile | null,
   clientOverride?: string
@@ -100,9 +188,10 @@ VISUAL & MARKDOWN CAPABILITIES (CRITICAL):
   • When a user requests a PDF document (.pdf) or printable report:
     1. Render clean, structured Markdown with headings, bullet points, and tables.
     2. Guide the user that they can download it directly as a formatted vector PDF by clicking the Export (📥) button in the action bar below the message and choosing PDF Document (.pdf).
-  • When a user requests a PowerPoint presentation (.pptx) or slides:
-    1. Structure the response slide-by-slide using \`---\` dividers or clean headings.
-    2. Guide the user that their interactive presentation is ready on screen, and they can download the 16:9 PowerPoint file with 1 click using the **Download .pptx** button on the presentation card header (or present in fullscreen, or customize themes with the **Theme** button).
+  • When a user requests a PowerPoint presentation (.pptx), PPT, slide deck, or slides:
+    1. MANDATORY TOOL CALL: You MUST immediately invoke the \`generate_presentation\` tool with a complete, comprehensive deck (title, subtitle, theme, and 4 to 8 well-researched slides with 3 to 6 bullet points each).
+    2. NEVER pretend you generated a presentation or say you placed slides on screen without calling \`generate_presentation\`.
+    3. Once the tool executes, smoothly guide the user aloud in the active conversation language: "I've placed your presentation on screen. You can download the PowerPoint file directly using the Download .pptx button on the presentation card."
   • When the user asks to download, export, or requests data in Excel (.xlsx) or CSV (.csv) format:
     1. Render the complete GitHub Flavored Markdown (GFM) table on the user's screen. Even if previously discussed, re-render the complete table so the download toolbar is immediately available right on screen.
     2. Guide the user that they can download it directly by hovering over the table (or tapping on mobile) and clicking the Download icon (📥) in the bottom-right corner of the table to export as either Excel (.xlsx) or CSV (.csv) with 1 click.
@@ -130,7 +219,7 @@ SPOKEN CONVERSATIONAL DELIVERY (CRITICAL FOR VOICE):
     - Instead, give a smooth, natural, conversational walkthrough of what the diagram or code represents (e.g., "I've drawn the sequence diagram on your screen. The flow begins with the user clicking download, which checks rate limits in the backend before generating the CSV...").
   • When a user asks to download or export documents:
     - For Word (.docx) or PDF (.pdf): Smoothly guide them aloud: "You can download it directly by clicking the Export button in the action bar below the message."
-    - For PowerPoint (.pptx): Smoothly guide them aloud: "I've placed your presentation on screen. You can download the PowerPoint file directly using the Download .pptx button on the presentation card."
+    - For PowerPoint (.pptx): Invoke \`generate_presentation\` tool first, and once created, smoothly guide them aloud: "I've placed your presentation on screen. You can download the PowerPoint file directly using the Download .pptx button on the presentation card."
     - Follow-up offers: Any follow-up offers or courtesy questions (e.g., "Is there anything else you'd like to work on?", "Let me know if you'd like any adjustments") MUST be spoken strictly in the active language of the conversation (English by default). NEVER switch to Spanish, Portuguese, or other foreign languages.
     - For Tables: Smoothly guide them aloud: "You can download it by clicking the download icon directly on the table."
   • Direct the user's attention to their screen naturally ("As you can see in the diagram on your screen...", "Here is the layout on screen...").
@@ -394,6 +483,87 @@ export async function handleLiveVoiceConnection(
           geminiSession!.turnCount++;
           sendControl(clientWs, { type: 'turn-complete' });
         }
+      }
+
+      // ── Handle Tool Calls from Gemini Live (Approach A) ──
+      const toolCalls: Array<{ id?: string; name?: string; args?: any }> = [];
+
+      if (Array.isArray(msg.toolCall?.functionCalls)) {
+        for (const fc of msg.toolCall.functionCalls) {
+          if (fc && fc.name) toolCalls.push(fc);
+        }
+      }
+
+      if (Array.isArray(msg.serverContent?.modelTurn?.parts)) {
+        for (const part of msg.serverContent.modelTurn.parts) {
+          if (part.functionCall && part.functionCall.name) {
+            toolCalls.push(part.functionCall);
+          }
+        }
+      }
+
+      if (toolCalls.length > 0) {
+        const functionResponses: Array<{ id: string; name: string; response: any }> = [];
+
+        for (const call of toolCalls) {
+          const callId = call.id || `call_${Date.now()}`;
+          const callName = call.name || 'unknown';
+
+          if (callName === 'generate_presentation') {
+            console.log(`[LiveVoice] 📊 Tool call received: ${callName} (id: ${callId})`);
+            const presentationMd = formatPresentationMarkdownFromTool(call.args);
+
+            // Forward structured slide deck markdown to client so it renders the interactive presentation card
+            sendControl(clientWs, {
+              type: 'transcript',
+              role: 'assistant',
+              text: presentationMd + '\n\n',
+            });
+
+            // Notify client that presentation generation completed
+            sendControl(clientWs, {
+              type: 'presentation-generated',
+              status: 'success',
+            });
+
+            functionResponses.push({
+              id: callId,
+              name: callName,
+              response: {
+                output: {
+                  status: 'success',
+                  message: 'The PowerPoint presentation has been generated and rendered directly on the user screen. Instruct the user that they can view the slides and download the 16:9 .pptx file directly with 1 click.',
+                },
+              },
+            });
+          } else {
+            functionResponses.push({
+              id: callId,
+              name: callName,
+              response: {
+                output: {
+                  status: 'success',
+                },
+              },
+            });
+          }
+        }
+
+        // Send toolResponse back to Gemini Live
+        if (functionResponses.length > 0 && geminiSession.ws.readyState === WebSocket.OPEN) {
+          const toolResponsePayload = {
+            toolResponse: {
+              functionResponses,
+            },
+          };
+          geminiSession.ws.send(JSON.stringify(toolResponsePayload));
+          console.log(`[LiveVoice] 📤 Sent ${functionResponses.length} tool response(s) to Gemini Live`);
+        }
+      }
+
+      // Handle Tool Call Cancellation (Barge-in / Interruption)
+      if (msg.toolCallCancellation) {
+        console.log(`[LiveVoice] ⚠️ Tool call cancellation received for IDs:`, msg.toolCallCancellation.ids);
       }
 
     } catch (e) {

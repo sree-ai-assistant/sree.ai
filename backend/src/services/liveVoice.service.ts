@@ -294,6 +294,59 @@ async function tryConnectModel(
           systemInstruction: {
             parts: [{ text: systemText }],
           },
+          tools: [
+            {
+              functionDeclarations: [
+                {
+                  name: 'generate_presentation',
+                  description:
+                    "Generates and renders an interactive PowerPoint presentation slide deck on the user's screen with complete slide content. Call this function whenever the user asks for a presentation, PowerPoint, PPT, slide deck, or slides on any topic. Provide a comprehensive slide deck with title, subtitle, theme, and multiple informative slides with clear bullet points.",
+                  parameters: {
+                    type: 'object',
+                    properties: {
+                      title: {
+                        type: 'string',
+                        description: 'The main presentation title (e.g. "Elon Musk: Visionary Entrepreneur")',
+                      },
+                      subtitle: {
+                        type: 'string',
+                        description: 'A compelling presentation subtitle or presenter/topic tagline',
+                      },
+                      theme: {
+                        type: 'string',
+                        description:
+                          'Visual theme directive: modernLight, navyGold, emeraldTech, crimsonNight, slateMonochrome, or executiveDark. Default to navyGold.',
+                      },
+                      slides: {
+                        type: 'array',
+                        description:
+                          'Array of slides (at least 4 to 8 slides for a comprehensive deck). Each slide must contain a title and detailed bullet points.',
+                        items: {
+                          type: 'object',
+                          properties: {
+                            title: {
+                              type: 'string',
+                              description: 'The title of this specific slide',
+                            },
+                            bullets: {
+                              type: 'array',
+                              description:
+                                '3 to 6 concise, high-impact bullet points or key metrics for this slide',
+                              items: {
+                                type: 'string',
+                              },
+                            },
+                          },
+                          required: ['title', 'bullets'],
+                        },
+                      },
+                    },
+                    required: ['title', 'slides'],
+                  },
+                },
+              ],
+            },
+          ],
           realtimeInputConfig: {
             automaticActivityDetection: {
               disabled: false,
