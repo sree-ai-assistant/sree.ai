@@ -303,6 +303,24 @@
   word-break: break-word;
 }
 
+/* ── Voice Presentation Slide Deck ── */
+.voiceSlideDeckWrapper {
+  width: 100%;
+  margin: 0.75rem 0;
+  border-radius: 1rem;
+  overflow: hidden;
+}
+
+.voicePresentationTopText {
+  margin-bottom: 0.5rem;
+}
+
+.voicePresentationBottomText {
+  margin-top: 0.75rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
 /* ── Voice Markdown Styles ── */
 .voiceMdH1 {
   font-size: 1.35rem;

@@ -13,10 +13,13 @@ import { aiService } from '../../lib/api';
 import { LiveAudioManager } from '../../lib/liveAudio';
 import { CodeBlock } from '../chat/CodeBlock';
 import { TableBlock } from '../chat/TableBlock';
+import { SlideDeckPreview } from '../chat/SlideDeckPreview';
 import styles from './VoiceOverlay.module.css';
 import { getStoredAnonId, generateFingerprintHash } from '../../lib/fingerprint';
 import { filterThinkingTags as filterThinkingTagsUtil } from '../../utils/thinkingFilter';
 import { sanitizeSpuriousLanguageLeakage, hasUserSpokenSpanishOrPortuguese } from '../../utils/languageFilter';
+import { splitPresentationContent } from '../../utils/pptxExporter';
+import { exportDocument } from '../../utils/documentExportService';
 
 interface VoiceOverlayProps {
   onClose: () => void;
@@ -270,6 +273,32 @@ export const VoiceOverlay: React.FC<VoiceOverlayProps> = ({ onClose, initialConv
   const [showAiResponses, setShowAiResponses] = useState<boolean>(true);
   const [showFlyingTranscript, setShowFlyingTranscript] = useState(false);
   const [loadingMessage, setLoadingMessage] = useState('');
+  const [isExportingPptx, setIsExportingPptx] = useState(false);
+
+  // Detect presentation slide deck in the AI response (only when not mid-stream)
+  const voicePresentationData = useMemo(() => {
+    if (!displayedAiResponse || status === 'speaking' || status === 'thinking') return null;
+    const split = splitPresentationContent(displayedAiResponse);
+    // Defensive: only return presentation data if both hasPresentation AND slideDeck are truthy
+    return (split.hasPresentation && split.slideDeck) ? split : null;
+  }, [displayedAiResponse, status]);
+
+  // PPTX export handler for voice overlay slide deck
+  const handleVoicePptxExport = useCallback(async (_format: 'pptx', theme?: any) => {
+    if (isExportingPptx || !displayedAiResponse) return;
+    setIsExportingPptx(true);
+    try {
+      const headingMatch = displayedAiResponse.match(/^#\s+(.+)$/m)?.[1]?.trim();
+      const title = headingMatch || 'Presentation';
+      await exportDocument('pptx', displayedAiResponse, {
+        title,
+        includeMetadata: false,
+        theme,
+      });
+    } finally {
+      setIsExportingPptx(false);
+    }
+  }, [displayedAiResponse, isExportingPptx]);
 
   // Refs for VAD and Audio
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -2839,12 +2868,49 @@ export const VoiceOverlay: React.FC<VoiceOverlayProps> = ({ onClose, initialConv
                 >
                   <div ref={aiResponseScrollRef} className={styles.aiResponseScroll}>
                     <div className={styles.aiText}>
-                      <ReactMarkdown
-                        remarkPlugins={[remarkGfm]}
-                        components={voiceMarkdownComponents}
-                      >
-                        {cleanMarkdownTranscript(displayedAiResponse)}
-                      </ReactMarkdown>
+                      {voicePresentationData ? (
+                        <>
+                          {/* Top conversational text (intro before slides) */}
+                          {voicePresentationData.topText && (
+                            <div className={styles.voicePresentationTopText}>
+                              <ReactMarkdown
+                                remarkPlugins={[remarkGfm]}
+                                components={voiceMarkdownComponents}
+                              >
+                                {cleanMarkdownTranscript(voicePresentationData.topText)}
+                              </ReactMarkdown>
+                            </div>
+                          )}
+
+                          {/* Interactive Slide Deck Carousel with Download */}
+                          <div className={styles.voiceSlideDeckWrapper}>
+                            <SlideDeckPreview
+                              slideDeck={voicePresentationData.slideDeck!}
+                              onDownload={(format, theme) => handleVoicePptxExport(format, theme)}
+                              isExporting={isExportingPptx}
+                            />
+                          </div>
+
+                          {/* Bottom conversational text (outro after slides) */}
+                          {voicePresentationData.bottomText && (
+                            <div className={styles.voicePresentationBottomText}>
+                              <ReactMarkdown
+                                remarkPlugins={[remarkGfm]}
+                                components={voiceMarkdownComponents}
+                              >
+                                {cleanMarkdownTranscript(voicePresentationData.bottomText)}
+                              </ReactMarkdown>
+                            </div>
+                          )}
+                        </>
+                      ) : (
+                        <ReactMarkdown
+                          remarkPlugins={[remarkGfm]}
+                          components={voiceMarkdownComponents}
+                        >
+                          {cleanMarkdownTranscript(displayedAiResponse)}
+                        </ReactMarkdown>
+                      )}
                       {status === 'thinking' && !loadingMessage && <span className={styles.streamingCursor}>|</span>}
                     </div>
                   </div>
