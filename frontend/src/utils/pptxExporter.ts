@@ -1328,7 +1328,15 @@ export async function exportMarkdownToPptx(markdown: string, options?: PptxExpor
   });
 
   const blobOutput = await pres.write({ outputType: 'blob' });
-  return blobOutput as Blob;
+  // pptxgenjs internally generates the container using JSZip, which defaults the Blob MIME type to 'application/zip'.
+  // On mobile browsers (especially Android Chrome and Samsung Internet), Android's DownloadManager sniffs the
+  // Blob's MIME type. Seeing 'application/zip' mismatched with a '.pptx' extension, Android automatically appends
+  // '.zip' to the downloaded filename (resulting in '[name].pptx.zip'), which prompts the phone to open it as a zip archive.
+  // Re-wrapping the blob with the official OpenXML PresentationML MIME type ensures mobile browsers download
+  // it strictly as '.pptx' and open it directly in PowerPoint / Office viewers.
+  return new Blob([blobOutput as Blob], {
+    type: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+  });
 }
 
 /**

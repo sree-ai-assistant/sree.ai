@@ -57,6 +57,7 @@ const passingThreshold = 50;
 
     expect(blob).toBeDefined();
     expect(blob.size).toBeGreaterThan(500); // Realistic PPTX zip size
+    expect(blob.type).toBe('application/vnd.openxmlformats-officedocument.presentationml.presentation');
   });
 
   it('generates a valid PowerPoint (.pptx) Blob with Sree AI clickable watermark for free/anonymous users', async () => {
