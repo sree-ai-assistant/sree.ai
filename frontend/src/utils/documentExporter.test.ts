@@ -11,6 +11,7 @@ import {
   calculateAdaptiveCodeLayout,
 } from './pptxExporter';
 import { exportMarkdownToPdf, transliterateUnicodeSymbols } from './pdfExporter';
+import { resolveCodeBadge } from '../components/chat/CodeBlock';
 
 describe('Document Exporters', () => {
   const sampleMarkdown = `
@@ -896,8 +897,60 @@ df = pd.DataFrame(data)
     expect(getSlideCodeBadge('python', 'import pandas as pd')).toBe('PYTHON');
     expect(getSlideCodeBadge('typescript', 'const x: number = 42;')).toBe('TYPESCRIPT');
 
-    // Plain text without diagram symbols
+    // Plain text without diagram symbols (even containing hyphens or the letter 'v')
     expect(getSlideCodeBadge('text', 'Just a standard text note without arrows or boxes.')).toBe('CODE');
+    expect(getSlideCodeBadge('text', 'Create a visionary presentation about high-impact topics.')).toBe('CODE');
+  });
+
+  it('correctly resolves smart code badges for prompts, plain text, code, and diagrams', () => {
+    // 1. PPT / Presentation generation prompt (as in user screenshot 1)
+    const gammaPptPrompt = `
+Create a professional, futuristic, and high-impact 8-slide presentation about Elon Musk, the visionary entrepreneur...
+Structure the slides as follows:
+1. Title Slide: Elon Musk: The Visionary Disruptor of Industries.
+2. Early Life & Education: ...
+Tone: Professional, inspiring, and minimalist.
+Visual Style: Use a sleek, dark-themed executive design with high-quality photography
+    `;
+    const pptBadge = resolveCodeBadge('text', gammaPptPrompt);
+    expect(pptBadge.label).toBe('PPT Prompt');
+    expect(pptBadge.isDiagram).toBe(false);
+
+    // 2. Bug Fix prompt (as in ChatGPT screenshot 2)
+    const bugFixPrompt = `
+I have a bug in my text input/chat input UI.
+When I type continuously, the text field starts flickering/re-rendering while characters are being entered.
+Please inspect the code and fix the root cause, not just hide the visual flicker.
+Expected behavior:
+• The input should remain visually stable while typing.
+    `;
+    const bugBadge = resolveCodeBadge('text', bugFixPrompt);
+    expect(bugBadge.label).toBe('Bug Fix Prompt');
+    expect(bugBadge.isDiagram).toBe(false);
+
+    // 3. Plain Text (general prose note without prompts or diagrams)
+    const plainTextNote = 'This is a simple plain text note for the user documentation.';
+    const plainBadge = resolveCodeBadge('text', plainTextNote);
+    expect(plainBadge.label).toBe('Plain Text');
+    expect(plainBadge.isDiagram).toBe(false);
+
+    // 4. Genuine ASCII diagram
+    const asciiBox = `
++-----------------------------------+
+|    PYTHON ARCHITECTURE HIERARCHY   |
++-----------------------------------+
+                  |
+                  v
+    `;
+    const diagramBadge = resolveCodeBadge('text', asciiBox);
+    expect(diagramBadge.label).toBe('Diagram');
+    expect(diagramBadge.isDiagram).toBe(true);
+
+    // 5. Explicit markdown tags
+    expect(resolveCodeBadge('ppt-prompt', 'anything').label).toBe('PPT Prompt');
+    expect(resolveCodeBadge('bug-fix-prompt', 'anything').label).toBe('Bug Fix Prompt');
+    expect(resolveCodeBadge('python', 'print("hello")').label).toBe('Python');
+    expect(resolveCodeBadge('typescript', 'const a = 1;').label).toBe('TypeScript');
   });
 
   it('preserves exact indentation and centered arrows in slide ASCII diagrams', () => {

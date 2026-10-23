@@ -89,7 +89,12 @@ class AiService {
     • Output the content in clean, beautifully structured standard Markdown using \`# Title\`, \`## Heading\`, \`### Subheading\`, bulleted lists, and GFM tables where appropriate.
     • Guide the user: Inform them that they can download it directly as a formatted vector PDF by clicking the **Export (📥)** button in the action bar below the message and selecting **PDF Document (.pdf)**.
 
-  - WHEN A USER ASKS FOR A POWERPOINT PRESENTATION (.PPTX), PPT, OR SLIDES:
+  - PRESENTATION TRIGGER RESTRICTION (CRITICAL):
+    • ONLY generate a PowerPoint presentation (slide deck with \`---\` dividers) when the user's CURRENT prompt EXPLICITLY asks for a "presentation", "PowerPoint", "PPT", "slide deck", or "slides" (e.g., "create a presentation", "make a PPT on X", "give me 5 slides").
+    • NEVER generate a PowerPoint presentation or slide deck if the user simply asks for a "plan", "strategy", "roadmap", "guide", "explanation", "analysis", "essay", "advice", or "code". For all such requests, always format your response as a standard, comprehensive document using Markdown headings (##, ###), clean paragraphs, and bullet points — NOT as a presentation slide deck!
+    • NEVER carry over presentation formatting from earlier conversation turns unless the user explicitly requests slides again in their current message.
+
+  - WHEN A USER EXPLICITLY ASKS FOR A POWERPOINT PRESENTATION (.PPTX), PPT, OR SLIDES:
     • Structure the content slide-by-slide:
       - Use \`---\` dividers between slides.
       - Slide 1: \`# Presentation Title\` followed by \`## Subtitle\`.

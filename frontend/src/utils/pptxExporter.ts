@@ -81,6 +81,33 @@ export function cleanSlideTitle(rawTitle: string): string {
 }
 
 /**
+ * Detects if a text block contains a genuine ASCII flowchart, hierarchy tree, or box diagram.
+ * Excludes normal prose, sentences, and prompts containing hyphens or letters like 'v'.
+ */
+export function isTrueAsciiDiagram(code: string): boolean {
+  if (!code || typeof code !== 'string') return false;
+  const trimmed = code.trim();
+
+  // 1. Unicode box drawing characters (e.g. ┌─┐, │ │, └──┘)
+  if (/[\u2500-\u257F]/.test(trimmed)) return true;
+
+  // 2. Explicit ASCII boxes: +-----+ or +=====+
+  if (/\+[-=]{3,}\+/.test(trimmed)) return true;
+
+  // 3. Tree branch connectors: +-- or |-- or \-- or ├── or └──
+  if (/(?:^|\n)\s*(?:\+--|\|--|\\--|├──|└──)\s*\S/.test(trimmed)) return true;
+
+  // 4. Flowchart nodes connected by arrows: [A] --> [B] or [A] -> [B]
+  if (/\[[^\]\n]+\]\s*(?:-->|<--|==>|<==|->|<-)\s*\[[^\]\n]+\]/.test(trimmed)) return true;
+
+  // 5. Vertical flow arrows on their own lines (e.g. ^ then | then [Box] or | then v)
+  if (/(?:^|\n)\s*(?:\^|v)\s*\n\s*\|\s*(?:\n|$)/i.test(trimmed)) return true;
+  if (/(?:^|\n)\s*\|\s*\n\s*(?:\^|v)\s*(?:\n|$)/i.test(trimmed)) return true;
+
+  return false;
+}
+
+/**
  * Returns a polished badge label for slide code snippets.
  * Specifically converts generic text/txt/code blocks containing ASCII flowcharts,
  * hierarchy trees, or box diagrams into a premium "DIAGRAM" label.
@@ -88,8 +115,8 @@ export function cleanSlideTitle(rawTitle: string): string {
 export function getSlideCodeBadge(rawLang: string, code: string): string {
   const lang = (rawLang || '').toLowerCase().trim();
   if (['text', 'txt', 'plaintext', 'ascii', 'code', ''].includes(lang)) {
-    // Check if code contains ASCII flowchart / box / hierarchy indicators
-    const hasDiagramChars = /[\^|v\+\-]|\b\[.*?\]\b|-->|<--|\+--|==|--/.test(code);
+    // Check if code contains true ASCII flowchart / box / hierarchy indicators
+    const hasDiagramChars = isTrueAsciiDiagram(code);
     return hasDiagramChars ? 'DIAGRAM' : 'CODE';
   }
   return lang.toUpperCase();

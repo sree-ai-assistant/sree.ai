@@ -1699,3 +1699,9 @@
     right: 12px;
   }
 }
+
+@media (max-width: 520px) {
+  .messagesList {
+    padding: 20px 10px 20px 16px;
+  }
+}

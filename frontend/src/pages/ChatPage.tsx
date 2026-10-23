@@ -811,14 +811,26 @@ const ChatPage: React.FC = () => {
 
   // Performance: Memoize Markdown components to prevent heavy re-renders
   const markdownComponents = useMemo(() => ({
-    code({ node, className, children, ...props }: any) {
-      const match = /language-(\w+)/.exec(className || '');
-      return match ? (
-        <CodeBlock
-          language={match[1]}
-          value={String(children).replace(/\n$/, '')}
-        />
-      ) : (
+    code({ node, inline, className, children, ...props }: any) {
+      const match = /language-([a-zA-Z0-9_+#.-]+)/.exec(className || '');
+      const rawCode = String(children).replace(/\n$/, '');
+      if (match) {
+        return (
+          <CodeBlock
+            language={match[1]}
+            value={rawCode}
+          />
+        );
+      }
+      if (!inline && rawCode.includes('\n')) {
+        return (
+          <CodeBlock
+            language="text"
+            value={rawCode}
+          />
+        );
+      }
+      return (
         <code className={className} {...props}>
           {children}
         </code>
