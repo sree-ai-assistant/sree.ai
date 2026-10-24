@@ -79,9 +79,13 @@ graph TD
 |--------|--------|
 | **Supported Formats** | PowerPoint (`.pptx`), Word (`.docx`), PDF (`.pdf`), Markdown (`.md`) |
 | **Execution Architecture** | 100% client-side conversion via `pptxgenjs`, `docx`, and `jspdf` running in browser volatile memory with 0 cloud conversion API leaks |
-| **Presentation Themes** | 5 built-in themes: Corporate Blue, Minimal Dark/Light, Creative Amber, Cyberpunk Neon, Tech Emerald (`presentationThemes.ts`) |
-| **Slide Layout Engine** | Title, two-column, cards, quotes, timeline, stats, centered diagrams, and syntax-highlighted code blocks |
-| **SlideDeckPreview Modal** | Interactive in-app previewer with slide-by-slide navigation cards, full-screen slideshow presentation mode with keyboard arrows, and 1-click PPTX download |
+| **Presentation Themes** | 5 built-in themes: Corporate Blue, Minimal Dark/Light, Creative Amber, Cyberpunk Neon, Tech Emerald (`presentationThemes.ts`), with native markdown directive support (`<!-- theme: ... -->`) |
+| **Slide Layout Engine** | Title, two-column, cards, quotes, timeline, stats, centered diagrams, adaptive code block scaling (`calculateAdaptiveCodeLayout`), and 1:1 visual parity between web carousel and exported `.pptx` |
+| **SlideDeckPreview & Slideshow** | Interactive in-app previewer with slide-by-slide navigation cards, full-screen slideshow presentation mode with keyboard arrows, color theme selector, and 1-click PPTX download |
+| **Outro & Slide Decoupling** | Strict boundary enforcement via `isPostPresentationBoundary` and `isConversationalSection`: conversational AI outro prose, delivery summaries, and download instructions are isolated into `bottomText` outside of the presentation, guaranteeing 0 conversational text enters the PowerPoint file |
+| **Media & Logo Placeholders** | Universal recognition of `[LOGO PLACEHOLDER]`, `[IMAGE PLACEHOLDER]`, `[YOUR IMAGE HERE]`, photos, and screenshots; compiled into high-contrast `#1a1a1a` solid dark cards (8:3 ratio) allowing users to right-click **"Change Picture" → "This Device..."** in PowerPoint/Keynote |
+| **Clean Slide Enforcement** | Outline-driven logo gating: when user requests "no images" or "clean slides", Slide 1 and content slides strictly omit logos and placeholders, ignoring prior session image URLs |
+| **Voice-Triggered Presentations** | Integrated with Gemini Live WebSocket: real-time tool calling (`generate_presentation`) generates complete multi-slide presentations dynamically from voice conversations |
 | **Watermark & Tier Rules** | Free & anonymous downloads feature subtle Sree AI badge watermark; Starter and Pro tier subscribers receive clean, unbranded slide decks |
 | **Quota & Rate Limiting** | Tracked via `POST /api/ai/track-download` with atomic usage accounting under `rateLimitMiddleware('download')` |
 

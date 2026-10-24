@@ -259,6 +259,22 @@ data: [DONE]                                    // Stream complete
 
 ---
 
+## Live Voice & Interactive Presentation WebSocket (`/api/live`)
+
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| `WSS` | `/api/live/voice` | JWT (query `token` / header) | Full-duplex bidirectional audio streaming via Google Gemini Live API with Web Audio API PCM Worklets. Supports real-time tool calling (`generate_presentation`) for instant voice-triggered PowerPoint generation. |
+
+**WebSocket Connection Flow:**
+1. Client initiates WebSocket handshake with JWT auth token: `wss://app.sreeai.qzz.io/api/live/voice?token=<supabase_jwt>`.
+2. Server validates authentication, resolves user tier, and enforces tiered session duration guardrails.
+3. Server establishes upstream connection to Gemini Live API with model fallback cascade (`gemini-3.8-live` → `gemini-3.1-flash-live-preview` → `gemini-2.5-flash-native-audio-preview-12-2025`).
+4. Real-time audio chunks (PCM 16-bit 24kHz) stream bidirectionally.
+5. If user requests a presentation during conversation, Gemini Live executes the `generate_presentation` tool call. The backend validates and sanitizes arguments via `formatPresentationMarkdownFromTool`, transmits the presentation markdown down the WebSocket, and the frontend instantly renders the interactive slide deck preview and enables `.pptx` download.
+6. On disconnect, server calculates elapsed duration and applies atomic credit accounting under `calculateLiveCredits`.
+
+---
+
 ## Config Routes (`/api/config`)
 
 | Method | Endpoint | Auth | Description |

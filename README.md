@@ -54,8 +54,11 @@ Designed with a **dual-identity architecture**, users can start chatting immedia
 - **Live Diagnostics API**: Instant visibility into in-memory counters and active database flags via `GET /api/models/observer-status`.
 
 ### 📊 Universal Document & Presentation Export Studio
-- **PowerPoint Presentation Generator (`.pptx`)**: Direct conversion of AI chat completions into multi-slide presentations with 5 curated themes (Corporate Blue, Minimal Dark/Light, Creative Amber, Cyberpunk Neon, Tech Emerald), intelligent slide layout engine (Title, Two-Column, Cards, Quote, Timeline, Stats), centered ASCII/diagrams, and syntax-highlighted code blocks with indentation preserved.
-- **Interactive In-App Slide Deck Previewer**: Dedicated `SlideDeckPreview` modal allowing users to inspect slides with thumbnail cards, full-screen interactive slideshow presentation mode (with keyboard arrow navigation), and 1-click PPTX download.
+- **PowerPoint Presentation Generator (`.pptx`)**: Direct conversion of AI chat completions into multi-slide presentations with 5 curated themes (Corporate Blue, Minimal Dark/Light, Creative Amber, Cyberpunk Neon, Tech Emerald), intelligent slide layout engine (Title, Two-Column, Cards, Quote, Timeline, Stats), centered ASCII/diagrams, and adaptive typography with indentation preserved.
+- **Strict Outro & Slide Decoupling**: Intelligent boundary enforcement isolates conversational AI outro prose, delivery summaries, and download instructions into outside chat text (`bottomText`), guaranteeing 0 conversational text enters the presentation carousel or exported PowerPoint file.
+- **Universal Media Placeholders & PowerPoint "Change Picture" Workflow**: Seamless detection of `[LOGO PLACEHOLDER]`, `[IMAGE PLACEHOLDER]`, `[YOUR IMAGE HERE]`, photos, and screenshots; rendered as high-contrast `#1a1a1a` solid dark cards (8:3 aspect ratio) enabling users to right-click **"Change Picture" → "This Device..."** directly in PowerPoint or Keynote to insert their brand assets.
+- **Outline-Driven Clean Slide Enforcement**: Strict logo gating guarantees that when users ask for clean slides or removal of logos/images, Slide 1 and content slides strictly omit logos and placeholders, ignoring prior session image URLs.
+- **Interactive In-App Slide Deck Previewer**: Dedicated `SlideDeckPreview` modal allowing users to inspect slides with thumbnail cards, full-screen interactive slideshow presentation mode (with keyboard arrow navigation), color theme selector, and 1-click PPTX download.
 - **Word Document (`.docx`), PDF (`.pdf`), and Markdown (`.md`) Exports**: Client-side conversion executed in browser volatile memory with zero cloud converter data leaks.
 - **Tier-Aware Watermark Badges**: Free and anonymous downloads feature a subtle Sree AI brand badge watermark; Starter and Pro tier subscribers receive clean, unbranded exports.
 - **Download Quota Tracking**: Atomic rate limiting via `POST /api/ai/track-download` (`download` tool type).
@@ -495,6 +498,7 @@ The database utilizes Supabase PostgreSQL with strict Row Level Security (RLS) o
 | **AI** | `POST` | `/api/ai/video` | Text-to-video studio generation (Veo 3.1 / Omni Flash) |
 | **AI** | `POST` | `/api/ai/stt` | Cascading speech-to-text audio transcription |
 | **AI** | `POST` | `/api/ai/tts` | Text-to-speech voice synthesis |
+| **Live** | `WSS` | `/api/live/voice` | Full-duplex bidirectional Gemini Live voice streaming & presentation tool generation |
 | **Billing** | `POST` | `/api/payment/create-subscription` | Initiates Razorpay checkout session |
 | **Billing** | `POST` | `/api/payment/verify` | Validates payment signature & activates plan |
 | **Billing** | `POST` | `/api/payment/webhook` | Handles recurring charges, failures, & cancellations |
