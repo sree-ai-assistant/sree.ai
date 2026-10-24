@@ -422,6 +422,7 @@ export const ChatMessageComponent: React.FC<ChatMessageProps> = ({
                   <p className={styles.errorText}>{m.content}</p>
                   <div className={styles.errorContainer}>
                     <button
+                      type="button"
                       className={styles.retryButton}
                       onClick={() => onRetry(i, m.content, m.metadata?.attachments || [], m.id)}
                     >
