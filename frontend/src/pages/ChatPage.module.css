@@ -551,21 +551,34 @@
   overflow-wrap: anywhere;
 }
 
-.bubble.error {
+.bubble.error,
+.bubble.ai.error {
+  flex: 0 1 auto;
+  width: fit-content;
+  max-width: min(640px, 92%);
+  min-width: 0;
   background: rgba(239, 68, 68, 0.08);
   border: 1px solid rgba(239, 68, 68, 0.2);
   color: #f87171;
   font-size: 0.95rem;
   padding: 16px 20px;
-  max-width: 90%;
-  border-radius: 20px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  border-radius: 18px;
+  box-shadow: 0 4px 16px rgba(239, 68, 68, 0.08);
+  box-sizing: border-box;
+}
+
+.bubble.error .markdown,
+.bubble.ai.error .markdown {
+  width: auto;
+  min-width: 0;
 }
 
 .errorBubbleContent {
   display: flex;
   flex-direction: column;
   gap: 8px;
+  width: 100%;
+  min-width: 0;
 }
 
 .errorHeader {
@@ -574,15 +587,23 @@
   gap: 8px;
   font-weight: 700;
   color: #ef4444;
-  font-size: 0.9rem;
+  font-size: 0.85rem;
   text-transform: uppercase;
   letter-spacing: 0.05em;
 }
 
+.errorHeader svg {
+  flex-shrink: 0;
+  color: #ef4444;
+}
+
 .errorText {
   color: var(--text-secondary);
-  line-height: 1.5;
+  line-height: 1.55;
   margin: 0;
+  font-size: 0.92rem;
+  word-break: break-word;
+  overflow-wrap: anywhere;
 }
 
 .interruptedTag {
@@ -979,6 +1000,7 @@
   margin-top: 0;
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 8px;
   background: var(--bg-surface-light);
   border: 1px solid var(--border-color);
@@ -988,6 +1010,7 @@
   font-size: 0.85rem;
   font-weight: 600;
   cursor: pointer;
+  white-space: nowrap;
   transition: all 0.2s ease;
 }
 
@@ -1000,6 +1023,7 @@
 }
 
 .retryButton svg {
+  flex-shrink: 0;
   color: var(--primary);
   transition: transform 0.4s ease, color 0.2s ease;
 }
@@ -1013,6 +1037,7 @@
   margin-top: 0;
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 8px;
   background: rgba(239, 68, 68, 0.08);
   border: 1px solid rgba(239, 68, 68, 0.25);
@@ -1022,6 +1047,7 @@
   font-size: 0.85rem;
   font-weight: 600;
   cursor: pointer;
+  white-space: nowrap;
   transition: all 0.2s ease;
 }
 
@@ -1034,6 +1060,7 @@
 }
 
 .reportBugButton svg {
+  flex-shrink: 0;
   color: #f87171;
   transition: transform 0.2s ease;
 }
@@ -1056,7 +1083,7 @@
 }
 
 .errorContainer {
-  margin-top: 12px;
+  margin-top: 6px;
   display: flex;
   align-items: center;
   justify-content: flex-start;
@@ -1103,6 +1130,14 @@
     padding: 4px 0 !important;
   }
 
+  .bubble.ai.error,
+  .bubble.error {
+    width: 100% !important;
+    max-width: 100% !important;
+    padding: 14px 16px !important;
+    border-radius: 16px;
+  }
+
   .messageRow {
     gap: 8px !important;
   }
@@ -1120,6 +1155,34 @@
   .bubble.ai {
     max-width: 100% !important;
     width: 100% !important;
+  }
+
+  .bubble.ai.error,
+  .bubble.error {
+    width: 100% !important;
+    max-width: 100% !important;
+    padding: 12px 14px !important;
+    border-radius: 14px;
+  }
+
+  .errorContainer {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    width: 100%;
+    gap: 8px;
+    margin-top: 10px;
+  }
+
+  .retryButton,
+  .reportBugButton {
+    width: 100%;
+    min-height: 40px;
+    justify-content: center;
+    padding: 10px 16px;
+    font-size: 0.84rem;
+    box-sizing: border-box;
+    white-space: nowrap;
   }
 }
 
