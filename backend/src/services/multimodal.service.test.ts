@@ -323,5 +323,29 @@ describe('MultimodalService', () => {
       expect(result.parts[0]?.inlineData?.mimeType).toBe('image/png');
       expect(result.extractedContext).toContain('could not be uploaded natively');
     });
+
+    it('injects user attached image URL into extractedContext to prevent hallucinated URLs in presentations', async () => {
+      const mockWriteSSE = vi.fn();
+      vi.spyOn(aiService, 'urlToBase64').mockResolvedValue('data:image/png;base64,fakeBase64Data');
+
+      const result = await multimodalService.processRequestAttachments({
+        attachments: [{
+          name: 'company-logo.png',
+          type: 'image',
+          url: 'https://pub-43593f37b89642548243a2b1f468120e.r2.dev/1792777548493-logo.png',
+        }],
+        model: 'gemini-2.5-flash',
+        provider: 'google',
+        modelInfo: { is_vision: true },
+        apiKey: 'test-google-key',
+        writeSSE: mockWriteSSE,
+      });
+
+      expect(result.parts.length).toBe(1);
+      expect(result.parts[0]?.inlineData?.mimeType).toBe('image/png');
+      expect(result.extractedContext).toContain('https://pub-43593f37b89642548243a2b1f468120e.r2.dev/1792777548493-logo.png');
+      expect(result.extractedContext).toContain('use this EXACT URL');
+    });
   });
 });
+

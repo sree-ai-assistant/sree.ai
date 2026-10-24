@@ -7,8 +7,12 @@ import {
   extractSlideDeck,
   splitPresentationContent,
   cleanSlideTitle,
+  cleanFallbackTitle,
   getSlideCodeBadge,
   calculateAdaptiveCodeLayout,
+  isLogoPlaceholderLine,
+  extractLogoFromLine,
+  getLogoPlaceholderDataUrl,
 } from './pptxExporter';
 import { exportMarkdownToPdf, transliterateUnicodeSymbols } from './pdfExporter';
 import { resolveCodeBadge } from '../components/chat/CodeBlock';
@@ -1098,6 +1102,821 @@ Before diving into code, it is essential to understand the structural layers of 
       expect(blob).toBeDefined();
       expect(blob.size).toBeGreaterThan(1000);
       expect(blob.type).toMatch(/(presentation|zip)/i);
+    });
+    it('captures conclusion and call-to-action slides even if the AI omitted a divider before the final slide', () => {
+      const markdownWithoutDivider = `I have updated your deck.
+
+<!-- theme: executiveDark -->
+
+# Scaling to 10x: Our Future
+## Transforming from a Boutique Agency to a High-Output Engine
+
+---
+
+## The 10x Vision: Why Now?
+- The Market Gap: Clients want rapid business results.
+- The Scaling Problem: Traditional bespoke work is slow.
+
+---
+
+## Conclusion: The New Standard
+- Speed is a Feature: Fastest company wins.
+- Quality is Non-Negotiable: Automation guarantees quality.
+
+## Final Call to Action
+- Commit to the System: Stop being task-doers and start being system-builders.
+- Identify Your First 10x Opportunity: Submit one process by Friday.
+
+How to get your presentation:
+Click Download .pptx above to get your file!`;
+
+      const result = splitPresentationContent(markdownWithoutDivider);
+      expect(result.hasPresentation).toBe(true);
+      expect(result.slideDeck).not.toBeNull();
+      
+      const slideTitles = result.slideDeck?.slides.map(s => s.title) || [];
+      expect(slideTitles).toContain('Scaling to 10x: Our Future');
+      expect(slideTitles).toContain('The 10x Vision: Why Now?');
+      expect(slideTitles).toContain('Conclusion: The New Standard');
+      expect(slideTitles).toContain('Final Call to Action');
+      
+      // Bottom text should only have the download guidance, NOT the Call to Action slide
+      expect(result.bottomText).toContain('How to get your presentation:');
+      expect(result.bottomText).not.toContain('Final Call to Action');
+      expect(result.bottomText).not.toContain('Commit to the System');
+      
+      // Top text should be clean intro text without raw theme directive
+      expect(result.topText).toBe('I have updated your deck.');
+      expect(result.topText).not.toContain('theme:');
+    });
+
+    it('strips theme directives and standalone placeholder images from topText and bottomText without breaking deck extraction', () => {
+      const markdownWithLogoPlaceholder = `Here is your branded deck:
+
+<!-- theme: modernLight -->
+![Logo](https://placehold.co/400x120/0f172a/38bdf8?text=YOUR+LOGO+HERE)
+
+# Brand Presentation
+## Subtitle
+
+---
+
+## Slide 1
+- Point 1
+- Point 2
+
+---
+
+## Final Slide
+![Logo](https://placehold.co/400x120/0f172a/38bdf8?text=LOGO)
+- Action item
+
+To download your presentation:
+Click download.`;
+
+      const result = splitPresentationContent(markdownWithLogoPlaceholder);
+      expect(result.hasPresentation).toBe(true);
+      expect(result.slideDeck?.slides.length).toBe(3); // Title + Slide 1 + Final Slide
+      
+      // topText must NOT contain the theme tag or the raw image link
+      expect(result.topText).toBe('Here is your branded deck:');
+      expect(result.topText).not.toContain('<!-- theme:');
+      expect(result.topText).not.toContain('YOUR+LOGO+HERE');
+      
+      // bottomText must NOT contain the image tag or theme tag
+      expect(result.bottomText).toContain('To download your presentation:');
+      expect(result.bottomText).not.toContain('YOUR+LOGO+HERE');
+
+      // Verify logo flags are passed to SlideDeck
+      expect(result.slideDeck?.slides[0].hasLogoPlaceholder).toBe(true);
+      expect(result.slideDeck?.slides[2].hasLogoPlaceholder).toBe(true);
+      expect(result.slideDeck?.slides[2].bullets).not.toContain('!Logo');
+    });
+
+    it('generates valid PowerPoint blob with embedded logo placeholder pictures for Change Picture workflow', async () => {
+      const brandedDeck = `<!-- theme: executiveDark -->
+![COMPANY LOGO](https://example.com/logo.png)
+
+# 10x Innovation
+## Transforming the Enterprise
+
+---
+
+## Strategy & Vision
+- Elite automation tools
+- Faster time to market
+
+---
+
+## Final Call to Action
+![COMPANY LOGO](https://example.com/logo.png)
+- Schedule briefing by Friday`;
+
+      const parsed = parseMarkdownToSlides(brandedDeck);
+      expect(parsed.hasTitleLogo).toBe(true);
+      expect(parsed.slides[1].hasLogoPlaceholder).toBe(true);
+      expect(parsed.slides[1].bullets).toEqual(['Schedule briefing by Friday']);
+
+      const deck = extractSlideDeck(brandedDeck);
+      expect(deck).not.toBeNull();
+      expect(deck?.slides[0].hasLogoPlaceholder).toBe(true);
+      expect(deck?.slides[2].hasLogoPlaceholder).toBe(true);
+
+      const pptxBlob = await exportMarkdownToPptx(brandedDeck);
+      expect(pptxBlob).toBeDefined();
+      expect(pptxBlob.size).toBeGreaterThan(1000);
+      expect(pptxBlob.type).toContain('presentation');
+    });
+
+    it('extracts real logoUrl and keeps Final Call to Action slide with PLACE LOGO HERE inside the presentation', async () => {
+      const markdown = `Here is your requested 11-slide presentation:
+
+[PLACE LOGO HERE]
+
+# Scaling to 10x: Our Future
+## Transforming Operations with AI
+
+---
+
+## Conclusion: The New Standard
+- Speed is a Feature: In a digital world, the fastest company wins.
+- Quality is Non-Negotiable: Automation doesn't replace quality.
+- Our Promise: Scaling productivity creates stability.
+
+---
+
+## Final Call to Action
+[PLACE LOGO HERE]
+- Commit to the System: Today we stop being task-doers and start being system-builders.
+- Identify Your First 10x Opportunity: Submit one process you believe we can automate.
+- Let's Build: We are building a world-class production engine.
+- Questions? Open floor for discussion.
+
+To download your presentation, click the Download .pptx button above.`;
+
+      const split = splitPresentationContent(markdown);
+      expect(split.hasPresentation).toBe(true);
+      expect(split.slideDeck).not.toBeNull();
+      
+      // Should have exactly 3 slides: Title + Conclusion + Final Call to Action
+      expect(split.slideDeck?.slides.length).toBe(3);
+      
+      const lastSlide = split.slideDeck?.slides[2];
+      expect(lastSlide?.title).toBe('Final Call to Action');
+      expect(lastSlide?.hasLogoPlaceholder).toBe(true);
+      expect(lastSlide?.bullets.length).toBe(4);
+      expect(lastSlide?.bullets[0]).toContain('Commit to the System');
+      expect(lastSlide?.bullets[1]).toContain('Identify Your First 10x Opportunity');
+      expect(lastSlide?.bullets[2]).toContain("Let's Build");
+      expect(lastSlide?.bullets[3]).toContain('Questions?');
+
+      // Crucial: [PLACE LOGO HERE] must NOT leak into topText or bottomText!
+      expect(split.topText).toBe('Here is your requested 11-slide presentation:');
+      expect(split.topText).not.toContain('PLACE LOGO HERE');
+      expect(split.bottomText).toContain('To download your presentation');
+      expect(split.bottomText).not.toContain('PLACE LOGO HERE');
+      expect(split.bottomText).not.toContain('Final Call to Action');
+      expect(split.bottomText).not.toContain('Commit to the System');
+
+      // Verify real logoUrl extraction when explicit image URL is provided
+      const deckWithRealLogoUrl = `<!-- theme: modernLight -->
+![My Company](https://cdn.example.com/assets/logo.png)
+# Enterprise Growth
+## Quarterly Update
+
+---
+
+## Next Steps
+![Next Step Logo](https://cdn.example.com/assets/next.png)
+- Execute strategy`;
+
+      const parsedWithUrl = parseMarkdownToSlides(deckWithRealLogoUrl);
+      expect(parsedWithUrl.titleLogoUrl).toBe('https://cdn.example.com/assets/logo.png');
+      expect(parsedWithUrl.slides[0].logoUrl).toBe('https://cdn.example.com/assets/next.png');
+
+      const extractedDeck = extractSlideDeck(deckWithRealLogoUrl);
+      expect(extractedDeck?.slides[0].logoUrl).toBe('https://cdn.example.com/assets/logo.png');
+      expect(extractedDeck?.slides[1].logoUrl).toBe('https://cdn.example.com/assets/next.png');
+    });
+
+    it('prevents presentation cut-offs when AI omits dividers between numbered sections and strips floating logos from topText', () => {
+      const rawAiResponse = `<!-- theme: modernLight -->
+I have updated your presentation to include your logo.
+
+![Brand Logo](https://pub-43593f37b89642548243a2b1f468120e.r2.dev/1792777548493-bivdqhqac4.ico)
+
+# Execution Starts Now
+## Let's Build the Future of Automation
+
+---
+
+## 2. Delivery Velocity
+Since you offer Web Development and Automation, your productivity is tied to your Delivery Velocity.
+- The "Internal Product" Approach: Treat your internal tools as your most important client.
+- Code Reusability: Build a private repository of "Golden Components".
+- AI Integration: Mandate the use of AI coding assistants.
+
+3. Service Automation (The "Productized Service" Model)
+To scale, you must move away from "bespoke work for every client".
+- Templatized Scoping: Create a standardized menu of services.
+- Automated Client Portals: Give clients a dashboard.
+- Automated Reporting: Use tools like Zapier or Make.com.
+
+4. Building the Team
+- Hire for Culture, Train for Skill: It is easier to teach a developer your stack.
+- The "Squad" Model: Organize your team into small cross-functional squads.
+- Incentivize Velocity: Reward teams based on project completion times.
+
+To download your presentation, click Download .pptx on the presentation card header.`;
+
+      const split = splitPresentationContent(rawAiResponse);
+      expect(split.hasPresentation).toBe(true);
+      expect(split.slideDeck).not.toBeNull();
+
+      // Must capture all 4 slides: Title + Section 2 + Section 3 + Section 4 (NOT cutting off at slide 2!)
+      expect(split.slideDeck?.slides.length).toBe(4);
+      expect(split.slideDeck?.slides[0].title).toBe('Execution Starts Now');
+      expect(split.slideDeck?.slides[0].hasLogoPlaceholder).toBe(true);
+      expect(split.slideDeck?.slides[0].logoUrl).toBe('https://pub-43593f37b89642548243a2b1f468120e.r2.dev/1792777548493-bivdqhqac4.ico');
+      
+      expect(split.slideDeck?.slides[1].title).toBe('Delivery Velocity');
+      expect(split.slideDeck?.slides[2].title).toContain('Service Automation');
+      expect(split.slideDeck?.slides[3].title).toContain('Building the Team');
+
+      // Crucial: topText must NOT contain the floating Brand Logo image!
+      expect(split.topText).toContain('I have updated your presentation to include your logo.');
+      expect(split.topText).not.toContain('![Brand Logo]');
+      expect(split.topText).not.toContain('bivdqhqac4.ico');
+
+      // Outline contains all slides
+      expect(split.slideOutline).toContain('Building the Team');
+      expect(split.slideOutline).toContain('Service Automation');
+
+      // Bottom text has download instructions cleanly separated
+      expect(split.bottomText).toContain('To download your presentation');
+    });
+
+    it('cleanFallbackTitle properly sanitizes conversational user prompts', () => {
+      // Rejects long prompts or questions
+      expect(cleanFallbackTitle('plan properly and give me how can i be a ceo of a new company and 10x the productivity')).toBe('');
+      expect(cleanFallbackTitle('give me 10 slides on python?')).toBe('');
+      expect(cleanFallbackTitle('how to scale an agency')).toBe('');
+      expect(cleanFallbackTitle('can you create a pitch deck for my startup')).toBe('');
+      expect(cleanFallbackTitle('ok so give ppt to explain the process')).toBe('');
+
+      // Retains genuine short titles
+      expect(cleanFallbackTitle('CEO Roadmap')).toBe('CEO Roadmap');
+      expect(cleanFallbackTitle('Executive Summary')).toBe('Executive Summary');
+      expect(cleanFallbackTitle('Q3 Financial Overview')).toBe('Q3 Financial Overview');
+    });
+
+    it('extracts genuine slide heading for Slide 1 and file name instead of user prompt fallbackTitle', () => {
+      const rawUserPrompt = 'plan properly and give me how can i be a ceo of a new company and 10x the productivity it is a service base productivity, we offer bussiness webdev and custom automated solutions for there bussiness with my brand logo ok so give ppt to explain the process how we can boost 10x to my employs';
+
+      const markdownDeck = `---
+### Slide 1: Title Slide
+![Company Logo](https://pub-43593f37b89642548243a2b1f468120e.r2.dev/1792777548493-bivdqhqac4.ico)
+**CEO Roadmap: Scaling Your Service-Based Company**
+*10x Productivity: The Path to Scaling Service Excellence*
+---
+### Slide 2: Strategic Foundation
+- Build SOPs for all recurring tasks
+- Productize custom web development packages
+- Automate client onboarding
+---
+### Slide 3: Delivery Velocity
+- Component libraries reduce build time
+- Automated testing prevents regression
+---`;
+
+      const parsed = parseMarkdownToSlides(markdownDeck, rawUserPrompt);
+
+      // The presentation title must be the genuine heading, NOT the user prompt!
+      expect(parsed.title).toBe('CEO Roadmap: Scaling Your Service-Based Company');
+      expect(parsed.subtitle).toBe('10x Productivity: The Path to Scaling Service Excellence');
+      expect(parsed.hasTitleLogo).toBe(true);
+      expect(parsed.titleLogoUrl).toBe('https://pub-43593f37b89642548243a2b1f468120e.r2.dev/1792777548493-bivdqhqac4.ico');
+
+      const split = splitPresentationContent(markdownDeck, rawUserPrompt);
+      expect(split.hasPresentation).toBe(true);
+      expect(split.slideDeck?.title).toBe('CEO Roadmap: Scaling Your Service-Based Company');
+      expect(split.slideDeck?.slides[0].title).toBe('CEO Roadmap: Scaling Your Service-Based Company');
+      expect(split.slideDeck?.slides[0].subtitle).toBe('10x Productivity: The Path to Scaling Service Excellence');
+      expect(split.segments.find(s => s.type === 'presentation')?.title).toBe('CEO Roadmap: Scaling Your Service-Based Company');
+    });
+
+    it('accurately isolates logo placeholders to Slide 1 and Closing Slide without polluting content slides', async () => {
+      const fullResponse = `
+Here is your strategic vision and presentation deck.
+
+Part 1: Strategy Guide
+- Focus on automation
+- Build productized services
+
+---
+### Slide 1: The Path to 10x Productivity
+![Sree AI](https://pub-43593f37b89642548243a2b1f468120e.r2.dev/sree-ai.png)
+**The Path to 10x Productivity**
+*Scaling Excellence in Web Development & Automation*
+---
+### Slide 2: Strategic Foundation
+- Build SOPs for all recurring tasks
+- Productize custom web development packages
+---
+### Slide 3: Delivery Velocity
+- Component libraries reduce build time
+- Automated testing prevents regression
+---
+### Slide 4: Client Success
+- Deliver ahead of deadlines
+- Measure NPS weekly
+---
+### Slide 5: Let's Build the Future
+![Sree AI](https://pub-43593f37b89642548243a2b1f468120e.r2.dev/sree-ai.png)
+**Let's Build the Future**
+- Together
+- Let's innovate, automate, and dominate.
+---
+
+How to download your files:
+1. Preview the slides above.
+2. Click Download .pptx.
+      `;
+
+      const split = splitPresentationContent(fullResponse);
+      expect(split.hasPresentation).toBe(true);
+      expect(split.slideDeck).toBeDefined();
+
+      const slides = split.slideDeck!.slides;
+      expect(slides.length).toBe(5);
+
+      // Slide 1 (Title slide) MUST request logo
+      expect(slides[0].isTitleSlide).toBe(true);
+      expect(slides[0].hasLogoPlaceholder).toBe(true);
+
+      // Slides 2, 3, 4 (Content slides) MUST NOT request logo
+      expect(slides[1].isTitleSlide).toBe(false);
+      expect(slides[1].hasLogoPlaceholder).toBeFalsy();
+      expect(slides[1].logoUrl).toBeUndefined();
+
+      expect(slides[2].isTitleSlide).toBe(false);
+      expect(slides[2].hasLogoPlaceholder).toBeFalsy();
+      expect(slides[2].logoUrl).toBeUndefined();
+
+      expect(slides[3].isTitleSlide).toBe(false);
+      expect(slides[3].hasLogoPlaceholder).toBeFalsy();
+      expect(slides[3].logoUrl).toBeUndefined();
+
+      // Slide 5 (Closing slide) MUST request logo
+      expect(slides[4].isTitleSlide).toBe(false);
+      expect(slides[4].hasLogoPlaceholder).toBe(true);
+
+      // When exporting the split.slideOutline, it produces a valid PPTX with only the presentation slides
+      const pptxBlob = await exportMarkdownToPptx(split.slideOutline, {
+        title: split.slideDeck!.title,
+        fallbackLogoUrl: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
+        showWatermark: false,
+      });
+
+      expect(pptxBlob).toBeDefined();
+      expect(pptxBlob.size).toBeGreaterThan(1000);
+      expect(pptxBlob.type).toContain('presentationml.presentation');
+    });
+
+    it('preserves final slide points and does not cut off slide 12 when AI appends conversational outro text', async () => {
+      const responseWithOutro = `
+# 10x Productivity Playbook for Service-Based Web Dev & Automation
+## CEO Roadmap to Scale Team Output & Build a High-Performance Delivery Engine
+
+---
+
+## 1. Executive Summary
+- Standardize delivery framework
+- Shift to pod-based delivery
+
+---
+
+## 2. Core Service Offerings
+- Web application development
+- Workflow automation
+
+---
+
+## 3. Tooling & Architecture
+- Reusable UI kit
+- CI/CD automation
+
+---
+
+## 4. Discovery & Scoping
+- Fixed price packages
+- Rapid prototyping
+
+---
+
+## 5. Team Pod Structure
+- Small multidisciplinary pods
+- Direct client communication
+
+---
+
+## 6. Sprint Cadence
+- 2-week delivery cycles
+- Friday client demos
+
+---
+
+## 7. Quality Assurance
+- Automated test suites
+- Pre-handoff checklists
+
+---
+
+## 8. Client Onboarding
+- Self-service intake portal
+- Automated kickoff checklist
+
+---
+
+## 9. Automation Backlog
+- Internal task automation
+- Automated invoice processing
+
+---
+
+## 10. Client Delivery & Quality
+- Discovery template to capture outcomes
+- Automated tests before handoff
+- Post-launch monitoring
+
+---
+
+## 11. Continuous Improvement Loop
+- Retro every 2 weeks: What slowed us? What to automate?
+- Monthly 10x review: KPI trends, SOP updates, tool upgrades
+- Employee ideas board for automation wins
+- Quarterly skill sprints and certifications
+- CEO reviews system health, not just sales
+
+---
+
+## 12. Next Steps & Call to Action
+- Week 1: Audit current flow and baseline KPIs
+- Week 2-3: Build core SOPs and component library
+- Week 4: Launch internal automation backlog
+- Month 2: Implement pod structure and KPI dashboard
+- Commit to 10x by systematizing first, hiring second
+
+Your interactive presentation is ready right here in the presentation carousel. You can preview and swipe through the slides, view presenter mode in fullscreen, change color themes using the Theme button, and download the 16:9 presentation file directly by clicking the Download .pptx button on the presentation card header.
+
+Your deck includes a logo placeholder on the title slide. Once downloaded you can replace it in PowerPoint, Google Slides or Keynote by right-clicking the placeholder image and selecting Change Picture -> This Device to add your official brand logo.
+`;
+
+      const split = splitPresentationContent(responseWithOutro);
+      expect(split.hasPresentation).toBe(true);
+      expect(split.slideDeck).toBeDefined();
+
+      // Total slides: Title slide + 12 content slides = 13 slides (NO slides dropped!)
+      expect(split.slideDeck!.slides.length).toBe(13);
+
+      // Verify Slide 12 (Continuous Improvement Loop) is present
+      const slide11 = split.slideDeck!.slides[11];
+      expect(slide11.title).toContain('Continuous Improvement Loop');
+      expect(slide11.bullets.length).toBe(5);
+
+      // Verify Slide 13 (Next Steps & Call to Action) is NOT dropped
+      const slide12 = split.slideDeck!.slides[12];
+      expect(slide12.title).toContain('Next Steps & Call to Action');
+      expect(slide12.bullets.length).toBe(5);
+      expect(slide12.bullets[0]).toContain('Week 1: Audit current flow');
+      expect(slide12.bullets[4]).toContain('Commit to 10x');
+
+      // Verify conversational outro is extracted to bottomText and NOT left in slide bullets
+      expect(split.bottomText).toContain('Your interactive presentation is ready right here');
+      expect(split.bottomText).toContain('Your deck includes a logo placeholder');
+
+      // Verify exportMarkdownToPptx respects options.hasTitleLogo and options.titleLogoText
+      const pptxBlob = await exportMarkdownToPptx(split.slideOutline, {
+        title: split.slideDeck!.title,
+        hasTitleLogo: true,
+        titleLogoText: 'LOGO PLACEHOLDER',
+        showWatermark: false,
+      });
+
+      expect(pptxBlob).toBeDefined();
+      expect(pptxBlob.size).toBeGreaterThan(1000);
+      expect(pptxBlob.type).toContain('presentationml.presentation');
+    });
+
+    it('strictly excludes external documents (e.g. CEO Strategic Roadmap) and file access guides from presentation slides', async () => {
+      const chatResponse = `
+# The 10x Productivity Blueprint
+## Scaling Operations with Automation
+
+---
+
+### Core Objectives
+- Automate repetitive processes
+- Standardize service tiers
+- Increase developer velocity
+
+---
+
+### Phase 1: Foundation
+- Audit workflows
+- Eliminate bottlenecks
+- Set up monitoring
+
+---
+
+# CEO Strategic Roadmap (Internal Document)
+
+As requested, I have separated the CEO Strategy from the employee-facing presentation. This roadmap is designed for you to manage the business backend and scaling operations.
+
+- CEO Strategy: Scaling the Service Business
+- 1. Business Model Shift: Productized Service
+- Standardization: Create 3 tiers of service (e.g., Starter Web, Pro Automation, Enterprise Ecosystem).
+- Fixed Scope: Define exactly what is included to prevent "scope creep" which kills productivity.
+
+### How to access your files:
+- For the PowerPoint (.pptx):
+  - The interactive presentation is ready in the card above. You can preview the slides, change the theme using the Theme button, and download the file by clicking Download .pptx in the presentation header.
+  - Note: I have placed ![LOGO PLACEHOLDER] on the title and final slides. Once you open the PPT, right-click them and select "Change Picture" to add your brand logo.
+
+2. For the CEO Strategy (Word/PDF):
+- The strategy text above is formatted for a formal report. To download it as a professional document, click the Export (📥) button in the action bar below this message and select Word Document (.docx) or PDF Document (.pdf).
+`;
+
+      const split = splitPresentationContent(chatResponse);
+      expect(split.hasPresentation).toBe(true);
+      expect(split.slideDeck).not.toBeNull();
+
+      // The presentation must contain ONLY the 3 presentation slides, NOT 4 or 5!
+      expect(split.slideDeck!.slides.length).toBe(3);
+      expect(split.slideDeck!.slides[0].title).toBe('The 10x Productivity Blueprint');
+      expect(split.slideDeck!.slides[1].title).toBe('Core Objectives');
+      expect(split.slideDeck!.slides[2].title).toBe('Phase 1: Foundation');
+
+      // None of the slides must contain the CEO Strategic Roadmap or Access Files text
+      const allSlideTitles = split.slideDeck!.slides.map(s => s.title);
+      expect(allSlideTitles).not.toContain('CEO Strategic Roadmap (Internal Document)');
+      expect(allSlideTitles).not.toContain('How to access your files:');
+
+      // Bottom text MUST preserve the external CEO Roadmap and the download instructions
+      expect(split.bottomText).toContain('CEO Strategic Roadmap (Internal Document)');
+      expect(split.bottomText).toContain('As requested, I have separated the CEO Strategy');
+      expect(split.bottomText).toContain('Business Model Shift: Productized Service');
+      expect(split.bottomText).toContain('How to access your files:');
+      expect(split.bottomText).toContain('For the PowerPoint (.pptx):');
+      expect(split.bottomText).toContain('For the CEO Strategy (Word/PDF):');
+    });
+
+    it('seamlessly detects both logo and image placeholders and exports them with #1a1a1a high-contrast styling', async () => {
+      // 1. Line detection checks
+      expect(isLogoPlaceholderLine('[LOGO PLACEHOLDER]')).toBe(true);
+      expect(isLogoPlaceholderLine('[YOUR LOGO HERE]')).toBe(true);
+      expect(isLogoPlaceholderLine('[IMAGE PLACEHOLDER]')).toBe(true);
+      expect(isLogoPlaceholderLine('[YOUR IMAGE HERE]')).toBe(true);
+      expect(isLogoPlaceholderLine('[IMAGE]')).toBe(true);
+      expect(isLogoPlaceholderLine('[PRODUCT IMAGE]')).toBe(true);
+      expect(isLogoPlaceholderLine('[SCREENSHOT PLACEHOLDER]')).toBe(true);
+      expect(isLogoPlaceholderLine('[PHOTO PLACEHOLDER]')).toBe(true);
+      expect(isLogoPlaceholderLine('IMAGE PLACEHOLDER')).toBe(true);
+      expect(isLogoPlaceholderLine('YOUR IMAGE HERE')).toBe(true);
+      expect(isLogoPlaceholderLine('![Product Screenshot]')).toBe(true);
+
+      // 2. Label extraction checks
+      expect(extractLogoFromLine('[LOGO PLACEHOLDER]').text).toBe('YOUR LOGO HERE');
+      expect(extractLogoFromLine('[IMAGE PLACEHOLDER]').text).toBe('YOUR IMAGE HERE');
+      expect(extractLogoFromLine('[IMAGE]').text).toBe('YOUR IMAGE HERE');
+      expect(extractLogoFromLine('[PRODUCT IMAGE]').text).toBe('PRODUCT IMAGE');
+      expect(extractLogoFromLine('[SCREENSHOT PLACEHOLDER]').text).toBe('SCREENSHOT PLACEHOLDER');
+      expect(extractLogoFromLine('![App Dashboard]').text).toBe('App Dashboard');
+
+      // 3. Placeholder Data URL generation produces valid base64 PNG image
+      const logoDataUrl = getLogoPlaceholderDataUrl(undefined, 'YOUR LOGO HERE');
+      expect(logoDataUrl).toBeDefined();
+      expect(logoDataUrl.length).toBeGreaterThan(50);
+      expect(logoDataUrl).toContain('data:image/png;base64,');
+
+      const imgDataUrl = getLogoPlaceholderDataUrl(undefined, 'PRODUCT IMAGE');
+      expect(imgDataUrl).toBeDefined();
+      expect(imgDataUrl).toContain('data:image/png;base64,');
+
+      // 4. Slide deck with image placeholder on content slide
+      const presentationWithImage = `
+# System Architecture & Roadmap
+## Enterprise Scaling Overview
+
+[LOGO PLACEHOLDER]
+
+---
+
+### Cloud Infrastructure
+[PRODUCT IMAGE]
+- Microservices orchestrated via Kubernetes
+- PostgreSQL with automated failover
+- Distributed edge caching with Cloudflare
+`;
+
+      const parsed = parseMarkdownToSlides(presentationWithImage);
+      expect(parsed.title).toBe('System Architecture & Roadmap');
+      expect(parsed.hasTitleLogo).toBe(true);
+      expect(parsed.titleLogoText).toBe('YOUR LOGO HERE');
+
+      expect(parsed.slides.length).toBe(1);
+      const contentSlide = parsed.slides[0];
+      expect(contentSlide.title).toBe('Cloud Infrastructure');
+      expect(contentSlide.hasLogoPlaceholder).toBe(true);
+      expect(contentSlide.logoPlaceholderText).toBe('PRODUCT IMAGE');
+      expect(contentSlide.bullets.length).toBe(3);
+
+      // 5. Valid PPTX export
+      const pptxBlob = await exportMarkdownToPptx(presentationWithImage, {
+        title: 'System Architecture & Roadmap',
+      });
+      expect(pptxBlob).toBeDefined();
+      expect(pptxBlob.size).toBeGreaterThan(1000);
+      expect(pptxBlob.type).toContain('presentationml.presentation');
+    });
+
+    it('strictly excludes logos from Slide 1 and exported PPTX when outline contains no logos, even if fallbackLogoUrl is provided', async () => {
+      const cleanPresentationWithoutLogos = `
+### Slide 1: Title Slide
+# The 10x Productivity Blueprint
+## Empowering Our Team to Scale
+
+---
+
+### Slide 2: The 10x Vision: Work Smarter, Not Harder
+- Our Goal: Build the most efficient agency
+- The Philosophy: Increase output through systems
+- The Result: Faster deliveries, higher quality
+
+---
+
+### Slide 3: Pillar 1: Engineering Excellence & Reuse
+- Component library stops building from scratch
+- Standardized UI patterns accelerate delivery
+`;
+
+      const parsed = parseMarkdownToSlides(cleanPresentationWithoutLogos);
+      expect(parsed.title).toBe('The 10x Productivity Blueprint');
+      expect(parsed.hasTitleLogo).toBe(false);
+      expect(parsed.titleLogoUrl).toBeUndefined();
+
+      const deck = extractSlideDeck(cleanPresentationWithoutLogos);
+      expect(deck).toBeDefined();
+      expect(deck!.slides[0].isTitleSlide).toBe(true);
+      expect(deck!.slides[0].hasLogoPlaceholder).toBe(false);
+      expect(deck!.slides[0].logoUrl).toBeUndefined();
+
+      expect(deck!.slides[1].hasLogoPlaceholder).toBe(false);
+      expect(deck!.slides[2].hasLogoPlaceholder).toBe(false);
+
+      // Exporting with fallbackLogoUrl (e.g. from prior chat turns where an image was uploaded)
+      // must NOT force a logo onto Slide 1 of a clean presentation!
+      const pptxBlob = await exportMarkdownToPptx(cleanPresentationWithoutLogos, {
+        title: 'The 10x Productivity Blueprint',
+        fallbackLogoUrl: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
+        hasTitleLogo: false,
+      });
+
+      expect(pptxBlob).toBeDefined();
+      expect(pptxBlob.size).toBeGreaterThan(1000);
+      expect(pptxBlob.type).toContain('presentationml.presentation');
+    });
+
+    it('properly separates presentation slides from conversational AI outro text (e.g. Your 9-Slide Presentation with Logo Only)', async () => {
+      const responseWithOutroHeader = `
+### Slide 1: Title Slide
+![Logo](https://pub-43593f37b89642548243a2b1f468120e.r2.dev/sree-ai.png)
+# The 10x Productivity Blueprint
+## Empowering Our Team to Scale
+
+---
+
+### Slide 2: The 10x Vision
+- Systems beat hustle
+- Automate repetitive tasks
+
+---
+
+### Slide 3: Engineering Architecture
+- Modular component libraries
+- Zero regression test suites
+
+---
+
+### Slide 4: Client Delivery
+- Continuous integration pipelines
+- Rapid customer onboarding
+
+---
+
+### Slide 5: Quality Assurance
+- Automated end-to-end tests
+- High availability architecture
+
+---
+
+### Slide 6: Continuous Learning
+- Weekly engineering syncs
+- Code review documentation
+
+---
+
+### Slide 7: Automation Infrastructure
+- Webhook-driven pipelines
+- Edge caching strategies
+
+---
+
+### Slide 8: Measurable Outcomes
+- 10x delivery speed
+- 99.9% uptime compliance
+
+---
+
+### Slide 9: Next Steps & Launch
+![Logo](https://pub-43593f37b89642548243a2b1f468120e.r2.dev/sree-ai.png)
+- Schedule kickoff meeting
+- Implement modular frameworks
+
+## Your 9-Slide Presentation with Logo Only
+Your 9-slide presentation is ready above! It includes only your brand logo on the opening and closing slides, with all other slides completely clean and free of extra images or placeholders.
+
+- Preview: You can swipe through all 9 slides directly in the interactive presentation viewer above.
+- Download PPTX: Click the Download .pptx button in the header of the presentation card above to download your presentation file directly.
+`;
+
+      const split = splitPresentationContent(responseWithOutroHeader);
+      expect(split.hasPresentation).toBe(true);
+      expect(split.slideDeck).toBeDefined();
+
+      // Must strictly contain 9 slides, NEVER 10!
+      expect(split.slideDeck!.totalSlides).toBe(9);
+      expect(split.slideDeck!.slides.length).toBe(9);
+
+      // Slide 9 must be "Next Steps & Launch", NOT the outro!
+      const lastSlide = split.slideDeck!.slides[8];
+      expect(lastSlide.title).toBe('Next Steps & Launch');
+      expect(lastSlide.title).not.toContain('Your 9-Slide');
+
+      // The slide outline must not contain the conversational outro text
+      expect(split.slideOutline).not.toContain('Your 9-Slide Presentation with Logo Only');
+      expect(split.slideOutline).not.toContain('Download .pptx button in the header');
+
+      // The conversational outro text must be placed in bottomText for outside chat rendering
+      expect(split.bottomText).toContain('Your 9-Slide Presentation with Logo Only');
+      expect(split.bottomText).toContain('Download PPTX: Click the Download .pptx button');
+
+      // Exporting the outline must generate a clean 9-slide PowerPoint
+      const pptxBlob = await exportMarkdownToPptx(split.slideOutline, {
+        title: split.slideDeck!.title,
+      });
+      expect(pptxBlob).toBeDefined();
+      expect(pptxBlob.size).toBeGreaterThan(1000);
+      expect(pptxBlob.type).toContain('presentationml.presentation');
+    });
+
+    it('does NOT truncate legitimate slides titled Presentation Overview or Presentation Summary', async () => {
+      const presentationWithOverviewSlides = `
+# Executive Strategic Blueprint
+## Scaling to Series B
+
+---
+
+## Presentation Overview
+- Review of Q1-Q3 metrics and growth velocity
+- Operational milestones achieved to date
+- Key resource constraints and hiring goals
+
+---
+
+## Technical Infrastructure
+- Microservices migration completed
+- 99.99% availability achieved
+
+---
+
+## Presentation Summary
+- Target ARR reached 3 months ahead of schedule
+- Positioned for Series B financing in Q4
+`;
+
+      const parsed = parseMarkdownToSlides(presentationWithOverviewSlides);
+      expect(parsed.title).toBe('Executive Strategic Blueprint');
+      expect(parsed.slides.length).toBe(3); // 3 content slides (Overview + Tech + Summary)
+      expect(parsed.slides[0].title).toBe('Presentation Overview');
+      expect(parsed.slides[2].title).toBe('Presentation Summary');
+
+      const split = splitPresentationContent(presentationWithOverviewSlides);
+      expect(split.hasPresentation).toBe(true);
+      expect(split.slideDeck).toBeDefined();
+      expect(split.slideDeck!.slides.length).toBe(4);
+      expect(split.slideDeck!.slides[1].title).toBe('Presentation Overview');
+      expect(split.slideDeck!.slides[3].title).toBe('Presentation Summary');
     });
   });
 });

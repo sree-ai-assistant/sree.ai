@@ -62,6 +62,9 @@ export interface SlideItem {
   paragraphs: string[];
   tableLines: string[];
   codeSnippet?: SlideCodeSnippet;
+  hasLogoPlaceholder?: boolean;
+  logoPlaceholderText?: string;
+  logoUrl?: string;
 }
 
 export interface SlideDeckData {
@@ -76,6 +79,7 @@ interface SlideDeckPreviewProps {
   slideDeck: SlideDeckData;
   onDownload: (format: 'pptx', theme?: PresentationTheme) => Promise<void> | void;
   isExporting?: boolean;
+  fallbackLogoUrl?: string;
 }
 
 /**
@@ -171,8 +175,10 @@ export const SlideDeckPreview: React.FC<SlideDeckPreviewProps> = ({
   slideDeck,
   onDownload,
   isExporting = false,
+  fallbackLogoUrl,
 }) => {
   const [currentIndex, setCurrentIndex] = useState(0);
+  const [failedLogoUrls, setFailedLogoUrls] = useState<Set<string>>(new Set());
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isSlideShow, setIsSlideShow] = useState(false);
   const [activeTheme, setActiveTheme] = useState<PresentationTheme>(
@@ -505,6 +511,21 @@ export const SlideDeckPreview: React.FC<SlideDeckPreviewProps> = ({
   }, [currentSlide]);
 
   const renderSlideContent = (slide: SlideItem, inModal = false) => {
+    const rawLogoUrl = slide.logoUrl;
+    // A logo/image slot is ONLY shown if the slide explicitly requested a logo or image in its outline.
+    // If the presentation outline has NO logo on this slide, NEVER inject one from fallbackLogoUrl!
+    const isLogoRequestedForSlide = Boolean(slide.hasLogoPlaceholder || rawLogoUrl);
+
+    const effectiveLogoUrl = isLogoRequestedForSlide
+      ? (rawLogoUrl && !failedLogoUrls.has(rawLogoUrl))
+        ? rawLogoUrl
+        : (fallbackLogoUrl && !failedLogoUrls.has(fallbackLogoUrl))
+        ? fallbackLogoUrl
+        : undefined
+      : undefined;
+
+    const shouldShowLogoSlot = isLogoRequestedForSlide;
+
     // 1. Title Slide (Exact 1:1 match to PowerPoint Slide 1 export)
     if (slide.isTitleSlide) {
       return (
@@ -516,6 +537,27 @@ export const SlideDeckPreview: React.FC<SlideDeckPreviewProps> = ({
             fontFamily: activeTheme.fontFace || 'Arial, sans-serif',
           }}
         >
+          {effectiveLogoUrl ? (
+            <div className={`${styles.slideLogoImgContainer} ${styles.titleLogoImgContainer}`}>
+              <img
+                src={effectiveLogoUrl}
+                alt={slide.logoPlaceholderText || 'Company Logo'}
+                className={styles.slideLogoImg}
+                onError={() => {
+                  setFailedLogoUrls(prev => new Set(prev).add(effectiveLogoUrl));
+                }}
+              />
+            </div>
+          ) : shouldShowLogoSlot && (
+            <div
+              className={`${styles.slidePlaceholderCard} ${styles.titlePlaceholderCard}`}
+              title="Right-click 'Change Picture' in PowerPoint to insert your logo or image"
+            >
+              <span className={styles.slidePlaceholderText}>
+                {(slide.logoPlaceholderText || 'YOUR LOGO HERE').toUpperCase()}
+              </span>
+            </div>
+          )}
           <h2
             className={styles.titleSlideHeading}
             style={{
@@ -570,6 +612,27 @@ export const SlideDeckPreview: React.FC<SlideDeckPreviewProps> = ({
         </div>
 
         <div className={styles.contentSlideBody}>
+          {effectiveLogoUrl ? (
+            <div className={styles.slideLogoImgContainer}>
+              <img
+                src={effectiveLogoUrl}
+                alt={slide.logoPlaceholderText || 'Company Logo'}
+                className={styles.slideLogoImg}
+                onError={() => {
+                  setFailedLogoUrls(prev => new Set(prev).add(effectiveLogoUrl));
+                }}
+              />
+            </div>
+          ) : shouldShowLogoSlot && (
+            <div
+              className={styles.slidePlaceholderCard}
+              title="Right-click 'Change Picture' in PowerPoint to insert your image or logo"
+            >
+              <span className={styles.slidePlaceholderText}>
+                {(slide.logoPlaceholderText || 'YOUR IMAGE HERE').toUpperCase()}
+              </span>
+            </div>
+          )}
           {(() => {
             const hasCode = !!slide.codeSnippet && slide.codeSnippet.code.trim().length > 0;
             const cleanCode = hasCode ? slide.codeSnippet!.code.trimEnd() : '';

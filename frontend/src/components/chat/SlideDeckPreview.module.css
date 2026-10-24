@@ -575,6 +575,124 @@
   text-align: center;
 }
 
+/* ─── Sleek High-Contrast Placeholder Card (#1a1a1a Dark Charcoal, 8:3 Ratio) ── */
+.slidePlaceholderCard {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: clamp(140px, 18cqw, 200px);
+  aspect-ratio: 400 / 150;
+  background-color: #1a1a1a;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: clamp(4px, 0.6cqw, 8px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
+  margin-bottom: clamp(10px, 1.4cqw, 18px);
+  user-select: none;
+  flex-shrink: 0;
+  box-sizing: border-box;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.slidePlaceholderCard:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.45);
+}
+
+.titlePlaceholderCard {
+  width: clamp(155px, 20cqw, 220px);
+  margin-bottom: clamp(14px, 2.2cqw, 28px);
+}
+
+.slidePlaceholderText {
+  color: #ffffff;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+  font-size: clamp(0.70rem, 1.15cqw, 0.95rem);
+  font-weight: 700;
+  letter-spacing: 0.8px;
+  text-align: center;
+  padding: 0 10px;
+  line-height: 1.2;
+}
+
+/* ─── Slide Logo Placeholder Slot (Title & Content Slides) ──────────────── */
+.slideLogoPlaceholderBox {
+  display: inline-flex;
+  align-items: center;
+  gap: clamp(8px, 1.2cqw, 14px);
+  padding: clamp(6px, 0.8cqw, 10px) clamp(10px, 1.4cqw, 18px);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  background-color: #1a1a1a;
+  border-radius: clamp(4px, 0.6cqw, 8px);
+  max-width: min(100%, 420px);
+  box-sizing: border-box;
+  margin-bottom: clamp(10px, 1.4cqw, 18px);
+  flex-shrink: 0;
+  backdrop-filter: blur(4px);
+}
+
+.titleLogoPlaceholderBox {
+  margin-bottom: clamp(14px, 2.2cqw, 28px);
+}
+
+.slideLogoImgContainer {
+  display: inline-flex;
+  align-items: center;
+  max-width: min(100%, 280px);
+  max-height: clamp(36px, 5.5cqw, 64px);
+  margin-bottom: clamp(10px, 1.4cqw, 18px);
+  flex-shrink: 0;
+}
+
+.titleLogoImgContainer {
+  max-width: min(100%, 340px);
+  max-height: clamp(48px, 7.5cqw, 80px);
+  margin-bottom: clamp(14px, 2.2cqw, 28px);
+}
+
+.slideLogoImg {
+  max-width: 100%;
+  max-height: clamp(36px, 5.5cqw, 64px);
+  object-fit: contain;
+  display: block;
+}
+
+.titleLogoImgContainer .slideLogoImg {
+  max-height: clamp(48px, 7.5cqw, 80px);
+}
+
+.slideLogoIconWrapper {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.slideLogoTextWrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  text-align: left;
+}
+
+.slideLogoLabel {
+  font-size: clamp(0.72rem, 1.15cqw, 0.95rem);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.slideLogoHint {
+  font-size: clamp(0.60rem, 0.88cqw, 0.76rem);
+  opacity: 0.82;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 /* ─── Content Slide Styling (100% 1:1 Match to PowerPoint Export) ────────── */
 .contentSlideHeader {
   display: flex;
@@ -1519,7 +1637,7 @@
   right: auto;
   transform: translateX(-50%);
   max-width: min(240px, calc(100vw - 24px));
-  max-height: 260px;
+  max-height: 280px;
   overflow-y: auto;
   z-index: 100006;
 }

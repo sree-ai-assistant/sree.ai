@@ -12,7 +12,7 @@ import { getUserAvatarUrl, getLoggedInDefaultAvatarUrl, getAnonymousAvatarUrl } 
 import { parseMessageContent } from '../../utils/messageParser';
 import { extractThinkingContent as extractThinking, filterThinkingTags as defaultFilterThinkingTags } from '../../utils/thinkingFilter';
 import { exportDocument, type ExportFormat } from '../../utils/documentExportService';
-import { splitPresentationContent } from '../../utils/pptxExporter';
+import { splitPresentationContent, cleanFallbackTitle } from '../../utils/pptxExporter';
 import { SlideDeckPreview } from './SlideDeckPreview';
 
 interface ChatMessageProps {
@@ -135,13 +135,30 @@ export const ChatMessageComponent: React.FC<ChatMessageProps> = ({
     setIsExporting(format);
     try {
       const headingMatch = filteredContent.match(/^#\s+(.+)$/m)?.[1]?.trim();
-      const title = headingMatch || activeConversation?.title || 'Document';
+      const slideTitle = presentationData?.slideDeck?.title;
+      const cleanFallback = cleanFallbackTitle(activeConversation?.title);
+      const title = (format === 'pptx' && slideTitle)
+        ? slideTitle
+        : (headingMatch || slideTitle || cleanFallback || (format === 'pptx' ? 'Presentation' : 'Document'));
+
+      // When exporting PowerPoint, export ONLY the dedicated slide outline so the downloaded presentation
+      // contains the exact slides shown in the interactive preview (preventing extra slides from chat preamble)
+      const contentToExport = (format === 'pptx' && presentationData?.slideOutline)
+        ? presentationData.slideOutline
+        : filteredContent;
+
+      const firstSlide = presentationData?.slideDeck?.slides[0];
+      const hasTitleLogo = firstSlide?.hasLogoPlaceholder ?? false;
+      const titleLogoText = firstSlide?.logoPlaceholderText;
 
       // Clean watermark-free export: no author, no date watermark header
-      await exportDocument(format, filteredContent, {
+      await exportDocument(format, contentToExport, {
         title,
         includeMetadata: false,
         theme,
+        fallbackLogoUrl: userUploadedImageUrl,
+        hasTitleLogo,
+        titleLogoText,
       });
     } finally {
       setIsExporting(null);
@@ -258,6 +275,22 @@ export const ChatMessageComponent: React.FC<ChatMessageProps> = ({
     const split = splitPresentationContent(filteredContent, activeConversation?.title);
     return split.hasPresentation ? split : null;
   }, [m.role, isStreaming, filteredContent, activeConversation?.title]);
+
+  // Look for any user-uploaded image in the conversation history to safely resolve logos
+  const userUploadedImageUrl = useMemo(() => {
+    if (m.role !== 'assistant') return undefined;
+    const userMessages = messages.slice(0, i).reverse().filter(msg => msg.role === 'user');
+    for (const uMsg of userMessages) {
+      const atts = uMsg.metadata?.attachments || [];
+      const imgAtt = atts.find((a: any) =>
+        a.type === 'image' ||
+        a.type?.startsWith('image/') ||
+        /\.(png|jpe?g|gif|svg|webp|ico)$/i.test(a.name || a.url)
+      );
+      if (imgAtt?.url) return imgAtt.url;
+    }
+    return undefined;
+  }, [messages, i, m.role]);
 
   const [showTextOutline, setShowTextOutline] = useState(false);
 
@@ -428,6 +461,7 @@ export const ChatMessageComponent: React.FC<ChatMessageProps> = ({
                         slideDeck={presentationData.slideDeck!}
                         onDownload={(format, theme) => handleExport(format, theme)}
                         isExporting={isExporting === 'pptx'}
+                        fallbackLogoUrl={userUploadedImageUrl}
                       />
 
                       {/* Collapsible Slide Markdown Outline Toggle */}

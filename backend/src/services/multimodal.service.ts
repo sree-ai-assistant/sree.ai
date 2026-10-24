@@ -495,6 +495,13 @@ export class MultimodalService {
       } else {
         console.warn(`[MultimodalService] Model ${model} is not vision-capable. Images stripped.`);
       }
+
+      // Provide the model with the exact URL(s) so it NEVER hallucinates fake image URLs in markdown or presentations
+      const firstImg = imageAttachments[0];
+      if (firstImg) {
+        const imageDescriptions = imageAttachments.map(img => `"${img.name}": ${img.url}`).join(', ');
+        extractedContext += `\n\n[USER ATTACHED IMAGES: ${imageDescriptions}. When generating presentations, documents, or content where the user asks to include their logo or image, use this EXACT URL: ${firstImg.url} inside markdown, e.g. ![Company Logo](${firstImg.url})]\n`;
+      }
     }
 
     // Update database message if messageId is supplied

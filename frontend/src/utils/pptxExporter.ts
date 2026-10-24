@@ -12,6 +12,9 @@ export interface PptxExportOptions {
   includeMetadata?: boolean;
   theme?: PresentationTheme | string;
   showWatermark?: boolean;
+  fallbackLogoUrl?: string;
+  hasTitleLogo?: boolean;
+  titleLogoText?: string;
 }
 
 
@@ -26,6 +29,9 @@ export interface ParsedSlideData {
   paragraphs: string[];
   tableLines: string[];
   codeSnippet?: SlideCodeSnippet;
+  hasLogoPlaceholder?: boolean;
+  logoPlaceholderText?: string;
+  logoUrl?: string;
 }
 
 /**
@@ -78,6 +84,27 @@ export function cleanSlideTitle(rawTitle: string): string {
     .trim();
 
   return stripMarkdownFormatting(stripped);
+}
+
+/**
+ * Sanitizes a fallback title candidate. Rejects raw user conversational prompts,
+ * long queries, instructions, and questions so they never become slide titles or file names.
+ */
+export function cleanFallbackTitle(raw?: string): string {
+  if (!raw || typeof raw !== 'string') return '';
+  const trimmed = raw.trim();
+  if (!trimmed) return '';
+
+  // Reject conversational prompts, commands, or long user queries
+  if (
+    trimmed.length > 50 ||
+    /^(?:plan|give me|how can|how to|can you|create|make|write|generate|show me|tell me|ok so|i want|please)\b/i.test(trimmed) ||
+    /[?!]/.test(trimmed)
+  ) {
+    return '';
+  }
+
+  return stripMarkdownFormatting(trimmed);
 }
 
 /**
@@ -139,6 +166,101 @@ export function stripCommonIndentation(code: string): string {
   const minIndent = Math.min(...indents);
   if (minIndent === 0) return code;
   return lines.map(l => (l.length >= minIndent ? l.slice(minIndent) : l.trim())).join('\n');
+}
+
+/**
+ * Detects if a line represents a logo, image, or media placeholder.
+ * Handles markdown images, HTML img tags, bracketed placeholders like [LOGO PLACEHOLDER],
+ * [IMAGE PLACEHOLDER], [YOUR IMAGE HERE], [PRODUCT IMAGE], [COMPANY LOGO], [YOUR LOGO HERE],
+ * [PHOTO PLACEHOLDER], [SCREENSHOT], and plain text variations.
+ */
+export function isLogoPlaceholderLine(line: string): boolean {
+  if (!line || typeof line !== 'string') return false;
+  const trimmed = line.trim();
+  if (!trimmed) return false;
+
+  // Markdown image: ![Alt Text](url) or ![Alt Text]
+  if (/^!\[(.*?)\](?:\((.*?)\))?/.test(trimmed)) return true;
+
+  // HTML img tag
+  if (/^<img\b[^>]*>/i.test(trimmed)) return true;
+
+  // Bracketed logo / image / media placeholder tags:
+  // e.g. [LOGO PLACEHOLDER], [LOGO], [YOUR LOGO HERE], [COMPANY LOGO], [BRAND LOGO],
+  // [IMAGE PLACEHOLDER], [IMAGE], [YOUR IMAGE HERE], [PRODUCT IMAGE], [PLACE IMAGE HERE],
+  // [PHOTO PLACEHOLDER], [SCREENSHOT PLACEHOLDER], [GRAPHIC], [VISUAL PLACEHOLDER],
+  // [Image: Dashboard Analytics], [Logo: Sree AI]
+  if (/^\[[^\]]*(?:logo|brand\s*mark|image|photo|picture|screenshot|graphic|illustration|visual|placeholder)[^\]]*\]$/i.test(trimmed)) return true;
+
+  // Plain text logo / image placeholder lines:
+  // e.g. LOGO PLACEHOLDER, YOUR LOGO HERE, PLACE LOGO HERE, COMPANY LOGO,
+  // IMAGE PLACEHOLDER, YOUR IMAGE HERE, PLACE IMAGE HERE, PRODUCT IMAGE,
+  // SCREENSHOT PLACEHOLDER, PHOTO PLACEHOLDER
+  if (/^(?:(?:place|your|company|brand|product|feature|app)\s+)?(?:logo|image|picture|photo|screenshot)(?:\s+placeholder|\s+here)?$/i.test(trimmed)) return true;
+  if (/^(?:logo|image|picture|photo|screenshot)\s+placeholder(?::\s*.+)?$/i.test(trimmed)) return true;
+
+  // Formatted variations: *Logo Placeholder*, **[LOGO PLACEHOLDER]**, **[YOUR IMAGE HERE]**, etc.
+  if (/^[*_]{1,2}(?:\[?[^\]*_]*(?:logo|brand\s*mark|image|photo|picture|screenshot|graphic|illustration|visual|placeholder)[^\]*_]*\]?)[*_]{1,2}$/i.test(trimmed)) return true;
+
+  return false;
+}
+
+/**
+ * Extracts logo or image details (url and placeholder label) from a line.
+ */
+export function extractLogoFromLine(line: string): { hasLogo: boolean; url?: string; text?: string } {
+  if (!line || typeof line !== 'string') return { hasLogo: false };
+  const trimmed = line.trim();
+  if (!isLogoPlaceholderLine(trimmed)) return { hasLogo: false };
+
+  // 1. Markdown image tag: ![Alt](url)
+  const imgMatch = trimmed.match(/^!\[(.*?)\](?:\((.*?)\))?/);
+  if (imgMatch) {
+    const alt = imgMatch[1]?.trim() || '';
+    const url = imgMatch[2]?.trim() || '';
+    const validUrl = url && (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('data:image/')) ? url : undefined;
+    let label: string | undefined = undefined;
+    if (alt) {
+      if (/^(?:logo|placeholder|place\s+logo(?:\s+here)?|your\s+logo(?:\s+here)?|logo\s+placeholder)$/i.test(alt)) {
+        label = 'YOUR LOGO HERE';
+      } else if (/^(?:image|picture|photo|screenshot|place\s+image(?:\s+here)?|your\s+image(?:\s+here)?|image\s+placeholder)$/i.test(alt)) {
+        label = 'YOUR IMAGE HERE';
+      } else {
+        label = alt;
+      }
+    }
+    return { hasLogo: true, url: validUrl, text: label };
+  }
+
+  // 2. HTML img tag: <img src="..." alt="..." />
+  const srcMatch = trimmed.match(/src=["']([^"']+)["']/i);
+  const altMatch = trimmed.match(/alt=["']([^"']+)["']/i);
+  if (srcMatch) {
+    const url = srcMatch[1].trim();
+    const validUrl = (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('data:image/')) ? url : undefined;
+    const label = altMatch ? altMatch[1].trim() : undefined;
+    return { hasLogo: true, url: validUrl, text: label };
+  }
+
+  // 3. Bracketed or styled placeholder: strip brackets/markdown styling
+  const cleanLabel = trimmed.replace(/^[*_~`#\-\[\]]+|[*_~`#\-\[\]]+$/g, '').trim();
+  const lowerClean = cleanLabel.toLowerCase();
+
+  let defaultLabel = 'YOUR LOGO HERE';
+  if (/image|photo|picture|screenshot|graphic|illustration|visual/.test(lowerClean) && !/logo|brand/.test(lowerClean)) {
+    defaultLabel = 'YOUR IMAGE HERE';
+  }
+
+  const isGenericLogo = /^(?:logo|place\s+logo(?:\s+here)?|your\s+logo(?:\s+here)?|logo\s+placeholder|placeholder)$/i.test(cleanLabel);
+  const isGenericImage = /^(?:image|place\s+image(?:\s+here)?|your\s+image(?:\s+here)?|image\s+placeholder)$/i.test(cleanLabel);
+
+  const label = isGenericLogo
+    ? 'YOUR LOGO HERE'
+    : isGenericImage
+    ? 'YOUR IMAGE HERE'
+    : cleanLabel || defaultLabel;
+
+  return { hasLogo: true, text: label };
 }
 
 export interface AdaptiveCodeLayout {
@@ -283,77 +405,228 @@ export function isPostPresentationBoundary(line: string): boolean {
     return true;
   }
 
-  // 2. Numbered deliverable section header (e.g. "2. Mermaid Diagram", "## 2. Mermaid", "3. Image Preview (ASCII Visual)", "4. Word Document")
-  const numberedMatch = trimmed.match(/^(?:#{1,4}\s+|\*{1,2}|_{1,2})?([2-9]|\d{2,})\.\s*(.+)$/);
-  if (numberedMatch) {
-    const titlePart = numberedMatch[2].toLowerCase();
-
-    // If the numbered header explicitly refers to a separate format, deliverable, or guide
+  // 2. Deliverable, separate document, or format qualifiers in headings or bold headers
+  // Matches e.g.:
+  // "### CEO Strategic Roadmap (Internal Document)"
+  // "## Executive Summary (Word Document Version)"
+  // "### Architecture Diagram (Mermaid)"
+  // "**CEO Strategy (Word/PDF)**"
+  // "## 2. Mermaid Diagram"
+  if (/^(?:#{1,4}\s+|\*{1,2}|_{1,2})?(?:\d+[\.:\-–—]\s*)?.*?\([^\)]+\)/.test(trimmed)) {
+    const titlePart = trimmed.toLowerCase();
     if (
-      titlePart.includes('mermaid') ||
-      titlePart.includes('image preview') ||
-      titlePart.includes('ascii') ||
-      titlePart.includes('visual preview') ||
-      titlePart.includes('diagram') ||
-      titlePart.includes('flowchart') ||
-      titlePart.includes('doc file') ||
+      titlePart.includes('internal document') ||
+      titlePart.includes('separate document') ||
+      titlePart.includes('document version') ||
       titlePart.includes('word document') ||
+      titlePart.includes('pdf document') ||
+      titlePart.includes('word/pdf') ||
+      titlePart.includes('word (.docx)') ||
       titlePart.includes('docx') ||
       titlePart.includes('pdf') ||
-      titlePart.includes('document version') ||
+      titlePart.includes('formal report') ||
+      titlePart.includes('executive report') ||
+      titlePart.includes('report version') ||
+      titlePart.includes('doc file') ||
+      titlePart.includes('document export') ||
+      titlePart.includes('diagram') ||
+      titlePart.includes('flowchart') ||
+      titlePart.includes('mermaid') ||
+      titlePart.includes('ascii') ||
+      titlePart.includes('visual preview') ||
       titlePart.includes('download instructions') ||
       titlePart.includes('how to download') ||
+      titlePart.includes('how to access') ||
       titlePart.includes('export instructions')
     ) {
       return true;
     }
   }
 
-  // 3. Format-specific headings (e.g. "### Mermaid Diagram", "## Mermaid View", "### Image Preview (ASCII Visual)")
-  if (/^#{1,4}\s+/.test(trimmed)) {
-    if (
-      lower.includes('mermaid') ||
-      lower.includes('image preview') ||
-      lower.includes('ascii visual') ||
-      lower.includes('ascii preview') ||
-      lower.includes('ascii diagram') ||
-      lower.includes('ascii art') ||
-      lower.includes('word document (.docx)') ||
-      lower.includes('doc file') ||
-      lower.includes('document export') ||
-      lower.includes('full document text')
-    ) {
-      return true;
-    }
-  }
+  // 3. Clean heading/numbered item check (stripping #, *, _, and numbers like "2. ", "3. ")
+  const clean = trimmed
+    .replace(/^(?:#{1,4}\s*|\*{1,2}|_{1,2}|\d+[\.:\-–—]\s*|[-*+•◦▪▫–—]\s*)+/g, '')
+    .replace(/[*_~`]+$/g, '')
+    .trim()
+    .toLowerCase();
 
-  // 4. Download / Outro guidance
+  // Conversational presentation delivery headings and handoffs:
+  // e.g. "Your 9-Slide Presentation with Logo Only", "Your 10-Slide Presentation",
+  // "The 9-Slide Presentation", "Your Presentation is Ready Above", "Your Clean Presentation"
   if (
-    lower.startsWith('how to download') ||
-    lower.startsWith('how to get your file') ||
-    lower.startsWith('to download:') ||
-    lower.startsWith('download instructions:') ||
-    lower.startsWith('to change themes:') ||
-    lower.startsWith('download your files:') ||
-    lower.startsWith('which phase would you like') ||
-    lower.startsWith('let me know if you would like') ||
-    lower.startsWith('feel free to ask')
+    /^(?:your|the)\s+(?:clean\s+|image-free\s+|logo-free\s+|updated\s+|new\s+|complete\s+|full\s+|interactive\s+)?(?:\d+[- ]slide\s+)?presentation\b/i.test(clean) ||
+    /^(?:your|the)\s+(?:deck|slides?)\s+(?:is|are)\s+ready\b/i.test(clean) ||
+    /^(?:your|the)\s+(?:interactive\s+)?presentation\s+is\s+ready\b/i.test(clean) ||
+    /^(?:preview|download)\s+(?:and\s+download|pptx|instructions?|your\s+presentation)\b/i.test(clean) ||
+    /^presentation\s+(?:download|access|export|handoff|delivery|instructions?)\b/i.test(clean) ||
+    /^presentation\s+(?:overview|summary)\s+(?:&|and)\s+(?:download|access|export|instructions?)\b/i.test(clean)
   ) {
     return true;
   }
 
-  // Headings for download guidance (e.g. "### How to download your files:", "## Download Instructions")
-  if (/^#{1,4}\s+/.test(trimmed)) {
-    const headingText = trimmed.replace(/^#{1,4}\s+/, '').trim().toLowerCase();
-    if (
-      headingText.startsWith('how to download') ||
-      headingText.startsWith('how to get your file') ||
-      headingText.startsWith('to download') ||
-      headingText.startsWith('download instructions') ||
-      headingText.startsWith('download your files')
-    ) {
-      return true;
-    }
+  // Conversational UI Guidance Phrases in Text or Bullets:
+  if (
+    clean.includes('presentation is ready') ||
+    clean.includes('presentation is now ready') ||
+    clean.includes('presentation viewer above') ||
+    clean.includes('presentation carousel') ||
+    clean.includes('presentation card header') ||
+    clean.includes('presentation card above') ||
+    clean.includes('interactive presentation viewer') ||
+    clean.includes('swipe through all') ||
+    clean.includes('swipe through the slides') ||
+    clean.includes('swipe through the') ||
+    clean.includes('preview: you can swipe') ||
+    clean.includes('preview & slide through') ||
+    clean.includes('preview and slide through') ||
+    clean.includes('download .pptx button') ||
+    clean.includes('download pptx:') ||
+    clean.includes('download pptx button') ||
+    clean.includes('header of the presentation card') ||
+    clean.includes('download your presentation file') ||
+    clean.includes('download the presentation file') ||
+    clean.includes('opening and closing slides') ||
+    clean.includes('free of extra images or placeholders') ||
+    clean.includes('logo on the opening and closing') ||
+    clean.includes('with logo only') ||
+    clean.includes('rendered above as a') ||
+    clean.includes('interactive deck') ||
+    clean.includes('preview window above')
+  ) {
+    return true;
+  }
+
+  if (
+    clean.startsWith('mermaid') ||
+    clean.startsWith('diagram') ||
+    clean.startsWith('image preview') ||
+    clean.startsWith('ascii visual') ||
+    clean.startsWith('ascii preview') ||
+    clean.startsWith('ascii diagram') ||
+    clean.startsWith('ascii art') ||
+    clean.startsWith('internal document') ||
+    clean.startsWith('separate document') ||
+    clean.startsWith('formal report') ||
+    clean.startsWith('executive report') ||
+    clean.startsWith('word document') ||
+    clean.startsWith('pdf document') ||
+    clean.startsWith('document export') ||
+    clean.startsWith('how to access') ||
+    clean.startsWith('how to download') ||
+    clean.startsWith('how to get your file') ||
+    clean.startsWith('how to get your presentation') ||
+    clean.startsWith('access your file') ||
+    clean.startsWith('download your file') ||
+    clean.startsWith('download instructions') ||
+    clean.startsWith('export instructions') ||
+    clean.startsWith('to download:') ||
+    clean.startsWith('to access:') ||
+    clean.startsWith('for the powerpoint') ||
+    clean.startsWith('for the word') ||
+    clean.startsWith('for the pdf') ||
+    clean.startsWith('for the ceo strategy') ||
+    clean.startsWith('as requested, i have separated') ||
+    clean.startsWith('as requested, i have excluded') ||
+    clean.startsWith('i have separated the') ||
+    clean.startsWith('i have excluded the') ||
+    clean.startsWith('preview & slide through') ||
+    clean.startsWith('preview and slide through') ||
+    clean.startsWith('preview:') ||
+    clean.startsWith('download pptx:') ||
+    clean.startsWith('download as powerpoint') ||
+    clean.startsWith('download .pptx') ||
+    clean.startsWith('your presentation is ready') ||
+    clean.startsWith('the presentation is ready') ||
+    clean.startsWith('your deck is ready') ||
+    clean.startsWith('presentation summary & download') ||
+    clean.startsWith('presentation overview & download') ||
+    clean.startsWith('presentation summary and download') ||
+    clean.startsWith('presentation overview and download') ||
+    clean.startsWith('presentation download') ||
+    clean.startsWith('presentation access') ||
+    clean.startsWith('presentation export') ||
+    clean.includes('internal document') ||
+    clean.includes('separate document') ||
+    clean.includes('formal report') ||
+    clean.includes('word document (.docx)') ||
+    clean.includes('how to access your files')
+  ) {
+    return true;
+  }
+
+  // 4. Download / Outro guidance / External document transitions
+  if (
+    lower.startsWith('how to access') ||
+    lower.startsWith('access your file') ||
+    lower.startsWith('to access your file') ||
+    lower.startsWith('how to download') ||
+    lower.startsWith('how to get your file') ||
+    lower.startsWith('how to get your presentation') ||
+    lower.startsWith('to download') ||
+    lower.startsWith('download instructions') ||
+    lower.startsWith('to change themes') ||
+    lower.startsWith('download your file') ||
+    lower.startsWith('click download') ||
+    lower.startsWith('click the download') ||
+    lower.startsWith('which phase would you like') ||
+    lower.startsWith('let me know if you would like') ||
+    lower.startsWith('feel free to ask') ||
+    lower.startsWith('your interactive presentation') ||
+    lower.startsWith('the interactive presentation') ||
+    lower.startsWith('your presentation is ready') ||
+    lower.startsWith('the presentation is ready') ||
+    lower.startsWith('your deck includes') ||
+    lower.startsWith('the deck includes') ||
+    lower.startsWith('once downloaded you can') ||
+    lower.startsWith('once downloaded') ||
+    lower.startsWith('you can preview and swipe') ||
+    lower.startsWith('preview the presentation') ||
+    lower.startsWith('right-clicking the placeholder') ||
+    lower.startsWith('selecting change picture') ||
+    lower.startsWith('replace it in powerpoint') ||
+    lower.startsWith('to replace the placeholder') ||
+    lower.startsWith('if you would like') ||
+    lower.startsWith('if you want any') ||
+    lower.startsWith('would you like me to') ||
+    lower.startsWith('i hope this') ||
+    lower.startsWith('hope this presentation') ||
+    lower.startsWith('for the powerpoint') ||
+    lower.startsWith('1. for the powerpoint') ||
+    lower.startsWith('2. for the') ||
+    lower.startsWith('for the word') ||
+    lower.startsWith('for the pdf') ||
+    lower.startsWith('for the ceo strategy') ||
+    lower.startsWith('as requested, i have separated') ||
+    lower.startsWith('as requested, i have excluded') ||
+    lower.startsWith('i have separated the') ||
+    lower.startsWith('i have excluded the') ||
+    lower.startsWith('this roadmap is designed for you') ||
+    lower.startsWith('the strategy text above is formatted') ||
+    lower.startsWith('to download it as a professional document') ||
+    lower.includes('for the powerpoint (.pptx)') ||
+    lower.includes('for the ceo strategy (word/pdf)') ||
+    lower.includes('action bar below this message') ||
+    lower.includes('select word document (.docx)') ||
+    lower.includes('select pdf document') ||
+    lower.includes('how to access your files') ||
+    lower.includes('presentation carousel') ||
+    lower.includes('download .pptx button') ||
+    lower.includes('presentation card header') ||
+    lower.includes('selecting change picture') ||
+    lower.includes('right-clicking the placeholder')
+  ) {
+    return true;
+  }
+
+  // Regex checks for conversational outro patterns
+  if (/^(?:your|the)\s+(?:interactive\s+)?presentation\s+is\s+ready/i.test(trimmed)) {
+    return true;
+  }
+  if (/^(?:your|the)\s+deck\s+includes/i.test(trimmed)) {
+    return true;
+  }
+  if (/^once\s+downloaded\s+(?:you\s+can|it\s+can)/i.test(trimmed)) {
+    return true;
   }
 
   return false;
@@ -364,26 +637,53 @@ export function isPostPresentationBoundary(line: string): boolean {
  * rather than presentation slides.
  */
 function isConversationalSection(lines: string[]): boolean {
-  // If section contains a post-presentation boundary, it is NEVER a presentation slide
+  // If section contains a post-presentation boundary, it is NEVER a presentation slide,
+  // even if it has bullets or numbered steps (like download steps or separate document outlines)!
   if (lines.some(l => isPostPresentationBoundary(l))) return true;
 
   const joined = lines.join(' ').toLowerCase();
 
-  // If section is explicitly a download or export guide, it is NEVER a presentation slide
+  // If section is explicitly a download or export guide, it is NEVER a presentation slide,
+  // even if formatted with bullet points or numbered steps!
   const isDownloadGuide =
     joined.includes('how to get your file') ||
     joined.includes('how to download') ||
     joined.includes('download .pptx') ||
+    joined.includes('download pptx') ||
     joined.includes('to download:') ||
     joined.includes('to change themes:') ||
     joined.includes('presentation card header') ||
+    joined.includes('presentation card above') ||
+    joined.includes('presentation viewer above') ||
+    joined.includes('interactive presentation viewer') ||
     joined.includes('switch to other styles') ||
     joined.includes('your presentation is now perfectly formatted') ||
+    joined.includes('presentation is ready above') ||
+    joined.includes('presentation is ready') ||
+    joined.includes('swipe through all') ||
+    joined.includes('swipe through the slides') ||
+    joined.includes('preview: you can swipe') ||
+    joined.includes('preview & slide through') ||
     joined.includes('download this presentation') ||
     joined.includes('presentation card') ||
-    joined.includes('look at the presentation');
+    joined.includes('look at the presentation') ||
+    joined.includes('presentation carousel') ||
+    joined.includes('with logo only') ||
+    joined.includes('opening and closing slides') ||
+    joined.includes('free of extra images');
 
   if (isDownloadGuide) return true;
+
+  // If section contains genuine slide content (bullets, tables, code fences, or numbered items),
+  // it is NEVER a purely conversational section! We must never discard slides that contain bullets.
+  const hasBullets = lines.some(l => /^[-*+•◦▪▫–—]\s+/.test(l.trim()));
+  const hasTable = lines.some(l => l.trim().startsWith('|') && l.trim().endsWith('|'));
+  const hasCodeFence = lines.some(l => /^```/.test(l.trim()));
+  const hasNumberedList = lines.some(l => /^\d+\.\s+/.test(l.trim()));
+
+  if (hasBullets || hasTable || hasCodeFence || (hasNumberedList && lines.length > 2)) {
+    return false;
+  }
 
   const hasConversationalPhrases =
     joined.includes('i apologize') ||
@@ -407,7 +707,7 @@ function isConversationalSection(lines: string[]): boolean {
 
   const hasSlideIndicators = lines.some(l =>
     /^#{1,3}\s+(Slide\s+\d+|[0-9]+\.\s+Slide)/i.test(l.trim()) ||
-    /^[-*+]\s+/.test(l.trim()) ||
+    /^[-*+•◦▪▫–—]\s+/.test(l.trim()) ||
     (l.trim().startsWith('|') && l.trim().endsWith('|'))
   );
 
@@ -422,7 +722,14 @@ function isConversationalSection(lines: string[]): boolean {
 /**
  * Parses raw markdown into structured slide objects
  */
-export function parseMarkdownToSlides(markdown: string, fallbackTitle?: string): { title: string; subtitle: string; slides: ParsedSlideData[] } {
+export function parseMarkdownToSlides(markdown: string, fallbackTitle?: string): {
+  title: string;
+  subtitle: string;
+  hasTitleLogo?: boolean;
+  titleLogoText?: string;
+  titleLogoUrl?: string;
+  slides: ParsedSlideData[];
+} {
   // 1. Clean thinking tags and normalize line endings
   const cleanMd = markdown
     .replace(/<think>[\s\S]*?<\/think>/gi, '')
@@ -449,12 +756,15 @@ export function parseMarkdownToSlides(markdown: string, fallbackTitle?: string):
       inCodeFence = !inCodeFence;
     }
 
-    // Check if the presentation content has begun (title heading, slide header, or first divider)
+    // Check if the presentation content has begun (title heading, slide header, logo image, or first divider)
     if (!presentationStarted) {
       if (
         /^[-*_]{3,}$/.test(trimmed) ||
         /^#{1,3}\s+/.test(trimmed) ||
-        /^(#{1,4}\s+)?(Slide\s+\d+|[0-9]+\.\s+Slide\b|Title\s*Slide)/i.test(trimmed)
+        /^(#{1,4}\s+)?(Slide\s+\d+|[0-9]+\.\s+Slide\b|Title\s*Slide)/i.test(trimmed) ||
+        /^!\[.*?(?:logo|placeholder|brand).*?\](?:\(.*?\))?/i.test(trimmed) ||
+        /^\[?(?:place\s+|your\s+)?logo(?:\s+placeholder|\s+here)?\]?$/i.test(trimmed) ||
+        /^<img\b[^>]*>/i.test(trimmed)
       ) {
         presentationStarted = true;
       }
@@ -479,11 +789,35 @@ export function parseMarkdownToSlides(markdown: string, fallbackTitle?: string):
       continue;
     }
 
+    // Check if currentSection only contains a logo image, placeholder, or theme directive.
+    // If so, the upcoming # Title heading MUST stay in the same section as the logo!
+    const onlyContainsLogoOrDirective =
+      currentSection.length > 0 &&
+      currentSection.every(l => {
+        const t = l.trim();
+        return !t || /^<!--\s*theme:/i.test(t) || isLogoPlaceholderLine(t);
+      });
+
+    const isNumberedSlideHeading =
+      /^(?:#{1,4}\s+|\*\*)?\d+[\.:\-–—]\s+[A-Za-z0-9]/.test(trimmed) &&
+      !isPostPresentationBoundary(trimmed);
+
     // Check slide header delimiter (if explicit slide headers are used, only outside code blocks)
     const isSlideHeaderLine =
-      !inCodeFence && (
+      !inCodeFence &&
+      !onlyContainsLogoOrDirective && (
         (hasSlideHeader && /^(#{1,4}\s+)?(Slide\s+\d+|[0-9]+\.\s+Slide\b)/i.test(trimmed)) ||
         (!hasDivider && !hasSlideHeader && /^#{1,2}\s+/.test(trimmed)) ||
+        // If dividers were used earlier or omitted:
+        // A new slide starts if currentSection already contains content (bullets, numbers, code, or table)
+        // AND the new line is a slide heading (##, ###, ####, "Slide N", or numbered section title like "3. Service Automation")
+        (currentSection.some(l => /^[-*+•◦▪▫–—]\s+/.test(l.trim()) || /^\d+\.\s+/.test(l.trim()) || (l.trim().startsWith('|') && l.trim().endsWith('|')) || l.trim().startsWith('```')) &&
+          (
+            /^#{1,4}\s+/.test(trimmed) ||
+            /^(?:Slide\s+\d+|[0-9]+\.\s+Slide\b)/i.test(trimmed) ||
+            isNumberedSlideHeading
+          )
+        ) ||
         (currentSection.length > 0 && !currentSection.some(l => /^#{1,4}\s+/.test(l.trim())) && /^#{1,2}\s+/.test(trimmed))
       );
 
@@ -507,9 +841,39 @@ export function parseMarkdownToSlides(markdown: string, fallbackTitle?: string):
     return true;
   });
 
-  let presTitle = fallbackTitle || '';
+  let presTitle = '';
   let presSubtitle = '';
+  let hasTitleLogo = false;
+  let titleLogoText = 'YOUR LOGO HERE';
+  let titleLogoUrl: string | undefined = undefined;
   const parsedSlides: ParsedSlideData[] = [];
+
+  // Check if a logo placeholder was placed before the title heading in raw markdown
+  const beforeDivider = cleanMd.split(/^[-*_]{3,}$/m)[0] || '';
+  const preTitleLogoMatch = beforeDivider.match(/!\[(.*?)\](?:\((.*?)\))?/);
+  const beforeDividerLines = beforeDivider.split('\n');
+  const hasBeforeLogo = !!preTitleLogoMatch || beforeDividerLines.some(l => isLogoPlaceholderLine(l));
+
+  if (hasBeforeLogo) {
+    hasTitleLogo = true;
+    if (preTitleLogoMatch) {
+      const alt = preTitleLogoMatch[1].trim();
+      const url = preTitleLogoMatch[2]?.trim();
+      if (url && (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('data:image/'))) {
+        titleLogoUrl = url;
+      }
+      if (alt && !/^logo$/i.test(alt)) {
+        titleLogoText = alt;
+      }
+    } else {
+      const pLine = beforeDividerLines.find(l => isLogoPlaceholderLine(l));
+      if (pLine) {
+        const info = extractLogoFromLine(pLine);
+        if (info.text) titleLogoText = info.text;
+        if (info.url) titleLogoUrl = info.url;
+      }
+    }
+  }
 
   // 5. Detect and process sections
   for (let sIdx = 0; sIdx < filteredSections.length; sIdx++) {
@@ -523,18 +887,51 @@ export function parseMarkdownToSlides(markdown: string, fallbackTitle?: string):
       sIdx === 0 &&
       (/Title\s*Slide/i.test(firstLine) ||
         cleanLines.some(l => /^#\s+/.test(l)) ||
-        (cleanLines.length <= 4 && !cleanLines.some(l => /^[-*+]\s+/.test(l) || l.startsWith('|'))));
+        (cleanLines.length <= 4 && !cleanLines.some(l => /^[-*+•◦▪▫–—]\s+/.test(l) || l.startsWith('|'))));
 
     if (isExplicitTitleSlide) {
-      // Extract presentation title and subtitle from this section
+      // Extract presentation title, subtitle, and optional logo from this section
       for (const line of cleanLines) {
+        const logoInfo = extractLogoFromLine(line);
+        if (logoInfo.hasLogo) {
+          hasTitleLogo = true;
+          if (logoInfo.url) titleLogoUrl = logoInfo.url;
+          if (logoInfo.text) titleLogoText = logoInfo.text;
+          continue;
+        }
+
+        // If line is just a slide header marker like "Slide 1: Title Slide" or "Title Slide", extract any title suffix
+        if (/^(?:#{1,4}\s*)?(?:Slide\s*0*1\b|Title\s*Slide\b)/i.test(line.trim())) {
+          const cleaned = cleanSlideTitle(line);
+          if (cleaned && !/^(?:Title\s*Slide|Slide\s*0*1)$/i.test(cleaned)) {
+            if (!presTitle) {
+              presTitle = cleaned;
+            } else if (!presSubtitle) {
+              presSubtitle = cleaned;
+            }
+          }
+          continue;
+        }
+
         if (/^#\s+/.test(line)) {
           presTitle = stripMarkdownFormatting(line.replace(/^#\s+/, '').trim());
         } else if (/^##\s+/.test(line)) {
-          presSubtitle = stripMarkdownFormatting(line.replace(/^##\s+/, '').trim());
-        } else if (!presTitle && !/Slide\s*1/i.test(line) && !/Title\s*Slide/i.test(line)) {
+          const content = stripMarkdownFormatting(line.replace(/^##\s+/, '').trim());
+          if (!presTitle) {
+            presTitle = content;
+          } else if (!presSubtitle) {
+            presSubtitle = content;
+          }
+        } else if (/^###\s+/.test(line)) {
+          const content = stripMarkdownFormatting(line.replace(/^###\s+/, '').trim());
+          if (!presTitle) {
+            presTitle = content;
+          } else if (!presSubtitle) {
+            presSubtitle = content;
+          }
+        } else if (!presTitle && !/^(?:logo|placeholder)$/i.test(line)) {
           presTitle = stripMarkdownFormatting(line);
-        } else if (presTitle && !presSubtitle && !/Prepared|Presented|By\s+/i.test(line)) {
+        } else if (presTitle && !presSubtitle && !/Prepared|Presented|By\s+/i.test(line) && !/^(?:logo|placeholder)$/i.test(line)) {
           presSubtitle = stripMarkdownFormatting(line);
         }
       }
@@ -544,6 +941,9 @@ export function parseMarkdownToSlides(markdown: string, fallbackTitle?: string):
 
     // Process as a content slide
     let slideTitle = '';
+    let hasLogoPlaceholder = false;
+    let logoPlaceholderText = 'YOUR LOGO HERE';
+    let logoUrl: string | undefined = undefined;
     const bullets: string[] = [];
     const paragraphs: string[] = [];
     const tableLines: string[] = [];
@@ -593,41 +993,58 @@ export function parseMarkdownToSlides(markdown: string, fallbackTitle?: string):
         continue;
       }
 
-      // B. Slide Header (First heading in section)
+      // B. Logo placeholder image or real logo URL (e.g. ![Logo](https://...) or [PLACE LOGO HERE])
+      const logoInfo = extractLogoFromLine(trimmedLine);
+      if (logoInfo.hasLogo) {
+        hasLogoPlaceholder = true;
+        if (logoInfo.url) logoUrl = logoInfo.url;
+        if (logoInfo.text) logoPlaceholderText = logoInfo.text;
+        continue; // Consumed as logo placeholder/image, do not add as text!
+      }
+
+      // C. Slide Header (First heading in section)
       if (!slideTitle && /^#{1,4}\s+/.test(trimmedLine)) {
         slideTitle = cleanSlideTitle(trimmedLine);
         if (!presTitle) presTitle = slideTitle;
         continue;
       }
 
-      // C. If no slide header was found yet and line looks like a title
+      // D. If no slide header was found yet and line looks like a title
       if (!slideTitle && /^(Slide\s+\d+|[0-9]+\.\s+)/i.test(trimmedLine)) {
         slideTitle = cleanSlideTitle(trimmedLine);
         continue;
       }
 
-      // D. Bullet items (- point, * point, + point)
-      if (/^[-*+]\s+/.test(trimmedLine)) {
-        const bulletText = stripMarkdownFormatting(trimmedLine.replace(/^[-*+]\s+/, '').trim());
+      // E. Bullet items (- point, * point, + point, • point)
+      if (/^[-*+•◦▪▫–—]\s+/.test(trimmedLine)) {
+        const rawBullet = trimmedLine.replace(/^[-*+•◦▪▫–—]\s+/, '').trim();
+        const bulletLogo = extractLogoFromLine(rawBullet);
+        if (bulletLogo.hasLogo) {
+          hasLogoPlaceholder = true;
+          if (bulletLogo.url) logoUrl = bulletLogo.url;
+          if (bulletLogo.text) logoPlaceholderText = bulletLogo.text;
+          continue;
+        }
+        const bulletText = stripMarkdownFormatting(rawBullet);
         if (bulletText) bullets.push(bulletText);
         continue;
       }
 
-      // E. Numbered list items (1. point, 2. point)
+      // F. Numbered list items (1. point, 2. point)
       if (/^\d+\.\s+/.test(trimmedLine)) {
         const bulletText = stripMarkdownFormatting(trimmedLine.replace(/^\d+\.\s+/, '').trim());
         if (bulletText) bullets.push(bulletText);
         continue;
       }
 
-      // F. Sub-headings within content (e.g. ### Sub topic)
+      // G. Sub-headings within content (e.g. ### Sub topic)
       if (/^#{1,4}\s+/.test(trimmedLine)) {
         const subTitle = stripMarkdownFormatting(trimmedLine.replace(/^#{1,4}\s+/, '').trim());
         if (subTitle) bullets.push(subTitle);
         continue;
       }
 
-      // G. Standard paragraph text (including blockquotes and descriptions)
+      // H. Standard paragraph text (including blockquotes and descriptions)
       if (!slideTitle && !trimmedLine.startsWith('>')) {
         slideTitle = cleanSlideTitle(trimmedLine);
       } else if (trimmedLine.startsWith('>')) {
@@ -659,25 +1076,32 @@ export function parseMarkdownToSlides(markdown: string, fallbackTitle?: string):
     }
 
     // Only add slide if it has real content
-    if (bullets.length > 0 || paragraphs.length > 0 || tableLines.length > 0 || codeSnippet) {
+    if (bullets.length > 0 || paragraphs.length > 0 || tableLines.length > 0 || codeSnippet || hasLogoPlaceholder) {
       parsedSlides.push({
         title: slideTitle,
         bullets,
         paragraphs,
         tableLines,
         codeSnippet,
+        hasLogoPlaceholder,
+        logoPlaceholderText,
+        logoUrl,
       });
     }
   }
 
   // Fallback presentation title
   if (!presTitle) {
-    presTitle = parsedSlides[0]?.title || fallbackTitle || 'Presentation';
+    const cleanFallback = cleanFallbackTitle(fallbackTitle);
+    presTitle = cleanFallback || parsedSlides[0]?.title || 'Presentation';
   }
 
   return {
     title: presTitle,
     subtitle: presSubtitle || '',
+    hasTitleLogo,
+    titleLogoText,
+    titleLogoUrl,
     slides: parsedSlides,
   };
 }
@@ -724,6 +1148,57 @@ function buildPptxTable(tableLines: string[]): PptxGenJS.TableRow[] {
   }
 
   return rows;
+}
+
+let cachedFetchedImages: Record<string, string> = {};
+
+/**
+ * Loads an external or data URL image into a clean base64 PNG data URL
+ * using an off-screen HTML5 Canvas. Includes a 2.5s timeout safety guard
+ * so PowerPoint export never hangs if the remote host is unresponsive or blocked by CORS.
+ */
+export async function fetchImageAsDataUrl(url: string): Promise<string | null> {
+  if (!url) return null;
+  if (url.startsWith('data:image/')) return url;
+  if (cachedFetchedImages[url]) return cachedFetchedImages[url];
+
+  if (typeof window === 'undefined' || typeof document === 'undefined') {
+    return null;
+  }
+
+  try {
+    const loadImg = new Promise<string>((resolve, reject) => {
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.onload = () => {
+        try {
+          const canvas = document.createElement('canvas');
+          canvas.width = img.naturalWidth || img.width || 400;
+          canvas.height = img.naturalHeight || img.height || 140;
+          const ctx = canvas.getContext('2d');
+          if (!ctx) return reject(new Error('Canvas context unavailable'));
+          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+          const dataUrl = canvas.toDataURL('image/png');
+          resolve(dataUrl);
+        } catch (err) {
+          reject(err);
+        }
+      };
+      img.onerror = (err) => reject(err);
+      img.src = url;
+    });
+
+    const timeoutGuard = new Promise<null>((resolve) => setTimeout(() => resolve(null), 2500));
+    const res = await Promise.race([loadImg, timeoutGuard]);
+    if (res) {
+      cachedFetchedImages[url] = res;
+      return res;
+    }
+  } catch {
+    // Graceful fallback to null if cross-origin image fails or network is offline
+  }
+
+  return null;
 }
 
 let cachedWatermarkDataUrl: string | null = null;
@@ -778,6 +1253,82 @@ export async function getWatermarkIconDataUrl(): Promise<string | null> {
   }
 
   return null;
+}
+
+let cachedLogoDataUrl: { [key: string]: string } = {};
+
+/**
+ * Generates an executive, crisp #1a1a1a dark charcoal placeholder image Data URL (400x150 px).
+ * Matches the exact modern aesthetic with bold, centered white typography
+ * (e.g. "YOUR LOGO HERE" or "YOUR IMAGE HERE") for PowerPoint "Change Picture" workflow.
+ * In Node/Vitest test environments, safely falls back to a valid base64 PNG/SVG data URL.
+ */
+export function getLogoPlaceholderDataUrl(theme?: PresentationTheme, labelText?: string): string {
+  const cleanLabel = (labelText || 'YOUR LOGO HERE')
+    .replace(/^[*_~`#\-\[\]]+|[*_~`#\-\[\]]+$/g, '')
+    .trim();
+  const activeLabel = (cleanLabel || 'YOUR LOGO HERE').toUpperCase();
+  const cacheKey = activeLabel;
+  if (cachedLogoDataUrl[cacheKey]) {
+    return cachedLogoDataUrl[cacheKey];
+  }
+
+  // Fallback valid base64 PNG for Node/SSR/Vitest environments where HTML5 Canvas is not present
+  const fallbackPng =
+    'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAcIAAACMCAMAAABrUu1pAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAMAUExURQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAP///wAAACH5BAEAAAAALAAAAAABwgEAAAT/EMhJq7046827/2AoCADv';
+
+  if (typeof window === 'undefined' || typeof document === 'undefined') {
+    return fallbackPng;
+  }
+
+  try {
+    const canvas = document.createElement('canvas');
+    const width = 400;
+    const height = 150;
+    canvas.width = width;
+    canvas.height = height;
+
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return fallbackPng;
+
+    // 1. Dark #1a1a1a background with rounded corners (radius 8px)
+    ctx.fillStyle = '#1a1a1a';
+    const r = 8;
+    ctx.beginPath();
+    ctx.moveTo(r, 0);
+    ctx.lineTo(width - r, 0);
+    ctx.quadraticCurveTo(width, 0, width, r);
+    ctx.lineTo(width, height - r);
+    ctx.quadraticCurveTo(width, height, width - r, height);
+    ctx.lineTo(r, height);
+    ctx.quadraticCurveTo(0, height, 0, height - r);
+    ctx.lineTo(0, r);
+    ctx.quadraticCurveTo(0, 0, r, 0);
+    ctx.closePath();
+    ctx.fill();
+
+    // 2. Subtle crisp border
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+
+    // 3. Crisp centered white text
+    ctx.fillStyle = '#ffffff';
+    let fontSize = 20;
+    if (activeLabel.length > 22) fontSize = 16;
+    if (activeLabel.length > 30) fontSize = 13;
+
+    ctx.font = `bold ${fontSize}px system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(activeLabel, width / 2, height / 2);
+
+    const dataUrl = canvas.toDataURL('image/png');
+    cachedLogoDataUrl[cacheKey] = dataUrl;
+    return dataUrl;
+  } catch {
+    return fallbackPng;
+  }
 }
 
 /**
@@ -856,7 +1407,7 @@ export async function exportMarkdownToPptx(markdown: string, options?: PptxExpor
       ? PRESENTATION_THEMES[options.theme]
       : detectThemeFromMarkdown(markdown);
 
-  const { title: presTitle, subtitle: presSubtitle, slides } = parseMarkdownToSlides(markdown, options?.title);
+  const { title: presTitle, subtitle: presSubtitle, hasTitleLogo, titleLogoText, titleLogoUrl, slides } = parseMarkdownToSlides(markdown, options?.title);
 
   const showWatermark = options?.showWatermark ?? false;
   const iconDataUrl = showWatermark ? await getWatermarkIconDataUrl() : null;
@@ -866,6 +1417,42 @@ export async function exportMarkdownToPptx(markdown: string, options?: PptxExpor
   // ─────────────────────────────────────────────────────────────
   const titleSlide = pres.addSlide();
   titleSlide.background = { color: activeTheme.coverBg };
+
+  // Optional Logo / Placeholder on Title Slide (genuine picture element for "Change Picture" in PPT)
+  // A title logo/image is rendered ONLY if explicitly requested by markdown (hasTitleLogo / titleLogoUrl)
+  // or if options.hasTitleLogo was explicitly requested.
+  // fallbackLogoUrl provides the image data IF a logo was requested, but must NEVER force a logo
+  // onto a clean presentation where no logo was requested or where hasTitleLogo is false!
+  const isTitleLogoRequested =
+    options?.hasTitleLogo !== undefined
+      ? options.hasTitleLogo
+      : (hasTitleLogo || Boolean(titleLogoUrl));
+
+  if (isTitleLogoRequested) {
+    let cleanLogoData: string | null = null;
+    if (titleLogoUrl) {
+      const fetched = await fetchImageAsDataUrl(titleLogoUrl);
+      if (fetched) cleanLogoData = fetched.replace(/^data:/, '');
+    }
+    if (!cleanLogoData && options?.fallbackLogoUrl) {
+      const fetchedFallback = await fetchImageAsDataUrl(options.fallbackLogoUrl);
+      if (fetchedFallback) cleanLogoData = fetchedFallback.replace(/^data:/, '');
+    }
+    if (!cleanLogoData && (hasTitleLogo || options?.hasTitleLogo)) {
+      const activeLabel = options?.titleLogoText || titleLogoText || 'YOUR LOGO HERE';
+      const logoDataUrl = getLogoPlaceholderDataUrl(activeTheme, activeLabel);
+      cleanLogoData = logoDataUrl.replace(/^data:/, '');
+    }
+    if (cleanLogoData) {
+      titleSlide.addImage({
+        data: cleanLogoData,
+        x: 1.2,
+        y: 0.82,
+        w: 3.4,
+        h: 1.275,
+      });
+    }
+  }
 
   // Main Title (Well within 13.33" width and 7.5" height)
   titleSlide.addText(presTitle, {
@@ -906,7 +1493,8 @@ export async function exportMarkdownToPptx(markdown: string, options?: PptxExpor
   // ─────────────────────────────────────────────────────────────
   const totalSlides = slides.length + 1; // +1 for title slide
 
-  slides.forEach((slideData, idx) => {
+  for (let idx = 0; idx < slides.length; idx++) {
+    const slideData = slides[idx];
     const slideNumber = idx + 2;
     const slide = pres.addSlide();
     slide.background = { color: activeTheme.contentBg };
@@ -937,6 +1525,33 @@ export async function exportMarkdownToPptx(markdown: string, options?: PptxExpor
     });
 
     let currentY = 1.18;
+
+    // Optional Logo / Placeholder on Content Slide (genuine picture element for "Change Picture" in PPT)
+    if (slideData.hasLogoPlaceholder || !!slideData.logoUrl) {
+      let cleanLogoData: string | null = null;
+      if (slideData.logoUrl) {
+        const fetched = await fetchImageAsDataUrl(slideData.logoUrl);
+        if (fetched) cleanLogoData = fetched.replace(/^data:/, '');
+      }
+      if (!cleanLogoData && options?.fallbackLogoUrl) {
+        const fetchedFallback = await fetchImageAsDataUrl(options.fallbackLogoUrl);
+        if (fetchedFallback) cleanLogoData = fetchedFallback.replace(/^data:/, '');
+      }
+      if (!cleanLogoData && slideData.hasLogoPlaceholder) {
+        const logoDataUrl = getLogoPlaceholderDataUrl(activeTheme, slideData.logoPlaceholderText);
+        cleanLogoData = logoDataUrl.replace(/^data:/, '');
+      }
+      if (cleanLogoData) {
+        slide.addImage({
+          data: cleanLogoData,
+          x: 1.0,
+          y: currentY,
+          w: 3.4,
+          h: 1.275,
+        });
+        currentY += 1.42;
+      }
+    }
 
     // A. Render Table if present
     if (slideData.tableLines.length > 0) {
@@ -1275,6 +1890,7 @@ export async function exportMarkdownToPptx(markdown: string, options?: PptxExpor
       // ─────────────────────────────────────────────────────────
       // Standard Layout (No Code): Paragraphs & Full-Width Bullets
       // ─────────────────────────────────────────────────────────
+
       if (slideData.paragraphs.length > 0 && currentY < 6.2) {
         const bodyText = slideData.paragraphs.slice(0, 6).join('\n\n');
         const maxParagraphHeight = hasBullets
@@ -1352,7 +1968,7 @@ export async function exportMarkdownToPptx(markdown: string, options?: PptxExpor
         align: 'right',
       });
     }
-  });
+  }
 
   const blobOutput = await pres.write({ outputType: 'blob' });
   // pptxgenjs internally generates the container using JSZip, which defaults the Blob MIME type to 'application/zip'.
@@ -1377,34 +1993,52 @@ export function isPresentationMarkdown(markdown: string): boolean {
   const lines = clean.split('\n').map(l => l.trim()).filter(Boolean);
 
   // 1. Explicit theme directive: <!-- theme: modernLight --> etc.
+  //    This is the strongest signal — the AI deliberately inserted a theme tag.
   if (/<!--\s*theme:\s*[a-zA-Z0-9_-]+\s*-->/i.test(clean)) {
     return true;
   }
 
   // 2. Explicit slide markers: e.g. "Slide 1:", "Slide 2:", "## Slide 1", "### Slide 2", "Title Slide"
+  //    Only count lines that BEGIN with a heading marker or bold and contain "Slide N" — NOT mentions
+  //    of "slide" in conversational prose (e.g. "you can change the last slide").
   const slideHeaderCount = lines.filter(l =>
     /^(#{1,4}\s+|\*\*|\[)?(Slide\s+\d+|[0-9]+\.\s+Slide\b|Title\s*Slide)/i.test(l)
   ).length;
-  if (slideHeaderCount >= 2) return true;
+  if (slideHeaderCount >= 3) return true;
 
   // 3. Count true markdown horizontal dividers (---, ***, ___)
   const dividerCount = lines.filter(l => /^[-*_]{3,}$/.test(l)).length;
 
-  // Combined slide header with at least one divider (e.g. Slide 1 ... --- Slide 2)
-  if (slideHeaderCount >= 1 && dividerCount >= 1) {
+  // Combined slide header with dividers — require at least 2 dividers to prevent
+  // a conversational response that references "Slide 1" once + has a single `---` from
+  // being detected. A real presentation has multiple slides separated by dividers.
+  if (slideHeaderCount >= 2 && dividerCount >= 2) {
     const parsed = parseMarkdownToSlides(clean);
-    if (parsed.slides.length >= 1) return true;
+    if (parsed.slides.length >= 2) return true;
   }
 
-  // 4. Multiple dividers (>= 2) with explicit presentation / slide vocabulary (English, Bengali, Hindi, Spanish, etc.)
-  // This ensures standard tutorials, roadmaps, articles, or Word/PDF guides with `---` are NOT misidentified as PPTX.
+  // 4. Dividers (>= 2) with explicit presentation / slide vocabulary AND structural validation.
+  //    A real slide deck has: (a) a `# Title` heading near the top, (b) `---` dividers separating
+  //    content sections with `## / ###` headings, (c) the parsed result has real slides.
+  //    A conversational response merely MENTIONING "presentation" won't have this structure.
   const hasPresentationKeywords =
     /\b(presentation|slide\s*deck|slides?\s+on\b|slide-by-slide|powerpoint|\.pptx|presentation\s+carousel)\b|প্রেজেন্টেশন|স্লাইড|प्रेजेंटेशन|स्लाइड|presentaci[oó]n/i.test(clean);
 
-  if (hasPresentationKeywords && dividerCount >= 1) {
-    const parsed = parseMarkdownToSlides(clean);
-    const totalSlideCount = (parsed.title ? 1 : 0) + parsed.slides.length;
-    if (totalSlideCount >= 2) return true;
+  if (hasPresentationKeywords && dividerCount >= 2) {
+    // Structural check: content must have a `# Title` heading (level 1) near the top
+    // followed by actual slide sections with headings after dividers.
+    const hasTitleHeading = lines.some((l, idx) => idx < 10 && /^#\s+/.test(l) && !/^##/.test(l));
+    const hasSlideHeadingsAfterDividers = lines.some((l, idx) => {
+      if (!/^#{2,4}\s+/.test(l)) return false;
+      // Check if there's a divider somewhere before this heading
+      return lines.slice(0, idx).some(prev => /^[-*_]{3,}$/.test(prev));
+    });
+
+    if (hasTitleHeading && hasSlideHeadingsAfterDividers) {
+      const parsed = parseMarkdownToSlides(clean);
+      const totalSlideCount = (parsed.title ? 1 : 0) + parsed.slides.length;
+      if (totalSlideCount >= 2) return true;
+    }
   }
 
   return false;
@@ -1421,6 +2055,9 @@ export interface SlideDeckItem {
   paragraphs: string[];
   tableLines: string[];
   codeSnippet?: SlideCodeSnippet;
+  hasLogoPlaceholder?: boolean;
+  logoPlaceholderText?: string;
+  logoUrl?: string;
 }
 
 export interface SlideDeckData {
@@ -1461,6 +2098,9 @@ export function extractSlideDeck(
       bullets: [],
       paragraphs: [],
       tableLines: [],
+      hasLogoPlaceholder: parsed.hasTitleLogo,
+      logoPlaceholderText: parsed.titleLogoText,
+      logoUrl: parsed.titleLogoUrl,
     },
     ...parsed.slides.map((s, idx) => ({
       id: `slide-${idx + 2}`,
@@ -1471,6 +2111,9 @@ export function extractSlideDeck(
       paragraphs: s.paragraphs || [],
       tableLines: s.tableLines || [],
       codeSnippet: s.codeSnippet,
+      hasLogoPlaceholder: s.hasLogoPlaceholder,
+      logoPlaceholderText: s.logoPlaceholderText,
+      logoUrl: s.logoUrl,
     })),
   ];
 
@@ -1556,9 +2199,15 @@ export function splitSinglePresentation(
     for (let i = lines.length - 1; i >= 0; i--) {
       const trimmed = lines[i].trim();
       const cleanLine = trimmed.toLowerCase().replace(/[^\p{L}\p{N}]/gu, '');
+      const isHeading =
+        /^#{1,4}\s+/i.test(trimmed) ||
+        /^(slide\s*\d+|title\s*slide)/i.test(trimmed) ||
+        /^\*\*(?:slide\s*\d+|.*)\*\*$/i.test(trimmed) ||
+        (cleanLine === cleanLastTitle && cleanLine.length >= 3);
       if (
         (cleanLine.includes(cleanLastTitle) || (cleanLine.length >= 4 && cleanLastTitle.includes(cleanLine))) &&
-        (/^#{1,4}\s+/i.test(trimmed) || /^(slide\s*\d+|title\s*slide)/i.test(trimmed))
+        isHeading &&
+        !isPostPresentationBoundary(trimmed)
       ) {
         lastSlideLineIdx = i;
         break;
@@ -1574,9 +2223,15 @@ export function splitSinglePresentation(
       for (let i = lines.length - 1; i >= 0; i--) {
         const trimmed = lines[i].trim();
         const cleanLine = trimmed.toLowerCase().replace(/[^\p{L}\p{N}]/gu, '');
+        const isHeading =
+          /^#{1,4}\s+/i.test(trimmed) ||
+          /^(slide\s*\d+|title\s*slide)/i.test(trimmed) ||
+          /^\*\*(?:slide\s*\d+|.*)\*\*$/i.test(trimmed) ||
+          (cleanLine === sTitle && cleanLine.length >= 3);
         if (
           (cleanLine.includes(sTitle) || (cleanLine.length >= 4 && sTitle.includes(cleanLine))) &&
-          (/^#{1,4}\s+/i.test(trimmed) || /^(slide\s*\d+|title\s*slide)/i.test(trimmed))
+          isHeading &&
+          !isPostPresentationBoundary(trimmed)
         ) {
           lastSlideLineIdx = i;
           break;
@@ -1591,7 +2246,8 @@ export function splitSinglePresentation(
     const totalSlides = initialDeck.slides.length;
     const slideNumRegex = new RegExp(`^(?:#{1,4}\\s+)?(?:slide\\s*0*${totalSlides}|0*${totalSlides}\\.\\s*)`, 'i');
     for (let i = lines.length - 1; i >= 0; i--) {
-      if (slideNumRegex.test(lines[i].trim())) {
+      const trimmed = lines[i].trim();
+      if (slideNumRegex.test(trimmed) && !isPostPresentationBoundary(trimmed)) {
         lastSlideLineIdx = i;
         break;
       }
@@ -1602,7 +2258,10 @@ export function splitSinglePresentation(
   if (lastSlideLineIdx === -1) {
     for (let i = lines.length - 1; i >= 0; i--) {
       const trimmed = lines[i].trim();
-      if (/^#{1,4}\s+/i.test(trimmed) || /^(slide\s*\d+|title\s*slide)/i.test(trimmed)) {
+      if (
+        (/^#{1,4}\s+/i.test(trimmed) || /^(slide\s*\d+|title\s*slide)/i.test(trimmed)) &&
+        !isPostPresentationBoundary(trimmed)
+      ) {
         lastSlideLineIdx = i;
         break;
       }
@@ -1636,25 +2295,42 @@ export function splitSinglePresentation(
       (firstSlideTitle && (cleanLine.includes(firstSlideTitle) || (cleanLine.length >= 3 && firstSlideTitle.includes(cleanLine)))) ||
       (firstSlideItemTitle && (cleanLine.includes(firstSlideItemTitle) || (cleanLine.length >= 3 && firstSlideItemTitle.includes(cleanLine))));
 
-    if (isHeading && (isMatchingTitle || /^#{1,4}\s*(slide\s*0*1\b|title\s*slide)/i.test(trimmed) || /^#\s+/i.test(trimmed))) {
+    const matchesExplicitTitle = firstSlideTitle
+      ? (isMatchingTitle || /^#\s+/i.test(trimmed))
+      : (isMatchingTitle || /^#{1,4}\s*(slide\s*0*1\b|title\s*slide)/i.test(trimmed) || /^#\s+/i.test(trimmed));
+
+    if (isHeading && matchesExplicitTitle) {
       slideStartIndex = i;
 
-      // Check if preceding non-empty line was a theme directive or divider
+      // Check if preceding non-empty lines include a theme directive, divider, or logo image.
+      // Skip over image lines (![...](...)  ) and subtitle lines (## ...) that may sit
+      // between the theme directive and the # Title heading.
       for (let j = i - 1; j >= 0; j--) {
         const prevTrimmed = lines[j].trim();
         if (!prevTrimmed) continue;
-        if (/^<!--\s*theme:/i.test(prevTrimmed) || /^[-*_]{3,}$/.test(prevTrimmed)) {
+        if (/^<!\-\-\s*theme:/i.test(prevTrimmed)) {
           slideStartIndex = j;
+          break;
+        }
+        if (/^[-*_]{3,}$/.test(prevTrimmed)) {
+          slideStartIndex = j;
+          // Check one more level up for theme directive
           for (let k = j - 1; k >= 0; k--) {
             const beforeDivider = lines[k].trim();
             if (!beforeDivider) continue;
-            if (/^<!--\s*theme:/i.test(beforeDivider)) {
+            if (/^<!\-\-\s*theme:/i.test(beforeDivider)) {
               slideStartIndex = k;
             }
             break;
           }
+          break;
         }
-        break;
+        // Skip markdown images (![Logo](...)) or logo placeholder lines that sit between theme and title
+        if (isLogoPlaceholderLine(prevTrimmed)) {
+          slideStartIndex = j; // Include image in slide area
+          continue; // Keep scanning upward for theme directive
+        }
+        break; // Hit non-theme, non-image, non-divider content → stop
       }
       break;
     }
@@ -1691,19 +2367,13 @@ export function splitSinglePresentation(
     // Skip empty lines between slide elements
     if (!trimmed) continue;
 
-    // 1. Divider line (---, ***, ___) marks presentation end
-    if (!inCodeFence && /^[-*_]{3,}$/.test(trimmed)) {
-      slideEndIndex = i;
-      break;
-    }
-
-    // 2. Post-presentation boundary (Mermaid, ASCII preview, Word/PDF doc, or download guide)
+    // 1. Post-presentation boundary (Mermaid, ASCII preview, Word/PDF doc, or download guide)
     if (!inCodeFence && isPostPresentationBoundary(trimmed)) {
       slideEndIndex = i;
       break;
     }
 
-    // 3. Track code fence inside slide (e.g. ```python ... ```)
+    // 2. Track code fence inside slide (e.g. ```python ... ```)
     if (/^```/.test(trimmed)) {
       inCodeFence = !inCodeFence;
       continue;
@@ -1712,9 +2382,17 @@ export function splitSinglePresentation(
       continue;
     }
 
+    // 3. Slide images or logo placeholder markers (e.g. ![Logo](url), [PLACE LOGO HERE], PLACE LOGO HERE, <img...>)
+    if (
+      isLogoPlaceholderLine(trimmed) ||
+      /^<(?:center|div|p)\b/i.test(trimmed)
+    ) {
+      continue;
+    }
+
     // 4. Slide content elements:
-    // - Bullet points: "- point", "* point", "+ point", "1. point"
-    if (/^[-*+]\s+/.test(trimmed) || /^\d+\.\s+/.test(trimmed)) {
+    // - Bullet points: "- point", "* point", "+ point", "• point", "1. point"
+    if (/^[-*+•◦▪▫–—]\s+/.test(trimmed) || /^\d+\.\s+/.test(trimmed)) {
       continue;
     }
 
@@ -1733,31 +2411,72 @@ export function splitSinglePresentation(
       continue;
     }
 
-    // - Slide paragraphs parsed as part of lastSlide
     const cleanLine = trimmed.toLowerCase().replace(/[^\p{L}\p{N}]/gu, '');
+
+    // - Slide paragraphs parsed as part of initialDeck
     const isSlideParagraph = initialDeck?.slides?.some(s =>
       s.paragraphs?.some(p => {
         const cleanP = p.toLowerCase().replace(/[^\p{L}\p{N}]/gu, '');
         return cleanP && (cleanLine.includes(cleanP) || cleanP.includes(cleanLine));
       })
     );
-
     if (isSlideParagraph) {
       continue;
     }
 
-    // 5. Line is outside code fence, not a divider, not a bullet/table/blockquote/slide comment,
-    // and not a slide paragraph. This means the slide deck has ended, and conversational
-    // text / subsequent responses begin here!
+    // - Known bullet from the parsed deck (CRITICAL: NEVER break if this line is a parsed bullet!)
+    const isKnownBullet = initialDeck?.slides?.some(s =>
+      s.bullets?.some(b => {
+        const cleanB = b.toLowerCase().replace(/[^\p{L}\p{N}]/gu, '');
+        return cleanB && (cleanLine.includes(cleanB) || cleanB.includes(cleanLine));
+      })
+    );
+    if (isKnownBullet) {
+      continue;
+    }
+
+    // - Known slide heading from the parsed deck (in case searchFrom was an earlier slide)
+    const isKnownSlideTitle = initialDeck?.slides?.some(s => {
+      const cleanTitle = s.title?.toLowerCase().replace(/[^\p{L}\p{N}]/gu, '') || '';
+      return cleanTitle && (cleanLine.includes(cleanTitle) || cleanTitle.includes(cleanLine));
+    });
+    if (isKnownSlideTitle) {
+      continue;
+    }
+
+    // 5. Divider line (---, ***, ___)
+    // Only terminate on a divider if there are NO further slides or known bullets remaining below it!
+    if (/^[-*_]{3,}$/.test(trimmed)) {
+      const remainingLines = lines.slice(i + 1);
+      const hasFurtherSlideContent = initialDeck?.slides?.some(s => {
+        const sTitle = s.title?.toLowerCase().replace(/[^\p{L}\p{N}]/gu, '') || '';
+        return sTitle && remainingLines.some(rl => rl.toLowerCase().replace(/[^\p{L}\p{N}]/gu, '').includes(sTitle));
+      });
+      if (!hasFurtherSlideContent) {
+        slideEndIndex = i;
+        break;
+      } else {
+        continue;
+      }
+    }
+
+    // 6. Line is outside code fence, not a divider, not a bullet/table/blockquote/slide comment/image,
+    // and not a recognized slide element from initialDeck.
+    // This means the slide deck has ended, and conversational text / subsequent responses begin here!
     slideEndIndex = i;
     break;
   }
 
   // Extract raw sections
   let topText = lines.slice(0, slideStartIndex).join('\n').trim();
+  // NOTE: Do NOT strip theme directives from topText here — topText is reused
+  // by the multi-presentation loop in splitPresentationContent. Cleanup happens
+  // at the final output stage (see splitPresentationContent).
 
   let slideOutline = lines.slice(slideStartIndex, slideEndIndex).join('\n').trim();
   slideOutline = slideOutline.replace(/[-*_]{3,}\s*$/, '').trim();
+  // NOTE: Do NOT strip theme directives from slideOutline here — extractSlideDeck
+  // needs them for theme detection. Cleanup happens after deck extraction below.
 
   let bottomTextLines = lines.slice(slideEndIndex);
   if (bottomTextLines.length > 0 && /^[-*_]{3,}$/.test(bottomTextLines[0].trim())) {
@@ -1772,6 +2491,9 @@ export function splitSinglePresentation(
     ? isolatedDeck
     : initialDeck;
 
+  // NOW strip theme directives from the visible slideOutline (after deck extraction has consumed them)
+  slideOutline = slideOutline.replace(/<!--\s*theme:[\s\S]*?-->/gi, '').trim();
+
   const segments: PresentationSegment[] = [];
   if (topText) {
     segments.push({ type: 'text', content: topText });
@@ -1780,7 +2502,7 @@ export function splitSinglePresentation(
     type: 'presentation',
     slideDeck,
     rawMarkdown: slideOutline,
-    title: slideDeck.title || fallbackTitle || 'Presentation',
+    title: slideDeck.title || cleanFallbackTitle(fallbackTitle) || 'Presentation',
   });
   if (bottomText) {
     segments.push({ type: 'text', content: bottomText });
@@ -1843,7 +2565,7 @@ export function splitPresentationContent(
       deck: split.slideDeck,
       outline: split.slideOutline,
       bottomText: split.bottomText,
-      title: split.slideDeck.title || fallbackTitle || 'Presentation',
+      title: split.slideDeck.title || cleanFallbackTitle(fallbackTitle) || 'Presentation',
     });
 
     remainingTopText = split.topText;
@@ -1897,13 +2619,41 @@ export function splitPresentationContent(
   // The latest (most recent) deck for backwards compatibility with single-deck consumers
   const latest = decksReversed[0];
 
+  // Final cleanup: strip presentation metadata (theme directives, standalone images, logo placeholder markers)
+  // from text segments, topText, and bottomText. These are presentation control markers, NOT conversational text.
+  const cleanPresentationMeta = (text: string): string =>
+    text
+      .replace(/<!--\s*theme:[\s\S]*?-->/gi, '') // theme directives
+      .replace(/!\[.*?(?:logo|placeholder|brand|image|photo|screenshot).*?\](?:\([^)]*\))?/gi, '') // any brand/logo/image markdown image
+      .replace(/!\[.*?\]\((?:https?:\/\/[^\s)]+|data:image\/[^\s)]+)\)/gi, '') // standalone markdown images
+      .replace(/<img\b[^>]*>/gi, '') // HTML img tags
+      .replace(/^\s*\[?(?:place|your)\s+(?:logo|image|picture|photo|screenshot)(?:\s+placeholder|\s+here)?\]?\s*$/gim, '')
+      .replace(/^\s*\[[^\]]*(?:logo|brand\s*mark|image|photo|screenshot)\s+placeholder[^\]]*\]\s*$/gim, '')
+      .replace(/^\s*!\s*(?:logo|image|placeholder)\b.*$/gim, '')
+      .replace(/\n{3,}/g, '\n\n')
+      .trim();
+
+  const cleanedTopText = cleanPresentationMeta(remainingTopText);
+  const cleanedOutline = latest.outline.replace(/<!--\s*theme:[\s\S]*?-->/gi, '').trim();
+
+  // Clean text content in segments
+  for (const seg of segments) {
+    if (seg.type === 'text') {
+      seg.content = cleanPresentationMeta(seg.content);
+    }
+  }
+  // Remove empty text segments after cleanup
+  const cleanedSegments = segments.filter(
+    seg => seg.type !== 'text' || seg.content.trim().length > 0
+  );
+
   return {
     hasPresentation: true,
-    topText: remainingTopText,
+    topText: cleanedTopText,
     slideDeck: latest.deck,
-    slideOutline: latest.outline,
-    bottomText: latest.bottomText,
-    segments,
+    slideOutline: cleanedOutline,
+    bottomText: cleanPresentationMeta(latest.bottomText),
+    segments: cleanedSegments,
   };
 }
 

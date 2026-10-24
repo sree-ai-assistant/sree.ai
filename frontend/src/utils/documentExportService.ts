@@ -15,6 +15,9 @@ export interface ExportOptions {
   includeMetadata?: boolean;
   theme?: any;
   showWatermark?: boolean;
+  fallbackLogoUrl?: string;
+  hasTitleLogo?: boolean;
+  titleLogoText?: string;
 }
 
 
@@ -108,6 +111,9 @@ export async function exportDocument(
         includeMetadata: options?.includeMetadata,
         theme: options?.theme,
         showWatermark,
+        fallbackLogoUrl: options?.fallbackLogoUrl,
+        hasTitleLogo: options?.hasTitleLogo,
+        titleLogoText: options?.titleLogoText,
       });
       triggerBlobDownload(blob, filename, EXPORT_MIME_TYPES.pptx);
       toast.success('Downloaded PowerPoint presentation (.pptx)');
