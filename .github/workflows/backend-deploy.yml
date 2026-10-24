@@ -1,0 +1,69 @@
+name: Backend Deploy to Oracle VM
+
+on:
+  push:
+    branches: [ master ]
+    paths:
+      - 'backend/**'
+      - 'shared/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'ecosystem.config.cjs'
+      - '.github/workflows/backend-deploy.yml'
+  workflow_dispatch:
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'npm'
+
+      - name: Install All Dependencies
+        run: npm ci
+
+      - name: Run Backend Vitest Tests
+        run: npm run test -w backend
+
+      - name: Build Shared & Backend
+        run: |
+          npm run shared:build
+          npm run build -w backend
+
+      - name: Prepare Lean Deployment Bundle
+        run: |
+          mkdir -p bundle/backend bundle/shared
+          cp -r backend/dist bundle/backend/
+          cp backend/package.json bundle/backend/
+          cp -r shared/dist bundle/shared/
+          cp shared/package.json bundle/shared/
+          cp package.json package-lock.json ecosystem.config.cjs bundle/
+
+      - name: Deploy to Oracle Cloud VM
+        uses: easingthemes/ssh-deploy@v5.1.0
+        with:
+          SSH_PRIVATE_KEY: ${{ secrets.VM_SSH_KEY }}
+          REMOTE_HOST: ${{ secrets.VM_HOST }}
+          REMOTE_USER: ${{ secrets.VM_USER }}
+          TARGET: /var/www/sree-ai/app/
+          SOURCE: "bundle/"
+          ARGS: "-rlgoDzc -i"
+
+      - name: Install Production Deps & Reload PM2
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.VM_HOST }}
+          username: ${{ secrets.VM_USER }}
+          key: ${{ secrets.VM_SSH_KEY }}
+          script: |
+            cd /var/www/sree-ai/app
+            ln -sf /var/www/sree-ai/.env /var/www/sree-ai/app/backend/.env
+            npm ci --omit=dev
+            pm2 startOrReload /var/www/sree-ai/app/ecosystem.config.cjs --update-env
+            pm2 save
