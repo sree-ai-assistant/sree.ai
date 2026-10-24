@@ -68,7 +68,7 @@ Ai-Sass-3/
 
 | Component | Platform |
 |-----------|----------|
-| **Frontend** | Vercel (SPA with catch-all rewrite to `index.html`) |
+| **Frontend** | Cloudflare Workers Static Assets (`wrangler.jsonc`) / Vercel (SPA with catch-all rewrite) |
 | **Backend** | Server (Express on configurable PORT, default 5000) |
 | **Database** | Supabase (PostgreSQL with RLS + Auth) |
 | **File Storage** | Cloudflare R2 (S3-compatible) + Supabase Storage (avatars) |

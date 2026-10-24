@@ -2,7 +2,7 @@
 
 > Comprehensive reference document for Large Language Models, AI Search Engines (Perplexity, ChatGPT, Claude, Gemini), Agents, and Evaluators.
 > Application Host: https://app.sreeai.qzz.io
-> Last Updated: 2026-10-18
+> Last Updated: 2026-10-24
 
 ---
 
@@ -38,8 +38,9 @@ Requests are orchestrated by a dynamic server-side router:
    - NVIDIA: Nemotron 3.5, Ultra/Fast reasoning models via high-throughput NIM endpoints.
 2. **Real-Time Voice Assistant & STT Pipeline**:
    - Full-Duplex WebSocket Streaming (`WSS /api/live/voice/ws`): Powered by Google Gemini Live API (`gemini-3.8-live`, `gemini-3.1-flash-live-preview`, `gemini-2.5-flash-native-audio-preview-12-2025`) with 30+ voice personas (Zephyr, Aoede, Puck, Fenrir) and custom client-side AudioWorklet processing (`pcmWorklet.js`).
+   - Live Presentation Tool Calling: Integrated Gemini Live function calling (`generate_presentation`) allowing users to request slide decks by voice during spoken conversations, automatically compiling structured slide decks into interactive in-app carousels with direct PPTX download.
    - STT 6-Tier Cascade: NVIDIA Parakeet TDT 0.6B ASR primary (with automated 16kHz mono WAV conversion via ffmpeg-static) $\rightarrow$ Groq Whisper Large V3 $\rightarrow$ Deepgram Nova-2 fallback.
-   - High-fidelity natural TTS voice streaming.
+   - High-fidelity natural TTS voice streaming with automatic mobile loudspeaker routing.
 3. **Image & Video Studio**:
    - Black Forest Labs: FLUX.1 Schnell, FLUX.1 Dev.
    - Stability AI: Stable Diffusion 3.5 Large, SDXL.

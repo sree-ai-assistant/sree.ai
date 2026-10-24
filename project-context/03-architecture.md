@@ -312,6 +312,69 @@ sequenceDiagram
 
 ---
 
+## Universal Presentation & Document Export Pipeline
+
+```mermaid
+flowchart LR
+    subgraph UI ["User Interface / Client Interaction"]
+        ChatMsg["ChatMessage / SlideDeckPreview"]
+        VoiceOvl["VoiceOverlay (Live Voice Mode)"]
+    end
+
+    subgraph Parser ["Client-Side Content Decomposition"]
+        ParserFn["parseMessageContent(rawText)"]
+        SectionSeparator["isPostPresentationBoundary & isConversationalSection"]
+        SlideModels["Slide Data Model (title, subtitle, theme, cards, code)"]
+    end
+
+    subgraph Engines ["100% Client-Side In-Memory Generators"]
+        PPTXGen["pptxgenjs (5 Themes, Adaptive Widths, Centered Diagrams)"]
+        DOCXGen["docx (Word Styling & Header Badges)"]
+        PDFGen["jspdf / jspdf-autotable (Paginated Layouts)"]
+    end
+
+    subgraph SecurityAudit ["Quota Tracking & Storage Defense"]
+        TrackAPI["POST /api/ai/track-download (Flex Auth / rateLimitMiddleware)"]
+        Download["Direct Browser File Download (Zero Server File Leaks)"]
+    end
+
+    ChatMsg --> ParserFn
+    VoiceOvl --> ParserFn
+    ParserFn --> SectionSeparator
+    SectionSeparator --> SlideModels
+    SlideModels --> PPTXGen
+    SlideModels --> DOCXGen
+    SlideModels --> PDFGen
+    PPTXGen --> TrackAPI
+    DOCXGen --> TrackAPI
+    PDFGen --> TrackAPI
+    TrackAPI --> Download
+```
+
+---
+
+## Live Voice Function Calling & Slide Deck Generation
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant Client as Browser (VoiceOverlay / Web Audio PCM)
+    participant Server as Express Server (WSS /api/live/voice/ws)
+    participant GeminiLive as Google Gemini Live API
+
+    Client->>Server: Spoken user query ("Create a presentation about AI robotics")
+    Server->>GeminiLive: Real-time audio stream chunk
+    GeminiLive-->>Server: toolCall: generate_presentation({title, subtitle, theme, slides})
+    Note over Server: formatPresentationMarkdownFromTool sanitizes title, slides, themes
+    Server-->>Client: WebSocket frame: type="transcript", role="assistant", text="<!-- theme: ... --> ..."
+    Server-->>Client: WebSocket frame: type="presentation-generated", status="success"
+    Server->>GeminiLive: toolResponse with execution confirmation
+    Client->>Client: SlideDeckPreview mounts dynamically inside VoiceOverlay
+    Client-->>Client: User can browse slides & 1-click download PPTX while continuing live voice chat!
+```
+
+---
+
 ## Monorepo Package Dependency Graph
 
 ```mermaid

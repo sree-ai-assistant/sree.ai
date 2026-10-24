@@ -115,7 +115,7 @@
 
 | Technology | Purpose |
 |-----------|---------|
-| **Vercel** | Frontend hosting (SPA with catch-all rewrites) |
+| **Cloudflare Workers / Vercel** | Frontend hosting (Cloudflare Workers static assets via `wrangler.jsonc` & Vercel SPA rewrites) |
 | **Cloudflare R2** | S3-compatible object storage for chat attachments & feature request screenshots |
 | **Cloudflare CDN/DNS** | Edge routing, SSL/TLS, verified search crawler delivery |
 | **AEO / GEO Engine** | `llms.txt`, `llms-full.txt`, and standard `robots.txt` + `sitemap.xml` |
