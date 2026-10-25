@@ -13,12 +13,18 @@ const app = express();
 // Trust reverse proxy (Nginx & Cloudflare) for loopback client IP resolution (CWE-307)
 app.set('trust proxy', 'loopback');
 
+// Hardened Ops Vault & Real-Time Log Observability Path
+const logVaultPath = process.env.LOG_VAULT_PATH || '/ops-log-vault-9x2k';
+
 // Middlewares
 app.use(helmet({ contentSecurityPolicy: false }));
 
 // Ultra-low overhead telemetry request recording (< 1 KB ring buffer)
-app.use((_req, _res, next) => {
-  telemetryService.recordRequest();
+// Excludes internal ops vault polling and health checks from user traffic counts
+app.use((req, _res, next) => {
+  if (!req.originalUrl.startsWith(logVaultPath) && !req.originalUrl.startsWith('/api/health')) {
+    telemetryService.recordRequest();
+  }
   next();
 });
 app.use(cors({
@@ -52,7 +58,10 @@ app.use(cors({
   credentials: true,
   exposedHeaders: ['X-Restored-Anon-Id'],
 }));
-app.use(morgan('dev'));
+// Skip logging ops vault telemetry & tail polling to prevent console flooding and log loops
+app.use(morgan('dev', {
+  skip: (req) => req.originalUrl.startsWith(logVaultPath)
+}));
 app.use(cookieParser());
 app.use(express.json({
   limit: '50mb',
@@ -64,7 +73,6 @@ app.use(express.json({
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
 // Hardened Ops Vault & Real-Time Log Observability
-const logVaultPath = process.env.LOG_VAULT_PATH || '/ops-log-vault-9x2k';
 app.use(logVaultPath, createSecureLogVaultRouter(logVaultPath));
 
 // Routes
