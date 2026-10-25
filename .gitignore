@@ -41,3 +41,7 @@ node_modules
 .dev.vars*
 frontend/public/test-cycle.html
 backend/uploads/
+logs/
+backend/logs/
+*.log
+*.log.gz
