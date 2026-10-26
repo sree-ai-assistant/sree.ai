@@ -22,10 +22,22 @@ export interface DateFilterOptions {
   endDate?: string;
 }
 
-// ─── Environment Configuration ──────────────────────────────────────────
-const LOG_VAULT_USER = process.env.LOG_VAULT_USER || 'sree_admin';
-const LOG_VAULT_PASS = process.env.LOG_VAULT_PASS || 'Sree_Admin_Vault_2026!';
-const LOG_VAULT_SESSION_SECRET = process.env.LOG_VAULT_SESSION_SECRET || 'sree-ops-log-vault-secret-key-salt-9x2k';
+// ─── Environment Configuration (OWASP CWE-798 Hardening) ─────────────
+export function getVaultConfig(): { user: string | undefined; pass: string | undefined; isConfigured: boolean } {
+  const user = process.env.LOG_VAULT_USER;
+  const pass = process.env.LOG_VAULT_PASS;
+  const secret = process.env.LOG_VAULT_SESSION_SECRET;
+  const isConfigured = Boolean(user && pass && secret && secret.length >= 16);
+  return { user, pass, isConfigured };
+}
+
+export function getVaultSessionSecret(): string {
+  const secret = process.env.LOG_VAULT_SESSION_SECRET;
+  if (!secret || secret.length < 16) {
+    throw new Error('LOG_VAULT_SESSION_SECRET is not configured or is shorter than 16 characters');
+  }
+  return secret;
+}
 
 // In production, logs are in /var/www/sree-ai/logs. Fallback to local ./logs in dev
 const DEFAULT_LOG_DIR = fs.existsSync('/var/www/sree-ai/logs')
@@ -71,22 +83,26 @@ export function redactSecrets(text: string): string {
 }
 
 // ─── Constant-Time Comparison (Timing Attack Immune) ───────────────────
-export function timingSafeEqual(a: string, b: string): boolean {
-  const hashA = crypto.createHash('sha256').update(a || '').digest();
-  const hashB = crypto.createHash('sha256').update(b || '').digest();
+export function timingSafeEqual(a: unknown, b: unknown): boolean {
+  if (typeof a !== 'string' || typeof b !== 'string') return false;
+  const hashA = crypto.createHash('sha256').update(a).digest();
+  const hashB = crypto.createHash('sha256').update(b).digest();
   return crypto.timingSafeEqual(hashA, hashB);
 }
 
 // ─── Session Management (Signed HMAC-SHA256 Stateless Cookie) ──────────
 const COOKIE_NAME = 'sree_log_session';
+const CSRF_COOKIE_NAME = 'sree_log_csrf';
+const CSP_HEADER = "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: https://app.sreeai.qzz.io; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self';";
 
 export function createSessionToken(username: string): string {
+  const secret = getVaultSessionSecret();
   const payload = Buffer.from(JSON.stringify({
     u: username,
     exp: Date.now() + 24 * 60 * 60 * 1000 // 24 hours
   })).toString('base64url');
 
-  const signature = crypto.createHmac('sha256', LOG_VAULT_SESSION_SECRET)
+  const signature = crypto.createHmac('sha256', secret)
     .update(payload)
     .digest('base64url');
 
@@ -95,6 +111,9 @@ export function createSessionToken(username: string): string {
 
 export function verifySessionToken(token: string): { valid: boolean; username?: string } {
   if (!token || typeof token !== 'string') return { valid: false };
+  const secret = process.env.LOG_VAULT_SESSION_SECRET;
+  if (!secret || secret.length < 16) return { valid: false };
+
   const parts = token.split('.');
   if (parts.length !== 2) return { valid: false };
 
@@ -102,7 +121,7 @@ export function verifySessionToken(token: string): { valid: boolean; username?: 
   const signature = parts[1];
   if (!payload || !signature) return { valid: false };
 
-  const expectedSignature = crypto.createHmac('sha256', LOG_VAULT_SESSION_SECRET)
+  const expectedSignature = crypto.createHmac('sha256', secret)
     .update(payload)
     .digest('base64url');
 
@@ -134,16 +153,7 @@ const LOCKOUT_MS = 15 * 60 * 1000; // 15 minutes
 const WINDOW_MS = 15 * 60 * 1000;
 
 export function getClientIp(req: Request): string {
-  const cfIp = req.headers['cf-connecting-ip'];
-  if (cfIp && typeof cfIp === 'string') return cfIp.trim();
-
-  const xff = req.headers['x-forwarded-for'];
-  if (xff && typeof xff === 'string') {
-    const first = xff.split(',')[0];
-    if (first) return first.trim();
-  }
-
-  return req.socket.remoteAddress || '127.0.0.1';
+  return req.ip || req.socket.remoteAddress || '127.0.0.1';
 }
 
 export function checkRateLimit(ip: string): { limited: boolean; retryAfterSec?: number } {
@@ -358,6 +368,24 @@ export function createSecureLogVaultRouter(basePath: string = '/ops-log-vault-9x
     next();
   };
 
+  // 0. GET /icon.png — Serve Brand Favicon / Logo
+  router.get('/icon.png', (_req: Request, res: Response) => {
+    const candidates = [
+      path.resolve(process.cwd(), '../frontend/public/Sree-Ai-Fav-icon.png'),
+      path.resolve(process.cwd(), 'frontend/public/Sree-Ai-Fav-icon.png'),
+      path.resolve(__dirname, '../../../frontend/public/Sree-Ai-Fav-icon.png'),
+    ];
+    for (const file of candidates) {
+      if (fs.existsSync(file)) {
+        res.setHeader('Content-Type', 'image/png');
+        res.setHeader('Cache-Control', 'public, max-age=86400');
+        fs.createReadStream(file).pipe(res);
+        return;
+      }
+    }
+    res.redirect('https://app.sreeai.qzz.io/Sree-Ai-Fav-icon.png');
+  });
+
   // 1. GET /login — Render Login Page
   router.get('/login', (req: Request, res: Response) => {
     const token = req.cookies[COOKIE_NAME];
@@ -367,12 +395,30 @@ export function createSecureLogVaultRouter(basePath: string = '/ops-log-vault-9x
     }
     const ip = getClientIp(req);
     const limit = checkRateLimit(ip);
+    const config = getVaultConfig();
+
+    let error = limit.limited ? 'Too many failed attempts. Access temporarily locked.' : undefined;
+    if (!config.isConfigured && !error) {
+      error = 'Ops Vault is not configured. LOG_VAULT_USER, LOG_VAULT_PASS, and LOG_VAULT_SESSION_SECRET must be configured.';
+    }
+
+    const csrfToken = crypto.randomBytes(24).toString('hex');
+    const isSecure = req.secure || req.headers['x-forwarded-proto'] === 'https';
+    res.cookie(CSRF_COOKIE_NAME, csrfToken, {
+      httpOnly: true,
+      secure: isSecure,
+      sameSite: 'strict',
+      maxAge: 15 * 60 * 1000,
+      path: basePath
+    });
+
     res.setHeader('Content-Type', 'text/html');
-    res.setHeader('Content-Security-Policy', "default-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://fonts.gstatic.com data:;");
+    res.setHeader('Content-Security-Policy', CSP_HEADER);
     res.send(renderLoginHtml({
       basePath,
-      error: limit.limited ? 'Too many failed attempts. Access temporarily locked.' : undefined,
-      retryAfter: limit.retryAfterSec
+      error,
+      retryAfter: limit.retryAfterSec,
+      csrfToken
     }));
   });
 
@@ -380,6 +426,7 @@ export function createSecureLogVaultRouter(basePath: string = '/ops-log-vault-9x
   router.post('/login', (req: Request, res: Response) => {
     const ip = getClientIp(req);
     const limit = checkRateLimit(ip);
+    const config = getVaultConfig();
 
     if (limit.limited) {
       res.status(429).send(renderLoginHtml({
@@ -390,10 +437,42 @@ export function createSecureLogVaultRouter(basePath: string = '/ops-log-vault-9x
       return;
     }
 
+    if (!config.isConfigured || !config.user || !config.pass) {
+      res.status(503).send(renderLoginHtml({
+        basePath,
+        error: 'Ops Vault credentials are not configured on this server.'
+      }));
+      return;
+    }
+
+    // Validate anti-CSRF token if cookie is present
+    const expectedCsrf = req.cookies[CSRF_COOKIE_NAME];
+    const suppliedCsrf = req.body?._csrf;
+    if (expectedCsrf) {
+      if (!suppliedCsrf || !timingSafeEqual(String(suppliedCsrf), String(expectedCsrf))) {
+        res.status(403).send(renderLoginHtml({
+          basePath,
+          error: 'Invalid or expired CSRF token. Please refresh and try again.'
+        }));
+        return;
+      }
+    }
+
     const { username, password } = req.body || {};
 
-    const validUser = timingSafeEqual(username, LOG_VAULT_USER);
-    const validPass = timingSafeEqual(password, LOG_VAULT_PASS);
+    if (!username || !password) {
+      recordFailedAttempt(ip);
+      const newLimit = checkRateLimit(ip);
+      res.status(401).send(renderLoginHtml({
+        basePath,
+        error: 'Invalid operator credentials.',
+        retryAfter: newLimit.retryAfterSec
+      }));
+      return;
+    }
+
+    const validUser = timingSafeEqual(username, config.user);
+    const validPass = timingSafeEqual(password, config.pass);
 
     if (!validUser || !validPass) {
       recordFailedAttempt(ip);
@@ -406,7 +485,7 @@ export function createSecureLogVaultRouter(basePath: string = '/ops-log-vault-9x
       return;
     }
 
-    // Success — Clear rate limit & issue signed cookie
+    // Success — Clear rate limit & issue signed cookie restricted to basePath
     clearRateLimit(ip);
     const sessionToken = createSessionToken(username);
 
@@ -416,15 +495,19 @@ export function createSecureLogVaultRouter(basePath: string = '/ops-log-vault-9x
       secure: isSecure,
       sameSite: 'strict',
       maxAge: 24 * 60 * 60 * 1000,
-      path: '/'
+      path: basePath
     });
+    if (expectedCsrf) {
+      res.clearCookie(CSRF_COOKIE_NAME, { path: basePath });
+    }
 
     res.redirect(basePath);
   });
 
   // 3. GET /logout — Clear Session
   router.get('/logout', (_req: Request, res: Response) => {
-    res.clearCookie(COOKIE_NAME, { path: '/' });
+    res.clearCookie(COOKIE_NAME, { path: basePath });
+    res.clearCookie(CSRF_COOKIE_NAME, { path: basePath });
     res.redirect(`${basePath}/login`);
   });
 
@@ -432,7 +515,7 @@ export function createSecureLogVaultRouter(basePath: string = '/ops-log-vault-9x
   router.get('/', requireAuth, (_req: Request, res: Response) => {
     const telemetry = telemetryService.getTelemetry();
     res.setHeader('Content-Type', 'text/html');
-    res.setHeader('Content-Security-Policy', "default-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://fonts.gstatic.com data:;");
+    res.setHeader('Content-Security-Policy', CSP_HEADER);
     res.send(renderDashboardHtml({
       basePath,
       nodeVersion: process.version,
@@ -496,7 +579,8 @@ export function createSecureLogVaultRouter(basePath: string = '/ops-log-vault-9x
         totalCount: lines.length,
       });
     } catch (err: any) {
-      res.status(500).json({ error: 'Error reading log streams', details: err?.message });
+      console.error('[OpsVault] Error reading log streams:', err);
+      res.status(500).json({ error: 'Error reading log streams' });
     }
   });
 
@@ -531,7 +615,8 @@ export function createSecureLogVaultRouter(basePath: string = '/ops-log-vault-9x
 
       res.json({ newLines });
     } catch (err: any) {
-      res.status(500).json({ error: 'Error polling tail logs', details: err?.message });
+      console.error('[OpsVault] Error polling tail logs:', err);
+      res.status(500).json({ error: 'Error polling tail logs' });
     }
   });
 

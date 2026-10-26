@@ -6,14 +6,32 @@ export interface DashboardRenderOptions {
   initialTelemetry: SystemTelemetry;
 }
 
-export function renderLoginHtml(options: { basePath: string; error?: string | undefined; retryAfter?: number | undefined }): string {
-  const { basePath, error, retryAfter } = options;
+export function escapeHtml(str: unknown): string {
+  if (str === null || str === undefined) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+export interface LoginRenderOptions {
+  basePath: string;
+  error?: string | undefined;
+  retryAfter?: number | undefined;
+  csrfToken?: string | undefined;
+}
+
+export function renderLoginHtml(options: LoginRenderOptions): string {
+  const { basePath, error, retryAfter, csrfToken } = options;
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Sree AI — Hardened Ops Vault Authentication</title>
+  <link rel="icon" type="image/png" href="https://app.sreeai.qzz.io/Sree-Ai-Fav-icon.png">
   <style>
     :root {
       --bg-base: #06090f;
@@ -54,16 +72,23 @@ export function renderLoginHtml(options: { basePath: string; error?: string | un
       justify-content: center;
     }
     .brand-icon {
-      width: 36px;
-      height: 36px;
-      border-radius: 8px;
-      background: linear-gradient(135deg, #0284c7, #6366f1);
+      width: 40px;
+      height: 40px;
+      border-radius: 9px;
       display: flex;
       align-items: center;
       justify-content: center;
-      color: #fff;
-      font-size: 18px;
-      box-shadow: 0 0 14px rgba(2, 132, 199, 0.5);
+      overflow: hidden;
+      background: rgba(13, 21, 39, 0.7);
+      border: 1px solid rgba(56, 189, 248, 0.25);
+      box-shadow: 0 0 16px rgba(2, 132, 199, 0.35);
+      flex-shrink: 0;
+    }
+    .brand-icon img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      display: block;
     }
     .brand-title {
       font-size: 17px;
@@ -161,7 +186,9 @@ export function renderLoginHtml(options: { basePath: string; error?: string | un
 <body>
   <div class="login-container">
     <div class="brand">
-      <div class="brand-icon">⚡</div>
+      <div class="brand-icon">
+        <img src="https://app.sreeai.qzz.io/Sree-Ai-Fav-icon.png" onerror="this.onerror=null; this.src='${basePath}/icon.png'" alt="Sree AI logo" />
+      </div>
       <div class="brand-title">Sree AI <span class="brand-pill">OPS VAULT</span></div>
     </div>
     <div class="subtext">
@@ -171,11 +198,12 @@ export function renderLoginHtml(options: { basePath: string; error?: string | un
     ${error ? `
       <div class="alert-box">
         <span>🛡️</span>
-        <span>${error}${retryAfter ? ` (Retry after ${retryAfter}s)` : ''}</span>
+        <span>${escapeHtml(error)}${retryAfter ? ` (Retry after ${Math.max(0, Math.floor(retryAfter))}s)` : ''}</span>
       </div>
     ` : ''}
 
     <form method="POST" action="${basePath}/login">
+      ${csrfToken ? `<input type="hidden" name="_csrf" value="${escapeHtml(csrfToken)}">` : ''}
       <div class="form-group">
         <label class="form-label" for="username">Operator ID</label>
         <input class="form-input" type="text" id="username" name="username" required autocomplete="username" autofocus placeholder="sree_admin">
@@ -206,6 +234,7 @@ export function renderDashboardHtml(options: DashboardRenderOptions): string {
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Sree AI — Hardened Log Vault & Real-Time Telemetry</title>
+  <link rel="icon" type="image/png" href="https://app.sreeai.qzz.io/Sree-Ai-Fav-icon.png">
   <style>
     :root {
       --bg-base: #06090f;
@@ -260,16 +289,23 @@ export function renderDashboardHtml(options: DashboardRenderOptions): string {
       gap: 10px;
     }
     .brand-icon {
-      width: 28px;
-      height: 28px;
+      width: 30px;
+      height: 30px;
       border-radius: 7px;
-      background: linear-gradient(135deg, #0284c7, #6366f1);
       display: flex;
       align-items: center;
       justify-content: center;
-      color: #fff;
-      font-size: 15px;
-      box-shadow: 0 0 12px rgba(2, 132, 199, 0.4);
+      overflow: hidden;
+      background: rgba(13, 21, 39, 0.7);
+      border: 1px solid rgba(56, 189, 248, 0.25);
+      box-shadow: 0 0 12px rgba(2, 132, 199, 0.35);
+      flex-shrink: 0;
+    }
+    .brand-icon img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      display: block;
     }
     .brand-title {
       font-weight: 700;
@@ -541,25 +577,267 @@ export function renderDashboardHtml(options: DashboardRenderOptions): string {
     .chart-container {
       position: relative;
       width: 100%;
-      height: 125px;
       display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .chart-main-row {
+      display: flex;
+      width: 100%;
+      height: 155px;
+      position: relative;
     }
     .y-axis-labels {
-      width: 48px;
+      width: 72px;
       height: 100%;
       display: flex;
       flex-direction: column;
       justify-content: space-between;
-      font-size: 9.5px;
+      font-size: 10px;
       color: var(--text-dim);
-      font-family: ui-monospace, monospace;
-      padding-right: 6px;
+      font-family: ui-monospace, SFMono-Regular, monospace;
+      padding-right: 10px;
       text-align: right;
       user-select: none;
+      padding-top: 2px;
+      padding-bottom: 2px;
     }
-    .chart-svg-wrap { flex: 1; height: 100%; position: relative; }
-    .grafana-svg { width: 100%; height: 100%; overflow: visible; }
-    .grid-line { stroke: rgba(255, 255, 255, 0.06); stroke-dasharray: 4; }
+    .chart-svg-wrap {
+      flex: 1;
+      height: 100%;
+      position: relative;
+      cursor: crosshair;
+    }
+    .grafana-svg {
+      width: 100%;
+      height: 100%;
+      overflow: visible;
+    }
+    .grid-line {
+      stroke: rgba(255, 255, 255, 0.08);
+      stroke-dasharray: 3 3;
+    }
+    .scale-toggle-group {
+      display: flex;
+      align-items: center;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(255, 255, 255, 0.09);
+      border-radius: 6px;
+      padding: 2px;
+      gap: 2px;
+    }
+    .scale-btn {
+      background: transparent;
+      border: none;
+      color: var(--text-dim);
+      font-size: 10.5px;
+      font-weight: 600;
+      padding: 3px 8px;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      font-family: ui-monospace, SFMono-Regular, monospace;
+    }
+    .scale-btn:hover {
+      color: #fff;
+    }
+    .scale-btn.active {
+      background: rgba(56, 189, 248, 0.2);
+      color: #38bdf8;
+      box-shadow: 0 0 8px rgba(56, 189, 248, 0.2);
+    }
+    .x-axis-labels {
+      display: flex;
+      justify-content: space-between;
+      padding-left: 72px;
+      padding-right: 4px;
+      font-size: 10px;
+      color: var(--text-dim);
+      font-family: ui-monospace, SFMono-Regular, monospace;
+      user-select: none;
+      margin-top: 5px;
+    }
+    .x-tick {
+      display: flex;
+      flex-direction: column;
+      gap: 1px;
+    }
+    .x-tick-time {
+      font-weight: 700;
+      color: #e2e8f0;
+      letter-spacing: -0.01em;
+    }
+    .x-tick-date {
+      font-size: 9px;
+      color: #64748b;
+    }
+    .crosshair-v-line {
+      stroke: #ffffff;
+      stroke-width: 1.5;
+      stroke-dasharray: 4 3;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.08s ease;
+    }
+    .crosshair-v-line.active {
+      opacity: 1 !important;
+      display: inline !important;
+    }
+    .crosshair-circle {
+      pointer-events: none;
+      opacity: 0;
+      stroke-width: 2.5;
+      transition: opacity 0.08s ease;
+    }
+    .crosshair-circle.active {
+      opacity: 1 !important;
+      display: inline !important;
+    }
+    .cpu-crosshair-circle {
+      fill: #06090f;
+      stroke: #38bdf8;
+      filter: drop-shadow(0 0 8px #38bdf8);
+    }
+    .ram-crosshair-circle {
+      fill: #06090f;
+      stroke: #34d399;
+      filter: drop-shadow(0 0 8px #34d399);
+    }
+    .unified-chart-tooltip, .unified-chart-tooltip * {
+      pointer-events: none !important;
+    }
+    .unified-chart-tooltip {
+      position: absolute;
+      top: 10px;
+      background: rgba(8, 13, 25, 0.96);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid rgba(56, 189, 248, 0.35);
+      border-radius: 8px;
+      padding: 10px 14px;
+      font-family: ui-monospace, SFMono-Regular, monospace;
+      box-shadow: 0 12px 32px rgba(0, 0, 0, 0.85), 0 0 20px rgba(56, 189, 248, 0.15);
+      pointer-events: none;
+      z-index: 60;
+      min-width: 270px;
+      max-width: 320px;
+      display: none;
+      opacity: 0;
+      transition: left 0.04s ease-out, right 0.04s ease-out, opacity 0.1s ease;
+    }
+    .unified-chart-tooltip.tooltip-ram-style {
+      border-color: rgba(52, 211, 153, 0.35);
+      box-shadow: 0 12px 32px rgba(0, 0, 0, 0.85), 0 0 20px rgba(52, 211, 153, 0.15);
+    }
+    .unified-chart-tooltip.active {
+      display: block !important;
+      opacity: 1 !important;
+    }
+    .tt-header {
+      font-size: 11px;
+      font-weight: 700;
+      color: #94a3b8;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.09);
+      padding-bottom: 6px;
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .tt-status-tag {
+      font-size: 9.5px;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      padding: 1px 6px;
+      border-radius: 4px;
+      border: 1px solid rgba(56, 189, 248, 0.3);
+      background: rgba(56, 189, 248, 0.12);
+      color: #38bdf8;
+    }
+    .tt-primary {
+      display: flex;
+      align-items: baseline;
+      gap: 7px;
+      margin-bottom: 8px;
+    }
+    .tt-primary-label {
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+    .tt-primary-val {
+      font-size: 16px;
+      font-weight: 800;
+      color: #ffffff;
+      letter-spacing: -0.02em;
+    }
+    .tt-unit {
+      font-size: 10.5px;
+      color: var(--text-dim);
+    }
+    .tt-divider {
+      height: 1px;
+      background: rgba(255, 255, 255, 0.08);
+      margin: 6px 0;
+    }
+    .tt-compare-title {
+      font-size: 9px;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      color: #64748b;
+      margin-bottom: 5px;
+      text-transform: uppercase;
+    }
+    .tt-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 11px;
+      margin-bottom: 4px;
+      gap: 12px;
+    }
+    .tt-label {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      color: var(--text-muted);
+    }
+    .tt-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      display: inline-block;
+      flex-shrink: 0;
+    }
+    .tt-val {
+      font-weight: 700;
+      color: #ffffff;
+      text-align: right;
+    }
+    .tt-sub {
+      font-size: 9.5px;
+      font-weight: 400;
+      color: #94a3b8;
+    }
+    .correlation-strip {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 10px;
+      background: rgba(13, 21, 39, 0.7);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 8px;
+      padding: 10px 16px;
+      margin-top: 14px;
+      margin-bottom: 14px;
+      font-family: ui-monospace, SFMono-Regular, monospace;
+      font-size: 11.5px;
+    }
+    .corr-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .corr-label { color: var(--text-muted); font-size: 11px; }
+    .corr-val { font-weight: 700; color: #fff; }
     .grafana-legend {
       display: flex;
       align-items: center;
@@ -625,7 +903,98 @@ export function renderDashboardHtml(options: DashboardRenderOptions): string {
     .delta-good { color: #34d399; }
     .delta-info { color: #38bdf8; }
     .delta-warn { color: #fbbf24; }
-    .sparkline-svg { width: 100%; height: 48px; overflow: visible; margin: 2px 0; }
+    .sparkline-wrap {
+      position: relative;
+      width: 100%;
+      height: 48px;
+      margin: 4px 0;
+      cursor: crosshair;
+    }
+    .sparkline-svg {
+      width: 100%;
+      height: 100%;
+      overflow: visible;
+      display: block;
+    }
+    .spark-crosshair {
+      stroke: #ffffff;
+      stroke-width: 1.2;
+      stroke-dasharray: 2 2;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.08s ease;
+    }
+    .spark-crosshair.active {
+      opacity: 0.9 !important;
+      display: inline !important;
+    }
+    .spark-dot {
+      pointer-events: none;
+      opacity: 0;
+      stroke-width: 2;
+      transition: opacity 0.08s ease;
+    }
+    .spark-dot.active {
+      opacity: 1 !important;
+      display: inline !important;
+    }
+    .sparkline-tooltip {
+      position: absolute;
+      bottom: calc(100% + 4px);
+      transform: translateX(-50%);
+      background: rgba(8, 13, 25, 0.96);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid rgba(56, 189, 248, 0.4);
+      border-radius: 6px;
+      padding: 5px 8px;
+      font-family: ui-monospace, SFMono-Regular, monospace;
+      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.8), 0 0 12px rgba(56, 189, 248, 0.12);
+      pointer-events: none;
+      z-index: 70;
+      white-space: nowrap;
+      display: none;
+      opacity: 0;
+      transition: opacity 0.1s ease;
+    }
+    .sparkline-tooltip.active {
+      display: block !important;
+      opacity: 1 !important;
+    }
+    .spark-tt-time {
+      font-size: 9.5px;
+      color: #94a3b8;
+      font-weight: 600;
+      letter-spacing: -0.01em;
+      margin-bottom: 2px;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+    .spark-tt-val {
+      font-size: 11.5px;
+      font-weight: 700;
+      color: #ffffff;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+    .spark-tt-sub {
+      font-size: 9px;
+      font-weight: 400;
+      color: #94a3b8;
+      margin-left: 2px;
+    }
+    .kpi-time-tag {
+      font-size: 10px;
+      color: var(--text-dim);
+      font-family: ui-monospace, monospace;
+      transition: color 0.15s ease;
+    }
+    .kpi-time-tag.active {
+      color: #38bdf8;
+      font-weight: 700;
+    }
     .kpi-footer {
       display: flex;
       align-items: center;
@@ -827,7 +1196,9 @@ export function renderDashboardHtml(options: DashboardRenderOptions): string {
   <header class="header">
     <div class="brand-section">
       <div class="brand">
-        <div class="brand-icon">⚡</div>
+        <div class="brand-icon">
+          <img src="https://app.sreeai.qzz.io/Sree-Ai-Fav-icon.png" onerror="this.onerror=null; this.src='${basePath}/icon.png'" alt="Sree AI logo" />
+        </div>
         <div class="brand-title">Sree AI <span class="brand-pill">Hardened Ops Vault</span></div>
       </div>
       <div class="nav-tabs">
@@ -1045,18 +1416,21 @@ export function renderDashboardHtml(options: DashboardRenderOptions): string {
   <!-- ─── TAB 2: REALTIME METRICS VIEW ─── -->
   <section class="metrics-view" id="viewMetrics">
     <div class="time-bar">
-      <div style="display:flex; align-items:center; gap:12px;">
+      <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
         <span class="section-title">Telemetry Time-Series (Single-Process V8)</span>
         <div class="time-chips">
-          <div class="time-chip active" onclick="setTimeRange('realtime', this)">● Realtime</div>
-          <div class="time-chip" onclick="setTimeRange('1h', this)">1h</div>
-          <div class="time-chip" onclick="setTimeRange('6h', this)">6h</div>
-          <div class="time-chip" onclick="setTimeRange('24h', this)">24h</div>
-          <div class="time-chip" onclick="setTimeRange('7d', this)">7d</div>
+          <div class="time-chip active" id="chipRealtime" onclick="setTimeRange('realtime', this)">● Realtime (3m)</div>
+          <div class="time-chip" id="chip1h" onclick="setTimeRange('1h', this)">1h</div>
+          <div class="time-chip" id="chip6h" onclick="setTimeRange('6h', this)">6h</div>
+          <div class="time-chip" id="chip24h" onclick="setTimeRange('24h', this)">24h</div>
+          <div class="time-chip" id="chip7d" onclick="setTimeRange('7d', this)">7d</div>
+        </div>
+        <div class="time-chip active" style="background:rgba(56,189,248,0.15); color:#38bdf8; border:1px solid rgba(56,189,248,0.3); cursor:default;">
+          ⚡ Synchronized Inspection Mode
         </div>
       </div>
-      <div style="font-size:11px; color:var(--text-dim); font-family:ui-monospace, monospace;">
-        Ring Buffer: 60 Samples (Sliding Window) • Latency: 0.1ms
+      <div style="font-size:11px; color:var(--text-dim); font-family:ui-monospace, monospace;" id="timeRangeStatusLabel">
+        Ring Buffer: 30 Samples (5s Resolution) • Hover across any chart to inspect synchronized crosshair
       </div>
     </div>
 
@@ -1071,13 +1445,19 @@ export function renderDashboardHtml(options: DashboardRenderOptions): string {
             </div>
             <div class="panel-subtitle">V8 Thread Execution Load • Target: &lt; 70%</div>
           </div>
-          <div class="progress-bar-wrap">
-            <div class="progress-label">
-              <span>V8 Load</span>
-              <span id="cpuProgressVal">${initialTelemetry.cpu.usagePercent.toFixed(1)}%</span>
+          <div style="display:flex; align-items:center; gap:12px;">
+            <div class="scale-toggle-group">
+              <button class="scale-btn active" id="btnCpuScaleFull" onclick="setCpuScale(false)" title="0-100% full capacity matching PM2 standard">0-100% Full</button>
+              <button class="scale-btn" id="btnCpuScaleZoom" onclick="setCpuScale(true)" title="Auto-zoom into micro fluctuations">Auto Zoom</button>
             </div>
-            <div class="progress-track">
-              <div class="progress-fill" id="cpuProgressBar" style="width: ${Math.min(100, (initialTelemetry.cpu.usagePercent / 70) * 100)}%; background: #38bdf8;"></div>
+            <div class="progress-bar-wrap">
+              <div class="progress-label">
+                <span>V8 Load</span>
+                <span id="cpuProgressVal">${initialTelemetry.cpu.usagePercent.toFixed(1)}%</span>
+              </div>
+              <div class="progress-track">
+                <div class="progress-fill" id="cpuProgressBar" style="width: ${Math.min(100, (initialTelemetry.cpu.usagePercent / 70) * 100)}%; background: #38bdf8;"></div>
+              </div>
             </div>
           </div>
         </div>
@@ -1090,31 +1470,82 @@ export function renderDashboardHtml(options: DashboardRenderOptions): string {
           <div class="kpi-badge badge-sky" id="cpuDeltaBadge">▲ Stable Load</div>
         </div>
 
-        <div class="chart-container">
-          <div class="y-axis-labels">
-            <span>10.0%</span>
-            <span>5.0%</span>
-            <span>0.0%</span>
+        <div class="chart-container" id="chartContainerCpu">
+          <div class="chart-main-row" id="chartRowCpu">
+            <div class="y-axis-labels" id="yLabelsCpu">
+              <span>100%</span>
+              <span>80%</span>
+              <span>60%</span>
+              <span>40%</span>
+              <span>20%</span>
+              <span>0%</span>
+            </div>
+            <div class="chart-svg-wrap" id="svgWrapCpu">
+              <div class="unified-chart-tooltip" id="tooltipCpu">
+                <div class="tt-header">
+                  <span id="ttTimeCpu">Monday, Oct 26 • --:--:-- pm</span>
+                  <span class="tt-status-tag" id="ttTagCpu">⚡ SYNCED</span>
+                </div>
+                <div class="tt-primary">
+                  <span class="tt-dot" style="background:#38bdf8;"></span>
+                  <span class="tt-primary-label">Process CPU:</span>
+                  <span class="tt-primary-val" id="ttPrimaryCpuVal">--%</span>
+                  <span class="tt-unit">(1 Core V8)</span>
+                </div>
+                <div class="tt-divider"></div>
+                <div class="tt-compare-title">RESOURCE CORRELATION AT THIS SECOND</div>
+                <div class="tt-row">
+                  <span class="tt-label"><span class="tt-dot" style="background:#34d399;"></span> RAM (RSS):</span>
+                  <span class="tt-val" id="ttCpuRamVal">-- MiB</span>
+                </div>
+                <div class="tt-row">
+                  <span class="tt-label"><span class="tt-dot" style="background:#34d399;"></span> Cap Headroom:</span>
+                  <span class="tt-val" id="ttCpuHeadroomVal" style="color:#34d399;">-- MiB</span>
+                </div>
+                <div class="tt-row">
+                  <span class="tt-label"><span class="tt-dot" style="background:#c084fc;"></span> V8 Heap:</span>
+                  <span class="tt-val" id="ttCpuHeapVal">-- MiB</span>
+                </div>
+                <div class="tt-row">
+                  <span class="tt-label"><span class="tt-dot" style="background:#fbbf24;"></span> Event Loop:</span>
+                  <span class="tt-val" id="ttCpuLagVal">-- ms</span>
+                </div>
+                <div class="tt-row">
+                  <span class="tt-label"><span class="tt-dot" style="background:#22d3ee;"></span> Throughput:</span>
+                  <span class="tt-val" id="ttCpuReqVal">-- req/min</span>
+                </div>
+              </div>
+              <svg class="grafana-svg" id="svgCpu" viewBox="0 0 500 135" preserveAspectRatio="none">
+                <defs>
+                  <linearGradient id="cpuGradient" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stop-color="#38bdf8" stop-opacity="0.35"/>
+                    <stop offset="100%" stop-color="#38bdf8" stop-opacity="0.0"/>
+                  </linearGradient>
+                </defs>
+                <line x1="0" y1="10" x2="500" y2="10" class="grid-line"/>
+                <line x1="0" y1="33" x2="500" y2="33" class="grid-line"/>
+                <line x1="0" y1="56" x2="500" y2="56" class="grid-line"/>
+                <line x1="0" y1="79" x2="500" y2="79" class="grid-line"/>
+                <line x1="0" y1="102" x2="500" y2="102" class="grid-line"/>
+                <line x1="0" y1="125" x2="500" y2="125" class="grid-line"/>
+                <path id="areaCpuWave" fill="url(#cpuGradient)"/>
+                <path id="pathCpuWave" fill="none" stroke="#38bdf8" stroke-width="2.2" stroke-linecap="round"/>
+                <line id="crosshairCpu" class="crosshair-v-line" x1="0" y1="0" x2="0" y2="135" stroke="#ffffff" stroke-width="1.5" stroke-dasharray="3,3" opacity="0" />
+                <circle id="dotCpu" class="crosshair-circle cpu-crosshair-circle" cx="0" cy="0" r="5.5" stroke="#38bdf8" stroke-width="2.5" fill="#06090f" opacity="0" />
+              </svg>
+            </div>
           </div>
-          <div class="chart-svg-wrap">
-            <svg class="grafana-svg" viewBox="0 0 450 115" preserveAspectRatio="none">
-              <defs>
-                <linearGradient id="cpuGradient" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stop-color="#38bdf8" stop-opacity="0.35"/>
-                  <stop offset="100%" stop-color="#38bdf8" stop-opacity="0.0"/>
-                </linearGradient>
-              </defs>
-              <line x1="0" y1="12" x2="450" y2="12" class="grid-line"/>
-              <line x1="0" y1="57" x2="450" y2="57" class="grid-line"/>
-              <line x1="0" y1="103" x2="450" y2="103" class="grid-line"/>
-              <path id="areaCpuWave" fill="url(#cpuGradient)"/>
-              <path id="pathCpuWave" fill="none" stroke="#38bdf8" stroke-width="2.2" stroke-linecap="round"/>
-            </svg>
+          <div class="x-axis-labels" id="xAxisCpu">
+            <div class="x-tick"><span class="x-tick-time">--:--</span><span class="x-tick-date">--/--</span></div>
+            <div class="x-tick"><span class="x-tick-time">--:--</span><span class="x-tick-date">--/--</span></div>
+            <div class="x-tick"><span class="x-tick-time">--:--</span><span class="x-tick-date">--/--</span></div>
+            <div class="x-tick"><span class="x-tick-time">--:--</span><span class="x-tick-date">--/--</span></div>
+            <div class="x-tick"><span class="x-tick-time">--:--</span><span class="x-tick-date">--/--</span></div>
           </div>
         </div>
 
         <div class="grafana-legend">
-          <span>Range: Last 2 Mins</span>
+          <span>Range: Rolling 2.5 Mins (5s Ticks)</span>
           <div class="legend-stats">
             <span>CUR: <strong id="legendCpuCur">${initialTelemetry.cpu.usagePercent.toFixed(1)}%</strong></span>
             <span>AVG: <strong id="legendCpuAvg">${initialTelemetry.cpu.usagePercent.toFixed(1)}%</strong></span>
@@ -1152,31 +1583,84 @@ export function renderDashboardHtml(options: DashboardRenderOptions): string {
           <div class="kpi-badge badge-emerald" id="ramPercentBadge">🟢 ${initialTelemetry.memory.rssPercentOfCap}% Cap</div>
         </div>
 
-        <div class="chart-container">
-          <div class="y-axis-labels">
-            <span>500M</span>
-            <span>250M</span>
-            <span>0M</span>
+        <div class="chart-container" id="chartContainerRam">
+          <div class="chart-main-row" id="chartRowRam">
+            <div class="y-axis-labels" id="yLabelsRam">
+              <span style="color:#f87171; font-weight:700;">500M [CAP]</span>
+              <span style="color:#fbbf24;">400M (80%)</span>
+              <span>300M (60%)</span>
+              <span>200M (40%)</span>
+              <span>100M (20%)</span>
+              <span>0M</span>
+            </div>
+            <div class="chart-svg-wrap" id="svgWrapRam">
+              <div class="unified-chart-tooltip tooltip-ram-style" id="tooltipRam">
+                <div class="tt-header">
+                  <span id="ttTimeRam">Monday, Oct 26 • --:--:-- pm</span>
+                  <span class="tt-status-tag" id="ttTagRam" style="color:#34d399; border-color:rgba(52,211,153,0.3); background:rgba(52,211,153,0.12);">🧠 SYNCED</span>
+                </div>
+                <div class="tt-primary">
+                  <span class="tt-dot" style="background:#34d399;"></span>
+                  <span class="tt-primary-label">RSS Memory:</span>
+                  <span class="tt-primary-val" id="ttPrimaryRamVal" style="color:#34d399;">-- MiB</span>
+                  <span class="tt-unit">/ 500M Cap</span>
+                </div>
+                <div class="tt-divider"></div>
+                <div class="tt-compare-title">RESOURCE CORRELATION AT THIS SECOND</div>
+                <div class="tt-row">
+                  <span class="tt-label"><span class="tt-dot" style="background:#38bdf8;"></span> CPU (V8):</span>
+                  <span class="tt-val" id="ttRamCpuVal">--%</span>
+                </div>
+                <div class="tt-row">
+                  <span class="tt-label"><span class="tt-dot" style="background:#34d399;"></span> Free Headroom:</span>
+                  <span class="tt-val" id="ttRamHeadroomVal" style="color:#34d399;">-- MiB</span>
+                </div>
+                <div class="tt-row">
+                  <span class="tt-label"><span class="tt-dot" style="background:#c084fc;"></span> V8 Heap:</span>
+                  <span class="tt-val" id="ttRamHeapVal">-- MiB</span>
+                </div>
+                <div class="tt-row">
+                  <span class="tt-label"><span class="tt-dot" style="background:#fbbf24;"></span> Event Loop:</span>
+                  <span class="tt-val" id="ttRamLagVal">-- ms</span>
+                </div>
+                <div class="tt-row">
+                  <span class="tt-label"><span class="tt-dot" style="background:#22d3ee;"></span> Throughput:</span>
+                  <span class="tt-val" id="ttRamReqVal">-- req/min</span>
+                </div>
+              </div>
+              <svg class="grafana-svg" id="svgRam" viewBox="0 0 500 135" preserveAspectRatio="none">
+                <defs>
+                  <linearGradient id="ramGradient" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stop-color="#34d399" stop-opacity="0.32"/>
+                    <stop offset="100%" stop-color="#34d399" stop-opacity="0.0"/>
+                  </linearGradient>
+                </defs>
+                <line x1="0" y1="10" x2="500" y2="10" stroke="#f87171" stroke-width="1.2" stroke-dasharray="4 3" opacity="0.8"/>
+                <text x="495" y="8" fill="#f87171" font-size="8.5" font-family="monospace" text-anchor="end" font-weight="bold">PM2 RESTART CAP: 500 MB</text>
+                <line x1="0" y1="33" x2="500" y2="33" stroke="#fbbf24" stroke-width="1" stroke-dasharray="3 3" opacity="0.5"/>
+                <text x="495" y="31" fill="#fbbf24" font-size="8" font-family="monospace" text-anchor="end">80% WARNING: 400 MB</text>
+                <line x1="0" y1="56" x2="500" y2="56" class="grid-line"/>
+                <line x1="0" y1="79" x2="500" y2="79" class="grid-line"/>
+                <line x1="0" y1="102" x2="500" y2="102" class="grid-line"/>
+                <line x1="0" y1="125" x2="500" y2="125" class="grid-line"/>
+                <path id="areaRamWave" fill="url(#ramGradient)"/>
+                <path id="pathRamWave" fill="none" stroke="#34d399" stroke-width="2.2" stroke-linecap="round"/>
+                <line id="crosshairRam" class="crosshair-v-line" x1="0" y1="0" x2="0" y2="135" stroke="#ffffff" stroke-width="1.5" stroke-dasharray="3,3" opacity="0" />
+                <circle id="dotRam" class="crosshair-circle ram-crosshair-circle" cx="0" cy="0" r="5.5" stroke="#34d399" stroke-width="2.5" fill="#06090f" opacity="0" />
+              </svg>
+            </div>
           </div>
-          <div class="chart-svg-wrap">
-            <svg class="grafana-svg" viewBox="0 0 450 115" preserveAspectRatio="none">
-              <defs>
-                <linearGradient id="ramGradient" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stop-color="#34d399" stop-opacity="0.32"/>
-                  <stop offset="100%" stop-color="#34d399" stop-opacity="0.0"/>
-                </linearGradient>
-              </defs>
-              <line x1="0" y1="12" x2="450" y2="12" class="grid-line"/>
-              <line x1="0" y1="57" x2="450" y2="57" class="grid-line"/>
-              <line x1="0" y1="103" x2="450" y2="103" class="grid-line"/>
-              <path id="areaRamWave" fill="url(#ramGradient)"/>
-              <path id="pathRamWave" fill="none" stroke="#34d399" stroke-width="2.2" stroke-linecap="round"/>
-            </svg>
+          <div class="x-axis-labels" id="xAxisRam">
+            <div class="x-tick"><span class="x-tick-time">--:--</span><span class="x-tick-date">--/--</span></div>
+            <div class="x-tick"><span class="x-tick-time">--:--</span><span class="x-tick-date">--/--</span></div>
+            <div class="x-tick"><span class="x-tick-time">--:--</span><span class="x-tick-date">--/--</span></div>
+            <div class="x-tick"><span class="x-tick-time">--:--</span><span class="x-tick-date">--/--</span></div>
+            <div class="x-tick"><span class="x-tick-time">--:--</span><span class="x-tick-date">--/--</span></div>
           </div>
         </div>
 
         <div class="grafana-legend">
-          <span>Target: &lt; 400 MiB</span>
+          <span>Target: &lt; 400 MiB (Headroom: 325 MiB)</span>
           <div class="legend-stats">
             <span>CUR: <strong id="legendRamCur">${initialTelemetry.memory.rssMb} MiB</strong></span>
             <span>AVG: <strong id="legendRamAvg">${initialTelemetry.memory.rssMb} MiB</strong></span>
@@ -1187,9 +1671,33 @@ export function renderDashboardHtml(options: DashboardRenderOptions): string {
       </div>
     </div>
 
+    <!-- Cluster Resource Correlation Strip -->
+    <div class="correlation-strip">
+      <div class="corr-item">
+        <span class="tt-dot" style="background:#38bdf8;"></span>
+        <span class="corr-label">CPU Pressure:</span>
+        <span class="corr-val" id="corrCpuStatus">Nominal (&lt; 5%)</span>
+      </div>
+      <div class="corr-item">
+        <span class="tt-dot" style="background:#34d399;"></span>
+        <span class="corr-label">Kernel RSS Growth:</span>
+        <span class="corr-val" id="corrRamStatus">Stable &lt; 200 MB</span>
+      </div>
+      <div class="corr-item">
+        <span class="tt-dot" style="background:#fbbf24;"></span>
+        <span class="corr-label">Voice Audio SLA:</span>
+        <span class="corr-val" id="corrLagStatus">0.6ms Event Loop (Passed)</span>
+      </div>
+      <div class="corr-item">
+        <span class="tt-dot" style="background:#c084fc;"></span>
+        <span class="corr-label">V8 GC State:</span>
+        <span class="corr-val" id="corrHeapStatus">Healthy (Zero Heap Thrashing)</span>
+      </div>
+    </div>
+
     <!-- Row 2: 8 shadcn KPI Micro-Cards with Sparklines -->
     <div class="grid-4">
-      <div class="shadcn-kpi-card">
+      <div class="shadcn-kpi-card" id="cardKpiReq">
         <div class="kpi-header">
           <div class="kpi-title"><span>⚡</span> HTTP Throughput</div>
           <span class="kpi-badge badge-sky">Live</span>
@@ -1197,108 +1705,154 @@ export function renderDashboardHtml(options: DashboardRenderOptions): string {
         <div class="kpi-body">
           <div class="kpi-number"><span id="chartValReqs">${initialTelemetry.requestsPerMinute}</span> <span style="font-size:13px; font-weight:600; color:var(--text-muted);">req/min</span></div>
         </div>
-        <svg class="sparkline-svg" viewBox="0 0 240 45" preserveAspectRatio="none">
-          <defs>
-            <linearGradient id="sparkReqGrad" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stop-color="#22d3ee" stop-opacity="0.3"/>
-              <stop offset="100%" stop-color="#22d3ee" stop-opacity="0.0"/>
-            </linearGradient>
-          </defs>
-          <path id="areaSparkReq" fill="url(#sparkReqGrad)"/>
-          <path id="pathSparkReq" fill="none" stroke="#22d3ee" stroke-width="2" stroke-linecap="round"/>
-        </svg>
+        <div class="sparkline-wrap" id="sparkWrapReq">
+          <div class="sparkline-tooltip" id="ttSparkReq">
+            <div class="spark-tt-time" id="ttSparkReqTime">--:--:--</div>
+            <div class="spark-tt-val"><span class="tt-dot" style="background:#22d3ee;"></span> <strong id="ttSparkReqNum">0</strong> req/min</div>
+          </div>
+          <svg class="sparkline-svg" viewBox="0 0 240 45" preserveAspectRatio="none">
+            <defs>
+              <linearGradient id="sparkReqGrad" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stop-color="#22d3ee" stop-opacity="0.3"/>
+                <stop offset="100%" stop-color="#22d3ee" stop-opacity="0.0"/>
+              </linearGradient>
+            </defs>
+            <path id="areaSparkReq" fill="url(#sparkReqGrad)"/>
+            <path id="pathSparkReq" fill="none" stroke="#22d3ee" stroke-width="2" stroke-linecap="round"/>
+            <line id="crosshairSparkReq" class="spark-crosshair" x1="0" y1="0" x2="0" y2="45" opacity="0"/>
+            <circle id="dotSparkReq" class="spark-dot" cx="0" cy="0" r="3.5" fill="#06090f" stroke="#22d3ee" stroke-width="2" opacity="0"/>
+          </svg>
+        </div>
         <div class="kpi-footer">
-          <span>Rolling 60s window</span>
+          <span id="footerReqLabel">Rolling 60s window</span>
           <span>Zero-DB overhead</span>
         </div>
       </div>
 
-      <div class="shadcn-kpi-card">
+      <div class="shadcn-kpi-card" id="cardKpiHeap">
         <div class="kpi-header">
           <div class="kpi-title"><span>🟣</span> V8 Heap Allocation</div>
-          <span class="kpi-badge badge-purple">${Math.round((initialTelemetry.memory.heapUsedMb / initialTelemetry.memory.heapTotalMb) * 100)}% Used</span>
+          <span class="kpi-badge badge-purple" id="chartBadgeHeap">${Math.round((initialTelemetry.memory.heapUsedMb / initialTelemetry.memory.heapTotalMb) * 100)}% Used</span>
         </div>
         <div class="kpi-body">
-          <div class="kpi-number">${initialTelemetry.memory.heapUsedMb} <span style="font-size:13px; font-weight:600; color:var(--text-muted);">MiB</span></div>
+          <div class="kpi-number"><span id="chartValHeap">${initialTelemetry.memory.heapUsedMb}</span> <span style="font-size:13px; font-weight:600; color:var(--text-muted);">MiB</span></div>
         </div>
-        <svg class="sparkline-svg" viewBox="0 0 240 45" preserveAspectRatio="none">
-          <defs>
-            <linearGradient id="sparkHeapGrad" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stop-color="#c084fc" stop-opacity="0.3"/>
-              <stop offset="100%" stop-color="#c084fc" stop-opacity="0.0"/>
-            </linearGradient>
-          </defs>
-          <path id="areaSparkHeap" fill="url(#sparkHeapGrad)"/>
-          <path id="pathSparkHeap" fill="none" stroke="#c084fc" stroke-width="2" stroke-linecap="round"/>
-        </svg>
+        <div class="sparkline-wrap" id="sparkWrapHeap">
+          <div class="sparkline-tooltip" id="ttSparkHeap">
+            <div class="spark-tt-time" id="ttSparkHeapTime">--:--:--</div>
+            <div class="spark-tt-val"><span class="tt-dot" style="background:#c084fc;"></span> <strong id="ttSparkHeapNum">--</strong> MiB <span class="spark-tt-sub" id="ttSparkHeapCap"></span></div>
+          </div>
+          <svg class="sparkline-svg" viewBox="0 0 240 45" preserveAspectRatio="none">
+            <defs>
+              <linearGradient id="sparkHeapGrad" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stop-color="#c084fc" stop-opacity="0.3"/>
+                <stop offset="100%" stop-color="#c084fc" stop-opacity="0.0"/>
+              </linearGradient>
+            </defs>
+            <path id="areaSparkHeap" fill="url(#sparkHeapGrad)"/>
+            <path id="pathSparkHeap" fill="none" stroke="#c084fc" stroke-width="2" stroke-linecap="round"/>
+            <line id="crosshairSparkHeap" class="spark-crosshair" x1="0" y1="0" x2="0" y2="45" opacity="0"/>
+            <circle id="dotSparkHeap" class="spark-dot" cx="0" cy="0" r="3.5" fill="#06090f" stroke="#c084fc" stroke-width="2" opacity="0"/>
+          </svg>
+        </div>
         <div class="kpi-footer">
-          <span>Allocated: ${initialTelemetry.memory.heapTotalMb} MiB</span>
+          <span id="footerHeapLabel">Allocated: ${initialTelemetry.memory.heapTotalMb} MiB</span>
           <span>GC Healthy</span>
         </div>
       </div>
 
-      <div class="shadcn-kpi-card">
+      <div class="shadcn-kpi-card" id="cardKpiLag">
         <div class="kpi-header">
           <div class="kpi-title"><span>⏱️</span> Event Loop Delay</div>
-          <span class="kpi-badge badge-emerald">Voice OK</span>
+          <span class="kpi-badge badge-emerald" id="chartBadgeLag">Voice OK</span>
         </div>
         <div class="kpi-body">
           <div class="kpi-number"><span id="chartValLag">${initialTelemetry.eventLoop.lagMs.toFixed(1)}</span> <span style="font-size:13px; font-weight:600; color:var(--text-muted);">ms</span></div>
         </div>
-        <svg class="sparkline-svg" viewBox="0 0 240 45" preserveAspectRatio="none">
-          <defs>
-            <linearGradient id="sparkLagGrad" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stop-color="#fbbf24" stop-opacity="0.3"/>
-              <stop offset="100%" stop-color="#fbbf24" stop-opacity="0.0"/>
-            </linearGradient>
-          </defs>
-          <path id="areaSparkLag" fill="url(#sparkLagGrad)"/>
-          <path id="pathSparkLag" fill="none" stroke="#fbbf24" stroke-width="2" stroke-linecap="round"/>
-        </svg>
+        <div class="sparkline-wrap" id="sparkWrapLag">
+          <div class="sparkline-tooltip" id="ttSparkLag">
+            <div class="spark-tt-time" id="ttSparkLagTime">--:--:--</div>
+            <div class="spark-tt-val"><span class="tt-dot" style="background:#fbbf24;"></span> <strong id="ttSparkLagNum">--</strong> ms <span class="spark-tt-sub">(&lt;10ms SLA)</span></div>
+          </div>
+          <svg class="sparkline-svg" viewBox="0 0 240 45" preserveAspectRatio="none">
+            <defs>
+              <linearGradient id="sparkLagGrad" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stop-color="#fbbf24" stop-opacity="0.3"/>
+                <stop offset="100%" stop-color="#fbbf24" stop-opacity="0.0"/>
+              </linearGradient>
+            </defs>
+            <path id="areaSparkLag" fill="url(#sparkLagGrad)"/>
+            <path id="pathSparkLag" fill="none" stroke="#fbbf24" stroke-width="2" stroke-linecap="round"/>
+            <line id="crosshairSparkLag" class="spark-crosshair" x1="0" y1="0" x2="0" y2="45" opacity="0"/>
+            <circle id="dotSparkLag" class="spark-dot" cx="0" cy="0" r="3.5" fill="#06090f" stroke="#fbbf24" stroke-width="2" opacity="0"/>
+          </svg>
+        </div>
         <div class="kpi-footer">
-          <span>Voice SLA: &lt; 10ms</span>
+          <span id="footerLagLabel">Voice SLA: &lt; 10ms</span>
           <span>p99: ${initialTelemetry.eventLoop.p99Ms.toFixed(1)}ms</span>
         </div>
       </div>
 
-      <div class="shadcn-kpi-card">
+      <div class="shadcn-kpi-card" id="cardKpiLat">
         <div class="kpi-header">
           <div class="kpi-title"><span>🌐</span> Mean HTTP Latency</div>
           <span class="kpi-badge badge-sky">Fast</span>
         </div>
         <div class="kpi-body">
-          <div class="kpi-number">1.0 <span style="font-size:13px; font-weight:600; color:var(--text-muted);">ms</span></div>
+          <div class="kpi-number"><span id="chartValLat">1.0</span> <span style="font-size:13px; font-weight:600; color:var(--text-muted);">ms</span></div>
         </div>
-        <svg class="sparkline-svg" viewBox="0 0 240 45" preserveAspectRatio="none">
-          <defs>
-            <linearGradient id="sparkLatGrad" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stop-color="#38bdf8" stop-opacity="0.3"/>
-              <stop offset="100%" stop-color="#38bdf8" stop-opacity="0.0"/>
-            </linearGradient>
-          </defs>
-          <path id="areaSparkLat" fill="url(#sparkLatGrad)"/>
-          <path id="pathSparkLat" fill="none" stroke="#38bdf8" stroke-width="2" stroke-linecap="round"/>
-        </svg>
+        <div class="sparkline-wrap" id="sparkWrapLat">
+          <div class="sparkline-tooltip" id="ttSparkLat">
+            <div class="spark-tt-time" id="ttSparkLatTime">--:--:--</div>
+            <div class="spark-tt-val"><span class="tt-dot" style="background:#38bdf8;"></span> <strong id="ttSparkLatNum">--</strong> ms <span class="spark-tt-sub">(Loopback)</span></div>
+          </div>
+          <svg class="sparkline-svg" viewBox="0 0 240 45" preserveAspectRatio="none">
+            <defs>
+              <linearGradient id="sparkLatGrad" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stop-color="#38bdf8" stop-opacity="0.3"/>
+                <stop offset="100%" stop-color="#38bdf8" stop-opacity="0.0"/>
+              </linearGradient>
+            </defs>
+            <path id="areaSparkLat" fill="url(#sparkLatGrad)"/>
+            <path id="pathSparkLat" fill="none" stroke="#38bdf8" stroke-width="2" stroke-linecap="round"/>
+            <line id="crosshairSparkLat" class="spark-crosshair" x1="0" y1="0" x2="0" y2="45" opacity="0"/>
+            <circle id="dotSparkLat" class="spark-dot" cx="0" cy="0" r="3.5" fill="#06090f" stroke="#38bdf8" stroke-width="2" opacity="0"/>
+          </svg>
+        </div>
         <div class="kpi-footer">
-          <span>p95: 1.2ms</span>
+          <span id="footerLatLabel">p95: 1.2ms</span>
           <span>Nginx loopback</span>
         </div>
       </div>
 
-      <div class="shadcn-kpi-card">
+      <div class="shadcn-kpi-card" id="cardKpiHandles">
         <div class="kpi-header">
           <div class="kpi-title"><span>🔌</span> Active Handles</div>
           <span class="kpi-badge badge-emerald">Normal</span>
         </div>
         <div class="kpi-body">
-          <div class="kpi-number">${initialTelemetry.concurrency.activeHandles} <span style="font-size:13px; font-weight:600; color:var(--text-muted);">handles</span></div>
+          <div class="kpi-number"><span id="chartValHandles">${initialTelemetry.concurrency.activeHandles}</span> <span style="font-size:13px; font-weight:600; color:var(--text-muted);">handles</span></div>
         </div>
-        <svg class="sparkline-svg" viewBox="0 0 240 45" preserveAspectRatio="none">
-          <path id="areaSparkHandles" fill="none"/>
-          <path id="pathSparkHandles" fill="none" stroke="#34d399" stroke-width="2" stroke-linecap="round"/>
-        </svg>
+        <div class="sparkline-wrap" id="sparkWrapHandles">
+          <div class="sparkline-tooltip" id="ttSparkHandles">
+            <div class="spark-tt-time" id="ttSparkHandlesTime">--:--:--</div>
+            <div class="spark-tt-val"><span class="tt-dot" style="background:#34d399;"></span> <strong id="ttSparkHandlesNum">--</strong> handles</div>
+          </div>
+          <svg class="sparkline-svg" viewBox="0 0 240 45" preserveAspectRatio="none">
+            <defs>
+              <linearGradient id="sparkHandlesGrad" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stop-color="#34d399" stop-opacity="0.25"/>
+                <stop offset="100%" stop-color="#34d399" stop-opacity="0.0"/>
+              </linearGradient>
+            </defs>
+            <path id="areaSparkHandles" fill="url(#sparkHandlesGrad)"/>
+            <path id="pathSparkHandles" fill="none" stroke="#34d399" stroke-width="2" stroke-linecap="round"/>
+            <line id="crosshairSparkHandles" class="spark-crosshair" x1="0" y1="0" x2="0" y2="45" opacity="0"/>
+            <circle id="dotSparkHandles" class="spark-dot" cx="0" cy="0" r="3.5" fill="#06090f" stroke="#34d399" stroke-width="2" opacity="0"/>
+          </svg>
+        </div>
         <div class="kpi-footer">
-          <span>Libuv file descriptors</span>
+          <span id="footerHandlesLabel">Libuv file descriptors</span>
           <span>No socket leaks</span>
         </div>
       </div>
@@ -1358,6 +1912,16 @@ export function renderDashboardHtml(options: DashboardRenderOptions): string {
   </section>
 
   <script>
+    function escapeHtml(str) {
+      if (str === null || str === undefined) return "";
+      return String(str)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#39;");
+    }
+
     const BASE_PATH = "${basePath}";
     let currentLogs = [];
     let selectedLevel = "ALL";
@@ -1489,22 +2053,26 @@ export function renderDashboardHtml(options: DashboardRenderOptions): string {
       el.classList.add('active');
     }
 
-    // Smooth Catmull-Rom Cubic Bezier Spline Generator
-    function generateSpline(data, width, height, minVal, maxVal, padding = 10) {
-      if (!data || data.length < 2) return "";
+    // Catmull-Rom Cubic Bezier Point & Spline Generator
+    function generateSplinePoints(data, width, height, minVal, maxVal, padding = 10) {
+      if (!data || data.length < 2) return [];
       const range = (maxVal - minVal) || 1;
       const stepX = width / (data.length - 1);
       const effH = height - (padding * 2);
 
-      const pts = data.map((val, i) => {
+      return data.map((val, i) => {
         const clamped = Math.max(minVal, Math.min(maxVal, val));
         const normalized = (clamped - minVal) / range;
         return {
           x: i * stepX,
-          y: height - padding - (normalized * effH)
+          y: height - padding - (normalized * effH),
+          val: val
         };
       });
+    }
 
+    function buildSplinePath(pts) {
+      if (!pts || pts.length < 2) return "";
       let path = "M " + pts[0].x.toFixed(1) + "," + pts[0].y.toFixed(1);
       for (let i = 0; i < pts.length - 1; i++) {
         const p0 = pts[i === 0 ? 0 : i - 1];
@@ -1522,18 +2090,490 @@ export function renderDashboardHtml(options: DashboardRenderOptions): string {
       return path;
     }
 
+    // Series Buffers
     let cpuSeries = ${JSON.stringify(initialTelemetry.history.cpu)};
     let ramSeries = ${JSON.stringify(initialTelemetry.history.ram)};
     let reqSeries = ${JSON.stringify(initialTelemetry.history.reqs)};
     let lagSeries = ${JSON.stringify(initialTelemetry.history.lag)};
-    let heapSeries = [45.2, 45.6, 45.9, 46.1, 45.8, 46.2, 46.4, 46.1, 46.3, 46.0, 46.2, 46.4];
-    let latSeries = [0.9, 1.0, 1.1, 0.9, 1.0, 1.2, 1.0, 0.9, 1.0, 1.1, 1.0, 1.0];
-    let handlesSeries = [4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4];
+    let timestampsSeries = ${JSON.stringify(initialTelemetry.history.timestamps || [])};
+    let heapSeries = ${JSON.stringify(initialTelemetry.history.heap || [45.2, 45.6, 45.9, 46.1, 45.8, 46.2, 46.4, 46.1, 46.3, 46.0, 46.2, 46.4])};
+    let latSeries = ${JSON.stringify(initialTelemetry.history.lat || [0.9, 1.0, 1.1, 0.9, 1.0, 1.2, 1.0, 0.9, 1.0, 1.1, 1.0, 1.0])};
+    let handlesSeries = ${JSON.stringify(initialTelemetry.history.handles || [4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4])};
+    let isCpuZoom = false;
+
+    if (!timestampsSeries || timestampsSeries.length === 0) {
+      const now = Date.now();
+      timestampsSeries = cpuSeries.map((_, i) => now - (cpuSeries.length - 1 - i) * 5000);
+    }
+
+    // Cache current computed points for synchronized hover
+    let currentCpuPts = [];
+    let currentRamPts = [];
+    let currentReqPts = [];
+    let currentHeapPts = [];
+    let currentLagPts = [];
+    let currentLatPts = [];
+    let currentHandlesPts = [];
+    let activeHoverIdx = null;
+    let activeHoverRatio = null;
+    let activeHoverSource = null;
+
+    function setCpuScale(zoom) {
+      isCpuZoom = zoom;
+      const btnFull = document.getElementById("btnCpuScaleFull");
+      const btnZoom = document.getElementById("btnCpuScaleZoom");
+      if (btnFull) btnFull.classList.toggle("active", !zoom);
+      if (btnZoom) btnZoom.classList.toggle("active", zoom);
+      renderGrafanaDashboard();
+    }
+
+    function formatTimeTick(ts) {
+      if (!ts) return { time: "--:--", date: "--/--" };
+      const d = new Date(ts);
+      let h = d.getHours();
+      const m = String(d.getMinutes()).padStart(2, '0');
+      const ampm = h >= 12 ? 'pm' : 'am';
+      h = h % 12 || 12;
+      const time = String(h).padStart(2, '0') + ":" + m + " " + ampm;
+      const month = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      const date = month + "/" + day;
+      return { time, date };
+    }
+
+    function formatFullTimestamp(ts) {
+      if (!ts) return "";
+      const d = new Date(ts);
+      const days = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+      const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+      const dayName = days[d.getDay()];
+      const day = d.getDate();
+      const month = months[d.getMonth()];
+      let h = d.getHours();
+      const m = String(d.getMinutes()).padStart(2, '0');
+      const s = String(d.getSeconds()).padStart(2, '0');
+      const ampm = h >= 12 ? 'pm' : 'am';
+      h = h % 12 || 12;
+      return dayName + ", " + month + " " + day + " • " + String(h).padStart(2, '0') + ":" + m + ":" + s + " " + ampm;
+    }
+
+    function formatTimeWithSeconds(ts) {
+      if (!ts) return "--:--:--";
+      const d = new Date(ts);
+      let h = d.getHours();
+      const m = String(d.getMinutes()).padStart(2, '0');
+      const s = String(d.getSeconds()).padStart(2, '0');
+      const ampm = h >= 12 ? 'pm' : 'am';
+      h = h % 12 || 12;
+      return String(h).padStart(2, '0') + ":" + m + ":" + s + " " + ampm;
+    }
+
+    function handleChartMouseMove(e) {
+      if (!cpuSeries || cpuSeries.length < 2) return;
+      const el = e.currentTarget;
+      const targetWrap = el.classList.contains("sparkline-wrap") || el.classList.contains("chart-svg-wrap")
+        ? el
+        : (el.querySelector(".sparkline-wrap") || el.querySelector(".chart-svg-wrap") || el);
+      const rect = targetWrap.getBoundingClientRect();
+      const relX = e.clientX - rect.left;
+      const ratio = Math.max(0, Math.min(1, relX / rect.width));
+      const len = cpuSeries.length;
+      const idx = Math.min(len - 1, Math.max(0, Math.round(ratio * (len - 1))));
+
+      updateCrosshairPosition(idx, ratio, targetWrap.id);
+    }
+
+    function handleChartMouseLeave() {
+      activeHoverIdx = null;
+      activeHoverRatio = null;
+      activeHoverSource = null;
+      // 1. Top Charts (CPU & RAM)
+      const crosshairCpu = document.getElementById("crosshairCpu");
+      const dotCpu = document.getElementById("dotCpu");
+      const crosshairRam = document.getElementById("crosshairRam");
+      const dotRam = document.getElementById("dotRam");
+      const ttCpu = document.getElementById("tooltipCpu");
+      const ttRam = document.getElementById("tooltipRam");
+
+      if (crosshairCpu) { crosshairCpu.classList.remove("active"); crosshairCpu.setAttribute("opacity", "0"); crosshairCpu.style.opacity = "0"; }
+      if (dotCpu) { dotCpu.classList.remove("active"); dotCpu.setAttribute("opacity", "0"); dotCpu.style.opacity = "0"; }
+      if (crosshairRam) { crosshairRam.classList.remove("active"); crosshairRam.setAttribute("opacity", "0"); crosshairRam.style.opacity = "0"; }
+      if (dotRam) { dotRam.classList.remove("active"); dotRam.setAttribute("opacity", "0"); dotRam.style.opacity = "0"; }
+      if (ttCpu) { ttCpu.classList.remove("active"); ttCpu.style.opacity = "0"; ttCpu.style.display = "none"; }
+      if (ttRam) { ttRam.classList.remove("active"); ttRam.style.opacity = "0"; ttRam.style.display = "none"; }
+
+      // 2. Lower 5 Sparkline Cards (Throughput, Heap, Lag, Latency, Handles)
+      const sparkResetList = [
+        { cross: 'crosshairSparkReq', dot: 'dotSparkReq', tt: 'ttSparkReq', valId: 'chartValReqs', liveVal: reqSeries[reqSeries.length - 1] || 0, footerId: 'footerReqLabel', defaultFooter: 'Rolling 60s window' },
+        { cross: 'crosshairSparkHeap', dot: 'dotSparkHeap', tt: 'ttSparkHeap', valId: 'chartValHeap', liveVal: typeof heapSeries[heapSeries.length - 1] === 'number' ? heapSeries[heapSeries.length - 1].toFixed(1) : '46.2', footerId: 'footerHeapLabel', defaultFooter: 'Allocated: ${initialTelemetry.memory.heapTotalMb} MiB' },
+        { cross: 'crosshairSparkLag', dot: 'dotSparkLag', tt: 'ttSparkLag', valId: 'chartValLag', liveVal: typeof lagSeries[lagSeries.length - 1] === 'number' ? lagSeries[lagSeries.length - 1].toFixed(1) : '0.6', footerId: 'footerLagLabel', defaultFooter: 'Voice SLA: &lt; 10ms' },
+        { cross: 'crosshairSparkLat', dot: 'dotSparkLat', tt: 'ttSparkLat', valId: 'chartValLat', liveVal: typeof latSeries[latSeries.length - 1] === 'number' ? latSeries[latSeries.length - 1].toFixed(1) : '1.0', footerId: 'footerLatLabel', defaultFooter: 'p95: 1.2ms' },
+        { cross: 'crosshairSparkHandles', dot: 'dotSparkHandles', tt: 'ttSparkHandles', valId: 'chartValHandles', liveVal: handlesSeries[handlesSeries.length - 1] || 4, footerId: 'footerHandlesLabel', defaultFooter: 'Libuv file descriptors' }
+      ];
+
+      sparkResetList.forEach(item => {
+        const c = document.getElementById(item.cross);
+        const d = document.getElementById(item.dot);
+        const t = document.getElementById(item.tt);
+        const v = document.getElementById(item.valId);
+        const f = document.getElementById(item.footerId);
+
+        if (c) { c.classList.remove("active"); c.setAttribute("opacity", "0"); c.style.opacity = "0"; }
+        if (d) { d.classList.remove("active"); d.setAttribute("opacity", "0"); d.style.opacity = "0"; }
+        if (t) { t.classList.remove("active"); t.style.opacity = "0"; t.style.display = "none"; }
+        if (v && item.liveVal !== undefined) v.innerText = item.liveVal;
+        if (f) f.innerHTML = item.defaultFooter;
+      });
+
+      resetCorrelationStripLive();
+    }
+
+    function updateCrosshairPosition(idx, ratio, sourceId) {
+      const len = cpuSeries.length;
+      if (idx < 0 || idx >= len) return;
+      activeHoverIdx = idx;
+      activeHoverRatio = ratio;
+      activeHoverSource = sourceId;
+
+      const ptCpu = currentCpuPts[idx];
+      const ptRam = currentRamPts[idx];
+      if (!ptCpu || !ptRam) return;
+
+      const pointX = ptCpu.x.toFixed(1);
+      const cpuY = ptCpu.y.toFixed(1);
+      const ramY = ptRam.y.toFixed(1);
+
+      const ts = (timestampsSeries && timestampsSeries[idx]) || (Date.now() - (len - 1 - idx) * 5000);
+      const fullTimeStr = formatFullTimestamp(ts);
+      const timeTick = formatTimeTick(ts);
+      const timeSecStr = formatTimeWithSeconds(ts);
+
+      // 1. Synchronized Top Charts (CPU & RAM)
+      const crosshairCpu = document.getElementById("crosshairCpu");
+      const dotCpu = document.getElementById("dotCpu");
+      const crosshairRam = document.getElementById("crosshairRam");
+      const dotRam = document.getElementById("dotRam");
+      const ttCpu = document.getElementById("tooltipCpu");
+      const ttRam = document.getElementById("tooltipRam");
+
+      if (crosshairCpu) {
+        crosshairCpu.setAttribute("x1", pointX);
+        crosshairCpu.setAttribute("x2", pointX);
+        crosshairCpu.setAttribute("opacity", "1");
+        crosshairCpu.classList.add("active");
+        crosshairCpu.style.opacity = "1";
+        crosshairCpu.style.display = "inline";
+      }
+      if (dotCpu) {
+        dotCpu.setAttribute("cx", pointX);
+        dotCpu.setAttribute("cy", cpuY);
+        dotCpu.setAttribute("opacity", "1");
+        dotCpu.classList.add("active");
+        dotCpu.style.opacity = "1";
+        dotCpu.style.display = "inline";
+      }
+
+      if (crosshairRam) {
+        crosshairRam.setAttribute("x1", pointX);
+        crosshairRam.setAttribute("x2", pointX);
+        crosshairRam.setAttribute("opacity", "1");
+        crosshairRam.classList.add("active");
+        crosshairRam.style.opacity = "1";
+        crosshairRam.style.display = "inline";
+      }
+      if (dotRam) {
+        dotRam.setAttribute("cx", pointX);
+        dotRam.setAttribute("cy", ramY);
+        dotRam.setAttribute("opacity", "1");
+        dotRam.classList.add("active");
+        dotRam.style.opacity = "1";
+        dotRam.style.display = "inline";
+      }
+
+      const cpuVal = cpuSeries[idx] || 0;
+      const ramVal = ramSeries[idx] || 0;
+      const heapVal = typeof heapSeries[idx] === 'number' ? heapSeries[idx] : (ramVal * 0.35);
+      const reqVal = reqSeries[idx] || 0;
+      const lagVal = typeof lagSeries[idx] === 'number' ? lagSeries[idx] : 0.6;
+      const latVal = typeof latSeries[idx] === 'number' ? latSeries[idx] : 1.0;
+      const handlesVal = handlesSeries[idx] || 4;
+      const headroomMb = Math.max(0, 500 - ramVal).toFixed(1);
+      const capPct = ((ramVal / 500) * 100).toFixed(1);
+
+      // CPU Tooltip
+      const elTtTimeCpu = document.getElementById("ttTimeCpu");
+      const elTtPrimaryCpuVal = document.getElementById("ttPrimaryCpuVal");
+      const elTtCpuRamVal = document.getElementById("ttCpuRamVal");
+      const elTtCpuHeadroomVal = document.getElementById("ttCpuHeadroomVal");
+      const elTtCpuHeapVal = document.getElementById("ttCpuHeapVal");
+      const elTtCpuLagVal = document.getElementById("ttCpuLagVal");
+      const elTtCpuReqVal = document.getElementById("ttCpuReqVal");
+
+      if (elTtTimeCpu) elTtTimeCpu.innerText = fullTimeStr;
+      if (elTtPrimaryCpuVal) elTtPrimaryCpuVal.innerText = cpuVal.toFixed(1) + "%";
+      if (elTtCpuRamVal) elTtCpuRamVal.innerHTML = ramVal.toFixed(1) + " MiB <span class='tt-sub'>(" + capPct + "% Cap)</span>";
+      if (elTtCpuHeadroomVal) elTtCpuHeadroomVal.innerText = headroomMb + " MiB Free";
+      if (elTtCpuHeapVal) elTtCpuHeapVal.innerText = heapVal.toFixed(1) + " MiB";
+      if (elTtCpuLagVal) elTtCpuLagVal.innerHTML = lagVal.toFixed(1) + " ms <span class='tt-sub'>(&lt;10ms SLA)</span>";
+      if (elTtCpuReqVal) elTtCpuReqVal.innerText = reqVal + " req/min";
+
+      // RAM Tooltip
+      const elTtTimeRam = document.getElementById("ttTimeRam");
+      const elTtPrimaryRamVal = document.getElementById("ttPrimaryRamVal");
+      const elTtRamCpuVal = document.getElementById("ttRamCpuVal");
+      const elTtRamHeadroomVal = document.getElementById("ttRamHeadroomVal");
+      const elTtRamHeapVal = document.getElementById("ttRamHeapVal");
+      const elTtRamLagVal = document.getElementById("ttRamLagVal");
+      const elTtRamReqVal = document.getElementById("ttRamReqVal");
+
+      if (elTtTimeRam) elTtTimeRam.innerText = fullTimeStr;
+      if (elTtPrimaryRamVal) elTtPrimaryRamVal.innerText = ramVal.toFixed(1) + " MiB";
+      if (elTtRamCpuVal) elTtRamCpuVal.innerHTML = cpuVal.toFixed(1) + "% <span class='tt-sub'>(Nominal)</span>";
+      if (elTtRamHeadroomVal) elTtRamHeadroomVal.innerText = headroomMb + " MiB Free";
+      if (elTtRamHeapVal) elTtRamHeapVal.innerText = heapVal.toFixed(1) + " MiB";
+      if (elTtRamLagVal) elTtRamLagVal.innerHTML = lagVal.toFixed(1) + " ms <span class='tt-sub'>(&lt;10ms SLA)</span>";
+      if (elTtRamReqVal) elTtRamReqVal.innerText = reqVal + " req/min";
+
+      // Top Tooltip Positioning
+      const xPct = (idx / (len - 1)) * 100;
+      [ttCpu, ttRam].forEach(tt => {
+        if (!tt) return;
+        if (xPct < 60) {
+          tt.style.left = "calc(" + xPct + "% + 14px)";
+          tt.style.right = "auto";
+        } else {
+          tt.style.left = "auto";
+          tt.style.right = "calc(" + (100 - xPct) + "% + 14px)";
+        }
+        tt.style.top = "10px";
+        tt.classList.add("active");
+        tt.style.display = "block";
+        tt.style.opacity = "1";
+      });
+
+      // 2. Synchronized Lower 5 Sparkline Cards
+      const sparkConfigs = [
+        {
+          wrapId: 'sparkWrapReq',
+          crossId: 'crosshairSparkReq',
+          dotId: 'dotSparkReq',
+          ttId: 'ttSparkReq',
+          ttTimeId: 'ttSparkReqTime',
+          ttNumId: 'ttSparkReqNum',
+          cardValId: 'chartValReqs',
+          footerId: 'footerReqLabel',
+          pts: currentReqPts,
+          valStr: String(reqVal)
+        },
+        {
+          wrapId: 'sparkWrapHeap',
+          crossId: 'crosshairSparkHeap',
+          dotId: 'dotSparkHeap',
+          ttId: 'ttSparkHeap',
+          ttTimeId: 'ttSparkHeapTime',
+          ttNumId: 'ttSparkHeapNum',
+          cardValId: 'chartValHeap',
+          footerId: 'footerHeapLabel',
+          pts: currentHeapPts,
+          valStr: heapVal.toFixed(1)
+        },
+        {
+          wrapId: 'sparkWrapLag',
+          crossId: 'crosshairSparkLag',
+          dotId: 'dotSparkLag',
+          ttId: 'ttSparkLag',
+          ttTimeId: 'ttSparkLagTime',
+          ttNumId: 'ttSparkLagNum',
+          cardValId: 'chartValLag',
+          footerId: 'footerLagLabel',
+          pts: currentLagPts,
+          valStr: lagVal.toFixed(1)
+        },
+        {
+          wrapId: 'sparkWrapLat',
+          crossId: 'crosshairSparkLat',
+          dotId: 'dotSparkLat',
+          ttId: 'ttSparkLat',
+          ttTimeId: 'ttSparkLatTime',
+          ttNumId: 'ttSparkLatNum',
+          cardValId: 'chartValLat',
+          footerId: 'footerLatLabel',
+          pts: currentLatPts,
+          valStr: latVal.toFixed(1)
+        },
+        {
+          wrapId: 'sparkWrapHandles',
+          crossId: 'crosshairSparkHandles',
+          dotId: 'dotSparkHandles',
+          ttId: 'ttSparkHandles',
+          ttTimeId: 'ttSparkHandlesTime',
+          ttNumId: 'ttSparkHandlesNum',
+          cardValId: 'chartValHandles',
+          footerId: 'footerHandlesLabel',
+          pts: currentHandlesPts,
+          valStr: String(handlesVal)
+        }
+      ];
+
+      sparkConfigs.forEach(cfg => {
+        const pt = (cfg.pts && cfg.pts[idx]) ? cfg.pts[idx] : { x: (idx / (len - 1)) * 240, y: 22 };
+        const cross = document.getElementById(cfg.crossId);
+        const dot = document.getElementById(cfg.dotId);
+        const tt = document.getElementById(cfg.ttId);
+        const ttTime = document.getElementById(cfg.ttTimeId);
+        const ttNum = document.getElementById(cfg.ttNumId);
+        const cardVal = document.getElementById(cfg.cardValId);
+        const footerEl = document.getElementById(cfg.footerId);
+
+        // A. Crosshair line
+        if (cross) {
+          cross.setAttribute("x1", pt.x.toFixed(1));
+          cross.setAttribute("x2", pt.x.toFixed(1));
+          cross.setAttribute("opacity", "0.9");
+          cross.classList.add("active");
+          cross.style.opacity = "0.9";
+          cross.style.display = "inline";
+        }
+
+        // B. Intersection dot
+        if (dot) {
+          dot.setAttribute("cx", pt.x.toFixed(1));
+          dot.setAttribute("cy", pt.y.toFixed(1));
+          dot.setAttribute("opacity", "1");
+          dot.classList.add("active");
+          dot.style.opacity = "1";
+          dot.style.display = "inline";
+        }
+
+        // C. Update Big Value on Card
+        if (cardVal) {
+          cardVal.innerText = cfg.valStr;
+        }
+
+        // D. Update Footer with Timestamp
+        if (footerEl) {
+          footerEl.innerHTML = "<span class='kpi-time-tag active'>at " + timeSecStr + "</span>";
+        }
+
+        // E. Micro-Tooltip
+        if (tt) {
+          const isDirectHover = sourceId === cfg.wrapId;
+          if (isDirectHover) {
+            if (ttTime) ttTime.innerText = timeSecStr + " (" + timeTick.date + ")";
+            if (ttNum) ttNum.innerText = cfg.valStr;
+            const pct = (idx / (len - 1)) * 100;
+            let tx = "-50%";
+            if (pct < 22) tx = "0%";
+            else if (pct > 78) tx = "-100%";
+            tt.style.left = pct + "%";
+            tt.style.transform = "translateX(" + tx + ")";
+            tt.classList.add("active");
+            tt.style.display = "block";
+            tt.style.opacity = "1";
+          } else {
+            tt.classList.remove("active");
+            tt.style.display = "none";
+            tt.style.opacity = "0";
+          }
+        }
+      });
+
+      // 3. Update Cluster Correlation Strip for this slice
+      updateCorrelationStripSlice(cpuVal, ramVal, parseFloat(lagVal.toFixed(1)), parseFloat(heapVal.toFixed(1)));
+    }
+
+    function updateCorrelationStripSlice(cpuVal, ramVal, lagVal, heapVal) {
+      const corrCpu = document.getElementById("corrCpuStatus");
+      const corrRam = document.getElementById("corrRamStatus");
+      const corrLag = document.getElementById("corrLagStatus");
+      const corrHeap = document.getElementById("corrHeapStatus");
+
+      if (corrCpu) {
+        if (cpuVal < 15) corrCpu.innerHTML = '<span style="color:#38bdf8;">Optimal</span> (' + cpuVal.toFixed(1) + '% V8 load)';
+        else if (cpuVal < 60) corrCpu.innerHTML = '<span style="color:#fbbf24;">Moderate</span> (' + cpuVal.toFixed(1) + '%)';
+        else corrCpu.innerHTML = '<span style="color:#f87171;">Elevated Load</span> (' + cpuVal.toFixed(1) + '%)';
+      }
+
+      if (corrRam) {
+        const headroom = (500 - ramVal).toFixed(0);
+        if (ramVal < 300) corrRam.innerHTML = '<span style="color:#34d399;">Safe Buffer</span> (' + ramVal.toFixed(0) + ' / 500 MB • ' + headroom + 'M free)';
+        else if (ramVal < 450) corrRam.innerHTML = '<span style="color:#fbbf24;">Approaching Cap</span> (' + ramVal.toFixed(0) + ' MB)';
+        else corrRam.innerHTML = '<span style="color:#f87171;">Critical Cap</span> (' + ramVal.toFixed(0) + ' MB)';
+      }
+
+      if (corrLag) {
+        if (lagVal < 2.0) corrLag.innerHTML = '<span style="color:#34d399;">Ultra-Low</span> (' + lagVal.toFixed(1) + 'ms • Voice OK)';
+        else if (lagVal < 10.0) corrLag.innerHTML = '<span style="color:#fbbf24;">Acceptable</span> (' + lagVal.toFixed(1) + 'ms)';
+        else corrLag.innerHTML = '<span style="color:#f87171;">Jitter Detected</span> (' + lagVal.toFixed(1) + 'ms)';
+      }
+
+      if (corrHeap) {
+        corrHeap.innerHTML = '<span style="color:#c084fc;">Healthy GC</span> (' + heapVal.toFixed(1) + ' MB)';
+      }
+    }
+
+    function resetCorrelationStripLive() {
+      const cpuCur = cpuSeries[cpuSeries.length - 1] || 0;
+      const ramCur = ramSeries[ramSeries.length - 1] || 0;
+      const lagCur = lagSeries[lagSeries.length - 1] || 0.6;
+      const heapCur = heapSeries[heapSeries.length - 1] || 46.2;
+      updateCorrelationStripSlice(cpuCur, ramCur, lagCur, heapCur);
+    }
+
+    function initChartListeners() {
+      const interactiveEls = [
+        document.getElementById("svgWrapCpu"),
+        document.getElementById("svgWrapRam"),
+        document.getElementById("cardKpiReq"),
+        document.getElementById("cardKpiHeap"),
+        document.getElementById("cardKpiLag"),
+        document.getElementById("cardKpiLat"),
+        document.getElementById("cardKpiHandles"),
+        document.getElementById("sparkWrapReq"),
+        document.getElementById("sparkWrapHeap"),
+        document.getElementById("sparkWrapLag"),
+        document.getElementById("sparkWrapLat"),
+        document.getElementById("sparkWrapHandles")
+      ];
+
+      interactiveEls.forEach(el => {
+        if (!el) return;
+        el.removeEventListener("mousemove", handleChartMouseMove);
+        el.removeEventListener("mouseleave", handleChartMouseLeave);
+        el.addEventListener("mousemove", handleChartMouseMove);
+        el.addEventListener("mouseleave", handleChartMouseLeave);
+      });
+    }
 
     function renderGrafanaDashboard() {
-      // 1. CPU Waveform
-      const cpuLine = generateSpline(cpuSeries, 450, 115, 0, 10, 12);
-      const cpuArea = cpuLine + " L 450,115 L 0,115 Z";
+      if (!cpuSeries || cpuSeries.length < 2) return;
+
+      // 1. CPU Scaling & Waveform
+      let maxCpuCeil = 100;
+      if (isCpuZoom) {
+        const maxCpuData = Math.max(1, ...cpuSeries);
+        if (maxCpuData > 50) maxCpuCeil = 100;
+        else if (maxCpuData > 25) maxCpuCeil = 50;
+        else if (maxCpuData > 10) maxCpuCeil = 25;
+        else if (maxCpuData > 5) maxCpuCeil = 10;
+        else maxCpuCeil = 5;
+      }
+
+      const yLabelsCpu = document.getElementById("yLabelsCpu");
+      if (yLabelsCpu) {
+        yLabelsCpu.innerHTML = [
+          '<span>' + maxCpuCeil.toFixed(isCpuZoom ? 1 : 0) + '%</span>',
+          '<span>' + (maxCpuCeil * 0.8).toFixed(isCpuZoom ? 1 : 0) + '%</span>',
+          '<span>' + (maxCpuCeil * 0.6).toFixed(isCpuZoom ? 1 : 0) + '%</span>',
+          '<span>' + (maxCpuCeil * 0.4).toFixed(isCpuZoom ? 1 : 0) + '%</span>',
+          '<span>' + (maxCpuCeil * 0.2).toFixed(isCpuZoom ? 1 : 0) + '%</span>',
+          '<span>0%</span>'
+        ].join('');
+      }
+
+      currentCpuPts = generateSplinePoints(cpuSeries, 500, 135, 0, maxCpuCeil, 10);
+      const cpuLine = buildSplinePath(currentCpuPts);
+      const cpuArea = cpuLine + " L 500,135 L 0,135 Z";
       const pathCpu = document.getElementById("pathCpuWave");
       const areaCpu = document.getElementById("areaCpuWave");
       if (pathCpu) pathCpu.setAttribute("d", cpuLine);
@@ -1564,8 +2604,9 @@ export function renderDashboardHtml(options: DashboardRenderOptions): string {
       if (elCpuPVal) elCpuPVal.innerText = cpuCur.toFixed(1) + "%";
 
       // 2. RAM Waveform (Safety cap: 500 MB)
-      const ramLine = generateSpline(ramSeries, 450, 115, 0, 500, 12);
-      const ramArea = ramLine + " L 450,115 L 0,115 Z";
+      currentRamPts = generateSplinePoints(ramSeries, 500, 135, 0, 500, 10);
+      const ramLine = buildSplinePath(currentRamPts);
+      const ramArea = ramLine + " L 500,135 L 0,135 Z";
       const pathRam = document.getElementById("pathRamWave");
       const areaRam = document.getElementById("areaRamWave");
       if (pathRam) pathRam.setAttribute("d", ramLine);
@@ -1598,9 +2639,37 @@ export function renderDashboardHtml(options: DashboardRenderOptions): string {
       if (elRamPVal) elRamPVal.innerText = ramPercent + "%";
       if (elRamBadge) elRamBadge.innerText = "🟢 " + ramPercent + "% Cap";
 
-      // 3. HTTP Sparkline (req/min)
+      // 3. X-Axis Timestamps (5 dual-line ticks)
+      const xLabelsCpu = document.getElementById("xAxisCpu");
+      const xLabelsRam = document.getElementById("xAxisRam");
+      if (timestampsSeries && timestampsSeries.length >= 2) {
+        const tickIndices = [
+          0,
+          Math.floor((timestampsSeries.length - 1) * 0.25),
+          Math.floor((timestampsSeries.length - 1) * 0.5),
+          Math.floor((timestampsSeries.length - 1) * 0.75),
+          timestampsSeries.length - 1
+        ];
+        const html = tickIndices.map((i, tickIdx) => {
+          const ts = timestampsSeries[i] || (Date.now() - (timestampsSeries.length - 1 - i) * 5000);
+          const { time, date } = formatTimeTick(ts);
+          const align = tickIdx === 0 ? 'align-items:flex-start; text-align:left;' : (tickIdx === 4 ? 'align-items:flex-end; text-align:right;' : 'align-items:center; text-align:center;');
+          return '<div class="x-tick" style="flex:1; ' + align + '">' +
+                   '<span class="x-tick-time">' + time + '</span>' +
+                   '<span class="x-tick-date">' + date + '</span>' +
+                 '</div>';
+        }).join('');
+        if (xLabelsCpu) xLabelsCpu.innerHTML = html;
+        if (xLabelsRam) xLabelsRam.innerHTML = html;
+      }
+
+      // 4. Cluster Correlation Status Strip (Live)
+      resetCorrelationStripLive();
+
+      // 5. HTTP Sparkline (req/min)
       const maxReq = Math.max(10, ...reqSeries);
-      const reqLine = generateSpline(reqSeries, 240, 45, 0, maxReq * 1.25, 6);
+      currentReqPts = generateSplinePoints(reqSeries, 240, 45, 0, maxReq * 1.25, 6);
+      const reqLine = buildSplinePath(currentReqPts);
       const reqArea = reqLine + " L 240,45 L 0,45 Z";
       const pathSparkReq = document.getElementById("pathSparkReq");
       const areaSparkReq = document.getElementById("areaSparkReq");
@@ -1613,43 +2682,57 @@ export function renderDashboardHtml(options: DashboardRenderOptions): string {
       if (elReqsVal) elReqsVal.innerText = reqCur;
       if (elMiniReqs) elMiniReqs.innerText = reqCur;
 
-      // 4. V8 Heap Sparkline
-      const heapLine = generateSpline(heapSeries, 240, 45, 30, 80, 6);
+      // 6. V8 Heap Sparkline
+      const maxHeap = Math.max(80, ...heapSeries);
+      currentHeapPts = generateSplinePoints(heapSeries, 240, 45, 20, maxHeap * 1.2, 6);
+      const heapLine = buildSplinePath(currentHeapPts);
       const heapArea = heapLine + " L 240,45 L 0,45 Z";
       const pathSparkHeap = document.getElementById("pathSparkHeap");
       const areaSparkHeap = document.getElementById("areaSparkHeap");
       if (pathSparkHeap) pathSparkHeap.setAttribute("d", heapLine);
       if (areaSparkHeap) areaSparkHeap.setAttribute("d", heapArea);
 
-      // 5. Event Loop Lag Sparkline
-      const lagLine = generateSpline(lagSeries, 240, 45, 0, 3.0, 6);
+      // 7. Event Loop Lag Sparkline
+      const lagCur = lagSeries[lagSeries.length - 1] || 0.6;
+      const maxLag = Math.max(3.0, ...lagSeries);
+      currentLagPts = generateSplinePoints(lagSeries, 240, 45, 0, maxLag * 1.25, 6);
+      const lagLine = buildSplinePath(currentLagPts);
       const lagArea = lagLine + " L 240,45 L 0,45 Z";
       const pathSparkLag = document.getElementById("pathSparkLag");
       const areaSparkLag = document.getElementById("areaSparkLag");
       if (pathSparkLag) pathSparkLag.setAttribute("d", lagLine);
       if (areaSparkLag) areaSparkLag.setAttribute("d", lagArea);
 
-      const lagCur = lagSeries[lagSeries.length - 1] || 0;
       const elLagVal = document.getElementById("chartValLag");
       const elMiniLag = document.getElementById("miniValLag");
       if (elLagVal) elLagVal.innerText = lagCur.toFixed(1);
       if (elMiniLag) elMiniLag.innerText = lagCur.toFixed(1);
 
-      // 6. Latency Sparkline
-      const latLine = generateSpline(latSeries, 240, 45, 0, 3.0, 6);
+      // 8. Latency Sparkline
+      const maxLat = Math.max(3.0, ...latSeries);
+      currentLatPts = generateSplinePoints(latSeries, 240, 45, 0, maxLat * 1.25, 6);
+      const latLine = buildSplinePath(currentLatPts);
       const latArea = latLine + " L 240,45 L 0,45 Z";
       const pathSparkLat = document.getElementById("pathSparkLat");
       const areaSparkLat = document.getElementById("areaSparkLat");
       if (pathSparkLat) pathSparkLat.setAttribute("d", latLine);
       if (areaSparkLat) areaSparkLat.setAttribute("d", latArea);
 
-      // 7. Handles Sparkline
-      const handlesLine = generateSpline(handlesSeries, 240, 45, 0, 10, 6);
+      // 9. Handles Sparkline
+      const maxHandles = Math.max(10, ...handlesSeries);
+      currentHandlesPts = generateSplinePoints(handlesSeries, 240, 45, 0, maxHandles * 1.25, 6);
+      const handlesLine = buildSplinePath(currentHandlesPts);
       const handlesArea = handlesLine + " L 240,45 L 0,45 Z";
       const pathSparkHandles = document.getElementById("pathSparkHandles");
       const areaSparkHandles = document.getElementById("areaSparkHandles");
       if (pathSparkHandles) pathSparkHandles.setAttribute("d", handlesLine);
       if (areaSparkHandles) areaSparkHandles.setAttribute("d", handlesArea);
+
+      if (activeHoverIdx !== null && activeHoverRatio !== null) {
+        updateCrosshairPosition(activeHoverIdx, activeHoverRatio, activeHoverSource);
+      }
+
+      initChartListeners();
     }
 
     // Fetch Live Telemetry from /api/metrics Every 2.5s
@@ -1663,7 +2746,11 @@ export function renderDashboardHtml(options: DashboardRenderOptions): string {
           if (data.history.cpu && data.history.cpu.length) cpuSeries = data.history.cpu;
           if (data.history.ram && data.history.ram.length) ramSeries = data.history.ram;
           if (data.history.reqs && data.history.reqs.length) reqSeries = data.history.reqs;
+          if (data.history.heap && data.history.heap.length) heapSeries = data.history.heap;
           if (data.history.lag && data.history.lag.length) lagSeries = data.history.lag;
+          if (data.history.lat && data.history.lat.length) latSeries = data.history.lat;
+          if (data.history.handles && data.history.handles.length) handlesSeries = data.history.handles;
+          if (data.history.timestamps && data.history.timestamps.length) timestampsSeries = data.history.timestamps;
         }
 
         if (data.uptimeSeconds) uptimeSeconds = data.uptimeSeconds;
@@ -1795,17 +2882,18 @@ export function renderDashboardHtml(options: DashboardRenderOptions): string {
         const badgeClass = log.level === "ERROR" ? "badge-err" : log.level === "WARN" ? "badge-warn" : "badge-info";
         const rowClass = log.level === "ERROR" ? "row-error" : log.level === "WARN" ? "row-warn" : "";
 
-        let highlightedContent = log.content;
+        let safeContent = escapeHtml(log.content);
         if (query) {
-          const regex = new RegExp("(" + query.replace(/[.*+?^$\\{}()|[\\]\\\\]/g, '\\\\$&') + ")", "gi");
-          highlightedContent = highlightedContent.replace(regex, '<span class="highlight">$1</span>');
+          const safeQuery = escapeHtml(query).replace(/[.*+?^$\\{}()|[\\]\\\\]/g, '\\\\$&');
+          const regex = new RegExp("(" + safeQuery + ")", "gi");
+          safeContent = safeContent.replace(regex, '<span class="highlight">$1</span>');
         }
 
         return '<div class="log-line ' + rowClass + '">' +
-          '<span class="line-time">' + log.time + '</span>' +
-          '<span class="line-badge ' + badgeClass + '">[' + log.level + ']</span>' +
-          '<span class="mod-tag">' + log.service + '</span>' +
-          '<span>' + highlightedContent + '</span>' +
+          '<span class="line-time">' + escapeHtml(log.time) + '</span>' +
+          '<span class="line-badge ' + badgeClass + '">[' + escapeHtml(log.level) + ']</span>' +
+          '<span class="mod-tag">' + escapeHtml(log.service) + '</span>' +
+          '<span>' + safeContent + '</span>' +
         '</div>';
       }).join("");
 

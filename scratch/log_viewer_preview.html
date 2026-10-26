@@ -433,40 +433,267 @@
     .chart-container {
       position: relative;
       width: 100%;
-      height: 125px;
       display: flex;
+      flex-direction: column;
+      gap: 6px;
     }
-
+    .chart-main-row {
+      display: flex;
+      width: 100%;
+      height: 155px;
+      position: relative;
+    }
     .y-axis-labels {
-      width: 48px;
+      width: 72px;
       height: 100%;
       display: flex;
       flex-direction: column;
       justify-content: space-between;
-      font-size: 9.5px;
+      font-size: 10px;
       color: var(--text-dim);
-      font-family: ui-monospace, monospace;
-      padding-right: 6px;
+      font-family: ui-monospace, SFMono-Regular, monospace;
+      padding-right: 10px;
       text-align: right;
       user-select: none;
+      padding-top: 2px;
+      padding-bottom: 2px;
     }
-
     .chart-svg-wrap {
       flex: 1;
       height: 100%;
       position: relative;
+      cursor: crosshair;
     }
-
     .grafana-svg {
       width: 100%;
       height: 100%;
       overflow: visible;
     }
-
     .grid-line {
-      stroke: rgba(255, 255, 255, 0.06);
-      stroke-dasharray: 4;
+      stroke: rgba(255, 255, 255, 0.08);
+      stroke-dasharray: 3 3;
     }
+    .scale-toggle-group {
+      display: flex;
+      align-items: center;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(255, 255, 255, 0.09);
+      border-radius: 6px;
+      padding: 2px;
+      gap: 2px;
+    }
+    .scale-btn {
+      background: transparent;
+      border: none;
+      color: var(--text-dim);
+      font-size: 10.5px;
+      font-weight: 600;
+      padding: 3px 8px;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      font-family: ui-monospace, SFMono-Regular, monospace;
+    }
+    .scale-btn:hover {
+      color: #fff;
+    }
+    .scale-btn.active {
+      background: rgba(56, 189, 248, 0.2);
+      color: #38bdf8;
+      box-shadow: 0 0 8px rgba(56, 189, 248, 0.2);
+    }
+    .x-axis-labels {
+      display: flex;
+      justify-content: space-between;
+      padding-left: 72px;
+      padding-right: 4px;
+      font-size: 10px;
+      color: var(--text-dim);
+      font-family: ui-monospace, SFMono-Regular, monospace;
+      user-select: none;
+      margin-top: 5px;
+    }
+    .x-tick {
+      display: flex;
+      flex-direction: column;
+      gap: 1px;
+    }
+    .x-tick-time {
+      font-weight: 700;
+      color: #e2e8f0;
+      letter-spacing: -0.01em;
+    }
+    .x-tick-date {
+      font-size: 9px;
+      color: #64748b;
+    }
+    .crosshair-v-line {
+      stroke: #ffffff;
+      stroke-width: 1.5;
+      stroke-dasharray: 4 3;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.08s ease;
+    }
+    .crosshair-v-line.active {
+      opacity: 1 !important;
+      display: inline !important;
+    }
+    .crosshair-circle {
+      pointer-events: none;
+      opacity: 0;
+      stroke-width: 2.5;
+      transition: opacity 0.08s ease;
+    }
+    .crosshair-circle.active {
+      opacity: 1 !important;
+      display: inline !important;
+    }
+    .cpu-crosshair-circle {
+      fill: #06090f;
+      stroke: #38bdf8;
+      filter: drop-shadow(0 0 8px #38bdf8);
+    }
+    .ram-crosshair-circle {
+      fill: #06090f;
+      stroke: #34d399;
+      filter: drop-shadow(0 0 8px #34d399);
+    }
+    .unified-chart-tooltip, .unified-chart-tooltip * {
+      pointer-events: none !important;
+    }
+    .unified-chart-tooltip {
+      position: absolute;
+      top: 10px;
+      background: rgba(8, 13, 25, 0.96);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid rgba(56, 189, 248, 0.35);
+      border-radius: 8px;
+      padding: 10px 14px;
+      font-family: ui-monospace, SFMono-Regular, monospace;
+      box-shadow: 0 12px 32px rgba(0, 0, 0, 0.85), 0 0 20px rgba(56, 189, 248, 0.15);
+      pointer-events: none;
+      z-index: 60;
+      min-width: 270px;
+      max-width: 320px;
+      display: none;
+      opacity: 0;
+      transition: left 0.04s ease-out, right 0.04s ease-out, opacity 0.1s ease;
+    }
+    .unified-chart-tooltip.tooltip-ram-style {
+      border-color: rgba(52, 211, 153, 0.35);
+      box-shadow: 0 12px 32px rgba(0, 0, 0, 0.85), 0 0 20px rgba(52, 211, 153, 0.15);
+    }
+    .unified-chart-tooltip.active {
+      display: block !important;
+      opacity: 1 !important;
+    }
+    .tt-header {
+      font-size: 11px;
+      font-weight: 700;
+      color: #94a3b8;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.09);
+      padding-bottom: 6px;
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .tt-status-tag {
+      font-size: 9.5px;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      padding: 1px 6px;
+      border-radius: 4px;
+      border: 1px solid rgba(56, 189, 248, 0.3);
+      background: rgba(56, 189, 248, 0.12);
+      color: #38bdf8;
+    }
+    .tt-primary {
+      display: flex;
+      align-items: baseline;
+      gap: 7px;
+      margin-bottom: 8px;
+    }
+    .tt-primary-label {
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+    .tt-primary-val {
+      font-size: 16px;
+      font-weight: 800;
+      color: #ffffff;
+      letter-spacing: -0.02em;
+    }
+    .tt-unit {
+      font-size: 10.5px;
+      color: var(--text-dim);
+    }
+    .tt-divider {
+      height: 1px;
+      background: rgba(255, 255, 255, 0.08);
+      margin: 6px 0;
+    }
+    .tt-compare-title {
+      font-size: 9px;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      color: #64748b;
+      margin-bottom: 5px;
+      text-transform: uppercase;
+    }
+    .tt-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 11px;
+      margin-bottom: 4px;
+      gap: 12px;
+    }
+    .tt-label {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      color: var(--text-muted);
+    }
+    .tt-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      display: inline-block;
+      flex-shrink: 0;
+    }
+    .tt-val {
+      font-weight: 700;
+      color: #ffffff;
+      text-align: right;
+    }
+    .tt-sub {
+      font-size: 9.5px;
+      font-weight: 400;
+      color: #94a3b8;
+    }
+    .correlation-strip {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 10px;
+      background: rgba(13, 21, 39, 0.7);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 8px;
+      padding: 10px 16px;
+      margin-top: 14px;
+      margin-bottom: 14px;
+      font-family: ui-monospace, SFMono-Regular, monospace;
+      font-size: 11.5px;
+    }
+    .corr-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .corr-label { color: var(--text-muted); font-size: 11px; }
+    .corr-val { font-weight: 700; color: #fff; }
 
     /* Legend Bar below Time-Series */
     .grafana-legend {
@@ -776,7 +1003,9 @@
   <header class="header">
     <div class="brand-section">
       <div class="brand">
-        <div class="brand-icon">⚡</div>
+        <div class="brand-icon">
+          <img src="https://app.sreeai.qzz.io/Sree-Ai-Fav-icon.png" alt="Sree AI logo" style="width:100%;height:100%;object-fit:contain;" />
+        </div>
         <div class="brand-title">
           Sree AI
           <span class="brand-pill">Hardened Ops Vault</span>
@@ -1045,66 +1274,116 @@
         <div class="panel-header">
           <div class="panel-title-group">
             <div class="panel-title">
-              <span>🖥️</span> CPU Utilization (AMD EPYC)
+              <span>⚡</span> CPU Utilization (Process / 1 OCPU AMD EPYC)
             </div>
-            <div class="panel-subtitle">1 OCPU • Load Avg: 0.08, 0.03, 0.01 • Host Total: 1 Core</div>
+            <div class="panel-subtitle">V8 Thread Execution Load • Target: &lt; 70%</div>
           </div>
-          <span class="kpi-badge badge-emerald">🟢 Target &lt; 70%</span>
+          <div style="display:flex; align-items:center; gap:12px;">
+            <div class="scale-toggle-group">
+              <button class="scale-btn active" id="btnCpuScaleFull" onclick="setCpuScale(false)" title="0-100% full capacity matching PM2 standard">0-100% Full</button>
+              <button class="scale-btn" id="btnCpuScaleZoom" onclick="setCpuScale(true)" title="Auto-zoom into micro fluctuations">Auto Zoom</button>
+            </div>
+            <div class="progress-bar-wrap">
+              <div class="progress-label">
+                <span>V8 Load</span>
+                <span id="cpuProgressVal">1.2%</span>
+              </div>
+              <div class="progress-track">
+                <div class="progress-fill" id="cpuProgressBar" style="width: 1.7%; background: #38bdf8;"></div>
+              </div>
+            </div>
+          </div>
         </div>
 
         <div class="panel-hero-row">
           <div class="panel-hero-stat">
-            <span class="hero-big-num" id="chartValCpu">1.2</span>
-            <span class="hero-unit">%</span>
-            <span class="kpi-delta delta-good" id="cpuDeltaTrend" style="margin-left: 6px;">▲ 0.1% / 5m</span>
+            <div class="hero-big-num" id="chartValCpu">1.2</div>
+            <div class="hero-unit">%</div>
           </div>
+          <div class="kpi-badge badge-sky" id="cpuDeltaBadge">▲ Stable Load</div>
+        </div>
 
-          <div class="progress-bar-wrap">
-            <div class="progress-label">
-              <span>Utilization</span>
-              <span id="cpuProgressVal">1.2%</span>
+        <div class="chart-container" id="chartContainerCpu">
+          <div class="chart-main-row" id="chartRowCpu">
+            <div class="y-axis-labels" id="yLabelsCpu">
+              <span>100%</span>
+              <span>80%</span>
+              <span>60%</span>
+              <span>40%</span>
+              <span>20%</span>
+              <span>0%</span>
             </div>
-            <div class="progress-track">
-              <div class="progress-fill" id="cpuProgressBar" style="width: 1.2%; background: linear-gradient(90deg, #38bdf8, #818cf8);"></div>
+            <div class="chart-svg-wrap" id="svgWrapCpu">
+              <div class="unified-chart-tooltip" id="tooltipCpu">
+                <div class="tt-header">
+                  <span id="ttTimeCpu">Monday, Oct 26 • --:--:-- pm</span>
+                  <span class="tt-status-tag" id="ttTagCpu">⚡ SYNCED</span>
+                </div>
+                <div class="tt-primary">
+                  <span class="tt-dot" style="background:#38bdf8;"></span>
+                  <span class="tt-primary-label">Process CPU:</span>
+                  <span class="tt-primary-val" id="ttPrimaryCpuVal">1.2%</span>
+                  <span class="tt-unit">(1 Core V8)</span>
+                </div>
+                <div class="tt-divider"></div>
+                <div class="tt-compare-title">RESOURCE CORRELATION AT THIS SECOND</div>
+                <div class="tt-row">
+                  <span class="tt-label"><span class="tt-dot" style="background:#34d399;"></span> RAM (RSS):</span>
+                  <span class="tt-val" id="ttCpuRamVal">177.4 MiB</span>
+                </div>
+                <div class="tt-row">
+                  <span class="tt-label"><span class="tt-dot" style="background:#34d399;"></span> Cap Headroom:</span>
+                  <span class="tt-val" id="ttCpuHeadroomVal" style="color:#34d399;">322.6 MiB</span>
+                </div>
+                <div class="tt-row">
+                  <span class="tt-label"><span class="tt-dot" style="background:#c084fc;"></span> V8 Heap:</span>
+                  <span class="tt-val" id="ttCpuHeapVal">46.2 MiB</span>
+                </div>
+                <div class="tt-row">
+                  <span class="tt-label"><span class="tt-dot" style="background:#fbbf24;"></span> Event Loop:</span>
+                  <span class="tt-val" id="ttCpuLagVal">0.6 ms</span>
+                </div>
+                <div class="tt-row">
+                  <span class="tt-label"><span class="tt-dot" style="background:#22d3ee;"></span> Throughput:</span>
+                  <span class="tt-val" id="ttCpuReqVal">0 req/min</span>
+                </div>
+              </div>
+              <svg class="grafana-svg" id="svgCpu" viewBox="0 0 500 135" preserveAspectRatio="none">
+                <defs>
+                  <linearGradient id="cpuGradient" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stop-color="#38bdf8" stop-opacity="0.35"/>
+                    <stop offset="100%" stop-color="#38bdf8" stop-opacity="0.0"/>
+                  </linearGradient>
+                </defs>
+                <line x1="0" y1="10" x2="500" y2="10" class="grid-line"/>
+                <line x1="0" y1="33" x2="500" y2="33" class="grid-line"/>
+                <line x1="0" y1="56" x2="500" y2="56" class="grid-line"/>
+                <line x1="0" y1="79" x2="500" y2="79" class="grid-line"/>
+                <line x1="0" y1="102" x2="500" y2="102" class="grid-line"/>
+                <line x1="0" y1="125" x2="500" y2="125" class="grid-line"/>
+                <path id="areaCpuWave" fill="url(#cpuGradient)"/>
+                <path id="pathCpuWave" fill="none" stroke="#38bdf8" stroke-width="2.2" stroke-linecap="round"/>
+                <line id="crosshairCpu" class="crosshair-v-line" x1="0" y1="0" x2="0" y2="135" stroke="#ffffff" stroke-width="1.5" stroke-dasharray="3,3" opacity="0" />
+                <circle id="dotCpu" class="crosshair-circle cpu-crosshair-circle" cx="0" cy="0" r="5.5" stroke="#38bdf8" stroke-width="2.5" fill="#06090f" opacity="0" />
+              </svg>
             </div>
+          </div>
+          <div class="x-axis-labels" id="xAxisCpu">
+            <div class="x-tick"><span class="x-tick-time">--:--</span><span class="x-tick-date">--/--</span></div>
+            <div class="x-tick"><span class="x-tick-time">--:--</span><span class="x-tick-date">--/--</span></div>
+            <div class="x-tick"><span class="x-tick-time">--:--</span><span class="x-tick-date">--/--</span></div>
+            <div class="x-tick"><span class="x-tick-time">--:--</span><span class="x-tick-date">--/--</span></div>
+            <div class="x-tick"><span class="x-tick-time">--:--</span><span class="x-tick-date">--/--</span></div>
           </div>
         </div>
 
-        <!-- SVG Time-Series Chart Box with Y-Axis Scale -->
-        <div class="chart-container">
-          <div class="y-axis-labels">
-            <span>100%</span>
-            <span>50%</span>
-            <span>0%</span>
-          </div>
-          <div class="chart-svg-wrap">
-            <svg class="grafana-svg" viewBox="0 0 450 115" preserveAspectRatio="none">
-              <defs>
-                <linearGradient id="grad-cpu-grafana" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stop-color="#38bdf8" stop-opacity="0.4"/>
-                  <stop offset="60%" stop-color="#38bdf8" stop-opacity="0.1"/>
-                  <stop offset="100%" stop-color="#38bdf8" stop-opacity="0.0"/>
-                </linearGradient>
-              </defs>
-              <line x1="0" y1="12" x2="450" y2="12" class="grid-line"/>
-              <line x1="0" y1="58" x2="450" y2="58" class="grid-line"/>
-              <line x1="0" y1="105" x2="450" y2="105" class="grid-line"/>
-              <path id="areaCpuWave" fill="url(#grad-cpu-grafana)" d="M0,105 L450,105 Z" />
-              <path id="pathCpuWave" fill="none" stroke="#38bdf8" stroke-width="2.5" stroke-linecap="round" d="M0,105 L450,105" />
-            </svg>
-          </div>
-        </div>
-
-        <!-- Grafana Legend Row -->
         <div class="grafana-legend">
+          <span>Range: Rolling 2.5 Mins (5s Ticks)</span>
           <div class="legend-stats">
-            <span>Current: <strong id="legendCpuCur">1.2%</strong></span>
-            <span>Avg: <strong id="legendCpuAvg">1.4%</strong></span>
-            <span>Min: <strong id="legendCpuMin">0.8%</strong></span>
-            <span>Max: <strong id="legendCpuMax">3.5%</strong></span>
-          </div>
-          <div style="font-size:10px; color:var(--text-dim);">
-            <span id="labelTimeStart">08:50 pm</span> — <span id="labelTimeEnd">08:58 pm (Now)</span>
+            <span>CUR: <strong id="legendCpuCur">1.2%</strong></span>
+            <span>AVG: <strong id="legendCpuAvg">1.4%</strong></span>
+            <span>MIN: <strong id="legendCpuMin">0.8%</strong></span>
+            <span>MAX: <strong id="legendCpuMax">2.5%</strong></span>
           </div>
         </div>
       </div>
@@ -1114,70 +1393,140 @@
         <div class="panel-header">
           <div class="panel-title-group">
             <div class="panel-title">
-              <span>💾</span> Resident Memory (RSS) & Safety Cap
+              <span>🧠</span> Resident Memory (RSS) & Safety Cap
             </div>
-            <div class="panel-subtitle">Safety Cap: 500 MiB • V8 Max Space: 450M • Host RAM: 952 MiB</div>
+            <div class="panel-subtitle">Linux Kernel RSS Allocation • Cap: 500 MiB</div>
           </div>
-          <span class="kpi-badge badge-emerald" id="ramPercentBadge">🟢 35.5% Utilized</span>
+          <div class="progress-bar-wrap">
+            <div class="progress-label">
+              <span>Safety Threshold</span>
+              <span id="ramProgressVal">35.5%</span>
+            </div>
+            <div class="progress-track">
+              <div class="progress-fill" id="ramProgressBar" style="width: 35.5%; background: #34d399;"></div>
+            </div>
+          </div>
         </div>
 
         <div class="panel-hero-row">
           <div class="panel-hero-stat">
-            <span class="hero-big-num" id="chartValRam">177.4</span>
-            <span class="hero-unit">MiB</span>
-            <span class="kpi-delta delta-good" style="margin-left: 6px;">of 500M Cap</span>
+            <div class="hero-big-num" id="chartValRam">177.4</div>
+            <div class="hero-unit">MiB</div>
           </div>
+          <div class="kpi-badge badge-emerald" id="ramPercentBadge">🟢 35.5% Cap</div>
+        </div>
 
-          <div class="progress-bar-wrap">
-            <div class="progress-label">
-              <span>Safety Cap (500M)</span>
-              <span id="ramProgressVal">35.5%</span>
+        <div class="chart-container" id="chartContainerRam">
+          <div class="chart-main-row" id="chartRowRam">
+            <div class="y-axis-labels" id="yLabelsRam">
+              <span style="color:#f87171; font-weight:700;">500M [CAP]</span>
+              <span style="color:#fbbf24;">400M (80%)</span>
+              <span>300M (60%)</span>
+              <span>200M (40%)</span>
+              <span>100M (20%)</span>
+              <span>0M</span>
             </div>
-            <div class="progress-track">
-              <div class="progress-fill" id="ramProgressBar" style="width: 35.5%; background: linear-gradient(90deg, #34d399, #10b981);"></div>
+            <div class="chart-svg-wrap" id="svgWrapRam">
+              <div class="unified-chart-tooltip tooltip-ram-style" id="tooltipRam">
+                <div class="tt-header">
+                  <span id="ttTimeRam">Monday, Oct 26 • --:--:-- pm</span>
+                  <span class="tt-status-tag" id="ttTagRam" style="color:#34d399; border-color:rgba(52,211,153,0.3); background:rgba(52,211,153,0.12);">🧠 SYNCED</span>
+                </div>
+                <div class="tt-primary">
+                  <span class="tt-dot" style="background:#34d399;"></span>
+                  <span class="tt-primary-label">RSS Memory:</span>
+                  <span class="tt-primary-val" id="ttPrimaryRamVal" style="color:#34d399;">177.4 MiB</span>
+                  <span class="tt-unit">/ 500M Cap</span>
+                </div>
+                <div class="tt-divider"></div>
+                <div class="tt-compare-title">RESOURCE CORRELATION AT THIS SECOND</div>
+                <div class="tt-row">
+                  <span class="tt-label"><span class="tt-dot" style="background:#38bdf8;"></span> CPU (V8):</span>
+                  <span class="tt-val" id="ttRamCpuVal">1.2%</span>
+                </div>
+                <div class="tt-row">
+                  <span class="tt-label"><span class="tt-dot" style="background:#34d399;"></span> Free Headroom:</span>
+                  <span class="tt-val" id="ttRamHeadroomVal" style="color:#34d399;">322.6 MiB</span>
+                </div>
+                <div class="tt-row">
+                  <span class="tt-label"><span class="tt-dot" style="background:#c084fc;"></span> V8 Heap:</span>
+                  <span class="tt-val" id="ttRamHeapVal">46.2 MiB</span>
+                </div>
+                <div class="tt-row">
+                  <span class="tt-label"><span class="tt-dot" style="background:#fbbf24;"></span> Event Loop:</span>
+                  <span class="tt-val" id="ttRamLagVal">0.6 ms</span>
+                </div>
+                <div class="tt-row">
+                  <span class="tt-label"><span class="tt-dot" style="background:#22d3ee;"></span> Throughput:</span>
+                  <span class="tt-val" id="ttRamReqVal">0 req/min</span>
+                </div>
+              </div>
+              <svg class="grafana-svg" id="svgRam" viewBox="0 0 500 135" preserveAspectRatio="none">
+                <defs>
+                  <linearGradient id="ramGradient" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stop-color="#34d399" stop-opacity="0.32"/>
+                    <stop offset="100%" stop-color="#34d399" stop-opacity="0.0"/>
+                  </linearGradient>
+                </defs>
+                <line x1="0" y1="10" x2="500" y2="10" stroke="#f87171" stroke-width="1.2" stroke-dasharray="4 3" opacity="0.8"/>
+                <text x="495" y="8" fill="#f87171" font-size="8.5" font-family="monospace" text-anchor="end" font-weight="bold">PM2 RESTART CAP: 500 MB</text>
+                <line x1="0" y1="33" x2="500" y2="33" stroke="#fbbf24" stroke-width="1" stroke-dasharray="3 3" opacity="0.5"/>
+                <text x="495" y="31" fill="#fbbf24" font-size="8" font-family="monospace" text-anchor="end">80% WARNING: 400 MB</text>
+                <line x1="0" y1="56" x2="500" y2="56" class="grid-line"/>
+                <line x1="0" y1="79" x2="500" y2="79" class="grid-line"/>
+                <line x1="0" y1="102" x2="500" y2="102" class="grid-line"/>
+                <line x1="0" y1="125" x2="500" y2="125" class="grid-line"/>
+                <path id="areaRamWave" fill="url(#ramGradient)"/>
+                <path id="pathRamWave" fill="none" stroke="#34d399" stroke-width="2.2" stroke-linecap="round"/>
+                <line id="crosshairRam" class="crosshair-v-line" x1="0" y1="0" x2="0" y2="135" stroke="#ffffff" stroke-width="1.5" stroke-dasharray="3,3" opacity="0" />
+                <circle id="dotRam" class="crosshair-circle ram-crosshair-circle" cx="0" cy="0" r="5.5" stroke="#34d399" stroke-width="2.5" fill="#06090f" opacity="0" />
+              </svg>
             </div>
+          </div>
+          <div class="x-axis-labels" id="xAxisRam">
+            <div class="x-tick"><span class="x-tick-time">--:--</span><span class="x-tick-date">--/--</span></div>
+            <div class="x-tick"><span class="x-tick-time">--:--</span><span class="x-tick-date">--/--</span></div>
+            <div class="x-tick"><span class="x-tick-time">--:--</span><span class="x-tick-date">--/--</span></div>
+            <div class="x-tick"><span class="x-tick-time">--:--</span><span class="x-tick-date">--/--</span></div>
+            <div class="x-tick"><span class="x-tick-time">--:--</span><span class="x-tick-date">--/--</span></div>
           </div>
         </div>
 
-        <!-- SVG Time-Series Chart Box with Y-Axis Scale -->
-        <div class="chart-container">
-          <div class="y-axis-labels">
-            <span>500M</span>
-            <span>250M</span>
-            <span>0M</span>
-          </div>
-          <div class="chart-svg-wrap">
-            <svg class="grafana-svg" viewBox="0 0 450 115" preserveAspectRatio="none">
-              <defs>
-                <linearGradient id="grad-ram-grafana" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stop-color="#34d399" stop-opacity="0.4"/>
-                  <stop offset="60%" stop-color="#34d399" stop-opacity="0.1"/>
-                  <stop offset="100%" stop-color="#34d399" stop-opacity="0.0"/>
-                </linearGradient>
-              </defs>
-              <line x1="0" y1="12" x2="450" y2="12" class="grid-line"/>
-              <line x1="0" y1="58" x2="450" y2="58" class="grid-line"/>
-              <line x1="0" y1="105" x2="450" y2="105" class="grid-line"/>
-              <path id="areaRamWave" fill="url(#grad-ram-grafana)" d="M0,105 L450,105 Z" />
-              <path id="pathRamWave" fill="none" stroke="#34d399" stroke-width="2.5" stroke-linecap="round" d="M0,105 L450,105" />
-            </svg>
-          </div>
-        </div>
-
-        <!-- Grafana Legend Row -->
         <div class="grafana-legend">
+          <span>Target: &lt; 400 MiB (Headroom: 322 MiB)</span>
           <div class="legend-stats">
-            <span>Current: <strong id="legendRamCur">177.4 MiB</strong></span>
-            <span>Avg: <strong id="legendRamAvg">176.1 MiB</strong></span>
-            <span>Min: <strong id="legendRamMin">172.0 MiB</strong></span>
-            <span>Max: <strong id="legendRamMax">184.2 MiB</strong></span>
-          </div>
-          <div style="font-size:10px; color:var(--text-dim);">
-            Swap: <strong>2.0 GiB (0% Used)</strong>
+            <span>CUR: <strong id="legendRamCur">177.4 MiB</strong></span>
+            <span>AVG: <strong id="legendRamAvg">176.1 MiB</strong></span>
+            <span>MIN: <strong id="legendRamMin">172.0 MiB</strong></span>
+            <span>MAX: <strong id="legendRamMax">184.2 MiB</strong></span>
           </div>
         </div>
       </div>
 
+    </div>
+
+    <!-- Cluster Resource Correlation Strip -->
+    <div class="correlation-strip">
+      <div class="corr-item">
+        <span class="tt-dot" style="background:#38bdf8;"></span>
+        <span class="corr-label">CPU Pressure:</span>
+        <span class="corr-val" id="corrCpuStatus">Nominal (&lt; 5%)</span>
+      </div>
+      <div class="corr-item">
+        <span class="tt-dot" style="background:#34d399;"></span>
+        <span class="corr-label">Kernel RSS Growth:</span>
+        <span class="corr-val" id="corrRamStatus">Safe Buffer (177 / 500 MB)</span>
+      </div>
+      <div class="corr-item">
+        <span class="tt-dot" style="background:#fbbf24;"></span>
+        <span class="corr-label">Voice Audio SLA:</span>
+        <span class="corr-val" id="corrLagStatus">0.6ms Event Loop (Passed)</span>
+      </div>
+      <div class="corr-item">
+        <span class="tt-dot" style="background:#c084fc;"></span>
+        <span class="corr-label">V8 GC State:</span>
+        <span class="corr-val" id="corrHeapStatus">Healthy (Zero Thrashing)</span>
+      </div>
     </div>
 
     <!-- Section 2: V8 Engine & Concurrency Metrics (shadcn KPI Stat Cards) -->
@@ -1699,23 +2048,27 @@
     let latSeries = [0.9, 1.0, 1.1, 0.9, 1.0, 1.2, 1.0, 0.9, 1.0, 1.1, 1.0, 0.9, 1.0, 1.0, 1.1, 0.9, 1.0, 1.0, 1.1, 1.0];
     let handlesSeries = [4, 4, 4, 4, 4, 5, 4, 4, 4, 4, 4, 5, 4, 4, 4, 4, 4, 4, 4, 4];
 
-    // Smooth Catmull-Rom Cubic Bezier Spline Generator (Standard in Grafana / D3.js)
-    function generateSpline(data, width, height, minVal, maxVal, padding = 10) {
-      if (!data || data.length < 2) return "";
+    // Catmull-Rom Cubic Bezier Point & Spline Generator
+    function generateSplinePoints(data, width, height, minVal, maxVal, padding = 10) {
+      if (!data || data.length < 2) return [];
       const range = (maxVal - minVal) || 1;
       const stepX = width / (data.length - 1);
       const effH = height - (padding * 2);
 
-      const pts = data.map((val, i) => {
+      return data.map((val, i) => {
         const clamped = Math.max(minVal, Math.min(maxVal, val));
         const normalized = (clamped - minVal) / range;
         return {
           x: i * stepX,
-          y: height - padding - (normalized * effH)
+          y: height - padding - (normalized * effH),
+          val: val
         };
       });
+    }
 
-      let path = `M ${pts[0].x.toFixed(1)},${pts[0].y.toFixed(1)}`;
+    function buildSplinePath(pts) {
+      if (!pts || pts.length < 2) return "";
+      let path = "M " + pts[0].x.toFixed(1) + "," + pts[0].y.toFixed(1);
       for (let i = 0; i < pts.length - 1; i++) {
         const p0 = pts[i === 0 ? 0 : i - 1];
         const p1 = pts[i];
@@ -1727,15 +2080,290 @@
         const cp2x = p2.x - (p3.x - p1.x) / 6;
         const cp2y = p2.y - (p3.y - p1.y) / 6;
 
-        path += ` C ${cp1x.toFixed(1)},${cp1y.toFixed(1)} ${cp2x.toFixed(1)},${cp2y.toFixed(1)} ${p2.x.toFixed(1)},${p2.y.toFixed(1)}`;
+        path += " C " + cp1x.toFixed(1) + "," + cp1y.toFixed(1) + " " + cp2x.toFixed(1) + "," + cp2y.toFixed(1) + " " + p2.x.toFixed(1) + "," + p2.y.toFixed(1);
       }
       return path;
     }
 
+    let isCpuZoom = false;
+    let currentCpuPts = [];
+    let currentRamPts = [];
+    let timestampsSeries = [];
+    const nowTs = Date.now();
+    for (let i = 23; i >= 0; i--) {
+      timestampsSeries.push(nowTs - i * 5000);
+    }
+
+    function setCpuScale(zoom) {
+      isCpuZoom = zoom;
+      const btnFull = document.getElementById("btnCpuScaleFull");
+      const btnZoom = document.getElementById("btnCpuScaleZoom");
+      if (btnFull) btnFull.classList.toggle("active", !zoom);
+      if (btnZoom) btnZoom.classList.toggle("active", zoom);
+      renderGrafanaDashboard();
+    }
+
+    function formatTimeTick(ts) {
+      if (!ts) return { time: "--:--", date: "--/--" };
+      const d = new Date(ts);
+      let h = d.getHours();
+      const m = String(d.getMinutes()).padStart(2, '0');
+      const ampm = h >= 12 ? 'pm' : 'am';
+      h = h % 12 || 12;
+      const time = String(h).padStart(2, '0') + ":" + m + " " + ampm;
+      const month = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      const date = month + "/" + day;
+      return { time, date };
+    }
+
+    function formatFullTimestamp(ts) {
+      if (!ts) return "";
+      const d = new Date(ts);
+      const days = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+      const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+      const dayName = days[d.getDay()];
+      const day = d.getDate();
+      const month = months[d.getMonth()];
+      let h = d.getHours();
+      const m = String(d.getMinutes()).padStart(2, '0');
+      const s = String(d.getSeconds()).padStart(2, '0');
+      const ampm = h >= 12 ? 'pm' : 'am';
+      h = h % 12 || 12;
+      return dayName + ", " + month + " " + day + " • " + String(h).padStart(2, '0') + ":" + m + ":" + s + " " + ampm;
+    }
+
+    function handleChartMouseMove(e) {
+      if (!cpuSeries || cpuSeries.length < 2) return;
+      const wrap = e.currentTarget.classList.contains("chart-svg-wrap") 
+        ? e.currentTarget 
+        : (e.currentTarget.querySelector(".chart-svg-wrap") || e.currentTarget);
+      const rect = wrap.getBoundingClientRect();
+      const relX = e.clientX - rect.left;
+      const ratio = Math.max(0, Math.min(1, relX / rect.width));
+      const len = cpuSeries.length;
+      const idx = Math.min(len - 1, Math.max(0, Math.round(ratio * (len - 1))));
+
+      updateCrosshairPosition(idx, ratio);
+    }
+
+    function handleChartMouseLeave() {
+      const crosshairCpu = document.getElementById("crosshairCpu");
+      const dotCpu = document.getElementById("dotCpu");
+      const crosshairRam = document.getElementById("crosshairRam");
+      const dotRam = document.getElementById("dotRam");
+      const ttCpu = document.getElementById("tooltipCpu");
+      const ttRam = document.getElementById("tooltipRam");
+
+      if (crosshairCpu) { crosshairCpu.classList.remove("active"); crosshairCpu.setAttribute("opacity", "0"); crosshairCpu.style.opacity = "0"; }
+      if (dotCpu) { dotCpu.classList.remove("active"); dotCpu.setAttribute("opacity", "0"); dotCpu.style.opacity = "0"; }
+      if (crosshairRam) { crosshairRam.classList.remove("active"); crosshairRam.setAttribute("opacity", "0"); crosshairRam.style.opacity = "0"; }
+      if (dotRam) { dotRam.classList.remove("active"); dotRam.setAttribute("opacity", "0"); dotRam.style.opacity = "0"; }
+      if (ttCpu) { ttCpu.classList.remove("active"); ttCpu.style.opacity = "0"; ttCpu.style.display = "none"; }
+      if (ttRam) { ttRam.classList.remove("active"); ttRam.style.opacity = "0"; ttRam.style.display = "none"; }
+
+      resetCorrelationStripLive();
+    }
+
+    function updateCrosshairPosition(idx, ratio) {
+      const len = cpuSeries.length;
+      if (idx < 0 || idx >= len) return;
+
+      const ptCpu = currentCpuPts[idx];
+      const ptRam = currentRamPts[idx];
+      if (!ptCpu || !ptRam) return;
+
+      const pointX = ptCpu.x.toFixed(1);
+      const cpuY = ptCpu.y.toFixed(1);
+      const ramY = ptRam.y.toFixed(1);
+
+      const ts = (timestampsSeries && timestampsSeries[idx]) || (Date.now() - (len - 1 - idx) * 5000);
+      const fullTimeStr = formatFullTimestamp(ts);
+
+      const crosshairCpu = document.getElementById("crosshairCpu");
+      const dotCpu = document.getElementById("dotCpu");
+      const crosshairRam = document.getElementById("crosshairRam");
+      const dotRam = document.getElementById("dotRam");
+      const ttCpu = document.getElementById("tooltipCpu");
+      const ttRam = document.getElementById("tooltipRam");
+
+      if (crosshairCpu) {
+        crosshairCpu.setAttribute("x1", pointX);
+        crosshairCpu.setAttribute("x2", pointX);
+        crosshairCpu.setAttribute("opacity", "1");
+        crosshairCpu.classList.add("active");
+        crosshairCpu.style.opacity = "1";
+        crosshairCpu.style.display = "inline";
+      }
+      if (dotCpu) {
+        dotCpu.setAttribute("cx", pointX);
+        dotCpu.setAttribute("cy", cpuY);
+        dotCpu.setAttribute("opacity", "1");
+        dotCpu.classList.add("active");
+        dotCpu.style.opacity = "1";
+        dotCpu.style.display = "inline";
+      }
+
+      if (crosshairRam) {
+        crosshairRam.setAttribute("x1", pointX);
+        crosshairRam.setAttribute("x2", pointX);
+        crosshairRam.setAttribute("opacity", "1");
+        crosshairRam.classList.add("active");
+        crosshairRam.style.opacity = "1";
+        crosshairRam.style.display = "inline";
+      }
+      if (dotRam) {
+        dotRam.setAttribute("cx", pointX);
+        dotRam.setAttribute("cy", ramY);
+        dotRam.setAttribute("opacity", "1");
+        dotRam.classList.add("active");
+        dotRam.style.opacity = "1";
+        dotRam.style.display = "inline";
+      }
+
+      const cpuVal = cpuSeries[idx] || 0;
+      const ramVal = ramSeries[idx] || 0;
+      const heapVal = (heapSeries[idx % heapSeries.length] || (ramVal * 0.35)).toFixed(1);
+      const reqVal = reqSeries[idx] || 0;
+      const lagVal = (lagSeries[idx] || 0.6).toFixed(1);
+      const headroomMb = Math.max(0, 500 - ramVal).toFixed(1);
+      const capPct = ((ramVal / 500) * 100).toFixed(1);
+
+      // 1. Update CPU Tooltip
+      const elTtTimeCpu = document.getElementById("ttTimeCpu");
+      const elTtPrimaryCpuVal = document.getElementById("ttPrimaryCpuVal");
+      const elTtCpuRamVal = document.getElementById("ttCpuRamVal");
+      const elTtCpuHeadroomVal = document.getElementById("ttCpuHeadroomVal");
+      const elTtCpuHeapVal = document.getElementById("ttCpuHeapVal");
+      const elTtCpuLagVal = document.getElementById("ttCpuLagVal");
+      const elTtCpuReqVal = document.getElementById("ttCpuReqVal");
+
+      if (elTtTimeCpu) elTtTimeCpu.innerText = fullTimeStr;
+      if (elTtPrimaryCpuVal) elTtPrimaryCpuVal.innerText = cpuVal.toFixed(1) + "%";
+      if (elTtCpuRamVal) elTtCpuRamVal.innerHTML = ramVal.toFixed(1) + " MiB <span class='tt-sub'>(" + capPct + "% Cap)</span>";
+      if (elTtCpuHeadroomVal) elTtCpuHeadroomVal.innerText = headroomMb + " MiB Free";
+      if (elTtCpuHeapVal) elTtCpuHeapVal.innerText = heapVal + " MiB";
+      if (elTtCpuLagVal) elTtCpuLagVal.innerHTML = lagVal + " ms <span class='tt-sub'>(&lt;10ms SLA)</span>";
+      if (elTtCpuReqVal) elTtCpuReqVal.innerText = reqVal + " req/min";
+
+      // 2. Update RAM Tooltip
+      const elTtTimeRam = document.getElementById("ttTimeRam");
+      const elTtPrimaryRamVal = document.getElementById("ttPrimaryRamVal");
+      const elTtRamCpuVal = document.getElementById("ttRamCpuVal");
+      const elTtRamHeadroomVal = document.getElementById("ttRamHeadroomVal");
+      const elTtRamHeapVal = document.getElementById("ttRamHeapVal");
+      const elTtRamLagVal = document.getElementById("ttRamLagVal");
+      const elTtRamReqVal = document.getElementById("ttRamReqVal");
+
+      if (elTtTimeRam) elTtTimeRam.innerText = fullTimeStr;
+      if (elTtPrimaryRamVal) elTtPrimaryRamVal.innerText = ramVal.toFixed(1) + " MiB";
+      if (elTtRamCpuVal) elTtRamCpuVal.innerHTML = cpuVal.toFixed(1) + "% <span class='tt-sub'>(Nominal)</span>";
+      if (elTtRamHeadroomVal) elTtRamHeadroomVal.innerText = headroomMb + " MiB Free";
+      if (elTtRamHeapVal) elTtRamHeapVal.innerText = heapVal + " MiB";
+      if (elTtRamLagVal) elTtRamLagVal.innerHTML = lagVal + " ms <span class='tt-sub'>(&lt;10ms SLA)</span>";
+      if (elTtRamReqVal) elTtRamReqVal.innerText = reqVal + " req/min";
+
+      // 3. Dynamically position both tooltips beside the synchronized crosshair
+      const xPct = (idx / (len - 1)) * 100;
+      [ttCpu, ttRam].forEach(tt => {
+        if (!tt) return;
+        if (xPct < 60) {
+          tt.style.left = "calc(" + xPct + "% + 14px)";
+          tt.style.right = "auto";
+        } else {
+          tt.style.left = "auto";
+          tt.style.right = "calc(" + (100 - xPct) + "% + 14px)";
+        }
+        tt.style.top = "10px";
+        tt.classList.add("active");
+        tt.style.display = "block";
+        tt.style.opacity = "1";
+      });
+
+      // 4. Update Cluster Correlation Strip for this slice
+      updateCorrelationStripSlice(cpuVal, ramVal, parseFloat(lagVal), parseFloat(heapVal));
+    }
+
+    function updateCorrelationStripSlice(cpuVal, ramVal, lagVal, heapVal) {
+      const corrCpu = document.getElementById("corrCpuStatus");
+      const corrRam = document.getElementById("corrRamStatus");
+      const corrLag = document.getElementById("corrLagStatus");
+      const corrHeap = document.getElementById("corrHeapStatus");
+
+      if (corrCpu) {
+        if (cpuVal < 15) corrCpu.innerHTML = '<span style="color:#38bdf8;">Optimal</span> (' + cpuVal.toFixed(1) + '% V8 load)';
+        else if (cpuVal < 60) corrCpu.innerHTML = '<span style="color:#fbbf24;">Moderate</span> (' + cpuVal.toFixed(1) + '%)';
+        else corrCpu.innerHTML = '<span style="color:#f87171;">Elevated Load</span> (' + cpuVal.toFixed(1) + '%)';
+      }
+
+      if (corrRam) {
+        const headroom = (500 - ramVal).toFixed(0);
+        if (ramVal < 300) corrRam.innerHTML = '<span style="color:#34d399;">Safe Buffer</span> (' + ramVal.toFixed(0) + ' / 500 MB • ' + headroom + 'M free)';
+        else if (ramVal < 450) corrRam.innerHTML = '<span style="color:#fbbf24;">Approaching Cap</span> (' + ramVal.toFixed(0) + ' MB)';
+        else corrRam.innerHTML = '<span style="color:#f87171;">Critical Cap</span> (' + ramVal.toFixed(0) + ' MB)';
+      }
+
+      if (corrLag) {
+        if (lagVal < 2.0) corrLag.innerHTML = '<span style="color:#34d399;">Ultra-Low</span> (' + lagVal.toFixed(1) + 'ms • Voice OK)';
+        else if (lagVal < 10.0) corrLag.innerHTML = '<span style="color:#fbbf24;">Acceptable</span> (' + lagVal.toFixed(1) + 'ms)';
+        else corrLag.innerHTML = '<span style="color:#f87171;">Jitter Detected</span> (' + lagVal.toFixed(1) + 'ms)';
+      }
+
+      if (corrHeap) {
+        corrHeap.innerHTML = '<span style="color:#c084fc;">Healthy GC</span> (' + heapVal.toFixed(1) + ' MB)';
+      }
+    }
+
+    function resetCorrelationStripLive() {
+      const cpuCur = cpuSeries[cpuSeries.length - 1] || 0;
+      const ramCur = ramSeries[ramSeries.length - 1] || 0;
+      const lagCur = lagSeries[lagSeries.length - 1] || 0.6;
+      const heapCur = heapSeries[heapSeries.length - 1] || 46.2;
+      updateCorrelationStripSlice(cpuCur, ramCur, lagCur, heapCur);
+    }
+
+    function initChartListeners() {
+      const wrapCpu = document.getElementById("svgWrapCpu");
+      const wrapRam = document.getElementById("svgWrapRam");
+
+      [wrapCpu, wrapRam].forEach(el => {
+        if (!el) return;
+        el.removeEventListener("mousemove", handleChartMouseMove);
+        el.removeEventListener("mouseleave", handleChartMouseLeave);
+        el.addEventListener("mousemove", handleChartMouseMove);
+        el.addEventListener("mouseleave", handleChartMouseLeave);
+      });
+    }
+
     function renderGrafanaDashboard() {
-      // 1. CPU Waveform (0% - 10% on 1 OCPU Micro VM, peak up to 100%)
-      const cpuLine = generateSpline(cpuSeries, 450, 115, 0, 10, 12);
-      const cpuArea = `${cpuLine} L 450,115 L 0,115 Z`;
+      if (!cpuSeries || cpuSeries.length < 2) return;
+
+      // 1. CPU Waveform
+      let maxCpuCeil = 100;
+      if (isCpuZoom) {
+        const maxCpuData = Math.max(1, ...cpuSeries);
+        if (maxCpuData > 50) maxCpuCeil = 100;
+        else if (maxCpuData > 25) maxCpuCeil = 50;
+        else if (maxCpuData > 10) maxCpuCeil = 25;
+        else if (maxCpuData > 5) maxCpuCeil = 10;
+        else maxCpuCeil = 5;
+      }
+
+      const yLabelsCpu = document.getElementById("yLabelsCpu");
+      if (yLabelsCpu) {
+        yLabelsCpu.innerHTML = [
+          '<span>' + maxCpuCeil.toFixed(isCpuZoom ? 1 : 0) + '%</span>',
+          '<span>' + (maxCpuCeil * 0.8).toFixed(isCpuZoom ? 1 : 0) + '%</span>',
+          '<span>' + (maxCpuCeil * 0.6).toFixed(isCpuZoom ? 1 : 0) + '%</span>',
+          '<span>' + (maxCpuCeil * 0.4).toFixed(isCpuZoom ? 1 : 0) + '%</span>',
+          '<span>' + (maxCpuCeil * 0.2).toFixed(isCpuZoom ? 1 : 0) + '%</span>',
+          '<span>0%</span>'
+        ].join('');
+      }
+
+      currentCpuPts = generateSplinePoints(cpuSeries, 500, 135, 0, maxCpuCeil, 10);
+      const cpuLine = buildSplinePath(currentCpuPts);
+      const cpuArea = cpuLine + " L 500,135 L 0,135 Z";
       const pathCpu = document.getElementById("pathCpuWave");
       const areaCpu = document.getElementById("areaCpuWave");
       if (pathCpu) pathCpu.setAttribute("d", cpuLine);
@@ -1767,8 +2395,9 @@
       if (elCpuPVal) elCpuPVal.innerText = cpuCur.toFixed(1) + "%";
 
       // 2. RAM Waveform (Safety cap: 500 MB)
-      const ramLine = generateSpline(ramSeries, 450, 115, 0, 500, 12);
-      const ramArea = `${ramLine} L 450,115 L 0,115 Z`;
+      currentRamPts = generateSplinePoints(ramSeries, 500, 135, 0, 500, 10);
+      const ramLine = buildSplinePath(currentRamPts);
+      const ramArea = ramLine + " L 500,135 L 0,135 Z";
       const pathRam = document.getElementById("pathRamWave");
       const areaRam = document.getElementById("areaRamWave");
       if (pathRam) pathRam.setAttribute("d", ramLine);
@@ -1800,11 +2429,38 @@
       const elRamBadge = document.getElementById("ramPercentBadge");
       if (elRamBar) elRamBar.style.width = ramPercent + "%";
       if (elRamPVal) elRamPVal.innerText = ramPercent + "%";
-      if (elRamBadge) elRamBadge.innerText = `🟢 ${ramPercent}% Utilized`;
+      if (elRamBadge) elRamBadge.innerText = `🟢 ${ramPercent}% Cap`;
 
-      // 3. HTTP Sparkline (req/min)
+      // 3. X-Axis Timestamps (5 dual-line ticks)
+      const xLabelsCpu = document.getElementById("xAxisCpu");
+      const xLabelsRam = document.getElementById("xAxisRam");
+      if (timestampsSeries && timestampsSeries.length >= 2) {
+        const tickIndices = [
+          0,
+          Math.floor((timestampsSeries.length - 1) * 0.25),
+          Math.floor((timestampsSeries.length - 1) * 0.5),
+          Math.floor((timestampsSeries.length - 1) * 0.75),
+          timestampsSeries.length - 1
+        ];
+        const html = tickIndices.map((i, tickIdx) => {
+          const ts = timestampsSeries[i] || (Date.now() - (timestampsSeries.length - 1 - i) * 5000);
+          const { time, date } = formatTimeTick(ts);
+          const align = tickIdx === 0 ? 'align-items:flex-start; text-align:left;' : (tickIdx === 4 ? 'align-items:flex-end; text-align:right;' : 'align-items:center; text-align:center;');
+          return '<div class="x-tick" style="flex:1; ' + align + '">' +
+                   '<span class="x-tick-time">' + time + '</span>' +
+                   '<span class="x-tick-date">' + date + '</span>' +
+                 '</div>';
+        }).join('');
+        if (xLabelsCpu) xLabelsCpu.innerHTML = html;
+        if (xLabelsRam) xLabelsRam.innerHTML = html;
+      }
+
+      // 4. Correlation Strip (Live)
+      resetCorrelationStripLive();
+
+      // 5. HTTP Sparkline (req/min)
       const maxSampledReq = Math.max(10, ...reqSeries);
-      const reqLine = generateSpline(reqSeries, 240, 45, 0, maxSampledReq * 1.25, 6);
+      const reqLine = buildSplinePath(generateSplinePoints(reqSeries, 240, 45, 0, maxSampledReq * 1.25, 6));
       const reqArea = `${reqLine} L 240,45 L 0,45 Z`;
       const pathSparkReq = document.getElementById("pathSparkReq");
       const areaSparkReq = document.getElementById("areaSparkReq");
@@ -1817,16 +2473,16 @@
       if (elReqsVal) elReqsVal.innerText = reqCur;
       if (elMiniReqs) elMiniReqs.innerText = reqCur;
 
-      // 4. V8 Heap Sparkline
-      const heapLine = generateSpline(heapSeries, 240, 45, 40, 60, 6);
+      // 6. V8 Heap Sparkline
+      const heapLine = buildSplinePath(generateSplinePoints(heapSeries, 240, 45, 40, 60, 6));
       const heapArea = `${heapLine} L 240,45 L 0,45 Z`;
       const pathSparkHeap = document.getElementById("pathSparkHeap");
       const areaSparkHeap = document.getElementById("areaSparkHeap");
       if (pathSparkHeap) pathSparkHeap.setAttribute("d", heapLine);
       if (areaSparkHeap) areaSparkHeap.setAttribute("d", heapArea);
 
-      // 5. Event Loop Lag Sparkline
-      const lagLine = generateSpline(lagSeries, 240, 45, 0, 2.0, 6);
+      // 7. Event Loop Lag Sparkline
+      const lagLine = buildSplinePath(generateSplinePoints(lagSeries, 240, 45, 0, 2.0, 6));
       const lagArea = `${lagLine} L 240,45 L 0,45 Z`;
       const pathSparkLag = document.getElementById("pathSparkLag");
       const areaSparkLag = document.getElementById("areaSparkLag");
@@ -1839,21 +2495,23 @@
       if (elLagVal) elLagVal.innerText = lagCur.toFixed(1);
       if (elMiniLag) elMiniLag.innerText = lagCur.toFixed(1);
 
-      // 6. HTTP Latency Sparkline
-      const latLine = generateSpline(latSeries, 240, 45, 0, 2.5, 6);
+      // 8. HTTP Latency Sparkline
+      const latLine = buildSplinePath(generateSplinePoints(latSeries, 240, 45, 0, 2.5, 6));
       const latArea = `${latLine} L 240,45 L 0,45 Z`;
       const pathSparkLat = document.getElementById("pathSparkLat");
       const areaSparkLat = document.getElementById("areaSparkLat");
       if (pathSparkLat) pathSparkLat.setAttribute("d", latLine);
       if (areaSparkLat) areaSparkLat.setAttribute("d", latArea);
 
-      // 7. Handles Sparkline
-      const handlesLine = generateSpline(handlesSeries, 240, 45, 0, 8, 6);
+      // 9. Handles Sparkline
+      const handlesLine = buildSplinePath(generateSplinePoints(handlesSeries, 240, 45, 0, 8, 6));
       const handlesArea = `${handlesLine} L 240,45 L 0,45 Z`;
       const pathSparkHandles = document.getElementById("pathSparkHandles");
       const areaSparkHandles = document.getElementById("areaSparkHandles");
       if (pathSparkHandles) pathSparkHandles.setAttribute("d", handlesLine);
       if (areaSparkHandles) areaSparkHandles.setAttribute("d", handlesArea);
+
+      initChartListeners();
     }
 
     // Background 2.5s Ambient Telemetry Pulse (Keeps dashboard alive even when not in Live Tail)
@@ -1874,6 +2532,7 @@
       heapSeries.shift(); heapSeries.push(nextHeap);
       latSeries.shift(); latSeries.push(nextLat);
       handlesSeries.shift(); handlesSeries.push(nextHandles);
+      timestampsSeries.shift(); timestampsSeries.push(Date.now());
 
       renderGrafanaDashboard();
     }, 2500);

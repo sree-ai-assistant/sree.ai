@@ -6,6 +6,7 @@ import * as XLSX from 'xlsx';
 import fs from 'fs';
 import path from 'path';
 import { pipeline } from 'stream/promises';
+import { assertSafeUrl } from '../utils/urlValidator';
 
 class FileService {
   private readonly MAX_CHARS = 50000;
@@ -16,6 +17,9 @@ class FileService {
     console.log(`[FileService] Starting extraction for ${fileName} (${extension})`);
 
     try {
+      // SSRF Protection: Validate destination URL protocol, host, and port (CWE-918)
+      assertSafeUrl(url);
+
       // Download the file with a timeout
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), this.DOWNLOAD_TIMEOUT);
@@ -143,6 +147,9 @@ class FileService {
   }
 
   async downloadFile(url: string, localPath: string, retries = 3): Promise<void> {
+    // SSRF Protection: Validate target URL protocol, host, and port (CWE-918)
+    assertSafeUrl(url);
+
     const timeout = 120000; // 120 seconds per attempt
     const uploadsDir = path.dirname(localPath);
 
@@ -162,6 +169,13 @@ class FileService {
           url,
           responseType: 'stream',
           timeout,
+          maxRedirects: 3,
+          beforeRedirect: (_options: any, responseDetails: any) => {
+            const redirectLocation = responseDetails?.headers?.location;
+            if (redirectLocation) {
+              assertSafeUrl(redirectLocation);
+            }
+          },
           headers: {
             'Accept': '*/*',
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'

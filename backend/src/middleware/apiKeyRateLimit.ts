@@ -43,14 +43,7 @@ function cleanCache(cache: Map<string, RateLimitRecord>, now: number) {
 }
 
 function getClientIp(req: Request): string {
-  const forwarded = req.headers['x-forwarded-for'];
-  if (typeof forwarded === 'string') {
-    return forwarded.split(',')[0]?.trim() || req.ip || '0.0.0.0';
-  }
-  if (Array.isArray(forwarded)) {
-    return forwarded[0]?.trim() || req.ip || '0.0.0.0';
-  }
-  return (req.headers['x-real-ip'] as string) || req.ip || '0.0.0.0';
+  return req.ip || req.socket?.remoteAddress || '0.0.0.0';
 }
 
 function checkSlidingWindow(

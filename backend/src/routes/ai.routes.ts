@@ -24,6 +24,7 @@ import { reportModelError } from '../services/modelObserver.service';
 import { multimodalService } from '../services/multimodal.service';
 import { resolveProvider } from '../utils/providerResolver';
 import { convertTo16kHzMonoWav } from '../utils/audioConversion';
+import { assertSafeUrl } from '../utils/urlValidator';
 
 const router = Router();
 
@@ -124,6 +125,12 @@ router.get('/download', authMiddleware, rateLimitMiddleware('download'), async (
       responseType: 'stream',
       timeout: 15000, // 15s timeout
       maxRedirects: 3, // Limit redirect-based SSRF
+      beforeRedirect: (_options: any, responseDetails: any) => {
+        const redirectLocation = responseDetails?.headers?.location;
+        if (redirectLocation) {
+          assertSafeUrl(redirectLocation);
+        }
+      },
     });
 
     // 2. Stream back to client
@@ -189,7 +196,13 @@ router.get('/usage', flexAuthMiddleware, async (req: any, res: any) => {
   }
 });
 
-const upload = multer({ dest: 'uploads/' });
+const upload = multer({
+  dest: 'uploads/',
+  limits: {
+    fileSize: 100 * 1024 * 1024, // 100MB transport ceiling to prevent disk exhaustion DoS (CWE-400)
+    files: 1
+  }
+});
 
 /**
  * Stores a video reference (name + url) in the conversations.videos_in_conversation column.

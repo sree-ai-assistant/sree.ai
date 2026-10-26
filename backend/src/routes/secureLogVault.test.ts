@@ -36,7 +36,11 @@ import {
   checkRateLimit,
   recordFailedAttempt,
   clearRateLimit,
+  getVaultConfig,
+  getVaultSessionSecret,
+  getClientIp,
 } from './secureLogVault.routes';
+import { escapeHtml, renderLoginHtml } from './secureLogVault.template';
 
 describe('Secure Log Vault - Security & Hardening Tests', () => {
   const testIp = '198.51.100.42';
@@ -257,6 +261,101 @@ describe('Secure Log Vault - Security & Hardening Tests', () => {
       expect(res.status).toBe(302);
       expect(res.header.location).toBe(`${vaultPath}/login`);
       expect(res.header['set-cookie']?.[0]).toContain('sree_log_session=;');
+    });
+
+    it('isolates cookie path to basePath on login and logout', async () => {
+      const res = await request(app)
+        .post(`${vaultPath}/login`)
+        .send({
+          username: process.env.LOG_VAULT_USER || 'sree_admin',
+          password: process.env.LOG_VAULT_PASS || 'Sree_Admin_Vault_2026!'
+        });
+      expect(res.header['set-cookie']?.[0]).toContain(`Path=${vaultPath}`);
+
+      const logoutRes = await request(app).get(`${vaultPath}/logout`);
+      expect(logoutRes.header['set-cookie']?.[0]).toContain(`Path=${vaultPath}`);
+    });
+
+    it('sets hardened Content-Security-Policy headers', async () => {
+      const res = await request(app).get(`${vaultPath}/login`);
+      const csp = res.header['content-security-policy'];
+      expect(csp).toBeDefined();
+      expect(csp).toContain("frame-ancestors 'none'");
+      expect(csp).toContain("base-uri 'self'");
+      expect(csp).toContain("form-action 'self'");
+    });
+
+    it('enforces CSRF validation when CSRF cookie is present', async () => {
+      const loginPage = await request(app).get(`${vaultPath}/login`);
+      const rawCookies = loginPage.header['set-cookie'];
+      const cookies = Array.isArray(rawCookies) ? rawCookies : (rawCookies ? [rawCookies] : []);
+      const csrfCookie = cookies.find((c: string) => c.startsWith('sree_log_csrf='));
+      expect(csrfCookie).toBeDefined();
+
+      // Submit with invalid CSRF token
+      const failedRes = await request(app)
+        .post(`${vaultPath}/login`)
+        .set('Cookie', [csrfCookie!])
+        .send({
+          username: 'sree_admin',
+          password: 'Sree_Admin_Vault_2026!',
+          _csrf: 'invalid_token_12345'
+        });
+      expect(failedRes.status).toBe(403);
+      expect(failedRes.text).toContain('Invalid or expired CSRF token');
+    });
+  });
+
+  describe('OWASP CWE-79: HTML & XSS Neutralization', () => {
+    it('escapes dangerous HTML characters in escapeHtml helper', () => {
+      expect(escapeHtml('<script>alert(1)</script>')).toBe('&lt;script&gt;alert(1)&lt;/script&gt;');
+      expect(escapeHtml('"test" & \'value\'')).toBe('&quot;test&quot; &amp; &#39;value&#39;');
+      expect(escapeHtml(null)).toBe('');
+      expect(escapeHtml(undefined)).toBe('');
+    });
+
+    it('neutralizes XSS payloads in renderLoginHtml error display', () => {
+      const xssPayload = '<img src=x onerror=alert("pwned")>';
+      const html = renderLoginHtml({ basePath: '/ops', error: xssPayload });
+      expect(html).not.toContain('<img src=x');
+      expect(html).toContain('&lt;img src=x onerror=alert(&quot;pwned&quot;)&gt;');
+    });
+
+    it('renders CSRF hidden input in renderLoginHtml when token is provided', () => {
+      const html = renderLoginHtml({ basePath: '/ops', csrfToken: 'sec_tok_999' });
+      expect(html).toContain('name="_csrf" value="sec_tok_999"');
+    });
+  });
+
+  describe('OWASP CWE-798: Secret Enforcement & Vault Configuration', () => {
+    it('verifies that configured environment credentials are recognized', () => {
+      const config = getVaultConfig();
+      expect(config.isConfigured).toBe(true);
+      expect(config.user).toBe('sree_admin');
+    });
+
+    it('throws when LOG_VAULT_SESSION_SECRET is empty', () => {
+      const original = process.env.LOG_VAULT_SESSION_SECRET;
+      delete process.env.LOG_VAULT_SESSION_SECRET;
+      try {
+        expect(() => getVaultSessionSecret()).toThrow('LOG_VAULT_SESSION_SECRET is not configured');
+      } finally {
+        process.env.LOG_VAULT_SESSION_SECRET = original;
+      }
+    });
+  });
+
+  describe('CWE-307: Client IP Resolution Anti-Spoofing', () => {
+    it('prioritizes trusted req.ip over spoofed raw headers', () => {
+      const mockReq = {
+        ip: '203.0.113.195',
+        headers: {
+          'cf-connecting-ip': '1.1.1.1',
+          'x-forwarded-for': '2.2.2.2'
+        },
+        socket: { remoteAddress: '127.0.0.1' }
+      } as any;
+      expect(getClientIp(mockReq)).toBe('203.0.113.195');
     });
   });
 });

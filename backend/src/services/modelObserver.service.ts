@@ -18,6 +18,7 @@
  */
 
 import { supabaseAdmin } from '../lib/supabase';
+import { redactSecrets } from '../routes/secureLogVault.routes';
 
 // ─── Configuration ───────────────────────────────────────────────────
 
@@ -185,7 +186,7 @@ async function persistErrorToSupabase(
   const { error } = await supabaseAdmin.rpc('report_model_error', {
     p_model_id: modelId,
     p_status_code: statusCode,
-    p_error_message: errorMessage ? errorMessage.substring(0, 300) : null,
+    p_error_message: errorMessage ? redactSecrets(errorMessage).substring(0, 300) : null,
   });
 
   if (error) {

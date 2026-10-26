@@ -233,13 +233,12 @@ router.patch('/:ticketId/status', async (req: Request, res: Response, next: Next
       });
     }
 
-    // Timing-safe comparison
+    // SHA-256 normalized timing-safe comparison (CWE-208)
     let isSecretValid = false;
     try {
-      isSecretValid = crypto.timingSafeEqual(
-        Buffer.from(secretHeader, 'utf8'),
-        Buffer.from(FEATURE_REQUEST_WEBHOOK_SECRET, 'utf8')
-      );
+      const hashHeader = crypto.createHash('sha256').update(secretHeader).digest();
+      const hashExpected = crypto.createHash('sha256').update(FEATURE_REQUEST_WEBHOOK_SECRET).digest();
+      isSecretValid = crypto.timingSafeEqual(hashHeader, hashExpected);
     } catch {
       isSecretValid = false;
     }

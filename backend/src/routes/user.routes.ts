@@ -11,8 +11,32 @@ import multer from 'multer';
 import fs from 'fs';
 import path from 'path';
 
+const ALLOWED_AVATAR_MIMES: Record<string, string> = {
+  'image/png': '.png',
+  'image/jpeg': '.jpg',
+  'image/jpg': '.jpg',
+  'image/webp': '.webp'
+};
+
+// Ensure avatar temporary upload directory exists
+const avatarUploadDir = path.join(process.cwd(), 'uploads', 'avatars');
+if (!fs.existsSync(avatarUploadDir)) {
+  fs.mkdirSync(avatarUploadDir, { recursive: true });
+}
+
 const router = Router();
-const avatarUpload = multer({ dest: 'uploads/avatars/', limits: { fileSize: 5 * 1024 * 1024 } });
+const avatarUpload = multer({
+  dest: avatarUploadDir,
+  limits: { fileSize: 5 * 1024 * 1024, files: 1 }, // 5MB, 1 file
+  fileFilter: (_req, file, cb) => {
+    const mime = file.mimetype.toLowerCase();
+    if (ALLOWED_AVATAR_MIMES[mime]) {
+      cb(null, true);
+    } else {
+      cb(new Error('Invalid avatar image format. Only PNG, JPEG, and WebP files are allowed.'));
+    }
+  }
+});
 
 // Protected profile route
 router.get('/profile', authMiddleware, async (req: any, res) => {
@@ -131,8 +155,9 @@ router.post('/avatar', authMiddleware, uploadAgreementMiddleware, avatarUpload.s
     }
 
     const userId = req.user.id;
-    const ext = path.extname(file.originalname) || '.png';
-    const storagePath = `avatars/${userId}${ext}`;
+    const mime = file.mimetype.toLowerCase();
+    const safeExt = ALLOWED_AVATAR_MIMES[mime] || '.png';
+    const storagePath = `avatars/${userId}${safeExt}`;
 
     const fileBuffer = fs.readFileSync(file.path);
 

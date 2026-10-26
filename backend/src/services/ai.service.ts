@@ -7,6 +7,7 @@ import { TokenManager } from '../utils/tokenManager';
 import { supabaseAdmin } from '../lib/supabase';
 import { apiKeyPool } from './apiKeyPool.service';
 import axios from 'axios';
+import { assertSafeUrl } from '../utils/urlValidator';
 
 class AiService {
   private static readonly FLUX_DEV_DIMENSIONS = [768, 832, 896, 960, 1024, 1088, 1152, 1216, 1280, 1344];
@@ -1891,7 +1892,20 @@ class AiService {
    */
   public async urlToBase64(url: string): Promise<string> {
     try {
-      const response = await axios.get(url, { responseType: 'arraybuffer' });
+      // SSRF Protection: Validate image URL protocol, host, and port (CWE-918)
+      assertSafeUrl(url);
+
+      const response = await axios.get(url, {
+        responseType: 'arraybuffer',
+        timeout: 15000,
+        maxRedirects: 3,
+        beforeRedirect: (_options: any, responseDetails: any) => {
+          const redirectLocation = responseDetails?.headers?.location;
+          if (redirectLocation) {
+            assertSafeUrl(redirectLocation);
+          }
+        },
+      });
       const buffer = Buffer.from(response.data, 'binary');
       const contentType = response.headers['content-type'] || 'image/jpeg';
       return `data:${contentType};base64,${buffer.toString('base64')}`;

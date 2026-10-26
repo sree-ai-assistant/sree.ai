@@ -34,6 +34,10 @@ export interface SystemTelemetry {
     ram: number[];
     reqs: number[];
     lag: number[];
+    heap: number[];
+    lat: number[];
+    handles: number[];
+    timestamps: number[];
   };
 }
 
@@ -48,15 +52,23 @@ export class TelemetryService {
 
   private histogram: IntervalHistogram | null = null;
 
-  // History ring buffers (24 samples each, taken every 5 seconds)
+  // History ring buffers (30 samples each, taken every 5 seconds)
   private historyCpu: number[] = [1.2, 1.4, 1.1, 1.5, 1.8, 1.2, 1.0, 1.3, 1.6, 1.4, 1.2, 1.1];
   private historyRam: number[] = [172, 173, 174, 175, 176, 175, 176, 177, 177, 176, 177, 177];
   private historyReqs: number[] = [0, 0, 0, 0, 1, 0, 0, 2, 0, 0, 0, 0];
   private historyLag: number[] = [0.5, 0.6, 0.6, 0.7, 0.5, 0.6, 0.8, 0.6, 0.5, 0.6, 0.7, 0.6];
-  private maxHistorySamples: number = 24;
+  private historyHeap: number[] = [45.2, 45.6, 45.9, 46.1, 45.8, 46.2, 46.4, 46.1, 46.3, 46.0, 46.2, 46.4];
+  private historyLat: number[] = [0.9, 1.0, 1.1, 0.9, 1.0, 1.2, 1.0, 0.9, 1.0, 1.1, 1.0, 1.0];
+  private historyHandles: number[] = [4, 4, 4, 4, 4, 5, 4, 4, 4, 4, 4, 5];
+  private historyTimestamps: number[] = [];
+  private maxHistorySamples: number = 30;
   private sampleTimer: NodeJS.Timeout | null = null;
 
   private constructor() {
+    const now = Date.now();
+    for (let i = this.historyCpu.length - 1; i >= 0; i--) {
+      this.historyTimestamps.push(now - i * 5000);
+    }
     try {
       this.histogram = monitorEventLoopDelay({ resolution: 20 });
       this.histogram.enable();
@@ -141,18 +153,30 @@ export class TelemetryService {
    */
   private captureSample(): void {
     const cpu = this.calculateCpuUsage();
-    const memMb = Math.round((process.memoryUsage().rss / (1024 * 1024)) * 10) / 10;
+    const memUsage = process.memoryUsage();
+    const memMb = Math.round((memUsage.rss / (1024 * 1024)) * 10) / 10;
+    const heapMb = Math.round((memUsage.heapUsed / (1024 * 1024)) * 10) / 10;
     const reqs = this.getRequestsPerMinute();
     let lag = 0.6;
+    let lat = 1.0;
     if (this.histogram) {
       lag = Math.round((this.histogram.mean / 1e6) * 10) / 10;
       if (isNaN(lag) || lag <= 0) lag = 0.6;
+      const p95 = this.histogram.percentile(95) / 1e6;
+      if (!isNaN(p95) && p95 > 0) lat = Math.round(p95 * 10) / 10;
     }
+    const handles = typeof (process as any)._getActiveHandles === 'function'
+      ? (process as any)._getActiveHandles().length
+      : 4;
 
     this.pushSample(this.historyCpu, cpu);
     this.pushSample(this.historyRam, memMb);
     this.pushSample(this.historyReqs, reqs);
     this.pushSample(this.historyLag, lag);
+    this.pushSample(this.historyHeap, heapMb);
+    this.pushSample(this.historyLat, lat);
+    this.pushSample(this.historyHandles, handles);
+    this.pushSample(this.historyTimestamps, Date.now());
   }
 
   private pushSample(arr: number[], val: number): void {
@@ -245,6 +269,10 @@ export class TelemetryService {
         ram: [...this.historyRam],
         reqs: [...this.historyReqs],
         lag: [...this.historyLag],
+        heap: [...this.historyHeap],
+        lat: [...this.historyLat],
+        handles: [...this.historyHandles],
+        timestamps: [...this.historyTimestamps],
       },
     };
   }

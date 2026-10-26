@@ -6,6 +6,7 @@
  */
 
 import { Router, Request, Response } from 'express';
+import crypto from 'crypto';
 import { authMiddleware } from '../middleware/auth';
 import { supabaseAdmin } from '../lib/supabase';
 import { PLAN_CONFIGS } from '../config/plans';
@@ -47,7 +48,7 @@ setInterval(() => {
 function paymentRateLimit(maxRequests: number, windowMs = 60_000) {
   return (req: Request, res: Response, next: Function) => {
     const userId = (req as any).user?.id;
-    const ip = req.ip || req.socket.remoteAddress || 'unknown';
+    const ip = req.ip || req.socket?.remoteAddress || 'unknown';
     const key = `payment:${userId || ip}:${req.path}`;
     const now = Date.now();
     const windowStart = now - windowMs;
@@ -2074,7 +2075,40 @@ router.post('/cancel-current', authMiddleware, paymentRateLimit(3), async (req: 
 /*  Admin: ensure all Razorpay plans exist (idempotent)                 */
 /* ------------------------------------------------------------------ */
 
-router.post('/plans/sync', authMiddleware, paymentRateLimit(3), async (req: any, res: Response) => {
+router.post('/plans/sync', paymentRateLimit(3), async (req: Request, res: Response) => {
+  const secret = req.headers['x-admin-secret'];
+  const expected = process.env.ADMIN_SECRET;
+
+  if (!expected) {
+    return res.status(503).json({
+      success: false,
+      message: 'ADMIN_SECRET not configured on the server.',
+    });
+  }
+
+  if (typeof secret !== 'string') {
+    return res.status(403).json({
+      success: false,
+      message: 'Admin authorization required.',
+    });
+  }
+
+  let isValid = false;
+  try {
+    const hashSecret = crypto.createHash('sha256').update(secret).digest();
+    const hashExpected = crypto.createHash('sha256').update(expected).digest();
+    isValid = crypto.timingSafeEqual(hashSecret, hashExpected);
+  } catch {
+    isValid = false;
+  }
+
+  if (!isValid) {
+    return res.status(403).json({
+      success: false,
+      message: 'Admin authorization failed.',
+    });
+  }
+
   try {
     const plans = await syncAllPlans();
     res.json({ success: true, data: plans });

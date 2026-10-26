@@ -117,8 +117,9 @@ export const rateLimitMiddleware = (toolType: ToolType, provider?: string) => {
         }
       }
 
-      // Check if this is a consecutive request in an already-charged voice session
-      const voiceSessionId = req.body?.voiceSessionId || req.query?.voiceSessionId;
+      // Check if this is a consecutive request in an already-charged voice session (Voice/TTS only)
+      const isVoiceOrTts = actualToolType === 'voice' || (actualToolType as string) === 'tts';
+      const voiceSessionId = isVoiceOrTts ? (req.body?.voiceSessionId || req.query?.voiceSessionId) : undefined;
       let result;
       let voiceSessionCharged = false;
 
@@ -169,8 +170,8 @@ export const rateLimitMiddleware = (toolType: ToolType, provider?: string) => {
           result = await checkAndIncrementUsage(identity, actualToolType, isByok);
         }
 
-        // If the request was allowed, register the session as charged
-        if (voiceSessionId && result.allowed && actualToolType !== 'chat') {
+        // If the request was allowed, register the session as charged (Voice/TTS only)
+        if (voiceSessionId && result.allowed && isVoiceOrTts) {
           voiceSessionCache.add(voiceSessionId as string);
         }
       }

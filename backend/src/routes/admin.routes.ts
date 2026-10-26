@@ -14,7 +14,34 @@ const router = Router();
 //        -H "Content-Type: application/json"
 // ────────────────────────────────────────────────────────────────────────────
 
+// ─── Admin Brute-Force Rate Limiting (CWE-307) ──────────────────────────────
+const adminAttempts = new Map<string, number[]>();
+const ADMIN_MAX_ATTEMPTS = 10;
+const ADMIN_WINDOW_MS = 60 * 1000; // 1 minute
+
+// Periodic garbage collection for admin attempt tracker
+setInterval(() => {
+  const cutoff = Date.now() - ADMIN_WINDOW_MS;
+  for (const [ip, timestamps] of adminAttempts.entries()) {
+    const valid = timestamps.filter(t => t > cutoff);
+    if (valid.length === 0) adminAttempts.delete(ip);
+    else adminAttempts.set(ip, valid);
+  }
+}, 2 * 60 * 1000).unref();
+
 const adminGuard = (req: Request, res: Response, next: Function) => {
+  const ip = req.ip || req.socket?.remoteAddress || '0.0.0.0';
+  const now = Date.now();
+  const windowStart = now - ADMIN_WINDOW_MS;
+
+  const timestamps = (adminAttempts.get(ip) || []).filter(t => t > windowStart);
+  if (timestamps.length >= ADMIN_MAX_ATTEMPTS) {
+    return res.status(429).json({
+      success: false,
+      message: 'Too many admin authorization attempts. Please try again later.',
+    });
+  }
+
   const secret = req.headers['x-admin-secret'];
   const expected = process.env.ADMIN_SECRET;
 
@@ -26,24 +53,27 @@ const adminGuard = (req: Request, res: Response, next: Function) => {
   }
 
   if (typeof secret !== 'string') {
+    timestamps.push(now);
+    adminAttempts.set(ip, timestamps);
     return res.status(403).json({
       success: false,
       message: 'Invalid admin secret.',
     });
   }
 
-  // Use timing-safe comparison to prevent side-channel attacks (NV-02)
+  // Use SHA-256 normalized timing-safe comparison to prevent side-channel timing leaks (CWE-208)
   let isValid = false;
   try {
-    isValid = crypto.timingSafeEqual(
-      Buffer.from(secret, 'utf8'),
-      Buffer.from(expected, 'utf8')
-    );
+    const hashSecret = crypto.createHash('sha256').update(secret).digest();
+    const hashExpected = crypto.createHash('sha256').update(expected).digest();
+    isValid = crypto.timingSafeEqual(hashSecret, hashExpected);
   } catch {
-    isValid = false; // length mismatch
+    isValid = false;
   }
 
   if (!isValid) {
+    timestamps.push(now);
+    adminAttempts.set(ip, timestamps);
     return res.status(403).json({
       success: false,
       message: 'Invalid admin secret.',

@@ -3,6 +3,7 @@ import { supabaseAdmin } from '../lib/supabase';
 import { flexAuthMiddleware } from '../middleware/anonymousIdentity';
 import { PLAN_CONFIGS as PLANS, type PlanTier } from '../config/plans';
 import { getObserverStatus } from '../services/modelObserver.service';
+import { redactSecrets } from './secureLogVault.routes';
 
 const router = Router();
 
@@ -43,11 +44,16 @@ router.get('/observer-status', flexAuthMiddleware, async (req, res) => {
 
     if (error) throw error;
 
+    const sanitizedCounters = (dbCounters || []).map(row => ({
+      ...row,
+      last_error_message: row.last_error_message ? redactSecrets(row.last_error_message) : null
+    }));
+
     res.json({
       success: true,
       data: {
         memory: memoryStatus,
-        persistent: dbCounters || [],
+        persistent: sanitizedCounters,
       },
     });
   } catch (error: any) {

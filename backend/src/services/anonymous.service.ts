@@ -66,6 +66,13 @@ export function generateAnonId(): string {
   return crypto.randomUUID();
 }
 
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+export function isValidAnonId(anonId: string | undefined | null): boolean {
+  if (!anonId || typeof anonId !== 'string') return false;
+  return UUID_REGEX.test(anonId.trim());
+}
+
 // ─── Service ─────────────────────────────────────────────────────
 
 /**
@@ -73,10 +80,12 @@ export function generateAnonId(): string {
  * Returns null if not found or already migrated.
  */
 export async function getByAnonId(anonId: string): Promise<AnonymousUser | null> {
+  if (!isValidAnonId(anonId)) return null;
+
   const { data, error } = await supabaseAdmin
     .from('anonymous_users')
     .select('*')
-    .eq('anon_id', anonId)
+    .eq('anon_id', anonId.trim())
     .is('migrated_to_user_id', null)
     .single();
 
@@ -219,10 +228,11 @@ export async function resolveAnonymousIdentity(params: {
   isAiRequest?: boolean;
 }): Promise<{ user: AnonymousUser; isNew: boolean; restoredId?: string }> {
   const touchOptions = { country: params.country, isAiRequest: params.isAiRequest };
+  const cleanAnonId = isValidAnonId(params.anonId) ? params.anonId!.trim() : undefined;
 
-  // 1. Try lookup by provided anon_id
-  if (params.anonId) {
-    const existing = await getByAnonId(params.anonId);
+  // 1. Try lookup by validated anon_id
+  if (cleanAnonId) {
+    const existing = await getByAnonId(cleanAnonId);
     if (existing) {
       await touchLastSeen(existing.anon_id, touchOptions);
       return { user: existing, isNew: false };
@@ -240,8 +250,8 @@ export async function resolveAnonymousIdentity(params: {
     return { user: restored, isNew: false, restoredId: restored.anon_id };
   }
 
-  // 3. Create new identity
-  const newAnonId = params.anonId || generateAnonId();
+  // 3. Create new identity (ensure only secure UUIDs are stored)
+  const newAnonId = cleanAnonId || generateAnonId();
   const newUser = await createAnonymousUser({
     anonId: newAnonId,
     fingerprintHash: params.fingerprintHash,
