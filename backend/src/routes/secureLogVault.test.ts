@@ -31,6 +31,9 @@ import {
   timingSafeEqual,
   createSessionToken,
   verifySessionToken,
+  revokeSessionToken,
+  isTokenRevoked,
+  clearRevocationList,
   getSafeLogPath,
   computeDateBoundaries,
   checkRateLimit,
@@ -47,6 +50,9 @@ describe('Secure Log Vault - Security & Hardening Tests', () => {
 
   beforeEach(() => {
     clearRateLimit(testIp);
+    clearRateLimit('127.0.0.1');
+    clearRateLimit('::ffff:127.0.0.1');
+    clearRevocationList();
   });
 
   describe('OWASP CWE-532: 10-Signature Secret Scrubber', () => {
@@ -193,6 +199,16 @@ describe('Secure Log Vault - Security & Hardening Tests', () => {
   describe('HTTP Endpoints & Integration', () => {
     const vaultPath = process.env.LOG_VAULT_PATH || '/ops-log-vault-9x2k';
 
+    async function fetchLoginCsrf() {
+      const res = await request(app).get(`${vaultPath}/login`);
+      const rawCookies = res.header['set-cookie'];
+      const cookies = Array.isArray(rawCookies) ? rawCookies : (rawCookies ? [rawCookies] : []);
+      const csrfCookie = cookies.find((c: string) => c.startsWith('sree_log_csrf='));
+      const match = res.text.match(/name="_csrf"\s+value="([^"]+)"/);
+      const csrfToken = match ? match[1] : '';
+      return { csrfCookie, csrfToken };
+    }
+
     it('redirects unauthenticated requests from root to login', async () => {
       const res = await request(app).get(vaultPath);
       expect(res.status).toBe(302);
@@ -206,11 +222,16 @@ describe('Secure Log Vault - Security & Hardening Tests', () => {
     });
 
     it('authenticates with valid operator credentials and sets secure cookie', async () => {
+      const { csrfCookie, csrfToken } = await fetchLoginCsrf();
+      expect(csrfCookie).toBeDefined();
+
       const res = await request(app)
         .post(`${vaultPath}/login`)
+        .set('Cookie', [csrfCookie!])
         .send({
           username: process.env.LOG_VAULT_USER || 'sree_admin',
-          password: process.env.LOG_VAULT_PASS || 'Sree_Admin_Vault_2026!'
+          password: process.env.LOG_VAULT_PASS || 'Sree_Admin_Vault_2026!',
+          _csrf: csrfToken
         });
 
       expect(res.status).toBe(302);
@@ -256,19 +277,27 @@ describe('Secure Log Vault - Security & Hardening Tests', () => {
       expect(Array.isArray(res.body.files)).toBe(true);
     });
 
-    it('clears cookie and redirects on logout', async () => {
-      const res = await request(app).get(`${vaultPath}/logout`);
+    it('clears cookie, revokes session token, and redirects on logout', async () => {
+      const token = createSessionToken('sree_admin');
+      const res = await request(app)
+        .get(`${vaultPath}/logout`)
+        .set('Cookie', [`sree_log_session=${token}`]);
+
       expect(res.status).toBe(302);
       expect(res.header.location).toBe(`${vaultPath}/login`);
       expect(res.header['set-cookie']?.[0]).toContain('sree_log_session=;');
+      expect(isTokenRevoked(token)).toBe(true);
     });
 
     it('isolates cookie path to basePath on login and logout', async () => {
+      const { csrfCookie, csrfToken } = await fetchLoginCsrf();
       const res = await request(app)
         .post(`${vaultPath}/login`)
+        .set('Cookie', [csrfCookie!])
         .send({
           username: process.env.LOG_VAULT_USER || 'sree_admin',
-          password: process.env.LOG_VAULT_PASS || 'Sree_Admin_Vault_2026!'
+          password: process.env.LOG_VAULT_PASS || 'Sree_Admin_Vault_2026!',
+          _csrf: csrfToken
         });
       expect(res.header['set-cookie']?.[0]).toContain(`Path=${vaultPath}`);
 
@@ -276,33 +305,190 @@ describe('Secure Log Vault - Security & Hardening Tests', () => {
       expect(logoutRes.header['set-cookie']?.[0]).toContain(`Path=${vaultPath}`);
     });
 
-    it('sets hardened Content-Security-Policy headers', async () => {
+    it('sets hardened Content-Security-Policy and security headers', async () => {
       const res = await request(app).get(`${vaultPath}/login`);
       const csp = res.header['content-security-policy'];
       expect(csp).toBeDefined();
       expect(csp).toContain("frame-ancestors 'none'");
       expect(csp).toContain("base-uri 'self'");
       expect(csp).toContain("form-action 'self'");
+      expect(res.header['x-content-type-options']).toBe('nosniff');
+      expect(res.header['x-frame-options']).toBe('DENY');
+      expect(res.header['referrer-policy']).toBe('strict-origin-when-cross-origin');
     });
 
-    it('enforces CSRF validation when CSRF cookie is present', async () => {
-      const loginPage = await request(app).get(`${vaultPath}/login`);
-      const rawCookies = loginPage.header['set-cookie'];
-      const cookies = Array.isArray(rawCookies) ? rawCookies : (rawCookies ? [rawCookies] : []);
-      const csrfCookie = cookies.find((c: string) => c.startsWith('sree_log_csrf='));
-      expect(csrfCookie).toBeDefined();
+    it('enforces mandatory CSRF validation on POST /login', async () => {
+      const { csrfCookie } = await fetchLoginCsrf();
 
-      // Submit with invalid CSRF token
-      const failedRes = await request(app)
+      // Attempt 1: Tampered CSRF token
+      const failedRes1 = await request(app)
         .post(`${vaultPath}/login`)
         .set('Cookie', [csrfCookie!])
         .send({
           username: 'sree_admin',
           password: 'Sree_Admin_Vault_2026!',
-          _csrf: 'invalid_token_12345'
+          _csrf: 'tampered_csrf_token_12345'
         });
-      expect(failedRes.status).toBe(403);
-      expect(failedRes.text).toContain('Invalid or expired CSRF token');
+      expect(failedRes1.status).toBe(403);
+      expect(failedRes1.text).toContain('Invalid, missing, or expired CSRF security token');
+
+      // Attempt 2: Completely omitted CSRF token & cookie
+      const failedRes2 = await request(app)
+        .post(`${vaultPath}/login`)
+        .send({
+          username: 'sree_admin',
+          password: 'Sree_Admin_Vault_2026!'
+        });
+      expect(failedRes2.status).toBe(403);
+      expect(failedRes2.text).toContain('Invalid, missing, or expired CSRF security token');
+    });
+  });
+
+  describe('OWASP Penetration Testing: Login Bypass & Attack Mitigation', () => {
+    const vaultPath = process.env.LOG_VAULT_PATH || '/ops-log-vault-9x2k';
+
+    async function fetchValidCsrf() {
+      const res = await request(app).get(`${vaultPath}/login`);
+      const rawCookies = res.header['set-cookie'];
+      const cookies = Array.isArray(rawCookies) ? rawCookies : (rawCookies ? [rawCookies] : []);
+      const csrfCookie = cookies.find((c: string) => c.startsWith('sree_log_csrf='));
+      const match = res.text.match(/name="_csrf"\s+value="([^"]+)"/);
+      return { csrfCookie: csrfCookie!, csrfToken: match ? match[1] : '' };
+    }
+
+    it('blocks SQL injection login bypass attempts (e.g. "admin\' OR \'1\'=\'1")', async () => {
+      const { csrfCookie, csrfToken } = await fetchValidCsrf();
+      const res = await request(app)
+        .post(`${vaultPath}/login`)
+        .set('Cookie', [csrfCookie])
+        .send({
+          username: "admin' OR '1'='1",
+          password: "' OR '1'='1",
+          _csrf: csrfToken
+        });
+
+      expect(res.status).toBe(401);
+      expect(res.text).toContain('Invalid operator credentials');
+    });
+
+    it('blocks NoSQL injection object payload bypass attempts', async () => {
+      const { csrfCookie, csrfToken } = await fetchValidCsrf();
+      const res = await request(app)
+        .post(`${vaultPath}/login`)
+        .set('Cookie', [csrfCookie])
+        .send({
+          username: { $ne: null },
+          password: { $gt: '' },
+          _csrf: csrfToken
+        });
+
+      expect(res.status).toBe(401);
+      expect(res.text).toContain('Invalid operator credentials');
+    });
+
+    it('blocks Parameter Pollution / Array Confusion bypass attempts', async () => {
+      const { csrfCookie, csrfToken } = await fetchValidCsrf();
+      const res = await request(app)
+        .post(`${vaultPath}/login`)
+        .set('Cookie', [csrfCookie])
+        .send({
+          username: ['sree_admin', 'sree_admin'],
+          password: ['Sree_Admin_Vault_2026!'],
+          _csrf: csrfToken
+        });
+
+      expect(res.status).toBe(401);
+      expect(res.text).toContain('Invalid operator credentials');
+    });
+
+    it('blocks Buffer Overrun and ReDoS credential attempts (>128 chars user / >256 chars pass)', async () => {
+      const { csrfCookie, csrfToken } = await fetchValidCsrf();
+      const hugeUsername = 'sree_admin_' + 'a'.repeat(200);
+      const hugePassword = 'x'.repeat(500);
+
+      const res = await request(app)
+        .post(`${vaultPath}/login`)
+        .set('Cookie', [csrfCookie])
+        .send({
+          username: hugeUsername,
+          password: hugePassword,
+          _csrf: csrfToken
+        });
+
+      expect(res.status).toBe(401);
+      expect(res.text).toContain('Invalid operator credentials');
+    });
+
+    it('blocks whitespace-only credentials', async () => {
+      const { csrfCookie, csrfToken } = await fetchValidCsrf();
+      const res = await request(app)
+        .post(`${vaultPath}/login`)
+        .set('Cookie', [csrfCookie])
+        .send({
+          username: '     ',
+          password: '     ',
+          _csrf: csrfToken
+        });
+
+      expect(res.status).toBe(401);
+      expect(res.text).toContain('Invalid operator credentials');
+    });
+
+    it('prevents Post-Logout Session Replay Attack (ASVS V3.3 Token Invalidation)', async () => {
+      // 1. Operator logs in successfully
+      const { csrfCookie, csrfToken } = await fetchValidCsrf();
+      const loginRes = await request(app)
+        .post(`${vaultPath}/login`)
+        .set('Cookie', [csrfCookie])
+        .send({
+          username: 'sree_admin',
+          password: 'Sree_Admin_Vault_2026!',
+          _csrf: csrfToken
+        });
+
+      expect(loginRes.status).toBe(302);
+      const rawCookies = loginRes.header['set-cookie'];
+      const sessionCookie = (Array.isArray(rawCookies) ? rawCookies : [rawCookies])
+        .find((c: string) => c.startsWith('sree_log_session='));
+      expect(sessionCookie).toBeDefined();
+
+      // Extract raw token string
+      const tokenMatch = sessionCookie.match(/sree_log_session=([^;]+)/);
+      const token = tokenMatch ? tokenMatch[1] : '';
+
+      // 2. Token works initially
+      const authRes1 = await request(app)
+        .get(`${vaultPath}/api/metrics`)
+        .set('Cookie', [`sree_log_session=${token}`]);
+      expect(authRes1.status).toBe(200);
+
+      // 3. Operator logs out
+      const logoutRes = await request(app)
+        .get(`${vaultPath}/logout`)
+        .set('Cookie', [`sree_log_session=${token}`]);
+      expect(logoutRes.status).toBe(302);
+
+      // 4. Attacker attempts to replay the stolen session token after logout
+      const replayRes = await request(app)
+        .get(`${vaultPath}/api/metrics`)
+        .set('Cookie', [`sree_log_session=${token}`]);
+      expect(replayRes.status).toBe(401);
+      expect(replayRes.body.error).toContain('Unauthorized');
+    });
+
+    it('neutralizes dual-stack IPv6-mapped IPv4 rate limit evasion (::ffff:IP)', () => {
+      const mockReq = {
+        ip: '::ffff:203.0.113.88',
+        socket: { remoteAddress: '::ffff:203.0.113.88' }
+      } as any;
+      expect(getClientIp(mockReq)).toBe('203.0.113.88');
+    });
+
+    it('neutralizes null-byte (%00) and slash manipulations in log paths', () => {
+      expect(getSafeLogPath('out.log\0.png')).toBeNull();
+      expect(getSafeLogPath('out.log%00.png')).toBeNull();
+      expect(getSafeLogPath('out%2flog')).toBeNull();
+      expect(getSafeLogPath('..\\out.log')).toBeNull();
     });
   });
 

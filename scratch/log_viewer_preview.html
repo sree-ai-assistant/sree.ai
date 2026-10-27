@@ -1,9 +1,11 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Sree AI — Hardened Log Vault & Real-Time Telemetry</title>
+  <link rel="icon" type="image/png" href="https://app.sreeai.qzz.io/Sree-Ai-Fav-icon.png">
   <style>
     :root {
       --bg-base: #06090f;
@@ -15,10 +17,8 @@
       --text-main: #f1f5f9;
       --text-muted: #94a3b8;
       --text-dim: #54657e;
-      
       --accent: #38bdf8;
       --accent-glow: rgba(56, 189, 248, 0.18);
-      
       --color-info: #38bdf8;
       --color-warn: #fbbf24;
       --color-error: #f87171;
@@ -27,20 +27,26 @@
       --color-cyan: #22d3ee;
     }
 
-    * { box-sizing: border-box; margin: 0; padding: 0; }
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
 
     body {
       background-color: var(--bg-base);
       color: var(--text-main);
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
       height: 100vh;
+      height: 100dvh;
+      min-height: 100dvh;
       display: flex;
       flex-direction: column;
       overflow: hidden;
+      max-width: 100vw;
       -webkit-font-smoothing: antialiased;
     }
 
-    /* ─── Top Header Navigation Bar ─── */
     .header {
       background: rgba(12, 18, 32, 0.98);
       backdrop-filter: blur(12px);
@@ -67,16 +73,24 @@
     }
 
     .brand-icon {
-      width: 28px;
-      height: 28px;
+      width: 30px;
+      height: 30px;
       border-radius: 7px;
-      background: linear-gradient(135deg, #0284c7, #6366f1);
       display: flex;
       align-items: center;
       justify-content: center;
-      color: #fff;
-      font-size: 15px;
-      box-shadow: 0 0 12px rgba(2, 132, 199, 0.4);
+      overflow: hidden;
+      background: rgba(13, 21, 39, 0.7);
+      border: 1px solid rgba(56, 189, 248, 0.25);
+      box-shadow: 0 0 12px rgba(2, 132, 199, 0.35);
+      flex-shrink: 0;
+    }
+
+    .brand-icon img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      display: block;
     }
 
     .brand-title {
@@ -100,7 +114,6 @@
       border: 1px solid rgba(56, 189, 248, 0.3);
     }
 
-    /* Nav Tabs */
     .nav-tabs {
       display: flex;
       align-items: center;
@@ -132,7 +145,7 @@
     .nav-tab.active {
       background: #18233c;
       color: var(--accent);
-      box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
     }
 
     .system-status {
@@ -187,11 +200,19 @@
     }
 
     @keyframes pulse {
-      0%, 100% { opacity: 1; transform: scale(1); }
-      50% { opacity: 0.4; transform: scale(0.85); }
+
+      0%,
+      100% {
+        opacity: 1;
+        transform: scale(1);
+      }
+
+      50% {
+        opacity: 0.4;
+        transform: scale(0.85);
+      }
     }
 
-    /* ─── Settings Modal & Dropdown ─── */
     .settings-dropdown {
       position: relative;
     }
@@ -206,7 +227,7 @@
       border-radius: 8px;
       padding: 12px;
       width: 270px;
-      box-shadow: 0 12px 30px rgba(0,0,0,0.6);
+      box-shadow: 0 12px 30px rgba(0, 0, 0, 0.6);
       z-index: 200;
       display: none;
     }
@@ -241,7 +262,6 @@
       cursor: pointer;
     }
 
-    /* ─── Time Range Controls Bar (PM2.io Style) ─── */
     .time-bar {
       background: #090e18;
       border-bottom: 1px solid var(--border);
@@ -283,7 +303,6 @@
       color: #fff;
     }
 
-    /* ─── Metrics View Grid ─── */
     .metrics-view {
       flex: 1;
       overflow-y: auto;
@@ -309,7 +328,6 @@
       gap: 8px;
     }
 
-    /* ─── Authentic Grafana & shadcn Observability Design Tokens ─── */
     .grid-2 {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(460px, 1fr));
@@ -322,7 +340,6 @@
       gap: 14px;
     }
 
-    /* Grafana Time-Series Panel */
     .grafana-panel {
       background: linear-gradient(180deg, #0d1527 0%, #080d19 100%);
       border: 1px solid rgba(255, 255, 255, 0.08);
@@ -387,7 +404,6 @@
       font-size: 32px;
       font-weight: 800;
       color: #ffffff;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
       letter-spacing: -0.03em;
       line-height: 1;
     }
@@ -398,7 +414,6 @@
       color: var(--text-muted);
     }
 
-    /* Grafana Gauge / Progress Bar */
     .progress-bar-wrap {
       width: 200px;
       display: flex;
@@ -429,7 +444,6 @@
       transition: width 0.6s cubic-bezier(0.16, 1, 0.3, 1);
     }
 
-    /* SVG Time-Series Chart Box */
     .chart-container {
       position: relative;
       width: 100%;
@@ -437,12 +451,14 @@
       flex-direction: column;
       gap: 6px;
     }
+
     .chart-main-row {
       display: flex;
       width: 100%;
       height: 155px;
       position: relative;
     }
+
     .y-axis-labels {
       width: 72px;
       height: 100%;
@@ -458,21 +474,26 @@
       padding-top: 2px;
       padding-bottom: 2px;
     }
+
     .chart-svg-wrap {
       flex: 1;
       height: 100%;
       position: relative;
       cursor: crosshair;
+      touch-action: pan-y;
     }
+
     .grafana-svg {
       width: 100%;
       height: 100%;
       overflow: visible;
     }
+
     .grid-line {
       stroke: rgba(255, 255, 255, 0.08);
       stroke-dasharray: 3 3;
     }
+
     .scale-toggle-group {
       display: flex;
       align-items: center;
@@ -482,6 +503,7 @@
       padding: 2px;
       gap: 2px;
     }
+
     .scale-btn {
       background: transparent;
       border: none;
@@ -494,14 +516,17 @@
       transition: all 0.15s ease;
       font-family: ui-monospace, SFMono-Regular, monospace;
     }
+
     .scale-btn:hover {
       color: #fff;
     }
+
     .scale-btn.active {
       background: rgba(56, 189, 248, 0.2);
       color: #38bdf8;
       box-shadow: 0 0 8px rgba(56, 189, 248, 0.2);
     }
+
     .x-axis-labels {
       display: flex;
       justify-content: space-between;
@@ -513,20 +538,24 @@
       user-select: none;
       margin-top: 5px;
     }
+
     .x-tick {
       display: flex;
       flex-direction: column;
       gap: 1px;
     }
+
     .x-tick-time {
       font-weight: 700;
       color: #e2e8f0;
       letter-spacing: -0.01em;
     }
+
     .x-tick-date {
       font-size: 9px;
       color: #64748b;
     }
+
     .crosshair-v-line {
       stroke: #ffffff;
       stroke-width: 1.5;
@@ -535,33 +564,117 @@
       opacity: 0;
       transition: opacity 0.08s ease;
     }
+
     .crosshair-v-line.active {
       opacity: 1 !important;
       display: inline !important;
     }
+
     .crosshair-circle {
       pointer-events: none;
       opacity: 0;
       stroke-width: 2.5;
       transition: opacity 0.08s ease;
     }
+
     .crosshair-circle.active {
       opacity: 1 !important;
       display: inline !important;
     }
+
+    .chart-pointer-dot {
+      position: absolute;
+      width: 12px;
+      height: 12px;
+      border-radius: 50% !important;
+      transform: translate(-50%, -50%);
+      pointer-events: none;
+      opacity: 0;
+      z-index: 55;
+      transition: opacity 0.08s ease;
+      box-sizing: border-box;
+      display: none;
+    }
+
+    .chart-pointer-dot.active {
+      opacity: 1 !important;
+      display: block !important;
+    }
+
+    .cpu-pointer-dot {
+      background: #06090f;
+      border: 2.5px solid #38bdf8;
+      box-shadow: 0 0 10px #38bdf8, 0 0 4px #38bdf8;
+    }
+
+    .ram-pointer-dot {
+      background: #06090f;
+      border: 2.5px solid #34d399;
+      box-shadow: 0 0 10px #34d399, 0 0 4px #34d399;
+    }
+
+    .spark-pointer-dot {
+      position: absolute;
+      width: 9px;
+      height: 9px;
+      border-radius: 50% !important;
+      transform: translate(-50%, -50%);
+      pointer-events: none;
+      opacity: 0;
+      z-index: 55;
+      transition: opacity 0.08s ease;
+      box-sizing: border-box;
+      background: #06090f;
+      display: none;
+    }
+
+    .spark-pointer-dot.active {
+      opacity: 1 !important;
+      display: block !important;
+    }
+
+    .spark-dot-req {
+      border: 2px solid #22d3ee;
+      box-shadow: 0 0 8px #22d3ee;
+    }
+
+    .spark-dot-heap {
+      border: 2px solid #c084fc;
+      box-shadow: 0 0 8px #c084fc;
+    }
+
+    .spark-dot-lag {
+      border: 2px solid #fbbf24;
+      box-shadow: 0 0 8px #fbbf24;
+    }
+
+    .spark-dot-lat {
+      border: 2px solid #38bdf8;
+      box-shadow: 0 0 8px #38bdf8;
+    }
+
+    .spark-dot-handles {
+      border: 2px solid #34d399;
+      box-shadow: 0 0 8px #34d399;
+    }
+
     .cpu-crosshair-circle {
       fill: #06090f;
       stroke: #38bdf8;
       filter: drop-shadow(0 0 8px #38bdf8);
     }
+
     .ram-crosshair-circle {
       fill: #06090f;
       stroke: #34d399;
       filter: drop-shadow(0 0 8px #34d399);
     }
-    .unified-chart-tooltip, .unified-chart-tooltip * {
+
+    .unified-chart-tooltip,
+    .unified-chart-tooltip * {
       pointer-events: none !important;
     }
+
     .unified-chart-tooltip {
       position: absolute;
       top: 10px;
@@ -581,14 +694,17 @@
       opacity: 0;
       transition: left 0.04s ease-out, right 0.04s ease-out, opacity 0.1s ease;
     }
+
     .unified-chart-tooltip.tooltip-ram-style {
       border-color: rgba(52, 211, 153, 0.35);
       box-shadow: 0 12px 32px rgba(0, 0, 0, 0.85), 0 0 20px rgba(52, 211, 153, 0.15);
     }
+
     .unified-chart-tooltip.active {
       display: block !important;
       opacity: 1 !important;
     }
+
     .tt-header {
       font-size: 11px;
       font-weight: 700;
@@ -600,6 +716,7 @@
       align-items: center;
       justify-content: space-between;
     }
+
     .tt-status-tag {
       font-size: 9.5px;
       font-weight: 700;
@@ -610,31 +727,37 @@
       background: rgba(56, 189, 248, 0.12);
       color: #38bdf8;
     }
+
     .tt-primary {
       display: flex;
       align-items: baseline;
       gap: 7px;
       margin-bottom: 8px;
     }
+
     .tt-primary-label {
       font-size: 11px;
       color: var(--text-muted);
     }
+
     .tt-primary-val {
       font-size: 16px;
       font-weight: 800;
       color: #ffffff;
       letter-spacing: -0.02em;
     }
+
     .tt-unit {
       font-size: 10.5px;
       color: var(--text-dim);
     }
+
     .tt-divider {
       height: 1px;
       background: rgba(255, 255, 255, 0.08);
       margin: 6px 0;
     }
+
     .tt-compare-title {
       font-size: 9px;
       font-weight: 700;
@@ -643,6 +766,7 @@
       margin-bottom: 5px;
       text-transform: uppercase;
     }
+
     .tt-row {
       display: flex;
       align-items: center;
@@ -651,12 +775,14 @@
       margin-bottom: 4px;
       gap: 12px;
     }
+
     .tt-label {
       display: flex;
       align-items: center;
       gap: 6px;
       color: var(--text-muted);
     }
+
     .tt-dot {
       width: 7px;
       height: 7px;
@@ -664,16 +790,19 @@
       display: inline-block;
       flex-shrink: 0;
     }
+
     .tt-val {
       font-weight: 700;
       color: #ffffff;
       text-align: right;
     }
+
     .tt-sub {
       font-size: 9.5px;
       font-weight: 400;
       color: #94a3b8;
     }
+
     .correlation-strip {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
@@ -687,15 +816,23 @@
       font-family: ui-monospace, SFMono-Regular, monospace;
       font-size: 11.5px;
     }
+
     .corr-item {
       display: flex;
       align-items: center;
       gap: 8px;
     }
-    .corr-label { color: var(--text-muted); font-size: 11px; }
-    .corr-val { font-weight: 700; color: #fff; }
 
-    /* Legend Bar below Time-Series */
+    .corr-label {
+      color: var(--text-muted);
+      font-size: 11px;
+    }
+
+    .corr-val {
+      font-weight: 700;
+      color: #fff;
+    }
+
     .grafana-legend {
       display: flex;
       align-items: center;
@@ -720,7 +857,6 @@
       font-weight: 700;
     }
 
-    /* ─── Shadcn KPI Stat Cards ─── */
     .shadcn-kpi-card {
       background: linear-gradient(180deg, #0d1527 0%, #080d19 100%);
       border: 1px solid rgba(255, 255, 255, 0.08);
@@ -765,10 +901,29 @@
       font-family: ui-monospace, monospace;
     }
 
-    .badge-emerald { background: rgba(52, 211, 153, 0.15); color: #34d399; border: 1px solid rgba(52, 211, 153, 0.3); }
-    .badge-sky { background: rgba(56, 189, 248, 0.15); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.3); }
-    .badge-amber { background: rgba(251, 191, 36, 0.15); color: #fbbf24; border: 1px solid rgba(251, 191, 36, 0.3); }
-    .badge-purple { background: rgba(192, 132, 252, 0.15); color: #c084fc; border: 1px solid rgba(192, 132, 252, 0.3); }
+    .badge-emerald {
+      background: rgba(52, 211, 153, 0.15);
+      color: #34d399;
+      border: 1px solid rgba(52, 211, 153, 0.3);
+    }
+
+    .badge-sky {
+      background: rgba(56, 189, 248, 0.15);
+      color: #38bdf8;
+      border: 1px solid rgba(56, 189, 248, 0.3);
+    }
+
+    .badge-amber {
+      background: rgba(251, 191, 36, 0.15);
+      color: #fbbf24;
+      border: 1px solid rgba(251, 191, 36, 0.3);
+    }
+
+    .badge-purple {
+      background: rgba(192, 132, 252, 0.15);
+      color: #c084fc;
+      border: 1px solid rgba(192, 132, 252, 0.3);
+    }
 
     .kpi-body {
       display: flex;
@@ -781,7 +936,6 @@
       font-size: 26px;
       font-weight: 800;
       color: #fff;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
       letter-spacing: -0.03em;
       line-height: 1.1;
     }
@@ -794,15 +948,122 @@
       font-weight: 600;
     }
 
-    .delta-good { color: #34d399; }
-    .delta-info { color: #38bdf8; }
-    .delta-warn { color: #fbbf24; }
+    .delta-good {
+      color: #34d399;
+    }
+
+    .delta-info {
+      color: #38bdf8;
+    }
+
+    .delta-warn {
+      color: #fbbf24;
+    }
+
+    .sparkline-wrap {
+      position: relative;
+      width: 100%;
+      height: 48px;
+      margin: 4px 0;
+      cursor: crosshair;
+      touch-action: pan-y;
+    }
 
     .sparkline-svg {
       width: 100%;
-      height: 48px;
+      height: 100%;
       overflow: visible;
-      margin: 2px 0;
+      display: block;
+    }
+
+    .spark-crosshair {
+      stroke: #ffffff;
+      stroke-width: 1.2;
+      stroke-dasharray: 2 2;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.08s ease;
+    }
+
+    .spark-crosshair.active {
+      opacity: 0.9 !important;
+      display: inline !important;
+    }
+
+    .spark-dot {
+      pointer-events: none;
+      opacity: 0;
+      stroke-width: 2;
+      transition: opacity 0.08s ease;
+    }
+
+    .spark-dot.active {
+      opacity: 1 !important;
+      display: inline !important;
+    }
+
+    .sparkline-tooltip {
+      position: absolute;
+      bottom: calc(100% + 4px);
+      transform: translateX(-50%);
+      background: rgba(8, 13, 25, 0.96);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid rgba(56, 189, 248, 0.4);
+      border-radius: 6px;
+      padding: 5px 8px;
+      font-family: ui-monospace, SFMono-Regular, monospace;
+      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.8), 0 0 12px rgba(56, 189, 248, 0.12);
+      pointer-events: none;
+      z-index: 70;
+      white-space: nowrap;
+      display: none;
+      opacity: 0;
+      transition: opacity 0.1s ease;
+    }
+
+    .sparkline-tooltip.active {
+      display: block !important;
+      opacity: 1 !important;
+    }
+
+    .spark-tt-time {
+      font-size: 9.5px;
+      color: #94a3b8;
+      font-weight: 600;
+      letter-spacing: -0.01em;
+      margin-bottom: 2px;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+
+    .spark-tt-val {
+      font-size: 11.5px;
+      font-weight: 700;
+      color: #ffffff;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+
+    .spark-tt-sub {
+      font-size: 9px;
+      font-weight: 400;
+      color: #94a3b8;
+      margin-left: 2px;
+    }
+
+    .kpi-time-tag {
+      font-size: 10px;
+      color: var(--text-dim);
+      font-family: ui-monospace, monospace;
+      transition: color 0.15s ease;
+    }
+
+    .kpi-time-tag.active {
+      color: #38bdf8;
+      font-weight: 700;
     }
 
     .kpi-footer {
@@ -817,7 +1078,6 @@
       margin-top: 2px;
     }
 
-    /* ─── Log Viewer View ─── */
     .log-view {
       flex: 1;
       display: flex;
@@ -825,49 +1085,92 @@
       overflow: hidden;
     }
 
-    .log-view.hidden-view {
-      display: none;
-    }
-
-    /* Log Mini Telemetry Strip Under Nav Bar */
-    .log-telemetry-strip {
-      background: #0d1424;
+    .log-telemetry {
+      background: var(--bg-surface);
       border-bottom: 1px solid var(--border);
-      padding: 10px 18px;
+      padding: 8px 18px;
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
       gap: 10px;
     }
 
-    .mini-card {
+    .tele-card {
       background: var(--bg-card);
       border: 1px solid var(--border);
       border-radius: 6px;
       padding: 8px 12px;
       display: flex;
       flex-direction: column;
-      gap: 4px;
+      gap: 3px;
+      transition: border-color 0.15s ease;
     }
 
-    .mini-card-title {
-      font-size: 10.5px;
+    .tele-card:hover {
+      border-color: var(--accent);
+    }
+
+    .tele-card-http {
+      border-color: rgba(56, 189, 248, 0.4);
+      background: linear-gradient(135deg, #111a2e 0%, #16243d 100%);
+    }
+
+    .tele-header-row {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      width: 100%;
+    }
+
+    .tele-label-bold {
+      font-size: 12px;
+      font-weight: 800;
+      color: #fff;
+      letter-spacing: 0.02em;
+    }
+
+    .tele-rate-badge {
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--accent);
+      font-family: ui-monospace, monospace;
+      white-space: nowrap;
+      margin-left: 8px;
+      padding: 1px 5px;
+      border-radius: 4px;
+      background: rgba(56, 189, 248, 0.12);
+    }
+
+    .rate-unit-tag {
+      font-size: 9.5px;
+      font-weight: 500;
+      opacity: 0.85;
+    }
+
+    .tele-label {
+      font-size: 10px;
+      font-weight: 700;
       color: var(--text-muted);
       text-transform: uppercase;
-      font-weight: 600;
+      letter-spacing: 0.05em;
       display: flex;
-      justify-content: space-between;
+      align-items: center;
+      gap: 5px;
     }
 
-    .mini-card-val {
-      font-size: 18px;
-      font-weight: 700;
-      font-family: ui-monospace, monospace;
+    .tele-val {
+      font-size: 17px;
+      font-weight: 800;
+      font-family: ui-monospace, SFMono-Regular, monospace;
       color: #fff;
     }
 
-    /* Control Bar */
-    .control-bar {
-      background: var(--bg-surface);
+    .tele-desc {
+      font-size: 10px;
+      color: var(--text-dim);
+    }
+
+    .controls {
+      background: #090e18;
       border-bottom: 1px solid var(--border);
       padding: 8px 18px;
       display: flex;
@@ -877,399 +1180,964 @@
       gap: 10px;
     }
 
-    .control-group {
+    .ctrl-group {
       display: flex;
       align-items: center;
       flex-wrap: wrap;
       gap: 8px;
     }
 
-    select, input, .btn {
+    select,
+    input[type="text"],
+    input[type="datetime-local"] {
       background: var(--bg-card);
       color: var(--text-main);
       border: 1px solid var(--border);
-      padding: 6px 12px;
-      border-radius: 6px;
-      font-size: 12.5px;
+      padding: 5px 9px;
+      border-radius: 5px;
+      font-size: 12px;
       outline: none;
       transition: all 0.15s ease;
     }
 
-    select:focus, input:focus {
-      border-color: var(--border-focus);
-      box-shadow: 0 0 0 2px var(--accent-glow);
+    select:focus,
+    input:focus {
+      border-color: var(--accent);
     }
 
-    input[type="datetime-local"] {
-      color-scheme: dark;
-      font-family: ui-monospace, SFMono-Regular, monospace;
-      font-size: 11px;
-      padding: 4px 6px;
-      background: #090f1d;
+    .search-box {
+      width: 200px;
     }
 
-    .search-input {
-      width: 250px;
-      font-family: ui-monospace, SFMono-Regular, monospace;
-      padding-left: 28px;
-      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='11' cy='11' r='8'%3E%3C/circle%3E%3Cline x1='21' y1='21' x2='16.65' y2='16.65'%3E%3C/line%3E%3C/svg%3E");
-      background-repeat: no-repeat;
-      background-position: 8px center;
-    }
-
-    .btn {
+    .date-filter-group {
       display: inline-flex;
       align-items: center;
       gap: 6px;
-      cursor: pointer;
-      font-weight: 500;
-      user-select: none;
+      background: var(--bg-surface);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 2px 6px;
     }
 
-    .btn:hover { background: #223249; color: #fff; }
-    .btn-active { background: rgba(2, 132, 199, 0.25) !important; color: var(--accent) !important; border-color: var(--accent) !important; }
-    .btn-danger { color: var(--color-error); }
-    .btn-danger:hover { background: rgba(239, 68, 68, 0.15); border-color: var(--color-error); }
+    .date-range-box {
+      display: none;
+      align-items: center;
+      gap: 4px;
+    }
 
-    .filter-chips { display: flex; align-items: center; gap: 4px; }
+    .date-range-box input[type="datetime-local"] {
+      padding: 3px 6px;
+      font-size: 11px;
+      background: #090e18;
+      color: #fff;
+      border-color: #243552;
+    }
+
+    .btn-clear-date {
+      background: transparent;
+      border: none;
+      color: var(--text-dim);
+      font-size: 12px;
+      cursor: pointer;
+      padding: 2px 4px;
+      border-radius: 3px;
+    }
+
+    .btn-clear-date:hover {
+      color: #f87171;
+      background: rgba(248, 113, 113, 0.1);
+    }
+
+    .chips {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
     .chip {
+      padding: 4px 9px;
+      border-radius: 5px;
       font-size: 11px;
       font-weight: 600;
-      padding: 4px 8px;
-      border-radius: 5px;
       background: var(--bg-card);
       border: 1px solid var(--border);
       color: var(--text-muted);
       cursor: pointer;
-      transition: all 0.15s;
+      user-select: none;
+      transition: all 0.15s ease;
     }
 
-    .chip:hover { color: #fff; border-color: #475569; }
-    .chip.active[data-level="ALL"] { background: rgba(148, 163, 184, 0.18); color: #fff; border-color: #94a3b8; }
-    .chip.active[data-level="ERROR"] { background: rgba(248, 113, 113, 0.18); color: var(--color-error); border-color: var(--color-error); }
-    .chip.active[data-level="WARN"] { background: rgba(251, 191, 36, 0.18); color: var(--color-warn); border-color: var(--color-warn); }
-    .chip.active[data-level="INFO"] { background: rgba(56, 189, 248, 0.18); color: var(--color-info); border-color: var(--color-info); }
+    .chip:hover {
+      border-color: var(--text-muted);
+      color: #fff;
+    }
 
-    .log-viewport {
+    .chip.active {
+      background: #1e293b;
+      color: #fff;
+      border-color: var(--accent);
+    }
+
+    .btn-action {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      color: var(--text-main);
+      padding: 5px 11px;
+      border-radius: 5px;
+      font-size: 11.5px;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      transition: all 0.15s ease;
+    }
+
+    .btn-action:hover {
+      border-color: var(--text-muted);
+      background: var(--bg-card-hover);
+    }
+
+    .btn-active {
+      background: rgba(56, 189, 248, 0.15);
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+
+    .btn-link {
+      text-decoration: none;
+      color: inherit;
+    }
+
+    .terminal-container {
       flex: 1;
+      background: #03060a;
       overflow-y: auto;
-      overflow-x: auto;
-      background: var(--bg-base);
-      font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
-      font-size: 12.5px;
-      line-height: 1.55;
       padding: 12px 18px;
+      font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+      font-size: 11.5px;
+      line-height: 1.6;
+      color: #e2e8f0;
     }
 
     .log-line {
       display: flex;
-      align-items: flex-start;
-      gap: 12px;
-      padding: 3px 6px;
-      border-radius: 4px;
-      white-space: pre-wrap;
-      word-break: break-all;
+      flex-direction: column;
+      gap: 4px;
+      padding: 9px 12px;
+      margin-bottom: 6px;
+      background: rgba(13, 21, 39, 0.65);
+      border: 1px solid rgba(255, 255, 255, 0.07);
+      border-left: 3px solid #38bdf8;
+      border-radius: 6px;
+      transition: background 0.15s ease, border-color 0.15s ease;
+      position: relative;
     }
 
-    .log-line:hover { background: rgba(255, 255, 255, 0.03); }
-    .line-time { color: var(--text-dim); font-size: 11px; user-select: none; flex-shrink: 0; min-width: 145px; }
-    .line-badge { font-size: 10px; font-weight: 700; padding: 1px 5px; border-radius: 3px; text-transform: uppercase; flex-shrink: 0; width: 54px; text-align: center; }
-    .badge-info { background: rgba(56, 189, 248, 0.12); color: var(--color-info); border: 1px solid rgba(56, 189, 248, 0.25); }
-    .badge-err { background: rgba(239, 68, 68, 0.15); color: var(--color-error); border: 1px solid rgba(239, 68, 68, 0.3); }
-    .badge-warn { background: rgba(245, 158, 11, 0.15); color: var(--color-warn); border: 1px solid rgba(245, 158, 11, 0.3); }
+    .log-line:hover {
+      background: rgba(22, 34, 59, 0.85);
+      border-color: rgba(56, 189, 248, 0.3);
+    }
 
-    .row-error { background: rgba(239, 68, 68, 0.06); border-left: 3px solid var(--color-error); }
-    .row-warn { background: rgba(245, 158, 11, 0.04); border-left: 3px solid var(--color-warn); }
-    .mod-tag { color: var(--color-purple); font-weight: 600; }
-    .redacted-token { background: rgba(236, 72, 153, 0.18); color: #f472b6; border: 1px dashed rgba(236, 72, 153, 0.4); padding: 0 4px; border-radius: 3px; font-weight: 600; font-size: 11px; }
-    .highlight { background: rgba(251, 191, 36, 0.35); color: #fff; border-radius: 2px; padding: 0 2px; }
+    .row-error {
+      border-left-color: #f87171 !important;
+      background: rgba(248, 113, 113, 0.07) !important;
+    }
 
-    /* Footer */
-    .footer {
-      background: var(--bg-surface);
-      border-top: 1px solid var(--border);
-      padding: 7px 18px;
+    .row-warn {
+      border-left-color: #fbbf24 !important;
+      background: rgba(251, 191, 36, 0.07) !important;
+    }
+
+    .log-meta-row {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      font-size: 11.5px;
+      gap: 8px;
+      width: 100%;
+    }
+
+    .log-meta-left {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+
+    .line-time {
+      color: #94a3b8;
+      font-size: 10.5px;
+      user-select: none;
+      font-weight: 600;
+    }
+
+    .line-badge {
+      font-weight: 700;
+      padding: 1px 6px;
+      border-radius: 4px;
+      font-size: 9.5px;
+      letter-spacing: 0.03em;
+      user-select: none;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+
+    .mod-tag {
+      color: #c084fc;
+      font-weight: 700;
+      font-size: 10.5px;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+
+    .btn-copy-log {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      color: #94a3b8;
+      font-size: 9.5px;
+      padding: 2px 7px;
+      border-radius: 4px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 3px;
+      transition: all 0.15s ease;
+      font-family: inherit;
+    }
+
+    .btn-copy-log:hover {
+      background: rgba(56, 189, 248, 0.2);
+      color: #38bdf8;
+      border-color: #38bdf8;
+    }
+
+    .log-msg {
+      font-size: 12px;
+      line-height: 1.55;
+      color: #f1f5f9;
+      word-break: break-word;
+      overflow-wrap: anywhere;
+      padding-top: 2px;
+      font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+    }
+
+    .badge-info {
+      background: rgba(56, 189, 248, 0.15);
+      color: var(--color-info);
+    }
+
+    .badge-warn {
+      background: rgba(251, 191, 36, 0.15);
+      color: var(--color-warn);
+    }
+
+    .badge-err {
+      background: rgba(248, 113, 113, 0.15);
+      color: var(--color-error);
+    }
+
+    .row-error {
+      background: rgba(248, 113, 113, 0.05);
+    }
+
+    .row-warn {
+      background: rgba(251, 191, 36, 0.05);
+    }
+
+    .mod-tag {
+      color: #a78bfa;
+      font-weight: 600;
+      min-width: 85px;
+    }
+
+    .highlight {
+      background: #fbbf24;
+      color: #000;
+      font-weight: 700;
+      padding: 0 2px;
+      border-radius: 2px;
+    }
+
+    .redacted-token {
+      background: rgba(248, 113, 113, 0.15);
+      color: #f87171;
+      border: 1px dashed rgba(248, 113, 113, 0.4);
+      padding: 1px 4px;
+      border-radius: 3px;
+      font-size: 10px;
+    }
+
+    .footer {
+      background: #090e18;
+      border-top: 1px solid var(--border);
+      padding: 6px 18px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 11px;
       color: var(--text-dim);
+    }
+
+    .footer-tags {
+      display: flex;
+      gap: 12px;
+    }
+
+    .hidden-view {
+      display: none !important;
+    }
+
+    /* ─── COMPREHENSIVE MOBILE RESPONSIVE DESIGN SYSTEM (<= 900px, <= 640px) ─── */
+    @media (max-width: 900px) {
+      .grid-2 {
+        grid-template-columns: 1fr;
+        gap: 14px;
+      }
+
+      .grid-4 {
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: 12px;
+      }
+    }
+
+    @media (max-width: 768px) {
+
+      /* Header & Brand Navigation */
+      .header {
+        padding: 8px 12px;
+        gap: 8px;
+      }
+
+      .brand-section {
+        width: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+      }
+
+      .brand {
+        gap: 8px;
+      }
+
+      .brand-title {
+        font-size: 13.5px;
+      }
+
+      .brand-pill {
+        display: none;
+      }
+
+      .nav-tabs {
+        padding: 2px;
+        gap: 2px;
+      }
+
+      .nav-tab {
+        padding: 6px 10px;
+        font-size: 11.5px;
+        min-height: 36px;
+      }
+
+      .system-status {
+        width: 100%;
+        display: flex;
+        align-items: center;
+        flex-wrap: nowrap;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: none;
+        gap: 6px;
+        padding-top: 4px;
+        padding-bottom: 2px;
+        border-top: 1px solid rgba(255, 255, 255, 0.05);
+      }
+
+      .system-status::-webkit-scrollbar {
+        display: none;
+      }
+
+      .stat-pill,
+      .system-status .btn-action {
+        flex-shrink: 0;
+        white-space: nowrap;
+        padding: 3px 8px;
+        font-size: 11px;
+      }
+
+      .settings-menu {
+        position: fixed;
+        top: 64px;
+        left: 12px;
+        right: 12px;
+        width: auto;
+        max-width: calc(100vw - 24px);
+        box-shadow: 0 16px 40px rgba(0, 0, 0, 0.85);
+      }
+
+      /* Logs Vault Mini-Telemetry Rail */
+      .log-telemetry {
+        display: flex !important;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        scroll-snap-type: x mandatory;
+        padding: 8px 12px;
+        margin-left: 12px;
+        gap: 8px;
+        scrollbar-width: none;
+      }
+
+      .log-telemetry::-webkit-scrollbar {
+        display: none;
+      }
+
+      .tele-card {
+        flex: 0 0 148px;
+        min-width: 148px;
+        scroll-snap-align: start;
+        padding: 8px 14px;
+      }
+
+      .tele-val {
+        font-size: 15px;
+      }
+
+      .tele-desc {
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      /* Log Controls Toolbar */
+      .controls {
+        padding: 8px 12px;
+        gap: 8px;
+      }
+
+      .ctrl-group {
+        width: 100%;
+        gap: 6px;
+      }
+
+      #fileSelect {
+        flex: 1 1 100%;
+        min-height: 40px;
+        font-size: 12px;
+      }
+
+      .chips {
+        width: 100%;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        padding-bottom: 2px;
+        scrollbar-width: none;
+        gap: 6px;
+      }
+
+      .chips::-webkit-scrollbar {
+        display: none;
+      }
+
+      .chip {
+        flex-shrink: 0;
+        padding: 6px 12px;
+        font-size: 11.5px;
+        min-height: 38px;
+        display: inline-flex;
+        align-items: center;
+      }
+
+      #serviceSelect {
+        flex: 1 1 calc(50% - 3px);
+        min-height: 38px;
+      }
+
+      .date-filter-group {
+        flex: 1 1 calc(50% - 3px);
+        min-height: 38px;
+      }
+
+      .date-filter-group select {
+        width: 100%;
+        min-height: 34px;
+      }
+
+      .search-box {
+        flex: 1 1 100%;
+        width: 100%;
+        min-height: 42px;
+        font-size: 12.5px;
+      }
+
+      .btn-action {
+        min-height: 40px;
+        padding: 6px 12px;
+        font-size: 12px;
+      }
+
+      #liveToggleBtn {
+        flex: 1 1 auto;
+      }
+
+      /* Log Terminal Container & Clean Line Structure */
+      .terminal-container {
+        padding: 8px 10px;
+        font-size: 11px;
+        line-height: 1.5;
+      }
+
+      .log-line {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 4px;
+        padding: 7px 10px;
+        margin-bottom: 5px;
+        border-radius: 6px;
+      }
+
+      .log-meta-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 6px;
+        width: 100%;
+      }
+
+      .log-meta-left {
+        display: flex;
+        align-items: center;
+        gap: 5px;
+        flex-wrap: wrap;
+      }
+
+      .line-time {
+        min-width: auto;
+        font-size: 10px;
+      }
+
+      .line-badge {
+        font-size: 9.5px;
+      }
+
+      .mod-tag {
+        min-width: auto;
+        font-size: 10px;
+      }
+
+      .btn-copy-log {
+        padding: 2px 5px;
+        font-size: 9px;
+      }
+
+      .log-msg {
+        padding-left: 1px;
+        font-size: 11.5px;
+        line-height: 1.5;
+        word-break: break-word;
+        overflow-wrap: anywhere;
+      }
+
+      .footer {
+        padding: 6px 12px;
+        flex-direction: column;
+        gap: 4px;
+        align-items: flex-start;
+        font-size: 10px;
+      }
+
+      .footer-tags {
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+    }
+
+    @media (max-width: 640px) {
+      .grid-4 {
+        grid-template-columns: 1fr;
+        gap: 10px;
+      }
+
+      .metrics-view {
+        padding: 10px 12px;
+        gap: 12px;
+      }
+
+      .time-bar {
+        padding: 6px 12px;
+        gap: 8px;
+      }
+
+      .time-chips {
+        width: 100%;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: none;
+      }
+
+      .time-chips::-webkit-scrollbar {
+        display: none;
+      }
+
+      .time-chip {
+        flex-shrink: 0;
+        padding: 5px 10px;
+      }
+
+      #timeRangeStatusLabel {
+        font-size: 10px;
+      }
+
+      /* Waveform Chart Cards */
+      .grafana-panel {
+        padding: 12px 14px;
+        gap: 8px;
+      }
+
+      .panel-header {
+        flex-direction: column;
+        gap: 8px;
+        align-items: stretch;
+      }
+
+      .panel-header > div:last-child {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        width: 100%;
+      }
+
+      .progress-bar-wrap {
+        width: 120px;
+      }
+
+      .hero-big-num {
+        font-size: 26px;
+      }
+
+      .chart-main-row {
+        height: 135px;
+      }
+
+      .y-axis-labels {
+        width: 44px;
+        font-size: 9px;
+        padding-right: 4px;
+      }
+
+      .x-axis-labels {
+        padding-left: 44px;
+        font-size: 9px;
+      }
+
+      .x-tick:nth-child(2),
+      .x-tick:nth-child(4) {
+        display: none;
+        /* Hide alternating ticks on mobile to guarantee zero overlap */
+      }
+
+      .grafana-legend {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 4px;
+        font-size: 10px;
+        padding: 5px 8px;
+      }
+
+      .legend-stats {
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+
+      /* Correlation Strip */
+      .correlation-strip {
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+        padding: 8px 10px;
+        font-size: 10px;
+      }
+
+      /* Tooltip mobile bounds */
+      .unified-chart-tooltip {
+        min-width: 220px;
+        max-width: calc(100vw - 28px);
+        padding: 8px 10px;
+        font-size: 10px;
+      }
+
+      .tt-row {
+        font-size: 10px;
+        gap: 6px;
+      }
+
+      .tt-primary-val {
+        font-size: 14px;
+      }
+
+      /* KPI Cards */
+      .shadcn-kpi-card {
+        padding: 12px 14px;
+      }
+
+      .kpi-number {
+        font-size: 22px;
+      }
     }
   </style>
 </head>
+
 <body>
 
-  <!-- Top Header Navigation -->
+  <!-- ─── Top Header Navigation Bar ─── -->
   <header class="header">
     <div class="brand-section">
       <div class="brand">
         <div class="brand-icon">
-          <img src="https://app.sreeai.qzz.io/Sree-Ai-Fav-icon.png" alt="Sree AI logo" style="width:100%;height:100%;object-fit:contain;" />
+          <img src="https://app.sreeai.qzz.io/Sree-Ai-Fav-icon.png"
+            onerror="this.onerror=null; this.src='/ops-log-vault-9x2k/icon.png'" alt="Sree AI logo" />
         </div>
-        <div class="brand-title">
-          Sree AI
-          <span class="brand-pill">Hardened Ops Vault</span>
-        </div>
+        <div class="brand-title">Sree AI <span class="brand-pill">Hardened Ops Vault</span></div>
       </div>
-
-      <!-- Navigation Tabs: Logs vs Metrics -->
-      <nav class="nav-tabs">
+      <div class="nav-tabs">
         <div class="nav-tab active" id="tabLogs" onclick="switchNavTab('logs')">
           <span>📜</span> Logs Vault
         </div>
         <div class="nav-tab" id="tabMetrics" onclick="switchNavTab('metrics')">
           <span>📈</span> Realtime Metrics
         </div>
-        <a class="nav-tab" href="https://app.pm2.io" target="_blank" style="text-decoration:none;">
-          <span>☁️</span> PM2 Cloud ↗
-        </a>
-      </nav>
+      </div>
     </div>
 
-    <!-- Live Telemetry Status: Node -v, Online for [time], Host -->
     <div class="system-status">
-      <!-- 1. Node.js Version in Top Nav Bar (Exact match to PM2 screenshot: [JS Hexagon] v22.23.4) -->
-      <div class="stat-pill" title="Active Node.js Runtime on Oracle VM" id="pill-node" style="padding: 4px 10px; background: #0c1425; border-color: #1e3a5f;">
-        <span class="node-badge" style="display:inline-flex; align-items:center; gap:7px;">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" style="vertical-align:middle; filter: drop-shadow(0 0 4px rgba(56, 189, 248, 0.4));">
-            <path d="M12 2.2L20.66 7.2V17.2L12 22.2L3.34 17.2V7.2L12 2.2Z" stroke="#38bdf8" stroke-width="2.2" fill="rgba(2, 132, 199, 0.15)"/>
-            <text x="12" y="15" fill="#38bdf8" font-size="8.5" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-weight="900" text-anchor="middle">JS</text>
-          </svg>
-          <span style="font-size: 13.5px; font-weight: 700; color: #ffffff; letter-spacing: 0.02em;">v22.23.4</span>
+      <div class="stat-pill">
+        <span class="node-badge">
+          <span class="node-hex">JS</span>
+          <span id="nodeVersionVal">v20.20.1</span>
         </span>
       </div>
-
-      <!-- 2. Online For [time] Live Counter in Top Nav Bar -->
-      <div class="stat-pill" title="Continuous running time without restart (process.uptime)" id="pill-uptime" style="padding: 4px 11px;">
+      <div class="stat-pill">
         <span class="live-dot"></span>
-        <span style="color:var(--text-muted); font-size:12px;">online for <strong style="color:#ffffff; font-weight:700;" id="headerUptimeVal">5h 28m 14s</strong></span>
+        <span>online for <strong id="headerUptimeVal" style="color:#fff;">46s</strong></span>
       </div>
 
-      <div class="stat-pill" title="Oracle Cloud Micro VM (Ubuntu 24.04 LTS)">
-        <span style="color:var(--text-dim);">host:</span> <span style="color:#94a3b8; font-weight:600;">130.210.62.116</span>
-      </div>
-
-      <!-- Settings Dropdown Button (Settings Icon) -->
       <div class="settings-dropdown">
-        <button class="btn" onclick="toggleSettingsMenu()" style="padding: 4px 8px;" title="Metric display settings">
-          <span>⚙️</span> Customize
+        <button class="btn-action" onclick="toggleSettingsMenu()" title="Customize Visible Telemetry Cards">
+          <span>⚙️</span>
         </button>
-
         <div class="settings-menu" id="settingsMenu">
-          <div class="settings-title">Visible Telemetry Cards</div>
+          <div class="settings-title">Configure Telemetry Cards</div>
           <label class="setting-item">
-            <span>HTTP req/min Card</span>
-            <input type="checkbox" checked onchange="toggleCard('card-http-rate', this.checked)">
+            <span>HTTP Throughput (req/min)</span>
+            <input type="checkbox" checked onchange="toggleCard('cardHttp', this.checked)">
           </label>
           <label class="setting-item">
-            <span>CPU Usage</span>
-            <input type="checkbox" checked onchange="toggleCard('card-cpu', this.checked)">
+            <span>CPU Load (%)</span>
+            <input type="checkbox" checked onchange="toggleCard('cardCpu', this.checked)">
           </label>
           <label class="setting-item">
-            <span>Process RAM (RSS)</span>
-            <input type="checkbox" checked onchange="toggleCard('card-ram', this.checked)">
+            <span>RSS Memory (MB)</span>
+            <input type="checkbox" checked onchange="toggleCard('cardRam', this.checked)">
           </label>
           <label class="setting-item">
-            <span>V8 Heap Size</span>
-            <input type="checkbox" checked onchange="toggleCard('card-heap', this.checked)">
+            <span>V8 Heap (MB)</span>
+            <input type="checkbox" checked onchange="toggleCard('cardHeap', this.checked)">
           </label>
           <label class="setting-item">
-            <span>Event Loop Latency</span>
-            <input type="checkbox" checked onchange="toggleCard('card-lag', this.checked)">
+            <span>Event Loop Lag (ms)</span>
+            <input type="checkbox" checked onchange="toggleCard('cardLag', this.checked)">
           </label>
           <label class="setting-item">
-            <span>HTTP Latency</span>
-            <input type="checkbox" checked onchange="toggleCard('card-lat', this.checked)">
+            <span>HTTP Latency (ms)</span>
+            <input type="checkbox" checked onchange="toggleCard('cardLatency', this.checked)">
           </label>
           <label class="setting-item">
-            <span>Active Handles / Sockets</span>
-            <input type="checkbox" checked onchange="toggleCard('card-handles', this.checked)">
+            <span>Active Libuv Handles</span>
+            <input type="checkbox" checked onchange="toggleCard('cardHandles', this.checked)">
           </label>
           <label class="setting-item">
-            <span>Active Requests</span>
-            <input type="checkbox" checked onchange="toggleCard('card-reqs', this.checked)">
+            <span>In-Flight Requests</span>
+            <input type="checkbox" checked onchange="toggleCard('cardReqs', this.checked)">
           </label>
           <label class="setting-item">
-            <span>Event Loop p95</span>
-            <input type="checkbox" checked onchange="toggleCard('card-p95', this.checked)">
+            <span>Peak Lag / SLA</span>
+            <input type="checkbox" checked onchange="toggleCard('cardPeakLag', this.checked)">
           </label>
         </div>
       </div>
 
-      <button class="btn" onclick="toggleTelemetryStrip()" id="telemetryStripBtn" style="padding: 4px 8px;">
+      <button class="btn-action" id="telemetryStripBtn" onclick="toggleTelemetryStrip()">
         Hide Telemetry ▲
       </button>
+
+      <a href="https://app.pm2.io" target="_blank" rel="noopener noreferrer" class="btn-action btn-link"
+        title="Open PM2 Plus Cloud Monitoring">
+        <span>☁️</span> PM2 Cloud ↗
+      </a>
     </div>
   </header>
 
-  <!-- ======================================================== -->
-  <!-- TAB 1: LOG VAULT VIEW                                    -->
-  <!-- ======================================================== -->
-  <div class="log-view" id="viewLogs">
-
-    <!-- Mini Telemetry Strip Above Logs (Includes HTTP req/min + all other metrics) -->
-    <div class="log-telemetry-strip" id="logTelemetryStrip">
-      
-      <!-- 1. HTTP Request/min Card (Exact match to PM2 screenshot: HTTP on left, 0req/min on right) -->
-      <div class="mini-card" id="card-http-rate" style="border-left: 3px solid var(--accent); min-width: 175px;">
-        <div style="display:flex; justify-content:space-between; align-items:baseline; width:100%; margin-top:2px;">
-          <span style="font-size:14px; font-weight:800; color:#ffffff; letter-spacing:0.04em;">HTTP</span>
-          <span style="font-family:ui-monospace, SFMono-Regular, monospace; font-size:15px; font-weight:700; color:#ffffff;">
-            <span id="miniValReqs">0</span><span style="font-size:12px; color:var(--text-muted); font-weight:500; margin-left:1px;">req/min</span>
-          </span>
+  <!-- ─── TAB 1: LOGS VAULT VIEW ─── -->
+  <main class="log-view" id="viewLogs">
+    <div class="log-telemetry" id="logTelemetryStrip">
+      <div class="tele-card tele-card-http" id="cardHttp">
+        <div class="tele-header-row">
+          <div class="tele-label-bold">HTTP</div>
+          <div class="tele-rate-badge"><span id="miniValReqs">0</span> <span class="rate-unit-tag">req/min</span></div>
         </div>
-        <div style="display:flex; justify-content:space-between; font-size:10px; color:var(--text-dim); margin-top:4px;">
-          <span>Throughput</span>
-          <span style="color:var(--accent);">Rolling 60s</span>
-        </div>
+        <div class="tele-desc">Real-time HTTP throughput</div>
       </div>
-
-      <!-- 2. CPU Load -->
-      <div class="mini-card" id="card-cpu">
-        <div class="mini-card-title"><span>CPU Load</span><span>1 OCPU</span></div>
-        <div class="mini-card-val"><span id="miniValCpu">1.2</span><span style="font-size:12px; color:var(--text-dim);">%</span></div>
+      <div class="tele-card" id="cardCpu">
+        <div class="tele-label"><span>⚡</span> CPU (1 OCPU)</div>
+        <div class="tele-val"><span id="miniValCpu">0.3</span>%</div>
+        <div class="tele-desc">Load: 0 • 1 core</div>
       </div>
-
-      <!-- 3. RAM -->
-      <div class="mini-card" id="card-ram">
-        <div class="mini-card-title"><span>Process RAM</span><span>Cap: 500M</span></div>
-        <div class="mini-card-val"><span id="miniValRam">177</span><span style="font-size:12px; color:var(--text-dim);">MiB</span></div>
+      <div class="tele-card" id="cardRam">
+        <div class="tele-label"><span>🧠</span> RSS RAM</div>
+        <div class="tele-val"><span id="miniValRam">118</span>M</div>
+        <div class="tele-desc">Cap: 500M • 23.6%</div>
       </div>
-
-      <!-- 4. Heap -->
-      <div class="mini-card" id="card-heap">
-        <div class="mini-card-title"><span>Heap Usage</span><span>86%</span></div>
-        <div class="mini-card-val">46.2<span style="font-size:12px; color:var(--text-dim);">MiB</span></div>
+      <div class="tele-card" id="cardHeap">
+        <div class="tele-label"><span>🟣</span> V8 Heap</div>
+        <div class="tele-val"><span id="miniValHeap">44.7</span>M</div>
+        <div class="tele-desc">Alloc: 47.7M</div>
       </div>
-
-      <!-- 5. Event Loop Lag -->
-      <div class="mini-card" id="card-lag">
-        <div class="mini-card-title"><span>Event Loop</span><span style="color:var(--color-success);">Voice Ready</span></div>
-        <div class="mini-card-val"><span id="miniValLag">0.6</span><span style="font-size:12px; color:var(--text-dim);">ms</span></div>
+      <div class="tele-card" id="cardLag">
+        <div class="tele-label"><span>⏱️</span> Loop Lag</div>
+        <div class="tele-val"><span id="miniValLag">31.2</span>ms</div>
+        <div class="tele-desc">Voice SLA: &lt;10ms</div>
       </div>
-
-      <!-- 6. Latency -->
-      <div class="mini-card" id="card-lat">
-        <div class="mini-card-title"><span>HTTP Latency</span><span>p95: 1.2s</span></div>
-        <div class="mini-card-val">1.0<span style="font-size:12px; color:var(--text-dim);">ms</span></div>
+      <div class="tele-card" id="cardLatency">
+        <div class="tele-label"><span>🌐</span> HTTP Latency</div>
+        <div class="tele-val"><span id="miniValLatency">1.0</span>ms</div>
+        <div class="tele-desc">p95: 1.2ms • 200 OK</div>
       </div>
-
-      <!-- 7. Handles -->
-      <div class="mini-card" id="card-handles">
-        <div class="mini-card-title"><span>Handles</span><span>Sockets</span></div>
-        <div class="mini-card-val">4<span style="font-size:12px; color:var(--text-dim);"> active</span></div>
+      <div class="tele-card" id="cardHandles">
+        <div class="tele-label"><span>🔌</span> Handles</div>
+        <div class="tele-val"><span id="miniValHandles">6</span></div>
+        <div class="tele-desc">Open sockets & timers</div>
       </div>
-
-      <!-- 8. Active Requests -->
-      <div class="mini-card" id="card-reqs">
-        <div class="mini-card-title"><span>Active Reqs</span><span>HTTP</span></div>
-        <div class="mini-card-val">0<span style="font-size:12px; color:var(--text-dim);"> req</span></div>
+      <div class="tele-card" id="cardReqs">
+        <div class="tele-label"><span>⏳</span> In-Flight</div>
+        <div class="tele-val"><span id="miniValInFlight">0</span></div>
+        <div class="tele-desc">Active libuv requests</div>
       </div>
-
-      <!-- 9. Event Loop p95 -->
-      <div class="mini-card" id="card-p95">
-        <div class="mini-card-title"><span>Event Loop p95</span><span>Peak</span></div>
-        <div class="mini-card-val">1.5<span style="font-size:12px; color:var(--text-dim);">ms</span></div>
+      <div class="tele-card" id="cardPeakLag">
+        <div class="tele-label"><span>🛡️</span> Peak Lag</div>
+        <div class="tele-val"><span id="miniValPeakLag">32.6</span>ms</div>
+        <div class="tele-desc">99th percentile</div>
       </div>
     </div>
 
-    <!-- Control Bar -->
-    <div class="control-bar">
-      <div class="control-group">
-        <select id="fileSelect" onchange="renderLogs()">
-          <option value="combined" selected>🔗 Combined (out.log + err.log)</option>
-          <option value="out.log">📄 stdout only (out.log - 148 KB)</option>
-          <option value="err.log">⚠️ stderr only (err.log - 32 KB)</option>
-          <option value="out.log.1.gz">📦 Archive (out.log.1.gz - Oct 24)</option>
-          <option value="err.log.1.gz">📦 Archive (err.log.1.gz - Oct 24)</option>
+    <!-- Controls Bar -->
+    <div class="controls">
+      <div class="ctrl-group">
+        <select id="fileSelect" onchange="fetchLogs()">
+          <option value="combined">🔗 Combined (out.log + err.log)</option>
+          <option value="out.log">📄 stdout (out.log)</option>
+          <option value="err.log">🚨 stderr (err.log)</option>
         </select>
 
-        <div class="filter-chips">
-          <button class="chip active" data-level="ALL" onclick="setLevel('ALL')">All (8)</button>
-          <button class="chip" data-level="ERROR" onclick="setLevel('ERROR')">🔴 Errors (2)</button>
-          <button class="chip" data-level="WARN" onclick="setLevel('WARN')">🟡 Warnings (2)</button>
-          <button class="chip" data-level="INFO" onclick="setLevel('INFO')">🔵 Info (4)</button>
+        <div class="chips">
+          <div class="chip active" data-level="ALL" onclick="setLevel('ALL')">All</div>
+          <div class="chip" data-level="ERROR" onclick="setLevel('ERROR')">🔴 Errors</div>
+          <div class="chip" data-level="WARN" onclick="setLevel('WARN')">🟡 Warnings</div>
+          <div class="chip" data-level="INFO" onclick="setLevel('INFO')">🔵 Info</div>
         </div>
 
         <select id="serviceSelect" onchange="renderLogs()">
-          <option value="ALL">All Services</option>
-          <option value="[WebSocket]">WebSocket (Live Voice)</option>
-          <option value="[AiService]">AI Engine</option>
-          <option value="[Auth]">Auth & Sessions</option>
-          <option value="[R2Service]">Cloudflare R2</option>
+          <option value="ALL">All Subsystems</option>
+          <option value="Server">[Server]</option>
+          <option value="WebSocket">[WebSocket Voice]</option>
+          <option value="AiService">[AiService]</option>
+          <option value="Auth">[Auth]</option>
+          <option value="R2Service">[R2Service]</option>
+          <option value="Security">[Security]</option>
+          <option value="Health">[Health]</option>
         </select>
 
-        <!-- Date & Date Range Filter -->
-        <div class="date-filter-wrap" style="display:inline-flex; align-items:center; gap:6px;">
-          <select id="datePresetSelect" onchange="handleDatePresetChange(this.value)" style="border-color:#2a3b5c;" title="Filter logs by date range">
-            <option value="ALL" selected>📅 All Dates</option>
-            <option value="TODAY">📅 Today</option>
-            <option value="YESTERDAY">📅 Yesterday</option>
-            <option value="1H">⏱️ Last 1 Hour</option>
-            <option value="6H">⏱️ Last 6 Hours</option>
-            <option value="24H">⏱️ Last 24 Hours</option>
-            <option value="7D">📅 Last 7 Days</option>
-            <option value="1M">📅 Last 1 Month</option>
-            <option value="CUSTOM">🗓️ Custom Range...</option>
+        <!-- Date Range Filter -->
+        <div class="date-filter-group">
+          <span>📅</span>
+          <select id="datePresetSelect" onchange="handleDatePresetChange(this.value)">
+            <option value="ALL">All Dates</option>
+            <option value="TODAY">Today</option>
+            <option value="YESTERDAY">Yesterday</option>
+            <option value="1H">Last 1 Hour</option>
+            <option value="6H">Last 6 Hours</option>
+            <option value="24H">Last 24 Hours</option>
+            <option value="7D">Last 7 Days</option>
+            <option value="1M">Last 1 Month</option>
+            <option value="CUSTOM">Custom Range ▾</option>
           </select>
 
-          <!-- Custom Datetime-Local Picker (Shown when Custom Range is selected) -->
-          <div id="customDateRangeBox" style="display:none; align-items:center; gap:6px; background:#0c1527; border:1px solid #2a3b5c; border-radius:6px; padding:3px 8px;">
-            <span style="font-size:11px; color:var(--text-muted);">From:</span>
-            <input type="datetime-local" id="dateStart" onchange="renderLogs()" title="Filter logs starting after this time">
-            <span style="font-size:11px; color:var(--text-muted);">To:</span>
-            <input type="datetime-local" id="dateEnd" onchange="renderLogs()" title="Filter logs up to this time">
-            <button class="btn" style="padding:2px 7px; font-size:11px; color:var(--color-error); border:none; background:transparent;" onclick="clearCustomDateRange()" title="Clear date filter">✕</button>
+          <div class="date-range-box" id="customDateRangeBox">
+            <span style="font-size:11px; color:var(--text-dim);">From:</span>
+            <input type="datetime-local" id="dateStart" onchange="renderLogs()">
+            <span style="font-size:11px; color:var(--text-dim);">To:</span>
+            <input type="datetime-local" id="dateEnd" onchange="renderLogs()">
+            <button class="btn-clear-date" onclick="clearCustomDateRange()" title="Clear date range">✕</button>
           </div>
         </div>
       </div>
 
-      <div class="control-group">
-        <input type="text" id="searchBox" class="search-input" placeholder="Search regex or text..." oninput="renderLogs()">
-        <button class="btn" id="liveToggleBtn" onclick="toggleLiveTail()"><span>▶</span> Live Tail</button>
-        <button class="btn" onclick="exportLogs()">⬇ Export TXT</button>
-        <button class="btn btn-danger" onclick="alert('Session invalidated securely.')">🔒 Logout</button>
+      <div class="ctrl-group">
+        <input type="text" id="searchBox" class="search-box" placeholder="🔍 Search text or regex..."
+          oninput="renderLogs()">
+        <button class="btn-action" id="liveToggleBtn" onclick="toggleLiveTail()">
+          <span>▶</span> Live Tail
+        </button>
+        <button class="btn-action" onclick="exportLogs()">
+          <span>⬇</span> Export TXT
+        </button>
+        <a href="/ops-log-vault-9x2k/logout" class="btn-action btn-link"
+          style="color:var(--color-error); border-color: rgba(248,113,113,0.3);">
+          <span>🔒</span> Logout
+        </a>
       </div>
     </div>
 
-    <!-- Main Log Terminal Viewport -->
-    <main class="log-viewport" id="logContainer"></main>
+    <!-- Terminal Screen -->
+    <div class="terminal-container" id="logContainer">
+      <div style="padding: 40px; text-align: center; color: var(--text-dim);">
+        Connecting to Sree AI hardened log stream...
+      </div>
+    </div>
 
-    <!-- Footer -->
+    <!-- Terminal Footer -->
     <footer class="footer">
-      <div><span id="lineCounter">Showing 8 of 8 lines</span> • Page Size: 64 KB Slice • Memory overhead: &lt; 2 MB</div>
-      <div style="color:var(--color-success); font-weight:500;">🛡️ OWASP ASVS v4.0 Hardened • OWASP CWE-532 Active Scrubbing</div>
+      <div id="lineCounter">Loading log records...</div>
+      <div class="footer-tags">
+        <span>🛡️ CWE-532 Active (10 Redactors)</span>
+        <span>Directory Jailed: /var/www/sree-ai/logs</span>
+      </div>
     </footer>
-  </div>
+  </main>
 
-  <!-- ======================================================== -->
-  <!-- TAB 2: DEDICATED REALTIME METRICS VIEW (PM2.io Matched)  -->
-  <!-- ======================================================== -->
-  <div class="metrics-view" id="viewMetrics">
-
-    <!-- Time Range Filter Bar (PM2.io style) -->
-    <div class="time-bar" style="border-radius:8px; border:1px solid var(--border); padding:8px 14px;">
-      <div style="display:flex; align-items:center; gap:10px;">
-        <span style="font-size:12px; font-weight:700; color:#fff;">Time Range:</span>
+  <!-- ─── TAB 2: REALTIME METRICS VIEW ─── -->
+  <section class="metrics-view" id="viewMetrics">
+    <div class="time-bar">
+      <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
+        <span class="section-title">Telemetry Time-Series (Single-Process V8)</span>
         <div class="time-chips">
-          <div class="time-chip active" onclick="setTimeRange('realtime', this)">● Realtime</div>
-          <div class="time-chip" onclick="setTimeRange('1h', this)">1h</div>
-          <div class="time-chip" onclick="setTimeRange('6h', this)">6h</div>
-          <div class="time-chip" onclick="setTimeRange('24h', this)">24h</div>
-          <div class="time-chip" onclick="setTimeRange('7d', this)">7d (PM2 Cloud)</div>
+          <div class="time-chip active" id="chipRealtime" onclick="setTimeRange('realtime', this)">● Realtime (3m)</div>
+          <div class="time-chip" id="chip1h" onclick="setTimeRange('1h', this)">1h</div>
+          <div class="time-chip" id="chip6h" onclick="setTimeRange('6h', this)">6h</div>
+          <div class="time-chip" id="chip24h" onclick="setTimeRange('24h', this)">24h</div>
+          <div class="time-chip" id="chip7d" onclick="setTimeRange('7d', this)">7d</div>
+        </div>
+        <div class="time-chip active"
+          style="background:rgba(56,189,248,0.15); color:#38bdf8; border:1px solid rgba(56,189,248,0.3); cursor:default;">
+          ⚡ Synchronized Inspection Mode
         </div>
       </div>
-
-      <div style="font-size:11.5px; color:var(--text-muted); font-family:ui-monospace, monospace;">
-        Node: <strong>v22.23.4</strong> • Running for: <strong id="chartUptimeVal">5h 28m 14s</strong> • Ring Buffer: <strong>60 Samples (&lt; 50 KB RAM)</strong>
+      <div style="font-size:11px; color:var(--text-dim); font-family:ui-monospace, monospace;"
+        id="timeRangeStatusLabel">
+        Ring Buffer: 30 Samples (5s Resolution) • Hover across any chart to inspect synchronized crosshair
       </div>
     </div>
 
-    <!-- Section 1: Application System Usage & Throughput (Grafana Time-Series Panels) -->
-    <div class="section-title">Application System Usage & Network Throughput (Grafana Time-Series)</div>
+    <!-- Row 1: Grafana Time-Series Bezier Waveforms -->
     <div class="grid-2">
-
-      <!-- Panel 1: CPU Utilization Time-Series Panel -->
+      <!-- Panel 1: CPU Utilization -->
       <div class="grafana-panel">
         <div class="panel-header">
           <div class="panel-title-group">
@@ -1280,16 +2148,19 @@
           </div>
           <div style="display:flex; align-items:center; gap:12px;">
             <div class="scale-toggle-group">
-              <button class="scale-btn active" id="btnCpuScaleFull" onclick="setCpuScale(false)" title="0-100% full capacity matching PM2 standard">0-100% Full</button>
-              <button class="scale-btn" id="btnCpuScaleZoom" onclick="setCpuScale(true)" title="Auto-zoom into micro fluctuations">Auto Zoom</button>
+              <button class="scale-btn active" id="btnCpuScaleFull" onclick="setCpuScale(false)"
+                title="0-100% full capacity matching PM2 standard">0-100% Full</button>
+              <button class="scale-btn" id="btnCpuScaleZoom" onclick="setCpuScale(true)"
+                title="Auto-zoom into micro fluctuations">Auto Zoom</button>
             </div>
             <div class="progress-bar-wrap">
               <div class="progress-label">
                 <span>V8 Load</span>
-                <span id="cpuProgressVal">1.2%</span>
+                <span id="cpuProgressVal">0.3%</span>
               </div>
               <div class="progress-track">
-                <div class="progress-fill" id="cpuProgressBar" style="width: 1.7%; background: #38bdf8;"></div>
+                <div class="progress-fill" id="cpuProgressBar" style="width: 0.4285714285714286%; background: #38bdf8;">
+                </div>
               </div>
             </div>
           </div>
@@ -1297,7 +2168,7 @@
 
         <div class="panel-hero-row">
           <div class="panel-hero-stat">
-            <div class="hero-big-num" id="chartValCpu">1.2</div>
+            <div class="hero-big-num" id="chartValCpu">0.3</div>
             <div class="hero-unit">%</div>
           </div>
           <div class="kpi-badge badge-sky" id="cpuDeltaBadge">▲ Stable Load</div>
@@ -1322,50 +2193,51 @@
                 <div class="tt-primary">
                   <span class="tt-dot" style="background:#38bdf8;"></span>
                   <span class="tt-primary-label">Process CPU:</span>
-                  <span class="tt-primary-val" id="ttPrimaryCpuVal">1.2%</span>
+                  <span class="tt-primary-val" id="ttPrimaryCpuVal">--%</span>
                   <span class="tt-unit">(1 Core V8)</span>
                 </div>
                 <div class="tt-divider"></div>
                 <div class="tt-compare-title">RESOURCE CORRELATION AT THIS SECOND</div>
                 <div class="tt-row">
                   <span class="tt-label"><span class="tt-dot" style="background:#34d399;"></span> RAM (RSS):</span>
-                  <span class="tt-val" id="ttCpuRamVal">177.4 MiB</span>
+                  <span class="tt-val" id="ttCpuRamVal">-- MiB</span>
                 </div>
                 <div class="tt-row">
                   <span class="tt-label"><span class="tt-dot" style="background:#34d399;"></span> Cap Headroom:</span>
-                  <span class="tt-val" id="ttCpuHeadroomVal" style="color:#34d399;">322.6 MiB</span>
+                  <span class="tt-val" id="ttCpuHeadroomVal" style="color:#34d399;">-- MiB</span>
                 </div>
                 <div class="tt-row">
                   <span class="tt-label"><span class="tt-dot" style="background:#c084fc;"></span> V8 Heap:</span>
-                  <span class="tt-val" id="ttCpuHeapVal">46.2 MiB</span>
+                  <span class="tt-val" id="ttCpuHeapVal">-- MiB</span>
                 </div>
                 <div class="tt-row">
                   <span class="tt-label"><span class="tt-dot" style="background:#fbbf24;"></span> Event Loop:</span>
-                  <span class="tt-val" id="ttCpuLagVal">0.6 ms</span>
+                  <span class="tt-val" id="ttCpuLagVal">-- ms</span>
                 </div>
                 <div class="tt-row">
                   <span class="tt-label"><span class="tt-dot" style="background:#22d3ee;"></span> Throughput:</span>
-                  <span class="tt-val" id="ttCpuReqVal">0 req/min</span>
+                  <span class="tt-val" id="ttCpuReqVal">-- req/min</span>
                 </div>
               </div>
               <svg class="grafana-svg" id="svgCpu" viewBox="0 0 500 135" preserveAspectRatio="none">
                 <defs>
                   <linearGradient id="cpuGradient" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stop-color="#38bdf8" stop-opacity="0.35"/>
-                    <stop offset="100%" stop-color="#38bdf8" stop-opacity="0.0"/>
+                    <stop offset="0%" stop-color="#38bdf8" stop-opacity="0.35" />
+                    <stop offset="100%" stop-color="#38bdf8" stop-opacity="0.0" />
                   </linearGradient>
                 </defs>
-                <line x1="0" y1="10" x2="500" y2="10" class="grid-line"/>
-                <line x1="0" y1="33" x2="500" y2="33" class="grid-line"/>
-                <line x1="0" y1="56" x2="500" y2="56" class="grid-line"/>
-                <line x1="0" y1="79" x2="500" y2="79" class="grid-line"/>
-                <line x1="0" y1="102" x2="500" y2="102" class="grid-line"/>
-                <line x1="0" y1="125" x2="500" y2="125" class="grid-line"/>
-                <path id="areaCpuWave" fill="url(#cpuGradient)"/>
-                <path id="pathCpuWave" fill="none" stroke="#38bdf8" stroke-width="2.2" stroke-linecap="round"/>
-                <line id="crosshairCpu" class="crosshair-v-line" x1="0" y1="0" x2="0" y2="135" stroke="#ffffff" stroke-width="1.5" stroke-dasharray="3,3" opacity="0" />
-                <circle id="dotCpu" class="crosshair-circle cpu-crosshair-circle" cx="0" cy="0" r="5.5" stroke="#38bdf8" stroke-width="2.5" fill="#06090f" opacity="0" />
+                <line x1="0" y1="10" x2="500" y2="10" class="grid-line" />
+                <line x1="0" y1="33" x2="500" y2="33" class="grid-line" />
+                <line x1="0" y1="56" x2="500" y2="56" class="grid-line" />
+                <line x1="0" y1="79" x2="500" y2="79" class="grid-line" />
+                <line x1="0" y1="102" x2="500" y2="102" class="grid-line" />
+                <line x1="0" y1="125" x2="500" y2="125" class="grid-line" />
+                <path id="areaCpuWave" fill="url(#cpuGradient)" />
+                <path id="pathCpuWave" fill="none" stroke="#38bdf8" stroke-width="2.2" stroke-linecap="round" />
+                <line id="crosshairCpu" class="crosshair-v-line" x1="0" y1="0" x2="0" y2="135" stroke="#ffffff"
+                  stroke-width="1.5" stroke-dasharray="3,3" opacity="0" />
               </svg>
+              <div class="chart-pointer-dot cpu-pointer-dot" id="dotCpu"></div>
             </div>
           </div>
           <div class="x-axis-labels" id="xAxisCpu">
@@ -1380,15 +2252,15 @@
         <div class="grafana-legend">
           <span>Range: Rolling 2.5 Mins (5s Ticks)</span>
           <div class="legend-stats">
-            <span>CUR: <strong id="legendCpuCur">1.2%</strong></span>
-            <span>AVG: <strong id="legendCpuAvg">1.4%</strong></span>
+            <span>CUR: <strong id="legendCpuCur">0.3%</strong></span>
+            <span>AVG: <strong id="legendCpuAvg">0.3%</strong></span>
             <span>MIN: <strong id="legendCpuMin">0.8%</strong></span>
             <span>MAX: <strong id="legendCpuMax">2.5%</strong></span>
           </div>
         </div>
       </div>
 
-      <!-- Panel 2: Resident Memory (RSS) Time-Series Panel -->
+      <!-- Panel 2: Resident Memory (RSS) & Cap -->
       <div class="grafana-panel">
         <div class="panel-header">
           <div class="panel-title-group">
@@ -1400,20 +2272,20 @@
           <div class="progress-bar-wrap">
             <div class="progress-label">
               <span>Safety Threshold</span>
-              <span id="ramProgressVal">35.5%</span>
+              <span id="ramProgressVal">23.6%</span>
             </div>
             <div class="progress-track">
-              <div class="progress-fill" id="ramProgressBar" style="width: 35.5%; background: #34d399;"></div>
+              <div class="progress-fill" id="ramProgressBar" style="width: 23.6%; background: #34d399;"></div>
             </div>
           </div>
         </div>
 
         <div class="panel-hero-row">
           <div class="panel-hero-stat">
-            <div class="hero-big-num" id="chartValRam">177.4</div>
+            <div class="hero-big-num" id="chartValRam">118.2</div>
             <div class="hero-unit">MiB</div>
           </div>
-          <div class="kpi-badge badge-emerald" id="ramPercentBadge">🟢 35.5% Cap</div>
+          <div class="kpi-badge badge-emerald" id="ramPercentBadge">🟢 23.6% Cap</div>
         </div>
 
         <div class="chart-container" id="chartContainerRam">
@@ -1430,57 +2302,64 @@
               <div class="unified-chart-tooltip tooltip-ram-style" id="tooltipRam">
                 <div class="tt-header">
                   <span id="ttTimeRam">Monday, Oct 26 • --:--:-- pm</span>
-                  <span class="tt-status-tag" id="ttTagRam" style="color:#34d399; border-color:rgba(52,211,153,0.3); background:rgba(52,211,153,0.12);">🧠 SYNCED</span>
+                  <span class="tt-status-tag" id="ttTagRam"
+                    style="color:#34d399; border-color:rgba(52,211,153,0.3); background:rgba(52,211,153,0.12);">🧠
+                    SYNCED</span>
                 </div>
                 <div class="tt-primary">
                   <span class="tt-dot" style="background:#34d399;"></span>
                   <span class="tt-primary-label">RSS Memory:</span>
-                  <span class="tt-primary-val" id="ttPrimaryRamVal" style="color:#34d399;">177.4 MiB</span>
+                  <span class="tt-primary-val" id="ttPrimaryRamVal" style="color:#34d399;">-- MiB</span>
                   <span class="tt-unit">/ 500M Cap</span>
                 </div>
                 <div class="tt-divider"></div>
                 <div class="tt-compare-title">RESOURCE CORRELATION AT THIS SECOND</div>
                 <div class="tt-row">
                   <span class="tt-label"><span class="tt-dot" style="background:#38bdf8;"></span> CPU (V8):</span>
-                  <span class="tt-val" id="ttRamCpuVal">1.2%</span>
+                  <span class="tt-val" id="ttRamCpuVal">--%</span>
                 </div>
                 <div class="tt-row">
                   <span class="tt-label"><span class="tt-dot" style="background:#34d399;"></span> Free Headroom:</span>
-                  <span class="tt-val" id="ttRamHeadroomVal" style="color:#34d399;">322.6 MiB</span>
+                  <span class="tt-val" id="ttRamHeadroomVal" style="color:#34d399;">-- MiB</span>
                 </div>
                 <div class="tt-row">
                   <span class="tt-label"><span class="tt-dot" style="background:#c084fc;"></span> V8 Heap:</span>
-                  <span class="tt-val" id="ttRamHeapVal">46.2 MiB</span>
+                  <span class="tt-val" id="ttRamHeapVal">-- MiB</span>
                 </div>
                 <div class="tt-row">
                   <span class="tt-label"><span class="tt-dot" style="background:#fbbf24;"></span> Event Loop:</span>
-                  <span class="tt-val" id="ttRamLagVal">0.6 ms</span>
+                  <span class="tt-val" id="ttRamLagVal">-- ms</span>
                 </div>
                 <div class="tt-row">
                   <span class="tt-label"><span class="tt-dot" style="background:#22d3ee;"></span> Throughput:</span>
-                  <span class="tt-val" id="ttRamReqVal">0 req/min</span>
+                  <span class="tt-val" id="ttRamReqVal">-- req/min</span>
                 </div>
               </div>
               <svg class="grafana-svg" id="svgRam" viewBox="0 0 500 135" preserveAspectRatio="none">
                 <defs>
                   <linearGradient id="ramGradient" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stop-color="#34d399" stop-opacity="0.32"/>
-                    <stop offset="100%" stop-color="#34d399" stop-opacity="0.0"/>
+                    <stop offset="0%" stop-color="#34d399" stop-opacity="0.32" />
+                    <stop offset="100%" stop-color="#34d399" stop-opacity="0.0" />
                   </linearGradient>
                 </defs>
-                <line x1="0" y1="10" x2="500" y2="10" stroke="#f87171" stroke-width="1.2" stroke-dasharray="4 3" opacity="0.8"/>
-                <text x="495" y="8" fill="#f87171" font-size="8.5" font-family="monospace" text-anchor="end" font-weight="bold">PM2 RESTART CAP: 500 MB</text>
-                <line x1="0" y1="33" x2="500" y2="33" stroke="#fbbf24" stroke-width="1" stroke-dasharray="3 3" opacity="0.5"/>
-                <text x="495" y="31" fill="#fbbf24" font-size="8" font-family="monospace" text-anchor="end">80% WARNING: 400 MB</text>
-                <line x1="0" y1="56" x2="500" y2="56" class="grid-line"/>
-                <line x1="0" y1="79" x2="500" y2="79" class="grid-line"/>
-                <line x1="0" y1="102" x2="500" y2="102" class="grid-line"/>
-                <line x1="0" y1="125" x2="500" y2="125" class="grid-line"/>
-                <path id="areaRamWave" fill="url(#ramGradient)"/>
-                <path id="pathRamWave" fill="none" stroke="#34d399" stroke-width="2.2" stroke-linecap="round"/>
-                <line id="crosshairRam" class="crosshair-v-line" x1="0" y1="0" x2="0" y2="135" stroke="#ffffff" stroke-width="1.5" stroke-dasharray="3,3" opacity="0" />
-                <circle id="dotRam" class="crosshair-circle ram-crosshair-circle" cx="0" cy="0" r="5.5" stroke="#34d399" stroke-width="2.5" fill="#06090f" opacity="0" />
+                <line x1="0" y1="10" x2="500" y2="10" stroke="#f87171" stroke-width="1.2" stroke-dasharray="4 3"
+                  opacity="0.8" />
+                <text x="495" y="8" fill="#f87171" font-size="8.5" font-family="monospace" text-anchor="end"
+                  font-weight="bold">PM2 RESTART CAP: 500 MB</text>
+                <line x1="0" y1="33" x2="500" y2="33" stroke="#fbbf24" stroke-width="1" stroke-dasharray="3 3"
+                  opacity="0.5" />
+                <text x="495" y="31" fill="#fbbf24" font-size="8" font-family="monospace" text-anchor="end">80% WARNING:
+                  400 MB</text>
+                <line x1="0" y1="56" x2="500" y2="56" class="grid-line" />
+                <line x1="0" y1="79" x2="500" y2="79" class="grid-line" />
+                <line x1="0" y1="102" x2="500" y2="102" class="grid-line" />
+                <line x1="0" y1="125" x2="500" y2="125" class="grid-line" />
+                <path id="areaRamWave" fill="url(#ramGradient)" />
+                <path id="pathRamWave" fill="none" stroke="#34d399" stroke-width="2.2" stroke-linecap="round" />
+                <line id="crosshairRam" class="crosshair-v-line" x1="0" y1="0" x2="0" y2="135" stroke="#ffffff"
+                  stroke-width="1.5" stroke-dasharray="3,3" opacity="0" />
               </svg>
+              <div class="chart-pointer-dot ram-pointer-dot" id="dotRam"></div>
             </div>
           </div>
           <div class="x-axis-labels" id="xAxisRam">
@@ -1493,16 +2372,15 @@
         </div>
 
         <div class="grafana-legend">
-          <span>Target: &lt; 400 MiB (Headroom: 322 MiB)</span>
+          <span>Target: &lt; 400 MiB (Headroom: 325 MiB)</span>
           <div class="legend-stats">
-            <span>CUR: <strong id="legendRamCur">177.4 MiB</strong></span>
-            <span>AVG: <strong id="legendRamAvg">176.1 MiB</strong></span>
-            <span>MIN: <strong id="legendRamMin">172.0 MiB</strong></span>
-            <span>MAX: <strong id="legendRamMax">184.2 MiB</strong></span>
+            <span>CUR: <strong id="legendRamCur">118.2 MiB</strong></span>
+            <span>AVG: <strong id="legendRamAvg">118.2 MiB</strong></span>
+            <span>MIN: <strong id="legendRamMin">165 MiB</strong></span>
+            <span>MAX: <strong id="legendRamMax">185 MiB</strong></span>
           </div>
         </div>
       </div>
-
     </div>
 
     <!-- Cluster Resource Correlation Strip -->
@@ -1515,7 +2393,7 @@
       <div class="corr-item">
         <span class="tt-dot" style="background:#34d399;"></span>
         <span class="corr-label">Kernel RSS Growth:</span>
-        <span class="corr-val" id="corrRamStatus">Safe Buffer (177 / 500 MB)</span>
+        <span class="corr-val" id="corrRamStatus">Stable &lt; 200 MB</span>
       </div>
       <div class="corr-item">
         <span class="tt-dot" style="background:#fbbf24;"></span>
@@ -1525,267 +2403,286 @@
       <div class="corr-item">
         <span class="tt-dot" style="background:#c084fc;"></span>
         <span class="corr-label">V8 GC State:</span>
-        <span class="corr-val" id="corrHeapStatus">Healthy (Zero Thrashing)</span>
+        <span class="corr-val" id="corrHeapStatus">Healthy (Zero Heap Thrashing)</span>
       </div>
     </div>
 
-    <!-- Section 2: V8 Engine & Concurrency Metrics (shadcn KPI Stat Cards) -->
-    <div class="section-title">Custom Node.js V8 & Network Metrics (shadcn / KPI Architecture)</div>
+    <!-- Row 2: 8 shadcn KPI Micro-Cards with Sparklines -->
     <div class="grid-4">
-
-      <!-- Card 1: HTTP Throughput (req/min) -->
-      <div class="shadcn-kpi-card" style="border-top: 2px solid var(--accent);">
+      <div class="shadcn-kpi-card" id="cardKpiReq">
         <div class="kpi-header">
           <div class="kpi-title"><span>⚡</span> HTTP Throughput</div>
-          <span class="kpi-badge badge-sky">● Live 60s</span>
+          <span class="kpi-badge badge-sky">Live</span>
         </div>
         <div class="kpi-body">
-          <div class="kpi-number"><span id="chartValReqs">0</span> <span class="hero-unit">req/min</span></div>
-          <div class="kpi-delta delta-info"><span>⚡ Active</span></div>
+          <div class="kpi-number"><span id="chartValReqs">0</span> <span
+              style="font-size:13px; font-weight:600; color:var(--text-muted);">req/min</span></div>
         </div>
-        <svg class="sparkline-svg" viewBox="0 0 240 45" preserveAspectRatio="none">
-          <defs>
-            <linearGradient id="grad-spark-req" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stop-color="#38bdf8" stop-opacity="0.35"/>
-              <stop offset="100%" stop-color="#38bdf8" stop-opacity="0.0"/>
-            </linearGradient>
-          </defs>
-          <path id="areaSparkReq" fill="url(#grad-spark-req)" d="M0,45 L240,45 Z" />
-          <path id="pathSparkReq" fill="none" stroke="#38bdf8" stroke-width="2" d="M0,40 L240,40" />
-        </svg>
+        <div class="sparkline-wrap" id="sparkWrapReq">
+          <div class="sparkline-tooltip" id="ttSparkReq">
+            <div class="spark-tt-time" id="ttSparkReqTime">--:--:--</div>
+            <div class="spark-tt-val"><span class="tt-dot" style="background:#22d3ee;"></span> <strong
+                id="ttSparkReqNum">0</strong> req/min</div>
+          </div>
+          <svg class="sparkline-svg" viewBox="0 0 240 45" preserveAspectRatio="none">
+            <defs>
+              <linearGradient id="sparkReqGrad" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stop-color="#22d3ee" stop-opacity="0.3" />
+                <stop offset="100%" stop-color="#22d3ee" stop-opacity="0.0" />
+              </linearGradient>
+            </defs>
+            <path id="areaSparkReq" fill="url(#sparkReqGrad)" />
+            <path id="pathSparkReq" fill="none" stroke="#22d3ee" stroke-width="2" stroke-linecap="round" />
+            <line id="crosshairSparkReq" class="spark-crosshair" x1="0" y1="0" x2="0" y2="45" opacity="0" />
+          </svg>
+          <div class="spark-pointer-dot spark-dot-req" id="dotSparkReq"></div>
+        </div>
         <div class="kpi-footer">
-          <span>Gateway: Cloudflare Edge</span>
-          <span>Peak: 48 req/min</span>
+          <span id="footerReqLabel">Rolling 60s window</span>
+          <span>Zero-DB overhead</span>
         </div>
       </div>
 
-      <!-- Card 2: V8 Used Heap Size -->
-      <div class="shadcn-kpi-card">
+      <div class="shadcn-kpi-card" id="cardKpiHeap">
         <div class="kpi-header">
-          <div class="kpi-title"><span>🟣</span> V8 Used Heap Size</div>
-          <span class="kpi-badge badge-purple">85.8% Used</span>
+          <div class="kpi-title"><span>🟣</span> V8 Heap Allocation</div>
+          <span class="kpi-badge badge-purple" id="chartBadgeHeap">94% Used</span>
         </div>
         <div class="kpi-body">
-          <div class="kpi-number">46.2 <span class="hero-unit">MiB</span></div>
-          <div class="kpi-delta delta-good"><span>● Allocated: 53.8M</span></div>
+          <div class="kpi-number"><span id="chartValHeap">44.7</span> <span
+              style="font-size:13px; font-weight:600; color:var(--text-muted);">MiB</span></div>
         </div>
-        <svg class="sparkline-svg" viewBox="0 0 240 45" preserveAspectRatio="none">
-          <defs>
-            <linearGradient id="grad-spark-heap" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stop-color="#c084fc" stop-opacity="0.35"/>
-              <stop offset="100%" stop-color="#c084fc" stop-opacity="0.0"/>
-            </linearGradient>
-          </defs>
-          <path id="areaSparkHeap" fill="url(#grad-spark-heap)" d="M0,45 L240,45 Z" />
-          <path id="pathSparkHeap" fill="none" stroke="#c084fc" stroke-width="2" d="M0,25 L240,25" />
-        </svg>
+        <div class="sparkline-wrap" id="sparkWrapHeap">
+          <div class="sparkline-tooltip" id="ttSparkHeap">
+            <div class="spark-tt-time" id="ttSparkHeapTime">--:--:--</div>
+            <div class="spark-tt-val"><span class="tt-dot" style="background:#c084fc;"></span> <strong
+                id="ttSparkHeapNum">--</strong> MiB <span class="spark-tt-sub" id="ttSparkHeapCap"></span></div>
+          </div>
+          <svg class="sparkline-svg" viewBox="0 0 240 45" preserveAspectRatio="none">
+            <defs>
+              <linearGradient id="sparkHeapGrad" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stop-color="#c084fc" stop-opacity="0.3" />
+                <stop offset="100%" stop-color="#c084fc" stop-opacity="0.0" />
+              </linearGradient>
+            </defs>
+            <path id="areaSparkHeap" fill="url(#sparkHeapGrad)" />
+            <path id="pathSparkHeap" fill="none" stroke="#c084fc" stroke-width="2" stroke-linecap="round" />
+            <line id="crosshairSparkHeap" class="spark-crosshair" x1="0" y1="0" x2="0" y2="45" opacity="0" />
+          </svg>
+          <div class="spark-pointer-dot spark-dot-heap" id="dotSparkHeap"></div>
+        </div>
         <div class="kpi-footer">
-          <span>V8 Max: 450 MiB</span>
-          <span>GC Pauses: &lt; 4ms</span>
+          <span id="footerHeapLabel">Allocated: 47.7 MiB</span>
+          <span>GC Healthy</span>
         </div>
       </div>
 
-      <!-- Card 3: Event Loop Lag (Voice Latency SLA) -->
-      <div class="shadcn-kpi-card">
+      <div class="shadcn-kpi-card" id="cardKpiLag">
         <div class="kpi-header">
-          <div class="kpi-title"><span>🟡</span> Event Loop Lag</div>
-          <span class="kpi-badge badge-emerald">🟢 Voice Ready</span>
+          <div class="kpi-title"><span>⏱️</span> Event Loop Delay</div>
+          <span class="kpi-badge badge-emerald" id="chartBadgeLag">Voice OK</span>
         </div>
         <div class="kpi-body">
-          <div class="kpi-number"><span id="chartValLag">0.6</span> <span class="hero-unit">ms</span></div>
-          <div class="kpi-delta delta-good"><span>p95: 1.5ms</span></div>
+          <div class="kpi-number"><span id="chartValLag">31.2</span> <span
+              style="font-size:13px; font-weight:600; color:var(--text-muted);">ms</span></div>
         </div>
-        <svg class="sparkline-svg" viewBox="0 0 240 45" preserveAspectRatio="none">
-          <defs>
-            <linearGradient id="grad-spark-lag" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stop-color="#fbbf24" stop-opacity="0.35"/>
-              <stop offset="100%" stop-color="#fbbf24" stop-opacity="0.0"/>
-            </linearGradient>
-          </defs>
-          <path id="areaSparkLag" fill="url(#grad-spark-lag)" d="M0,45 L240,45 Z" />
-          <path id="pathSparkLag" fill="none" stroke="#fbbf24" stroke-width="2" d="M0,30 L240,30" />
-        </svg>
+        <div class="sparkline-wrap" id="sparkWrapLag">
+          <div class="sparkline-tooltip" id="ttSparkLag">
+            <div class="spark-tt-time" id="ttSparkLagTime">--:--:--</div>
+            <div class="spark-tt-val"><span class="tt-dot" style="background:#fbbf24;"></span> <strong
+                id="ttSparkLagNum">--</strong> ms <span class="spark-tt-sub">(&lt;10ms SLA)</span></div>
+          </div>
+          <svg class="sparkline-svg" viewBox="0 0 240 45" preserveAspectRatio="none">
+            <defs>
+              <linearGradient id="sparkLagGrad" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stop-color="#fbbf24" stop-opacity="0.3" />
+                <stop offset="100%" stop-color="#fbbf24" stop-opacity="0.0" />
+              </linearGradient>
+            </defs>
+            <path id="areaSparkLag" fill="url(#sparkLagGrad)" />
+            <path id="pathSparkLag" fill="none" stroke="#fbbf24" stroke-width="2" stroke-linecap="round" />
+            <line id="crosshairSparkLag" class="spark-crosshair" x1="0" y1="0" x2="0" y2="45" opacity="0" />
+          </svg>
+          <div class="spark-pointer-dot spark-dot-lag" id="dotSparkLag"></div>
+        </div>
         <div class="kpi-footer">
-          <span>WebSocket Voice SLA</span>
-          <span>Target &lt; 10ms</span>
+          <span id="footerLagLabel">Voice SLA: &lt; 10ms</span>
+          <span>p99: 32.6ms</span>
         </div>
       </div>
 
-      <!-- Card 4: HTTP Mean Latency -->
-      <div class="shadcn-kpi-card">
+      <div class="shadcn-kpi-card" id="cardKpiLat">
         <div class="kpi-header">
-          <div class="kpi-title"><span>🌐</span> HTTP Latency</div>
-          <span class="kpi-badge badge-sky">⚡ Fast</span>
+          <div class="kpi-title"><span>🌐</span> Mean HTTP Latency</div>
+          <span class="kpi-badge badge-sky">Fast</span>
         </div>
         <div class="kpi-body">
-          <div class="kpi-number">1.0 <span class="hero-unit">ms</span></div>
-          <div class="kpi-delta delta-info"><span>p95: 1.2s</span></div>
+          <div class="kpi-number"><span id="chartValLat">1.0</span> <span
+              style="font-size:13px; font-weight:600; color:var(--text-muted);">ms</span></div>
         </div>
-        <svg class="sparkline-svg" viewBox="0 0 240 45" preserveAspectRatio="none">
-          <defs>
-            <linearGradient id="grad-spark-lat" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stop-color="#22d3ee" stop-opacity="0.35"/>
-              <stop offset="100%" stop-color="#22d3ee" stop-opacity="0.0"/>
-            </linearGradient>
-          </defs>
-          <path id="areaSparkLat" fill="url(#grad-spark-lat)" d="M0,45 L240,45 Z" />
-          <path id="pathSparkLat" fill="none" stroke="#22d3ee" stroke-width="2" d="M0,32 L240,32" />
-        </svg>
+        <div class="sparkline-wrap" id="sparkWrapLat">
+          <div class="sparkline-tooltip" id="ttSparkLat">
+            <div class="spark-tt-time" id="ttSparkLatTime">--:--:--</div>
+            <div class="spark-tt-val"><span class="tt-dot" style="background:#38bdf8;"></span> <strong
+                id="ttSparkLatNum">--</strong> ms <span class="spark-tt-sub">(Loopback)</span></div>
+          </div>
+          <svg class="sparkline-svg" viewBox="0 0 240 45" preserveAspectRatio="none">
+            <defs>
+              <linearGradient id="sparkLatGrad" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stop-color="#38bdf8" stop-opacity="0.3" />
+                <stop offset="100%" stop-color="#38bdf8" stop-opacity="0.0" />
+              </linearGradient>
+            </defs>
+            <path id="areaSparkLat" fill="url(#sparkLatGrad)" />
+            <path id="pathSparkLat" fill="none" stroke="#38bdf8" stroke-width="2" stroke-linecap="round" />
+            <line id="crosshairSparkLat" class="spark-crosshair" x1="0" y1="0" x2="0" y2="45" opacity="0" />
+          </svg>
+          <div class="spark-pointer-dot spark-dot-lat" id="dotSparkLat"></div>
+        </div>
         <div class="kpi-footer">
-          <span>TLS Handshake: 18ms</span>
-          <span>Status: 200 OK</span>
+          <span id="footerLatLabel">p95: 1.2ms</span>
+          <span>Nginx loopback</span>
         </div>
       </div>
 
-      <!-- Card 5: Active Handles & Sockets -->
-      <div class="shadcn-kpi-card">
+      <div class="shadcn-kpi-card" id="cardKpiHandles">
         <div class="kpi-header">
           <div class="kpi-title"><span>🔌</span> Active Handles</div>
-          <span class="kpi-badge badge-sky">Normal</span>
+          <span class="kpi-badge badge-emerald">Normal</span>
         </div>
         <div class="kpi-body">
-          <div class="kpi-number">4 <span class="hero-unit">handles</span></div>
-          <div class="kpi-delta delta-good"><span>TCP: 3 • Timers: 1</span></div>
+          <div class="kpi-number"><span id="chartValHandles">6</span> <span
+              style="font-size:13px; font-weight:600; color:var(--text-muted);">handles</span></div>
         </div>
-        <svg class="sparkline-svg" viewBox="0 0 240 45" preserveAspectRatio="none">
-          <defs>
-            <linearGradient id="grad-spark-handles" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stop-color="#818cf8" stop-opacity="0.35"/>
-              <stop offset="100%" stop-color="#818cf8" stop-opacity="0.0"/>
-            </linearGradient>
-          </defs>
-          <path id="areaSparkHandles" fill="url(#grad-spark-handles)" d="M0,45 L240,45 Z" />
-          <path id="pathSparkHandles" fill="none" stroke="#818cf8" stroke-width="2" d="M0,28 L240,28" />
-        </svg>
+        <div class="sparkline-wrap" id="sparkWrapHandles">
+          <div class="sparkline-tooltip" id="ttSparkHandles">
+            <div class="spark-tt-time" id="ttSparkHandlesTime">--:--:--</div>
+            <div class="spark-tt-val"><span class="tt-dot" style="background:#34d399;"></span> <strong
+                id="ttSparkHandlesNum">--</strong> handles</div>
+          </div>
+          <svg class="sparkline-svg" viewBox="0 0 240 45" preserveAspectRatio="none">
+            <defs>
+              <linearGradient id="sparkHandlesGrad" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stop-color="#34d399" stop-opacity="0.25" />
+                <stop offset="100%" stop-color="#34d399" stop-opacity="0.0" />
+              </linearGradient>
+            </defs>
+            <path id="areaSparkHandles" fill="url(#sparkHandlesGrad)" />
+            <path id="pathSparkHandles" fill="none" stroke="#34d399" stroke-width="2" stroke-linecap="round" />
+            <line id="crosshairSparkHandles" class="spark-crosshair" x1="0" y1="0" x2="0" y2="45" opacity="0" />
+          </svg>
+          <div class="spark-pointer-dot spark-dot-handles" id="dotSparkHandles"></div>
+        </div>
         <div class="kpi-footer">
-          <span>Gemini WSS: 1 active</span>
-          <span>Port: 5000</span>
+          <span id="footerHandlesLabel">Libuv file descriptors</span>
+          <span>No socket leaks</span>
         </div>
       </div>
 
-      <!-- Card 6: In-Flight Requests -->
       <div class="shadcn-kpi-card">
         <div class="kpi-header">
           <div class="kpi-title"><span>⏳</span> In-Flight Requests</div>
-          <span class="kpi-badge badge-emerald">Idle</span>
+          <span class="kpi-badge badge-sky">Idle</span>
         </div>
         <div class="kpi-body">
-          <div class="kpi-number">0 <span class="hero-unit">req</span></div>
-          <div class="kpi-delta delta-good"><span>Queue: 0 backlog</span></div>
+          <div class="kpi-number">0 <span style="font-size:13px; font-weight:600; color:var(--text-muted);">req</span>
+          </div>
         </div>
-        <svg class="sparkline-svg" viewBox="0 0 240 45" preserveAspectRatio="none">
-          <defs>
-            <linearGradient id="grad-spark-queue" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stop-color="#34d399" stop-opacity="0.35"/>
-              <stop offset="100%" stop-color="#34d399" stop-opacity="0.0"/>
-            </linearGradient>
-          </defs>
-          <path id="areaSparkQueue" fill="url(#grad-spark-queue)" d="M0,45 L240,45 Z" />
-          <path id="pathSparkQueue" fill="none" stroke="#34d399" stroke-width="2" d="M0,42 L240,42" />
-        </svg>
+        <div
+          style="height:48px; display:flex; align-items:center; justify-content:center; color:var(--text-dim); font-size:12px; font-family:monospace;">
+          0 Queue Backlog
+        </div>
         <div class="kpi-footer">
-          <span>Capacity: 500</span>
-          <span>Rejections: 0</span>
+          <span>Concurrent libuv calls</span>
+          <span>Instant processing</span>
         </div>
       </div>
 
-      <!-- Card 7: Security & Secret Sanitization -->
       <div class="shadcn-kpi-card">
         <div class="kpi-header">
           <div class="kpi-title"><span>🛡️</span> CWE-532 Vault</div>
           <span class="kpi-badge badge-emerald">Active</span>
         </div>
         <div class="kpi-body">
-          <div class="kpi-number" style="color:var(--color-success);">100% <span class="hero-unit" style="color:var(--color-success);">Clean</span></div>
-          <div class="kpi-delta delta-good"><span>10 RegEx Maskers</span></div>
+          <div class="kpi-number">100% <span
+              style="font-size:13px; font-weight:600; color:var(--text-muted);">Clean</span></div>
         </div>
-        <svg class="sparkline-svg" viewBox="0 0 240 45" preserveAspectRatio="none">
-          <defs>
-            <linearGradient id="grad-spark-sec" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stop-color="#34d399" stop-opacity="0.35"/>
-              <stop offset="100%" stop-color="#34d399" stop-opacity="0.0"/>
-            </linearGradient>
-          </defs>
-          <path id="areaSparkSec" fill="url(#grad-spark-sec)" d="M0,45 L240,45 Z" />
-          <path id="pathSparkSec" fill="none" stroke="#34d399" stroke-width="2" d="M0,20 L240,20" />
-        </svg>
+        <div
+          style="height:48px; display:flex; align-items:center; justify-content:center; color:var(--text-dim); font-size:11.5px; font-family:monospace; text-align:center;">
+          10 Regex Redactors<br>Zero Secret Leaks
+        </div>
         <div class="kpi-footer">
-          <span>OWASP Top 10 Redaction</span>
-          <span>0 Leaks Detected</span>
+          <span>JWT, Gemini, NVIDIA, DB</span>
+          <span>Auto-scrubbed</span>
         </div>
       </div>
 
-      <!-- Card 8: Process Health & PM2 Daemon -->
       <div class="shadcn-kpi-card">
         <div class="kpi-header">
-          <div class="kpi-title"><span>🟢</span> PM2 Process Health</div>
-          <span class="kpi-badge badge-emerald">ONLINE</span>
+          <div class="kpi-title"><span>🟢</span> PM2 Daemon</div>
+          <span class="kpi-badge badge-emerald">Online</span>
         </div>
-        <div class="kpi-body" style="flex-direction: column; gap: 4px;">
-          <div class="kpi-number" style="color:var(--color-success); font-size:22px;">ONLINE</div>
-          <div style="font-family:ui-monospace, monospace; font-size:11.5px; color:var(--text-muted); display:flex; flex-direction:column; gap:2px;">
-            <div>Node: <strong style="color:#ffffff;">v22.23.4</strong> • Restarts: <strong style="color:#ffffff;">1</strong></div>
-            <div>Uptime: <strong id="chartUptimeSmall" style="color:#38bdf8;">5h 28m 14s</strong></div>
-          </div>
+        <div class="kpi-body">
+          <div class="kpi-number" style="font-size:20px; color:#34d399;">ONLINE</div>
         </div>
-        <div class="kpi-footer" style="margin-top:auto;">
-          <span>PM2 Supervisor v5.4.3</span>
-          <span>Systemd Boot Service</span>
+        <div
+          style="height:48px; display:flex; flex-direction:column; justify-content:center; color:var(--text-dim); font-size:11.5px; font-family:monospace;">
+          <div>Uptime: <span id="chartUptimeSmall">46s</span></div>
+          <div>Restart Cap: 500 MB</div>
+        </div>
+        <div class="kpi-footer">
+          <span>Process Manager: Fork</span>
+          <span>Autorestart: Yes</span>
         </div>
       </div>
-
     </div>
-
-  </div>
+  </section>
 
   <script>
-    // ─── Realistic Test Data Simulating Sree AI Production Backend ───
-    const MOCK_LOGS = [
-      { id: 1, time: "2026-09-15 10:00:00", level: "INFO", type: "out", service: "[Server]", content: "Initial server provisioning completed on Oracle Cloud VM.Standard.E2.1.Micro" },
-      { id: 2, time: "2026-10-05 14:15:30", level: "INFO", type: "out", service: "[Auth]", content: "System-wide security credentials rotated and JWT secret keys refreshed" },
-      { id: 3, time: "2026-10-21 16:20:00", level: "WARN", type: "out", service: "[R2Service]", content: "Storage bucket sync notice: 14 cached assets verified with Cloudflare R2" },
-      { id: 4, time: "2026-10-24 14:22:10", level: "INFO", type: "out", service: "[Server]", content: "Database migrations applied successfully up to version 20261024_01" },
-      { id: 5, time: "2026-10-24 23:45:00", level: "WARN", type: "out", service: "[R2Service]", content: "Orphaned temporary audio chunk cleaned up (id: 'tmp_voice_002')" },
-      { id: 6, time: "2026-10-25 09:15:30", level: "INFO", type: "out", service: "[Server]", content: "PM2 master process spawned child worker pid: 3528" },
-      { id: 7, time: "2026-10-25 14:30:00", level: "INFO", type: "out", service: "[Auth]", content: "API key pool initialized for user 'nilkantha' (tier: enterprise)" },
-      { id: 8, time: "2026-10-25 18:02:10", level: "INFO", type: "out", service: "[Server]", content: "🚀 Server running on port 5000 (Environment: production, PID: 3528)" },
-      { id: 9, time: "2026-10-25 18:02:11", level: "INFO", type: "out", service: "[WebSocket]", content: "Live voice endpoint ready at /api/live/voice with WSS TLS termination" },
-      { id: 10, time: "2026-10-25 18:05:42", level: "INFO", type: "out", service: "[Auth]", content: "Bearer token verified for user_id: 'usr_8892f3a1' (tier: pro) | token: <span class='redacted-token'>[REDACTED_JWT]</span>" },
-      { id: 11, time: "2026-10-25 18:08:15", level: "INFO", type: "out", service: "[WebSocket]", content: "Live voice connection upgrade accepted from client IP: 49.47.155.58 via CF-Connecting-IP" },
-      { id: 12, time: "2026-10-25 18:10:22", level: "WARN", type: "out", service: "[AiService]", content: "Rate-limit threshold approaching for Gemini Live pool (78/100 requests used this minute)" },
-      { id: 13, time: "2026-10-25 18:12:04", level: "WARN", type: "out", service: "[R2Service]", content: "Storage upload retry (attempt 1/3) for bucket 'chat-files' using key <span class='redacted-token'>[REDACTED_R2_KEY]</span>" },
-      { id: 14, time: "2026-10-25 18:14:33", level: "ERROR", type: "err", service: "[AiService]", content: "API connection timeout calling model 'gemini-3.8-live' after 8000ms. Cascading fallback to 'gemini-3.1-flash-live-preview'." },
-      { id: 15, time: "2026-10-25 18:15:01", level: "ERROR", type: "err", service: "[Security]", content: "Blocked unauthorized probing request on path '/wp-login.php' from IP: 185.220.101.4 (Threat score: High)" },
-      { id: 16, time: "2026-10-25 21:10:45", level: "INFO", type: "out", service: "[Health]", content: "Automated health check passed with status 200 OK (latency: 1.1ms)" }
-    ];
+    function escapeHtml(str) {
+      if (str === null || str === undefined) return "";
+      return String(str)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#39;");
+    }
 
-    let currentLogs = [...MOCK_LOGS];
+    const BASE_PATH = "/ops-log-vault-9x2k";
+    const DEMO_MOCK_LOGS = [
+      { id: 1, time: "2026-10-25 17:01:43", level: "INFO", service: "[Server]", type: "out", content: "[2026-10-25 17:01:43] [INFO] [Server] Log vault initialized with 10 secret redactors active on port 5000." },
+      { id: 2, time: "2026-10-25 17:01:44", level: "INFO", service: "[Auth]", type: "out", content: "[2026-10-25 17:01:44] [INFO] [Auth] HMAC SHA256 timing-safe session tokens and CSRF protection enabled." },
+      { id: 3, time: "2026-10-25 17:02:10", level: "WARN", service: "[Queue]", type: "out", content: "[2026-10-25 17:02:10] [WARN] [Queue] BullMQ job latency spike detected: 14.2ms > SLA 10ms threshold." },
+      { id: 4, time: "2026-10-25 17:03:05", level: "INFO", service: "[AiService]", type: "out", content: "[2026-10-25 17:03:05] [INFO] [AiService] Claude 3.7 Sonnet streaming completion dispatched in 218ms." },
+      { id: 5, time: "2026-10-25 17:03:40", level: "INFO", service: "[Payment]", type: "out", content: "[2026-10-25 17:03:40] [INFO] [Payment] Razorpay webhook verified: order_Nz091873918 validated successfully." },
+      { id: 6, time: "2026-10-25 17:04:12", level: "ERROR", service: "[System-Error]", type: "err", content: "[2026-10-25 17:04:12] [ERROR] [System-Error] Upstream provider timeout on Gemini multimodal endpoint (retrying 1/3)." },
+      { id: 7, time: "2026-10-25 17:05:00", level: "INFO", service: "[WebSocket]", type: "out", content: "[2026-10-25 17:05:00] [INFO] [WebSocket] Realtime telemetry subscriber connected from 127.0.0.1:5173." },
+      { id: 8, time: "2026-10-25 17:05:30", level: "WARN", service: "[Security]", type: "err", content: "[2026-10-25 17:05:30] [WARN] [Security] Rate limiter alert: IP 192.168.1.42 reached 95% of burst threshold." }
+    ];
+    let currentLogs = [...DEMO_MOCK_LOGS];
     let selectedLevel = "ALL";
     let liveTimer = null;
     let isLive = false;
+    let uptimeSeconds = 46;
 
-    // Running For [time] Live Ticking Counter (19694s = ~5h 28m 14s)
-    let uptimeSeconds = 19694;
+    // Continuous Live Ticking Counter
     setInterval(() => {
       uptimeSeconds++;
       const hrs = Math.floor(uptimeSeconds / 3600);
       const mins = Math.floor((uptimeSeconds % 3600) / 60);
       const secs = uptimeSeconds % 60;
-      const formatted = `${hrs}h ${mins}m ${secs}s`;
+      const formatted = hrs > 0 ? (hrs + "h " + mins + "m " + secs + "s") : (mins + "m " + secs + "s");
 
       const headerEl = document.getElementById("headerUptimeVal");
-      const chartEl = document.getElementById("chartUptimeVal");
       const chartSmall = document.getElementById("chartUptimeSmall");
-
       if (headerEl) headerEl.innerText = formatted;
-      if (chartEl) chartEl.innerText = formatted;
       if (chartSmall) chartSmall.innerText = formatted;
     }, 1000);
 
-    // Date & Time Range Formatting Utilities
     function toLocalISO(d) {
       const pad = n => String(n).padStart(2, '0');
-      return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+      return d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate()) + "T" + pad(d.getHours()) + ":" + pad(d.getMinutes());
     }
 
     function handleDatePresetChange(preset) {
@@ -1795,58 +2692,44 @@
 
       if (preset === 'CUSTOM') {
         customBox.style.display = 'inline-flex';
-        if (!startInput.value) {
-          const s = new Date(2026, 9, 25, 0, 0, 0);
-          startInput.value = toLocalISO(s);
-        }
-        if (!endInput.value) {
-          const e = new Date(2026, 9, 25, 23, 59, 59);
-          endInput.value = toLocalISO(e);
-        }
-        renderLogs();
+        fetchLogs();
         return;
       }
 
       customBox.style.display = 'none';
-
-      // Reference anchor time matching our system timestamp: Oct 25, 2026 21:24
-      const refTime = new Date(2026, 9, 25, 21, 24, 0);
+      const now = new Date();
 
       if (preset === 'ALL') {
         startInput.value = '';
         endInput.value = '';
       } else if (preset === 'TODAY') {
-        const todayStart = new Date(2026, 9, 25, 0, 0, 0);
-        const todayEnd = new Date(2026, 9, 25, 23, 59, 59);
+        const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0);
+        const todayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
         startInput.value = toLocalISO(todayStart);
         endInput.value = toLocalISO(todayEnd);
       } else if (preset === 'YESTERDAY') {
-        const yestStart = new Date(2026, 9, 24, 0, 0, 0);
-        const yestEnd = new Date(2026, 9, 24, 23, 59, 59);
+        const yestStart = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1, 0, 0, 0);
+        const yestEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1, 23, 59, 59);
         startInput.value = toLocalISO(yestStart);
         endInput.value = toLocalISO(yestEnd);
       } else if (preset === '1H') {
-        const oneHourAgo = new Date(refTime.getTime() - 60 * 60 * 1000);
-        startInput.value = toLocalISO(oneHourAgo);
-        endInput.value = toLocalISO(refTime);
+        startInput.value = toLocalISO(new Date(now.getTime() - 60 * 60 * 1000));
+        endInput.value = toLocalISO(now);
       } else if (preset === '6H') {
-        const sixHoursAgo = new Date(refTime.getTime() - 6 * 60 * 60 * 1000);
-        startInput.value = toLocalISO(sixHoursAgo);
-        endInput.value = toLocalISO(refTime);
+        startInput.value = toLocalISO(new Date(now.getTime() - 6 * 60 * 60 * 1000));
+        endInput.value = toLocalISO(now);
       } else if (preset === '24H') {
-        const oneDayAgo = new Date(refTime.getTime() - 24 * 60 * 60 * 1000);
-        startInput.value = toLocalISO(oneDayAgo);
-        endInput.value = toLocalISO(refTime);
+        startInput.value = toLocalISO(new Date(now.getTime() - 24 * 60 * 60 * 1000));
+        endInput.value = toLocalISO(now);
       } else if (preset === '7D') {
-        const sevenDaysAgo = new Date(refTime.getTime() - 7 * 24 * 60 * 60 * 1000);
-        startInput.value = toLocalISO(sevenDaysAgo);
-        endInput.value = toLocalISO(refTime);
+        startInput.value = toLocalISO(new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000));
+        endInput.value = toLocalISO(now);
       } else if (preset === '1M') {
-        const oneMonthAgo = new Date(refTime.getTime() - 30 * 24 * 60 * 60 * 1000);
-        startInput.value = toLocalISO(oneMonthAgo);
-        endInput.value = toLocalISO(refTime);
+        startInput.value = toLocalISO(new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000));
+        endInput.value = toLocalISO(now);
       }
-      renderLogs();
+
+      fetchLogs();
     }
 
     function clearCustomDateRange() {
@@ -1854,10 +2737,9 @@
       document.getElementById('customDateRangeBox').style.display = 'none';
       document.getElementById('dateStart').value = '';
       document.getElementById('dateEnd').value = '';
-      renderLogs();
+      fetchLogs();
     }
 
-    // Switch between Logs Tab and Metrics Tab
     function switchNavTab(tab) {
       document.getElementById('tabLogs').classList.toggle('active', tab === 'logs');
       document.getElementById('tabMetrics').classList.toggle('active', tab === 'metrics');
@@ -1875,28 +2757,22 @@
       }
     }
 
-    // Toggle Settings Dropdown
     function toggleSettingsMenu() {
-      const menu = document.getElementById('settingsMenu');
-      menu.classList.toggle('show');
+      document.getElementById('settingsMenu').classList.toggle('show');
     }
 
-    // Close settings if clicked outside
     document.addEventListener('click', (e) => {
       if (!e.target.closest('.settings-dropdown')) {
-        document.getElementById('settingsMenu').classList.remove('show');
+        const menu = document.getElementById('settingsMenu');
+        if (menu) menu.classList.remove('show');
       }
     });
 
-    // Toggle Individual Telemetry Card Visibility (Customizer)
     function toggleCard(cardId, isVisible) {
       const el = document.getElementById(cardId);
-      if (el) {
-        el.style.display = isVisible ? 'flex' : 'none';
-      }
+      if (el) el.style.display = isVisible ? 'flex' : 'none';
     }
 
-    // Toggle Telemetry Strip above logs
     function toggleTelemetryStrip() {
       const strip = document.getElementById('logTelemetryStrip');
       const btn = document.getElementById('telemetryStripBtn');
@@ -1909,144 +2785,10 @@
       }
     }
 
-    // Time Range Selector for Metrics Tab
     function setTimeRange(range, el) {
       document.querySelectorAll('.time-chip').forEach(c => c.classList.remove('active'));
       el.classList.add('active');
-
-      const startLabel = document.getElementById('labelTimeStart');
-      const endLabel = document.getElementById('labelTimeEnd');
-
-      if (range === 'realtime') {
-        startLabel.innerText = '08:50 pm';
-        endLabel.innerText = '08:58 pm (Now)';
-      } else if (range === '1h') {
-        startLabel.innerText = '08:00 pm';
-        endLabel.innerText = '09:00 pm';
-      } else if (range === '6h') {
-        startLabel.innerText = '03:00 pm';
-        endLabel.innerText = '09:00 pm';
-      } else if (range === '24h') {
-        startLabel.innerText = 'Yesterday';
-        endLabel.innerText = 'Today';
-      } else if (range === '7d') {
-        window.open('https://app.pm2.io', '_blank');
-      }
     }
-
-    // Render Logs in Terminal View
-    function renderLogs() {
-      const container = document.getElementById("logContainer");
-      const query = document.getElementById("searchBox").value.trim().toLowerCase();
-      const service = document.getElementById("serviceSelect").value;
-      const file = document.getElementById("fileSelect").value;
-      const dateStartVal = document.getElementById("dateStart")?.value;
-      const dateEndVal = document.getElementById("dateEnd")?.value;
-
-      let filtered = currentLogs.filter(log => {
-        if (file === "out.log") return log.type === "out";
-        if (file === "err.log") return log.type === "err";
-        return true;
-      });
-
-      // Severity Level Filtering
-      if (selectedLevel !== "ALL") {
-        filtered = filtered.filter(log => log.level === selectedLevel);
-      }
-
-      // Service Subsystem Filtering
-      if (service !== "ALL") {
-        filtered = filtered.filter(log => log.service.includes(service.replace(/[\[\]]/g, '')));
-      }
-
-      // Date / Date Range Filtering
-      if (dateStartVal) {
-        const startTime = new Date(dateStartVal).getTime();
-        filtered = filtered.filter(log => new Date(log.time.replace(" ", "T")).getTime() >= startTime);
-      }
-      if (dateEndVal) {
-        const endTime = new Date(dateEndVal).getTime();
-        filtered = filtered.filter(log => new Date(log.time.replace(" ", "T")).getTime() <= endTime);
-      }
-
-      // Text / Regex Search Filtering
-      if (query) {
-        filtered = filtered.filter(log => {
-          const rawText = `${log.time} ${log.level} ${log.service} ${log.content}`.toLowerCase();
-          return rawText.includes(query);
-        });
-      }
-
-      // Update Chip Dynamic Counts
-      const totalAll = currentLogs.length;
-      const totalErr = currentLogs.filter(l => l.level === 'ERROR').length;
-      const totalWarn = currentLogs.filter(l => l.level === 'WARN').length;
-      const totalInfo = currentLogs.filter(l => l.level === 'INFO').length;
-
-      const chipAll = document.querySelector('.chip[data-level="ALL"]');
-      const chipErr = document.querySelector('.chip[data-level="ERROR"]');
-      const chipWarn = document.querySelector('.chip[data-level="WARN"]');
-      const chipInfo = document.querySelector('.chip[data-level="INFO"]');
-      if (chipAll) chipAll.innerText = `All (${totalAll})`;
-      if (chipErr) chipErr.innerText = `🔴 Errors (${totalErr})`;
-      if (chipWarn) chipWarn.innerText = `🟡 Warnings (${totalWarn})`;
-      if (chipInfo) chipInfo.innerText = `🔵 Info (${totalInfo})`;
-
-      const dateActiveTag = (dateStartVal || dateEndVal) ? ` • 📅 Date Range Active` : '';
-      document.getElementById("lineCounter").innerText = `Showing ${filtered.length} of ${currentLogs.length} lines${dateActiveTag}`;
-
-      if (filtered.length === 0) {
-        container.innerHTML = `<div style="padding: 40px; text-align: center; color: var(--text-dim);">
-          <div style="font-size: 24px; margin-bottom: 8px;">🔍</div>
-          No matching logs found for the selected date range and filters.
-        </div>`;
-        return;
-      }
-
-      container.innerHTML = filtered.map(log => {
-        const badgeClass = log.level === "ERROR" ? "badge-err" : log.level === "WARN" ? "badge-warn" : "badge-info";
-        const rowClass = log.level === "ERROR" ? "row-error" : log.level === "WARN" ? "row-warn" : "";
-
-        let highlightedContent = log.content;
-        if (query) {
-          const regex = new RegExp(`(${query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, "gi");
-          highlightedContent = highlightedContent.replace(regex, `<span class="highlight">$1</span>`);
-        }
-
-        return `
-          <div class="log-line ${rowClass}">
-            <span class="line-time">${log.time}</span>
-            <span class="line-badge ${badgeClass}">[${log.level}]</span>
-            <span class="mod-tag">${log.service}</span>
-            <span>${highlightedContent}</span>
-          </div>
-        `;
-      }).join("");
-
-      if (isLive) {
-        container.scrollTop = container.scrollHeight;
-      }
-    }
-
-    function setLevel(lvl) {
-      selectedLevel = lvl;
-      document.querySelectorAll(".chip").forEach(btn => {
-        btn.classList.toggle("active", btn.getAttribute("data-level") === lvl);
-      });
-      renderLogs();
-    }
-
-    // ─── Real-Time Grafana & shadcn Waveform Engine ───
-    const WAVE_POINTS = 24;
-    
-    // Seed initial realistic time-series points
-    let cpuSeries = [1.1, 1.2, 1.4, 1.3, 1.6, 2.1, 1.8, 1.4, 1.2, 1.5, 1.3, 1.1, 1.2, 1.4, 1.3, 1.2, 1.5, 1.8, 1.4, 1.2, 1.3, 1.2, 1.4, 1.2];
-    let ramSeries = [174.2, 175.1, 175.8, 176.4, 176.0, 177.2, 178.0, 177.5, 176.8, 177.1, 177.4, 176.9, 177.2, 177.5, 177.4, 177.2, 177.6, 177.9, 177.4, 177.3, 177.5, 177.4, 177.8, 177.4];
-    let reqSeries = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
-    let lagSeries = [0.5, 0.6, 0.5, 0.7, 0.6, 0.5, 0.6, 0.8, 0.6, 0.5, 0.6, 0.7, 0.6, 0.5, 0.6, 0.5, 0.6, 0.7, 0.6, 0.6];
-    let heapSeries = [45.2, 45.6, 45.9, 46.1, 45.8, 46.2, 46.4, 46.1, 46.3, 46.0, 46.2, 46.4, 46.2, 46.5, 46.2, 46.3, 46.2, 46.4, 46.1, 46.2];
-    let latSeries = [0.9, 1.0, 1.1, 0.9, 1.0, 1.2, 1.0, 0.9, 1.0, 1.1, 1.0, 0.9, 1.0, 1.0, 1.1, 0.9, 1.0, 1.0, 1.1, 1.0];
-    let handlesSeries = [4, 4, 4, 4, 4, 5, 4, 4, 4, 4, 4, 5, 4, 4, 4, 4, 4, 4, 4, 4];
 
     // Catmull-Rom Cubic Bezier Point & Spline Generator
     function generateSplinePoints(data, width, height, minVal, maxVal, padding = 10) {
@@ -2085,14 +2827,33 @@
       return path;
     }
 
+    // Series Buffers
+    let cpuSeries = [1.2, 1.4, 1.1, 1.5, 1.8, 1.2, 1, 1.3, 1.6, 1.4, 1.2, 1.1, 0.1, 0.6, 0, 0, 0, 0, 0, 0, 0.1];
+    let ramSeries = [172, 173, 174, 175, 176, 175, 176, 177, 177, 176, 177, 177, 149.1, 118.5, 117.6, 117.8, 118.1, 118.5, 118.8, 119, 118.3];
+    let reqSeries = [0, 0, 0, 0, 1, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+    let lagSeries = [0.5, 0.6, 0.6, 0.7, 0.5, 0.6, 0.8, 0.6, 0.5, 0.6, 0.7, 0.6, 30.9, 31.1, 31.2, 31.2, 31.2, 31.2, 31.2, 31.2, 31.2];
+    let timestampsSeries = [1793030552210, 1793030557210, 1793030562210, 1793030567210, 1793030572210, 1793030577210, 1793030582210, 1793030587210, 1793030592210, 1793030597210, 1793030602210, 1793030607210, 1793030612226, 1793030617228, 1793030622233, 1793030627244, 1793030632245, 1793030637259, 1793030642271, 1793030647284, 1793030652289];
+    let heapSeries = [45.2, 45.6, 45.9, 46.1, 45.8, 46.2, 46.4, 46.1, 46.3, 46, 46.2, 46.4, 53.6, 43.2, 43.5, 43.8, 44, 43.8, 44.1, 44.3, 43.9];
+    let latSeries = [0.9, 1, 1.1, 0.9, 1, 1.2, 1, 0.9, 1, 1.1, 1, 1, 31.9, 32.1, 32.1, 32.1, 32.1, 32.1, 32.1, 32.1, 32.1];
+    let handlesSeries = [4, 4, 4, 4, 4, 5, 4, 4, 4, 4, 4, 5, 4, 4, 4, 4, 4, 4, 5, 4, 4];
     let isCpuZoom = false;
+
+    if (!timestampsSeries || timestampsSeries.length === 0) {
+      const now = Date.now();
+      timestampsSeries = cpuSeries.map((_, i) => now - (cpuSeries.length - 1 - i) * 5000);
+    }
+
+    // Cache current computed points for synchronized hover
     let currentCpuPts = [];
     let currentRamPts = [];
-    let timestampsSeries = [];
-    const nowTs = Date.now();
-    for (let i = 23; i >= 0; i--) {
-      timestampsSeries.push(nowTs - i * 5000);
-    }
+    let currentReqPts = [];
+    let currentHeapPts = [];
+    let currentLagPts = [];
+    let currentLatPts = [];
+    let currentHandlesPts = [];
+    let activeHoverIdx = null;
+    let activeHoverRatio = null;
+    let activeHoverSource = null;
 
     function setCpuScale(zoom) {
       isCpuZoom = zoom;
@@ -2133,21 +2894,40 @@
       return dayName + ", " + month + " " + day + " • " + String(h).padStart(2, '0') + ":" + m + ":" + s + " " + ampm;
     }
 
+    function formatTimeWithSeconds(ts) {
+      if (!ts) return "--:--:--";
+      const d = new Date(ts);
+      let h = d.getHours();
+      const m = String(d.getMinutes()).padStart(2, '0');
+      const s = String(d.getSeconds()).padStart(2, '0');
+      const ampm = h >= 12 ? 'pm' : 'am';
+      h = h % 12 || 12;
+      return String(h).padStart(2, '0') + ":" + m + ":" + s + " " + ampm;
+    }
+
     function handleChartMouseMove(e) {
       if (!cpuSeries || cpuSeries.length < 2) return;
-      const wrap = e.currentTarget.classList.contains("chart-svg-wrap") 
-        ? e.currentTarget 
-        : (e.currentTarget.querySelector(".chart-svg-wrap") || e.currentTarget);
-      const rect = wrap.getBoundingClientRect();
-      const relX = e.clientX - rect.left;
+      const el = e.currentTarget || e.target || document.getElementById("svgWrapCpu");
+      if (!el) return;
+      const targetWrap = (el.classList && (el.classList.contains("sparkline-wrap") || el.classList.contains("chart-svg-wrap")))
+        ? el
+        : (el.querySelector ? (el.querySelector(".sparkline-wrap") || el.querySelector(".chart-svg-wrap") || el) : el);
+      const rect = targetWrap.getBoundingClientRect();
+      const clientX = (e.touches && e.touches.length > 0) ? e.touches[0].clientX : e.clientX;
+      if (typeof clientX !== 'number') return;
+      const relX = clientX - rect.left;
       const ratio = Math.max(0, Math.min(1, relX / rect.width));
       const len = cpuSeries.length;
       const idx = Math.min(len - 1, Math.max(0, Math.round(ratio * (len - 1))));
 
-      updateCrosshairPosition(idx, ratio);
+      updateCrosshairPosition(idx, ratio, targetWrap.id);
     }
 
     function handleChartMouseLeave() {
+      activeHoverIdx = null;
+      activeHoverRatio = null;
+      activeHoverSource = null;
+      // 1. Top Charts (CPU & RAM)
       const crosshairCpu = document.getElementById("crosshairCpu");
       const dotCpu = document.getElementById("dotCpu");
       const crosshairRam = document.getElementById("crosshairRam");
@@ -2156,18 +2936,44 @@
       const ttRam = document.getElementById("tooltipRam");
 
       if (crosshairCpu) { crosshairCpu.classList.remove("active"); crosshairCpu.setAttribute("opacity", "0"); crosshairCpu.style.opacity = "0"; }
-      if (dotCpu) { dotCpu.classList.remove("active"); dotCpu.setAttribute("opacity", "0"); dotCpu.style.opacity = "0"; }
+      if (dotCpu) { dotCpu.classList.remove("active"); dotCpu.style.opacity = "0"; dotCpu.style.display = "none"; }
       if (crosshairRam) { crosshairRam.classList.remove("active"); crosshairRam.setAttribute("opacity", "0"); crosshairRam.style.opacity = "0"; }
-      if (dotRam) { dotRam.classList.remove("active"); dotRam.setAttribute("opacity", "0"); dotRam.style.opacity = "0"; }
+      if (dotRam) { dotRam.classList.remove("active"); dotRam.style.opacity = "0"; dotRam.style.display = "none"; }
       if (ttCpu) { ttCpu.classList.remove("active"); ttCpu.style.opacity = "0"; ttCpu.style.display = "none"; }
       if (ttRam) { ttRam.classList.remove("active"); ttRam.style.opacity = "0"; ttRam.style.display = "none"; }
+
+      // 2. Lower 5 Sparkline Cards (Throughput, Heap, Lag, Latency, Handles)
+      const sparkResetList = [
+        { cross: 'crosshairSparkReq', dot: 'dotSparkReq', tt: 'ttSparkReq', valId: 'chartValReqs', liveVal: reqSeries[reqSeries.length - 1] || 0, footerId: 'footerReqLabel', defaultFooter: 'Rolling 60s window' },
+        { cross: 'crosshairSparkHeap', dot: 'dotSparkHeap', tt: 'ttSparkHeap', valId: 'chartValHeap', liveVal: typeof heapSeries[heapSeries.length - 1] === 'number' ? heapSeries[heapSeries.length - 1].toFixed(1) : '46.2', footerId: 'footerHeapLabel', defaultFooter: 'Allocated: 47.7 MiB' },
+        { cross: 'crosshairSparkLag', dot: 'dotSparkLag', tt: 'ttSparkLag', valId: 'chartValLag', liveVal: typeof lagSeries[lagSeries.length - 1] === 'number' ? lagSeries[lagSeries.length - 1].toFixed(1) : '0.6', footerId: 'footerLagLabel', defaultFooter: 'Voice SLA: &lt; 10ms' },
+        { cross: 'crosshairSparkLat', dot: 'dotSparkLat', tt: 'ttSparkLat', valId: 'chartValLat', liveVal: typeof latSeries[latSeries.length - 1] === 'number' ? latSeries[latSeries.length - 1].toFixed(1) : '1.0', footerId: 'footerLatLabel', defaultFooter: 'p95: 1.2ms' },
+        { cross: 'crosshairSparkHandles', dot: 'dotSparkHandles', tt: 'ttSparkHandles', valId: 'chartValHandles', liveVal: handlesSeries[handlesSeries.length - 1] || 4, footerId: 'footerHandlesLabel', defaultFooter: 'Libuv file descriptors' }
+      ];
+
+      sparkResetList.forEach(item => {
+        const c = document.getElementById(item.cross);
+        const d = document.getElementById(item.dot);
+        const t = document.getElementById(item.tt);
+        const v = document.getElementById(item.valId);
+        const f = document.getElementById(item.footerId);
+
+        if (c) { c.classList.remove("active"); c.setAttribute("opacity", "0"); c.style.opacity = "0"; }
+        if (d) { d.classList.remove("active"); d.style.opacity = "0"; d.style.display = "none"; }
+        if (t) { t.classList.remove("active"); t.style.opacity = "0"; t.style.display = "none"; }
+        if (v && item.liveVal !== undefined) v.innerText = item.liveVal;
+        if (f) f.innerHTML = item.defaultFooter;
+      });
 
       resetCorrelationStripLive();
     }
 
-    function updateCrosshairPosition(idx, ratio) {
+    function updateCrosshairPosition(idx, ratio, sourceId) {
       const len = cpuSeries.length;
       if (idx < 0 || idx >= len) return;
+      activeHoverIdx = idx;
+      activeHoverRatio = ratio;
+      activeHoverSource = sourceId;
 
       const ptCpu = currentCpuPts[idx];
       const ptRam = currentRamPts[idx];
@@ -2179,7 +2985,10 @@
 
       const ts = (timestampsSeries && timestampsSeries[idx]) || (Date.now() - (len - 1 - idx) * 5000);
       const fullTimeStr = formatFullTimestamp(ts);
+      const timeTick = formatTimeTick(ts);
+      const timeSecStr = formatTimeWithSeconds(ts);
 
+      // 1. Synchronized Top Charts (CPU & RAM)
       const crosshairCpu = document.getElementById("crosshairCpu");
       const dotCpu = document.getElementById("dotCpu");
       const crosshairRam = document.getElementById("crosshairRam");
@@ -2196,12 +3005,11 @@
         crosshairCpu.style.display = "inline";
       }
       if (dotCpu) {
-        dotCpu.setAttribute("cx", pointX);
-        dotCpu.setAttribute("cy", cpuY);
-        dotCpu.setAttribute("opacity", "1");
+        dotCpu.style.left = ((pointX / 500) * 100).toFixed(2) + "%";
+        dotCpu.style.top = ((cpuY / 135) * 100).toFixed(2) + "%";
         dotCpu.classList.add("active");
         dotCpu.style.opacity = "1";
-        dotCpu.style.display = "inline";
+        dotCpu.style.display = "block";
       }
 
       if (crosshairRam) {
@@ -2213,23 +3021,24 @@
         crosshairRam.style.display = "inline";
       }
       if (dotRam) {
-        dotRam.setAttribute("cx", pointX);
-        dotRam.setAttribute("cy", ramY);
-        dotRam.setAttribute("opacity", "1");
+        dotRam.style.left = ((pointX / 500) * 100).toFixed(2) + "%";
+        dotRam.style.top = ((ramY / 135) * 100).toFixed(2) + "%";
         dotRam.classList.add("active");
         dotRam.style.opacity = "1";
-        dotRam.style.display = "inline";
+        dotRam.style.display = "block";
       }
 
       const cpuVal = cpuSeries[idx] || 0;
       const ramVal = ramSeries[idx] || 0;
-      const heapVal = (heapSeries[idx % heapSeries.length] || (ramVal * 0.35)).toFixed(1);
+      const heapVal = typeof heapSeries[idx] === 'number' ? heapSeries[idx] : (ramVal * 0.35);
       const reqVal = reqSeries[idx] || 0;
-      const lagVal = (lagSeries[idx] || 0.6).toFixed(1);
+      const lagVal = typeof lagSeries[idx] === 'number' ? lagSeries[idx] : 0.6;
+      const latVal = typeof latSeries[idx] === 'number' ? latSeries[idx] : 1.0;
+      const handlesVal = handlesSeries[idx] || 4;
       const headroomMb = Math.max(0, 500 - ramVal).toFixed(1);
       const capPct = ((ramVal / 500) * 100).toFixed(1);
 
-      // 1. Update CPU Tooltip
+      // CPU Tooltip
       const elTtTimeCpu = document.getElementById("ttTimeCpu");
       const elTtPrimaryCpuVal = document.getElementById("ttPrimaryCpuVal");
       const elTtCpuRamVal = document.getElementById("ttCpuRamVal");
@@ -2242,11 +3051,11 @@
       if (elTtPrimaryCpuVal) elTtPrimaryCpuVal.innerText = cpuVal.toFixed(1) + "%";
       if (elTtCpuRamVal) elTtCpuRamVal.innerHTML = ramVal.toFixed(1) + " MiB <span class='tt-sub'>(" + capPct + "% Cap)</span>";
       if (elTtCpuHeadroomVal) elTtCpuHeadroomVal.innerText = headroomMb + " MiB Free";
-      if (elTtCpuHeapVal) elTtCpuHeapVal.innerText = heapVal + " MiB";
-      if (elTtCpuLagVal) elTtCpuLagVal.innerHTML = lagVal + " ms <span class='tt-sub'>(&lt;10ms SLA)</span>";
+      if (elTtCpuHeapVal) elTtCpuHeapVal.innerText = heapVal.toFixed(1) + " MiB";
+      if (elTtCpuLagVal) elTtCpuLagVal.innerHTML = lagVal.toFixed(1) + " ms <span class='tt-sub'>(&lt;10ms SLA)</span>";
       if (elTtCpuReqVal) elTtCpuReqVal.innerText = reqVal + " req/min";
 
-      // 2. Update RAM Tooltip
+      // RAM Tooltip
       const elTtTimeRam = document.getElementById("ttTimeRam");
       const elTtPrimaryRamVal = document.getElementById("ttPrimaryRamVal");
       const elTtRamCpuVal = document.getElementById("ttRamCpuVal");
@@ -2259,11 +3068,11 @@
       if (elTtPrimaryRamVal) elTtPrimaryRamVal.innerText = ramVal.toFixed(1) + " MiB";
       if (elTtRamCpuVal) elTtRamCpuVal.innerHTML = cpuVal.toFixed(1) + "% <span class='tt-sub'>(Nominal)</span>";
       if (elTtRamHeadroomVal) elTtRamHeadroomVal.innerText = headroomMb + " MiB Free";
-      if (elTtRamHeapVal) elTtRamHeapVal.innerText = heapVal + " MiB";
-      if (elTtRamLagVal) elTtRamLagVal.innerHTML = lagVal + " ms <span class='tt-sub'>(&lt;10ms SLA)</span>";
+      if (elTtRamHeapVal) elTtRamHeapVal.innerText = heapVal.toFixed(1) + " MiB";
+      if (elTtRamLagVal) elTtRamLagVal.innerHTML = lagVal.toFixed(1) + " ms <span class='tt-sub'>(&lt;10ms SLA)</span>";
       if (elTtRamReqVal) elTtRamReqVal.innerText = reqVal + " req/min";
 
-      // 3. Dynamically position both tooltips beside the synchronized crosshair
+      // Top Tooltip Positioning
       const xPct = (idx / (len - 1)) * 100;
       [ttCpu, ttRam].forEach(tt => {
         if (!tt) return;
@@ -2280,8 +3089,134 @@
         tt.style.opacity = "1";
       });
 
-      // 4. Update Cluster Correlation Strip for this slice
-      updateCorrelationStripSlice(cpuVal, ramVal, parseFloat(lagVal), parseFloat(heapVal));
+      // 2. Synchronized Lower 5 Sparkline Cards
+      const sparkConfigs = [
+        {
+          wrapId: 'sparkWrapReq',
+          crossId: 'crosshairSparkReq',
+          dotId: 'dotSparkReq',
+          ttId: 'ttSparkReq',
+          ttTimeId: 'ttSparkReqTime',
+          ttNumId: 'ttSparkReqNum',
+          cardValId: 'chartValReqs',
+          footerId: 'footerReqLabel',
+          pts: currentReqPts,
+          valStr: String(reqVal)
+        },
+        {
+          wrapId: 'sparkWrapHeap',
+          crossId: 'crosshairSparkHeap',
+          dotId: 'dotSparkHeap',
+          ttId: 'ttSparkHeap',
+          ttTimeId: 'ttSparkHeapTime',
+          ttNumId: 'ttSparkHeapNum',
+          cardValId: 'chartValHeap',
+          footerId: 'footerHeapLabel',
+          pts: currentHeapPts,
+          valStr: heapVal.toFixed(1)
+        },
+        {
+          wrapId: 'sparkWrapLag',
+          crossId: 'crosshairSparkLag',
+          dotId: 'dotSparkLag',
+          ttId: 'ttSparkLag',
+          ttTimeId: 'ttSparkLagTime',
+          ttNumId: 'ttSparkLagNum',
+          cardValId: 'chartValLag',
+          footerId: 'footerLagLabel',
+          pts: currentLagPts,
+          valStr: lagVal.toFixed(1)
+        },
+        {
+          wrapId: 'sparkWrapLat',
+          crossId: 'crosshairSparkLat',
+          dotId: 'dotSparkLat',
+          ttId: 'ttSparkLat',
+          ttTimeId: 'ttSparkLatTime',
+          ttNumId: 'ttSparkLatNum',
+          cardValId: 'chartValLat',
+          footerId: 'footerLatLabel',
+          pts: currentLatPts,
+          valStr: latVal.toFixed(1)
+        },
+        {
+          wrapId: 'sparkWrapHandles',
+          crossId: 'crosshairSparkHandles',
+          dotId: 'dotSparkHandles',
+          ttId: 'ttSparkHandles',
+          ttTimeId: 'ttSparkHandlesTime',
+          ttNumId: 'ttSparkHandlesNum',
+          cardValId: 'chartValHandles',
+          footerId: 'footerHandlesLabel',
+          pts: currentHandlesPts,
+          valStr: String(handlesVal)
+        }
+      ];
+
+      sparkConfigs.forEach(cfg => {
+        const pt = (cfg.pts && cfg.pts[idx]) ? cfg.pts[idx] : { x: (idx / (len - 1)) * 240, y: 22 };
+        const cross = document.getElementById(cfg.crossId);
+        const dot = document.getElementById(cfg.dotId);
+        const tt = document.getElementById(cfg.ttId);
+        const ttTime = document.getElementById(cfg.ttTimeId);
+        const ttNum = document.getElementById(cfg.ttNumId);
+        const cardVal = document.getElementById(cfg.cardValId);
+        const footerEl = document.getElementById(cfg.footerId);
+
+        // A. Crosshair line
+        if (cross) {
+          cross.setAttribute("x1", pt.x.toFixed(1));
+          cross.setAttribute("x2", pt.x.toFixed(1));
+          cross.setAttribute("opacity", "0.9");
+          cross.classList.add("active");
+          cross.style.opacity = "0.9";
+          cross.style.display = "inline";
+        }
+
+        // B. Intersection dot (HTML circle, never oval)
+        if (dot) {
+          dot.style.left = ((pt.x / 240) * 100).toFixed(2) + "%";
+          dot.style.top = ((pt.y / 45) * 100).toFixed(2) + "%";
+          dot.classList.add("active");
+          dot.style.opacity = "1";
+          dot.style.display = "block";
+        }
+
+        // C. Update Big Value on Card
+        if (cardVal) {
+          cardVal.innerText = cfg.valStr;
+        }
+
+        // D. Update Footer with Timestamp
+        if (footerEl) {
+          footerEl.innerHTML = "<span class='kpi-time-tag active'>at " + timeSecStr + "</span>";
+        }
+
+        // E. Micro-Tooltip
+        if (tt) {
+          const isDirectHover = sourceId === cfg.wrapId;
+          if (isDirectHover) {
+            if (ttTime) ttTime.innerText = timeSecStr + " (" + timeTick.date + ")";
+            if (ttNum) ttNum.innerText = cfg.valStr;
+            const pct = (idx / (len - 1)) * 100;
+            let tx = "-50%";
+            if (pct < 22) tx = "0%";
+            else if (pct > 78) tx = "-100%";
+            tt.style.left = pct + "%";
+            tt.style.transform = "translateX(" + tx + ")";
+            tt.classList.add("active");
+            tt.style.display = "block";
+            tt.style.opacity = "1";
+          } else {
+            tt.classList.remove("active");
+            tt.style.display = "none";
+            tt.style.opacity = "0";
+          }
+        }
+      });
+
+      // 3. Update Cluster Correlation Strip for this slice
+      updateCorrelationStripSlice(cpuVal, ramVal, parseFloat(lagVal.toFixed(1)), parseFloat(heapVal.toFixed(1)));
     }
 
     function updateCorrelationStripSlice(cpuVal, ramVal, lagVal, heapVal) {
@@ -2322,23 +3257,57 @@
       updateCorrelationStripSlice(cpuCur, ramCur, lagCur, heapCur);
     }
 
-    function initChartListeners() {
-      const wrapCpu = document.getElementById("svgWrapCpu");
-      const wrapRam = document.getElementById("svgWrapRam");
+    let touchDismissTimer = null;
+    function handleChartTouch(e) {
+      if (touchDismissTimer) clearTimeout(touchDismissTimer);
+      handleChartMouseMove(e);
+    }
 
-      [wrapCpu, wrapRam].forEach(el => {
+    function handleChartTouchEnd() {
+      if (touchDismissTimer) clearTimeout(touchDismissTimer);
+      touchDismissTimer = setTimeout(() => {
+        handleChartMouseLeave();
+      }, 2500);
+    }
+
+    function initChartListeners() {
+      const interactiveEls = [
+        document.getElementById("svgWrapCpu"),
+        document.getElementById("svgWrapRam"),
+        document.getElementById("cardKpiReq"),
+        document.getElementById("cardKpiHeap"),
+        document.getElementById("cardKpiLag"),
+        document.getElementById("cardKpiLat"),
+        document.getElementById("cardKpiHandles"),
+        document.getElementById("sparkWrapReq"),
+        document.getElementById("sparkWrapHeap"),
+        document.getElementById("sparkWrapLag"),
+        document.getElementById("sparkWrapLat"),
+        document.getElementById("sparkWrapHandles")
+      ];
+
+      interactiveEls.forEach(el => {
         if (!el) return;
         el.removeEventListener("mousemove", handleChartMouseMove);
         el.removeEventListener("mouseleave", handleChartMouseLeave);
+        el.removeEventListener("touchstart", handleChartTouch);
+        el.removeEventListener("touchmove", handleChartTouch);
+        el.removeEventListener("touchend", handleChartTouchEnd);
+        el.removeEventListener("touchcancel", handleChartTouchEnd);
+
         el.addEventListener("mousemove", handleChartMouseMove);
         el.addEventListener("mouseleave", handleChartMouseLeave);
+        el.addEventListener("touchstart", handleChartTouch, { passive: true });
+        el.addEventListener("touchmove", handleChartTouch, { passive: true });
+        el.addEventListener("touchend", handleChartTouchEnd, { passive: true });
+        el.addEventListener("touchcancel", handleChartTouchEnd, { passive: true });
       });
     }
 
     function renderGrafanaDashboard() {
       if (!cpuSeries || cpuSeries.length < 2) return;
 
-      // 1. CPU Waveform
+      // 1. CPU Scaling & Waveform
       let maxCpuCeil = 100;
       if (isCpuZoom) {
         const maxCpuData = Math.max(1, ...cpuSeries);
@@ -2369,17 +3338,16 @@
       if (pathCpu) pathCpu.setAttribute("d", cpuLine);
       if (areaCpu) areaCpu.setAttribute("d", cpuArea);
 
-      // CPU Stats Legend & Progress
-      const cpuCur = cpuSeries[cpuSeries.length - 1];
+      const cpuCur = cpuSeries[cpuSeries.length - 1] || 0;
       const cpuMin = Math.min(...cpuSeries).toFixed(1);
       const cpuMax = Math.max(...cpuSeries).toFixed(1);
       const cpuAvg = (cpuSeries.reduce((a, b) => a + b, 0) / cpuSeries.length).toFixed(1);
-      
+
       const elCpuVal = document.getElementById("chartValCpu");
       const elMiniCpu = document.getElementById("miniValCpu");
       if (elCpuVal) elCpuVal.innerText = cpuCur.toFixed(1);
       if (elMiniCpu) elMiniCpu.innerText = cpuCur.toFixed(1);
-      
+
       const elLegendCpuCur = document.getElementById("legendCpuCur");
       const elLegendCpuAvg = document.getElementById("legendCpuAvg");
       const elLegendCpuMin = document.getElementById("legendCpuMin");
@@ -2403,8 +3371,7 @@
       if (pathRam) pathRam.setAttribute("d", ramLine);
       if (areaRam) areaRam.setAttribute("d", ramArea);
 
-      // RAM Stats Legend & Progress
-      const ramCur = ramSeries[ramSeries.length - 1];
+      const ramCur = ramSeries[ramSeries.length - 1] || 0;
       const ramMin = Math.min(...ramSeries).toFixed(1);
       const ramMax = Math.max(...ramSeries).toFixed(1);
       const ramAvg = (ramSeries.reduce((a, b) => a + b, 0) / ramSeries.length).toFixed(1);
@@ -2429,7 +3396,7 @@
       const elRamBadge = document.getElementById("ramPercentBadge");
       if (elRamBar) elRamBar.style.width = ramPercent + "%";
       if (elRamPVal) elRamPVal.innerText = ramPercent + "%";
-      if (elRamBadge) elRamBadge.innerText = `🟢 ${ramPercent}% Cap`;
+      if (elRamBadge) elRamBadge.innerText = "🟢 " + ramPercent + "% Cap";
 
       // 3. X-Axis Timestamps (5 dual-line ticks)
       const xLabelsCpu = document.getElementById("xAxisCpu");
@@ -2447,157 +3414,371 @@
           const { time, date } = formatTimeTick(ts);
           const align = tickIdx === 0 ? 'align-items:flex-start; text-align:left;' : (tickIdx === 4 ? 'align-items:flex-end; text-align:right;' : 'align-items:center; text-align:center;');
           return '<div class="x-tick" style="flex:1; ' + align + '">' +
-                   '<span class="x-tick-time">' + time + '</span>' +
-                   '<span class="x-tick-date">' + date + '</span>' +
-                 '</div>';
+            '<span class="x-tick-time">' + time + '</span>' +
+            '<span class="x-tick-date">' + date + '</span>' +
+            '</div>';
         }).join('');
         if (xLabelsCpu) xLabelsCpu.innerHTML = html;
         if (xLabelsRam) xLabelsRam.innerHTML = html;
       }
 
-      // 4. Correlation Strip (Live)
+      // 4. Cluster Correlation Status Strip (Live)
       resetCorrelationStripLive();
 
       // 5. HTTP Sparkline (req/min)
-      const maxSampledReq = Math.max(10, ...reqSeries);
-      const reqLine = buildSplinePath(generateSplinePoints(reqSeries, 240, 45, 0, maxSampledReq * 1.25, 6));
-      const reqArea = `${reqLine} L 240,45 L 0,45 Z`;
+      const maxReq = Math.max(10, ...reqSeries);
+      currentReqPts = generateSplinePoints(reqSeries, 240, 45, 0, maxReq * 1.25, 6);
+      const reqLine = buildSplinePath(currentReqPts);
+      const reqArea = reqLine + " L 240,45 L 0,45 Z";
       const pathSparkReq = document.getElementById("pathSparkReq");
       const areaSparkReq = document.getElementById("areaSparkReq");
       if (pathSparkReq) pathSparkReq.setAttribute("d", reqLine);
       if (areaSparkReq) areaSparkReq.setAttribute("d", reqArea);
 
-      const reqCur = reqSeries[reqSeries.length - 1];
+      const reqCur = reqSeries[reqSeries.length - 1] || 0;
       const elReqsVal = document.getElementById("chartValReqs");
       const elMiniReqs = document.getElementById("miniValReqs");
       if (elReqsVal) elReqsVal.innerText = reqCur;
       if (elMiniReqs) elMiniReqs.innerText = reqCur;
 
       // 6. V8 Heap Sparkline
-      const heapLine = buildSplinePath(generateSplinePoints(heapSeries, 240, 45, 40, 60, 6));
-      const heapArea = `${heapLine} L 240,45 L 0,45 Z`;
+      const maxHeap = Math.max(80, ...heapSeries);
+      currentHeapPts = generateSplinePoints(heapSeries, 240, 45, 20, maxHeap * 1.2, 6);
+      const heapLine = buildSplinePath(currentHeapPts);
+      const heapArea = heapLine + " L 240,45 L 0,45 Z";
       const pathSparkHeap = document.getElementById("pathSparkHeap");
       const areaSparkHeap = document.getElementById("areaSparkHeap");
       if (pathSparkHeap) pathSparkHeap.setAttribute("d", heapLine);
       if (areaSparkHeap) areaSparkHeap.setAttribute("d", heapArea);
 
       // 7. Event Loop Lag Sparkline
-      const lagLine = buildSplinePath(generateSplinePoints(lagSeries, 240, 45, 0, 2.0, 6));
-      const lagArea = `${lagLine} L 240,45 L 0,45 Z`;
+      const lagCur = lagSeries[lagSeries.length - 1] || 0.6;
+      const maxLag = Math.max(3.0, ...lagSeries);
+      currentLagPts = generateSplinePoints(lagSeries, 240, 45, 0, maxLag * 1.25, 6);
+      const lagLine = buildSplinePath(currentLagPts);
+      const lagArea = lagLine + " L 240,45 L 0,45 Z";
       const pathSparkLag = document.getElementById("pathSparkLag");
       const areaSparkLag = document.getElementById("areaSparkLag");
       if (pathSparkLag) pathSparkLag.setAttribute("d", lagLine);
       if (areaSparkLag) areaSparkLag.setAttribute("d", lagArea);
 
-      const lagCur = lagSeries[lagSeries.length - 1];
       const elLagVal = document.getElementById("chartValLag");
       const elMiniLag = document.getElementById("miniValLag");
       if (elLagVal) elLagVal.innerText = lagCur.toFixed(1);
       if (elMiniLag) elMiniLag.innerText = lagCur.toFixed(1);
 
-      // 8. HTTP Latency Sparkline
-      const latLine = buildSplinePath(generateSplinePoints(latSeries, 240, 45, 0, 2.5, 6));
-      const latArea = `${latLine} L 240,45 L 0,45 Z`;
+      // 8. Latency Sparkline
+      const maxLat = Math.max(3.0, ...latSeries);
+      currentLatPts = generateSplinePoints(latSeries, 240, 45, 0, maxLat * 1.25, 6);
+      const latLine = buildSplinePath(currentLatPts);
+      const latArea = latLine + " L 240,45 L 0,45 Z";
       const pathSparkLat = document.getElementById("pathSparkLat");
       const areaSparkLat = document.getElementById("areaSparkLat");
       if (pathSparkLat) pathSparkLat.setAttribute("d", latLine);
       if (areaSparkLat) areaSparkLat.setAttribute("d", latArea);
 
       // 9. Handles Sparkline
-      const handlesLine = buildSplinePath(generateSplinePoints(handlesSeries, 240, 45, 0, 8, 6));
-      const handlesArea = `${handlesLine} L 240,45 L 0,45 Z`;
+      const maxHandles = Math.max(10, ...handlesSeries);
+      currentHandlesPts = generateSplinePoints(handlesSeries, 240, 45, 0, maxHandles * 1.25, 6);
+      const handlesLine = buildSplinePath(currentHandlesPts);
+      const handlesArea = handlesLine + " L 240,45 L 0,45 Z";
       const pathSparkHandles = document.getElementById("pathSparkHandles");
       const areaSparkHandles = document.getElementById("areaSparkHandles");
       if (pathSparkHandles) pathSparkHandles.setAttribute("d", handlesLine);
       if (areaSparkHandles) areaSparkHandles.setAttribute("d", handlesArea);
 
+      if (activeHoverIdx !== null && activeHoverRatio !== null) {
+        updateCrosshairPosition(activeHoverIdx, activeHoverRatio, activeHoverSource);
+      }
+
       initChartListeners();
     }
 
-    // Background 2.5s Ambient Telemetry Pulse (Keeps dashboard alive even when not in Live Tail)
-    setInterval(() => {
-      // Gentle realistic micro-fluctuations in CPU & RAM
-      const nextCpu = +(1.0 + Math.random() * 0.5).toFixed(1);
-      const nextRam = +(176.8 + (Math.random() * 1.2 - 0.6)).toFixed(1);
-      const nextLag = +(0.5 + Math.random() * 0.2).toFixed(1);
-      const nextHeap = +(46.0 + (Math.random() * 0.5 - 0.25)).toFixed(1);
-      const nextLat = +(0.9 + Math.random() * 0.2).toFixed(1);
-      const nextHandles = Math.random() > 0.85 ? 5 : 4;
-      const nextReq = isLive ? (reqSeries[reqSeries.length - 1]) : 0;
+    // Fetch Live Telemetry from /api/metrics Every 2.5s
+    async function updateTelemetry() {
+      try {
+        const res = await fetch(BASE_PATH + "/api/metrics");
+        if (!res.ok) return;
+        const data = await res.json();
 
-      cpuSeries.shift(); cpuSeries.push(nextCpu);
-      ramSeries.shift(); ramSeries.push(nextRam);
-      reqSeries.shift(); reqSeries.push(nextReq);
-      lagSeries.shift(); lagSeries.push(nextLag);
-      heapSeries.shift(); heapSeries.push(nextHeap);
-      latSeries.shift(); latSeries.push(nextLat);
-      handlesSeries.shift(); handlesSeries.push(nextHandles);
-      timestampsSeries.shift(); timestampsSeries.push(Date.now());
+        if (data.history) {
+          if (data.history.cpu && data.history.cpu.length) cpuSeries = data.history.cpu;
+          if (data.history.ram && data.history.ram.length) ramSeries = data.history.ram;
+          if (data.history.reqs && data.history.reqs.length) reqSeries = data.history.reqs;
+          if (data.history.heap && data.history.heap.length) heapSeries = data.history.heap;
+          if (data.history.lag && data.history.lag.length) lagSeries = data.history.lag;
+          if (data.history.lat && data.history.lat.length) latSeries = data.history.lat;
+          if (data.history.handles && data.history.handles.length) handlesSeries = data.history.handles;
+          if (data.history.timestamps && data.history.timestamps.length) timestampsSeries = data.history.timestamps;
+        }
+
+        if (data.uptimeSeconds) uptimeSeconds = data.uptimeSeconds;
+
+        const miniCpu = document.getElementById("miniValCpu");
+        const miniRam = document.getElementById("miniValRam");
+        const miniReqs = document.getElementById("miniValReqs");
+        const miniHeap = document.getElementById("miniValHeap");
+        const miniLag = document.getElementById("miniValLag");
+        const miniHandles = document.getElementById("miniValHandles");
+        const miniInFlight = document.getElementById("miniValInFlight");
+        const miniPeakLag = document.getElementById("miniValPeakLag");
+
+        if (miniCpu) miniCpu.innerText = data.cpu.usagePercent.toFixed(1);
+        if (miniRam) miniRam.innerText = Math.round(data.memory.rssMb);
+        if (miniReqs) miniReqs.innerText = data.requestsPerMinute;
+        if (miniHeap) miniHeap.innerText = data.memory.heapUsedMb;
+        if (miniLag) miniLag.innerText = data.eventLoop.lagMs.toFixed(1);
+        if (miniHandles) miniHandles.innerText = data.concurrency.activeHandles;
+        if (miniInFlight) miniInFlight.innerText = data.concurrency.activeRequests;
+        if (miniPeakLag) miniPeakLag.innerText = data.eventLoop.p99Ms.toFixed(1);
+
+        renderGrafanaDashboard();
+      } catch (err) {
+        simulatePreviewTelemetry();
+      }
+    }
+
+    function simulatePreviewTelemetry() {
+      // Standalone preview simulation: gentle realistic jitter on CPU & RAM
+      const lastCpu = cpuSeries[cpuSeries.length - 1] || 1.2;
+      const nextCpu = Math.max(0.4, Math.min(6.0, +(lastCpu + (Math.random() * 0.6 - 0.28)).toFixed(1)));
+      cpuSeries.push(nextCpu);
+      if (cpuSeries.length > 20) cpuSeries.shift();
+
+      const lastRam = ramSeries[ramSeries.length - 1] || 118;
+      const nextRam = Math.max(112, Math.min(130, +(lastRam + (Math.random() * 1.0 - 0.48)).toFixed(1)));
+      ramSeries.push(nextRam);
+      if (ramSeries.length > 20) ramSeries.shift();
+
+      timestampsSeries.push(Date.now());
+      if (timestampsSeries.length > 20) timestampsSeries.shift();
 
       renderGrafanaDashboard();
-    }, 2500);
+    }
+    setInterval(updateTelemetry, 2500);
 
-    // Toggle Live Tail (Simulate streaming logs + HTTP req/min traffic)
+    // Fetch Real Logs from /api/logs
+    async function fetchLogs() {
+      const file = document.getElementById("fileSelect").value;
+      const preset = document.getElementById("datePresetSelect").value;
+      const startDate = document.getElementById("dateStart")?.value || '';
+      const endDate = document.getElementById("dateEnd")?.value || '';
+
+      const queryParams = new URLSearchParams({
+        file,
+        preset,
+        startDate,
+        endDate,
+        limit: '500'
+      });
+
+      try {
+        const res = await fetch(BASE_PATH + "/api/logs?" + queryParams.toString());
+        if (!res.ok) {
+          // If server returns 404 (e.g. running on Live Server port 5500 or file://)
+          console.info("Standalone preview mode: Backend API not reachable (HTTP " + res.status + "). Showing demo test logs.");
+          currentLogs = [...DEMO_MOCK_LOGS];
+          renderLogs();
+          return;
+        }
+        const data = await res.json();
+        currentLogs = (data.lines && data.lines.length > 0) ? data.lines : [...DEMO_MOCK_LOGS];
+        renderLogs();
+      } catch (err) {
+        // Standalone preview fallback: populate realistic logs so preview is 100% testable without backend
+        console.info("Standalone preview mode: Showing demo test logs.");
+        currentLogs = [...DEMO_MOCK_LOGS];
+        renderLogs();
+      }
+    }
+
+    function renderLogs() {
+      const container = document.getElementById("logContainer");
+      const query = document.getElementById("searchBox").value.trim().toLowerCase();
+      const service = document.getElementById("serviceSelect").value;
+      const file = document.getElementById("fileSelect").value;
+      const dateStartVal = document.getElementById("dateStart")?.value;
+      const dateEndVal = document.getElementById("dateEnd")?.value;
+
+      let filtered = currentLogs.filter(log => {
+        if (file === "out.log") return log.type === "out";
+        if (file === "err.log") return log.type === "err";
+        return true;
+      });
+
+      if (selectedLevel !== "ALL") {
+        filtered = filtered.filter(log => log.level === selectedLevel);
+      }
+
+      if (service !== "ALL") {
+        filtered = filtered.filter(log => log.service.includes(service.replace(/[\[\]]/g, '')));
+      }
+
+      if (dateStartVal) {
+        const startTime = new Date(dateStartVal).getTime();
+        filtered = filtered.filter(log => new Date(log.time.replace(" ", "T")).getTime() >= startTime);
+      }
+      if (dateEndVal) {
+        const endTime = new Date(dateEndVal).getTime();
+        filtered = filtered.filter(log => new Date(log.time.replace(" ", "T")).getTime() <= endTime);
+      }
+
+      if (query) {
+        filtered = filtered.filter(log => {
+          const rawText = (log.time + " " + log.level + " " + log.service + " " + log.content).toLowerCase();
+          return rawText.includes(query);
+        });
+      }
+
+      const totalAll = currentLogs.length;
+      const totalErr = currentLogs.filter(l => l.level === 'ERROR').length;
+      const totalWarn = currentLogs.filter(l => l.level === 'WARN').length;
+      const totalInfo = currentLogs.filter(l => l.level === 'INFO').length;
+
+      const chipAll = document.querySelector('.chip[data-level="ALL"]');
+      const chipErr = document.querySelector('.chip[data-level="ERROR"]');
+      const chipWarn = document.querySelector('.chip[data-level="WARN"]');
+      const chipInfo = document.querySelector('.chip[data-level="INFO"]');
+      if (chipAll) chipAll.innerText = "All (" + totalAll + ")";
+      if (chipErr) chipErr.innerText = "🔴 Errors (" + totalErr + ")";
+      if (chipWarn) chipWarn.innerText = "🟡 Warnings (" + totalWarn + ")";
+      if (chipInfo) chipInfo.innerText = "🔵 Info (" + totalInfo + ")";
+
+      const dateActiveTag = (dateStartVal || dateEndVal) ? " • 📅 Date Range Active" : "";
+      document.getElementById("lineCounter").innerText = "Showing " + filtered.length + " of " + currentLogs.length + " lines" + dateActiveTag;
+
+      if (filtered.length === 0) {
+        container.innerHTML = '<div style="padding: 40px; text-align: center; color: var(--text-dim);">' +
+          '<div style="font-size: 24px; margin-bottom: 8px;">🔍</div>' +
+          'No matching logs found for the selected date range and filters.' +
+          '</div>';
+        return;
+      }
+
+      container.innerHTML = filtered.map(log => {
+        const badgeClass = log.level === "ERROR" ? "badge-err" : log.level === "WARN" ? "badge-warn" : "badge-info";
+        const rowClass = log.level === "ERROR" ? "row-error" : log.level === "WARN" ? "row-warn" : "";
+
+        // Strip leading redundant timestamp, level, and service tag from the message body
+        let cleanMsg = log.content || '';
+        cleanMsg = cleanMsg.replace(/^\[?\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}:\d{2}\]?\s*/i, '');
+        cleanMsg = cleanMsg.replace(/^\[(INFO|WARN|WARNING|ERROR|DEBUG|ERR)\]\s*/i, '');
+        cleanMsg = cleanMsg.replace(/^\[(WebSocket|AiService|Auth|R2Service|Payment|Security|Health|Server|Queue|System-Error)\]\s*/i, '');
+        if (!cleanMsg.trim()) cleanMsg = log.content;
+
+        let safeContent = escapeHtml(cleanMsg);
+        if (query) {
+          const safeQuery = escapeHtml(query).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+          const regex = new RegExp("(" + safeQuery + ")", "gi");
+          safeContent = safeContent.replace(regex, '<span class="highlight">$1</span>');
+        }
+
+        return '<div class="log-line ' + rowClass + '">' +
+          '<div class="log-meta-row">' +
+          '<div class="log-meta-left">' +
+          '<span class="line-time">' + escapeHtml(log.time) + '</span>' +
+          '<span class="line-badge ' + badgeClass + '">[' + escapeHtml(log.level) + ']</span>' +
+          '<span class="mod-tag">' + escapeHtml(log.service) + '</span>' +
+          '</div>' +
+          '<button class="btn-copy-log" onclick="copyLogCard(this)" title="Copy log line">' +
+          '<span>📋</span> Copy' +
+          '</button>' +
+          '</div>' +
+          '<div class="log-msg">' + safeContent + '</div>' +
+          '</div>';
+      }).join("");
+
+      if (isLive) {
+        container.scrollTop = container.scrollHeight;
+      }
+    }
+
+    function setLevel(lvl) {
+      selectedLevel = lvl;
+      document.querySelectorAll(".chip").forEach(btn => {
+        btn.classList.toggle("active", btn.getAttribute("data-level") === lvl);
+      });
+      renderLogs();
+    }
+
     function toggleLiveTail() {
       isLive = !isLive;
       const btn = document.getElementById("liveToggleBtn");
 
       if (isLive) {
         btn.classList.add("btn-active");
-        btn.innerHTML = `<span>⏸</span> Live Tailing`;
+        btn.innerHTML = "<span>⏸</span> Live Tailing";
 
-        liveTimer = setInterval(() => {
-          const now = new Date();
-          const timeStr = now.toISOString().replace("T", " ").substring(0, 19);
-          
-          const simulatedReqs = Math.floor(18 + Math.random() * 24); // 18-42 req/min
-          const randCpu = +(1.6 + Math.random() * 1.5).toFixed(1);
-          const randRam = +(177.2 + Math.random() * 2.2).toFixed(1);
-          const randLag = +(0.6 + Math.random() * 0.4).toFixed(1);
-
-          cpuSeries.shift(); cpuSeries.push(randCpu);
-          ramSeries.shift(); ramSeries.push(randRam);
-          reqSeries.shift(); reqSeries.push(simulatedReqs);
-          lagSeries.shift(); lagSeries.push(randLag);
-
-          renderGrafanaDashboard();
-
-          const simulatedItems = [
-            { level: "INFO", type: "out", service: "[WebSocket]", content: "Bi-directional audio chunk streaming: 2048 bytes transmitted" },
-            { level: "INFO", type: "out", service: "[AiService]", content: "Gemini response stream completed in 412ms (tokens: 38)" },
-            { level: "WARN", type: "out", service: "[R2Service]", content: "Cleaned 1 orphaned file record via cron worker" }
-          ];
-          const randomItem = simulatedItems[Math.floor(Math.random() * simulatedItems.length)];
-          currentLogs.push({
-            id: currentLogs.length + 1,
-            time: timeStr,
-            level: randomItem.level,
-            type: randomItem.type,
-            service: randomItem.service,
-            content: randomItem.content
-          });
-          renderLogs();
-        }, 3000);
+        liveTimer = setInterval(async () => {
+          const file = document.getElementById("fileSelect").value;
+          const lastLog = currentLogs[currentLogs.length - 1];
+          const after = lastLog ? lastLog.time : '';
+          try {
+            const res = await fetch(BASE_PATH + "/api/tail?file=" + file + "&after=" + encodeURIComponent(after));
+            if (res.ok) {
+              const data = await res.json();
+              if (data.newLines && data.newLines.length > 0) {
+                currentLogs.push(...data.newLines);
+                if (currentLogs.length > 2000) currentLogs = currentLogs.slice(-2000);
+                renderLogs();
+              }
+            }
+          } catch {
+            // ignore tail polling glitch
+          }
+        }, 2500);
       } else {
         btn.classList.remove("btn-active");
-        btn.innerHTML = `<span>▶</span> Live Tail`;
-        reqSeries[reqSeries.length - 1] = 0;
-        renderGrafanaDashboard();
+        btn.innerHTML = "<span>▶</span> Live Tail";
         clearInterval(liveTimer);
       }
     }
 
+    function copyLogCard(btn) {
+      const card = btn.closest(".log-line");
+      let textToCopy = "";
+      if (card) {
+        const time = card.querySelector(".line-time") ? card.querySelector(".line-time").innerText.trim() : "";
+        const badge = card.querySelector(".line-badge") ? card.querySelector(".line-badge").innerText.trim() : "";
+        const mod = card.querySelector(".mod-tag") ? card.querySelector(".mod-tag").innerText.trim() : "";
+        const msg = card.querySelector(".log-msg") ? card.querySelector(".log-msg").innerText.trim() : "";
+        textToCopy = (time + " " + badge + " " + mod + " " + msg).trim();
+      }
+      if (!textToCopy) return;
+
+      if (!navigator.clipboard) {
+        const ta = document.createElement("textarea");
+        ta.value = textToCopy;
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand("copy");
+        document.body.removeChild(ta);
+      } else {
+        navigator.clipboard.writeText(textToCopy);
+      }
+      const original = btn.innerHTML;
+      btn.innerHTML = "<span>✓</span> Copied";
+      btn.style.borderColor = "#34d399";
+      btn.style.color = "#34d399";
+      setTimeout(() => {
+        btn.innerHTML = original;
+        btn.style.borderColor = "";
+        btn.style.color = "";
+      }, 1500);
+    }
+
     function exportLogs() {
-      const text = currentLogs.map(l => `[${l.time}] [${l.level}] ${l.service} ${l.content.replace(/<[^>]*>?/gm, '')}`).join("\n");
+      const text = currentLogs.map(l => "[" + l.time + "] [" + l.level + "] " + l.service + " " + l.content.replace(/<[^>]*>?/gm, '')).join("\n");
       const blob = new Blob([text], { type: "text/plain" });
       const a = document.createElement("a");
       a.href = URL.createObjectURL(blob);
-      a.download = `sree_ai_logs_${Date.now()}.txt`;
+      a.download = "sree_ai_logs_" + Date.now() + ".txt";
       a.click();
     }
 
-    renderLogs();
+    fetchLogs();
     renderGrafanaDashboard();
   </script>
 </body>
+
 </html>

@@ -43,7 +43,7 @@ export function renderLoginHtml(options: LoginRenderOptions): string {
       --text-muted: #94a3b8;
       --color-error: #f87171;
     }
-    * { box-sizing: border-box; margin: 0; padding: 0; }
+    * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
     body {
       background: var(--bg-base);
       color: var(--text-main);
@@ -174,6 +174,19 @@ export function renderLoginHtml(options: LoginRenderOptions): string {
       background: linear-gradient(135deg, #0369a1, #1d4ed8);
       box-shadow: 0 4px 14px rgba(2, 132, 199, 0.4);
     }
+    @media (max-width: 480px) {
+      body { padding: 12px; }
+      .login-container {
+        padding: 24px 18px;
+        border-radius: 10px;
+      }
+      .brand-title { font-size: 16px; }
+      .form-input, .btn-submit {
+        min-height: 44px;
+        font-size: 14px;
+      }
+    }
+
     .footer-note {
       text-align: center;
       font-size: 11px;
@@ -261,9 +274,12 @@ export function renderDashboardHtml(options: DashboardRenderOptions): string {
       color: var(--text-main);
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
       height: 100vh;
+      height: 100dvh;
+      min-height: 100dvh;
       display: flex;
       flex-direction: column;
       overflow: hidden;
+      max-width: 100vw;
       -webkit-font-smoothing: antialiased;
     }
     .header {
@@ -352,7 +368,7 @@ export function renderDashboardHtml(options: DashboardRenderOptions): string {
     .nav-tab.active {
       background: #18233c;
       color: var(--accent);
-      box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
     }
     .system-status {
       display: flex;
@@ -607,6 +623,7 @@ export function renderDashboardHtml(options: DashboardRenderOptions): string {
       height: 100%;
       position: relative;
       cursor: crosshair;
+      touch-action: pan-y;
     }
     .grafana-svg {
       width: 100%;
@@ -693,6 +710,57 @@ export function renderDashboardHtml(options: DashboardRenderOptions): string {
       opacity: 1 !important;
       display: inline !important;
     }
+    .chart-pointer-dot {
+      position: absolute;
+      width: 12px;
+      height: 12px;
+      border-radius: 50% !important;
+      transform: translate(-50%, -50%);
+      pointer-events: none;
+      opacity: 0;
+      z-index: 55;
+      transition: opacity 0.08s ease;
+      box-sizing: border-box;
+      display: none;
+    }
+    .chart-pointer-dot.active {
+      opacity: 1 !important;
+      display: block !important;
+    }
+    .cpu-pointer-dot {
+      background: #06090f;
+      border: 2.5px solid #38bdf8;
+      box-shadow: 0 0 10px #38bdf8, 0 0 4px #38bdf8;
+    }
+    .ram-pointer-dot {
+      background: #06090f;
+      border: 2.5px solid #34d399;
+      box-shadow: 0 0 10px #34d399, 0 0 4px #34d399;
+    }
+    .spark-pointer-dot {
+      position: absolute;
+      width: 9px;
+      height: 9px;
+      border-radius: 50% !important;
+      transform: translate(-50%, -50%);
+      pointer-events: none;
+      opacity: 0;
+      z-index: 55;
+      transition: opacity 0.08s ease;
+      box-sizing: border-box;
+      background: #06090f;
+      display: none;
+    }
+    .spark-pointer-dot.active {
+      opacity: 1 !important;
+      display: block !important;
+    }
+    .spark-dot-req { border: 2px solid #22d3ee; box-shadow: 0 0 8px #22d3ee; }
+    .spark-dot-heap { border: 2px solid #c084fc; box-shadow: 0 0 8px #c084fc; }
+    .spark-dot-lag { border: 2px solid #fbbf24; box-shadow: 0 0 8px #fbbf24; }
+    .spark-dot-lat { border: 2px solid #38bdf8; box-shadow: 0 0 8px #38bdf8; }
+    .spark-dot-handles { border: 2px solid #34d399; box-shadow: 0 0 8px #34d399; }
+
     .cpu-crosshair-circle {
       fill: #06090f;
       stroke: #38bdf8;
@@ -909,6 +977,7 @@ export function renderDashboardHtml(options: DashboardRenderOptions): string {
       height: 48px;
       margin: 4px 0;
       cursor: crosshair;
+      touch-action: pan-y;
     }
     .sparkline-svg {
       width: 100%;
@@ -1032,7 +1101,22 @@ export function renderDashboardHtml(options: DashboardRenderOptions): string {
     }
     .tele-header-row { display: flex; align-items: baseline; justify-content: space-between; width: 100%; }
     .tele-label-bold { font-size: 12px; font-weight: 800; color: #fff; letter-spacing: 0.02em; }
-    .tele-rate-badge { font-size: 11px; font-weight: 700; color: var(--accent); font-family: ui-monospace, monospace; }
+    .tele-rate-badge {
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--accent);
+      font-family: ui-monospace, monospace;
+      white-space: nowrap;
+      margin-left: 8px;
+      padding: 1px 5px;
+      border-radius: 4px;
+      background: rgba(56, 189, 248, 0.12);
+    }
+    .rate-unit-tag {
+      font-size: 9.5px;
+      font-weight: 500;
+      opacity: 0.85;
+    }
     .tele-label {
       font-size: 10px;
       font-weight: 700;
@@ -1144,22 +1228,92 @@ export function renderDashboardHtml(options: DashboardRenderOptions): string {
     }
     .log-line {
       display: flex;
-      align-items: flex-start;
-      gap: 12px;
-      padding: 2px 6px;
-      border-radius: 4px;
-      transition: background 0.1s ease;
-      white-space: pre-wrap;
-      word-break: break-all;
+      flex-direction: column;
+      gap: 4px;
+      padding: 9px 12px;
+      margin-bottom: 6px;
+      background: rgba(13, 21, 39, 0.65);
+      border: 1px solid rgba(255, 255, 255, 0.07);
+      border-left: 3px solid #38bdf8;
+      border-radius: 6px;
+      transition: background 0.15s ease, border-color 0.15s ease;
+      position: relative;
     }
-    .log-line:hover { background: #0c1220; }
-    .line-time { color: var(--text-dim); min-width: 140px; user-select: none; }
+    .log-line:hover {
+      background: rgba(22, 34, 59, 0.85);
+      border-color: rgba(56, 189, 248, 0.3);
+    }
+    .row-error {
+      border-left-color: #f87171 !important;
+      background: rgba(248, 113, 113, 0.07) !important;
+    }
+    .row-warn {
+      border-left-color: #fbbf24 !important;
+      background: rgba(251, 191, 36, 0.07) !important;
+    }
+    .log-meta-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      width: 100%;
+    }
+    .log-meta-left {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+    .line-time {
+      color: #94a3b8;
+      font-size: 10.5px;
+      user-select: none;
+      font-weight: 600;
+    }
     .line-badge {
       font-weight: 700;
-      padding: 0 5px;
-      border-radius: 3px;
-      font-size: 10px;
+      padding: 1px 6px;
+      border-radius: 4px;
+      font-size: 9.5px;
+      letter-spacing: 0.03em;
       user-select: none;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+    .mod-tag {
+      color: #c084fc;
+      font-weight: 700;
+      font-size: 10.5px;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+    .btn-copy-log {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      color: #94a3b8;
+      font-size: 9.5px;
+      padding: 2px 6px;
+      border-radius: 4px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 3px;
+      transition: all 0.15s ease;
+      font-family: inherit;
+    }
+    .btn-copy-log:hover {
+      background: rgba(56, 189, 248, 0.2);
+      color: #38bdf8;
+      border-color: #38bdf8;
+    }
+    .log-msg {
+      font-size: 12px;
+      line-height: 1.55;
+      color: #f1f5f9;
+      word-break: break-word;
+      overflow-wrap: anywhere;
+      padding-top: 2px;
+      font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
     }
     .badge-info { background: rgba(56, 189, 248, 0.15); color: var(--color-info); }
     .badge-warn { background: rgba(251, 191, 36, 0.15); color: var(--color-warn); }
@@ -1188,6 +1342,323 @@ export function renderDashboardHtml(options: DashboardRenderOptions): string {
     }
     .footer-tags { display: flex; gap: 12px; }
     .hidden-view { display: none !important; }
+
+    /* ─── COMPREHENSIVE MOBILE RESPONSIVE DESIGN SYSTEM (<= 900px, <= 640px) ─── */
+    @media (max-width: 900px) {
+      .grid-2 {
+        grid-template-columns: 1fr;
+        gap: 14px;
+      }
+      .grid-4 {
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: 12px;
+      }
+    }
+
+    @media (max-width: 768px) {
+      /* Header & Brand Navigation */
+      .header {
+        padding: 8px 12px;
+        gap: 8px;
+      }
+      .brand-section {
+        width: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+      }
+      .brand { gap: 8px; }
+      .brand-title { font-size: 13.5px; }
+      .brand-pill { display: none; }
+      .nav-tabs {
+        padding: 2px;
+        gap: 2px;
+      }
+      .nav-tab {
+        padding: 6px 10px;
+        font-size: 11.5px;
+        min-height: 36px;
+      }
+      .system-status {
+        width: 100%;
+        display: flex;
+        align-items: center;
+        flex-wrap: nowrap;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: none;
+        gap: 6px;
+        padding-top: 4px;
+        padding-bottom: 2px;
+        border-top: 1px solid rgba(255, 255, 255, 0.05);
+      }
+      .system-status::-webkit-scrollbar { display: none; }
+      .stat-pill, .system-status .btn-action {
+        flex-shrink: 0;
+        white-space: nowrap;
+        padding: 3px 8px;
+        font-size: 11px;
+      }
+      .settings-menu {
+        position: fixed;
+        top: 64px;
+        left: 12px;
+        right: 12px;
+        width: auto;
+        max-width: calc(100vw - 24px);
+        box-shadow: 0 16px 40px rgba(0, 0, 0, 0.85);
+      }
+
+      /* Logs Vault Mini-Telemetry Rail */
+      .log-telemetry {
+        display: flex !important;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        scroll-snap-type: x mandatory;
+        padding: 8px 12px;
+        margin-left: 12px;
+        gap: 8px;
+        scrollbar-width: none;
+      }
+      .log-telemetry::-webkit-scrollbar { display: none; }
+      .tele-card {
+        flex: 0 0 148px;
+        min-width: 148px;
+        scroll-snap-align: start;
+        padding: 8px 14px;
+      }
+      .tele-val { font-size: 15px; }
+      .tele-desc { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+      /* Log Controls Toolbar */
+      .controls {
+        padding: 8px 12px;
+        gap: 8px;
+      }
+      .ctrl-group {
+        width: 100%;
+        gap: 6px;
+      }
+      #fileSelect {
+        flex: 1 1 100%;
+        min-height: 40px;
+        font-size: 12px;
+      }
+      .chips {
+        width: 100%;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        padding-bottom: 2px;
+        scrollbar-width: none;
+        gap: 6px;
+      }
+      .chips::-webkit-scrollbar { display: none; }
+      .chip {
+        flex-shrink: 0;
+        padding: 6px 12px;
+        font-size: 11.5px;
+        min-height: 38px;
+        display: inline-flex;
+        align-items: center;
+      }
+      #serviceSelect {
+        flex: 1 1 calc(50% - 3px);
+        min-height: 38px;
+      }
+      .date-filter-group {
+        flex: 1 1 calc(50% - 3px);
+        min-height: 38px;
+      }
+      .date-filter-group select {
+        width: 100%;
+        min-height: 34px;
+      }
+      .search-box {
+        flex: 1 1 100%;
+        width: 100%;
+        min-height: 42px;
+        font-size: 12.5px;
+      }
+      .btn-action {
+        min-height: 40px;
+        padding: 6px 12px;
+        font-size: 12px;
+      }
+      #liveToggleBtn { flex: 1 1 auto; }
+
+      /* Log Terminal Container & Clean Line Structure */
+      .terminal-container {
+        padding: 8px 10px;
+        font-size: 11px;
+        line-height: 1.5;
+      }
+      .log-line {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 4px;
+        padding: 7px 10px;
+        margin-bottom: 5px;
+        border-radius: 6px;
+      }
+      .log-meta-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 6px;
+        width: 100%;
+      }
+      .log-meta-left {
+        display: flex;
+        align-items: center;
+        gap: 5px;
+        flex-wrap: wrap;
+      }
+      .line-time {
+        min-width: auto;
+        font-size: 10px;
+      }
+      .line-badge {
+        font-size: 9.5px;
+      }
+      .mod-tag {
+        min-width: auto;
+        font-size: 10px;
+      }
+      .btn-copy-log {
+        padding: 2px 5px;
+        font-size: 9px;
+      }
+      .log-msg {
+        padding-left: 1px;
+        font-size: 11.5px;
+        line-height: 1.5;
+        word-break: break-word;
+        overflow-wrap: anywhere;
+      }
+      .footer {
+        padding: 6px 12px;
+        flex-direction: column;
+        gap: 4px;
+        align-items: flex-start;
+        font-size: 10px;
+      }
+      .footer-tags {
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+    }
+
+    @media (max-width: 640px) {
+      .grid-4 {
+        grid-template-columns: 1fr;
+        gap: 10px;
+      }
+      .metrics-view {
+        padding: 10px 12px;
+        gap: 12px;
+      }
+      .time-bar {
+        padding: 6px 12px;
+        gap: 8px;
+      }
+      .time-chips {
+        width: 100%;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: none;
+      }
+      .time-chips::-webkit-scrollbar { display: none; }
+      .time-chip {
+        flex-shrink: 0;
+        padding: 5px 10px;
+      }
+      #timeRangeStatusLabel {
+        font-size: 10px;
+      }
+
+      /* Waveform Chart Cards */
+      .grafana-panel {
+        padding: 12px 14px;
+        gap: 8px;
+      }
+      .panel-header {
+        flex-direction: column;
+        gap: 8px;
+        align-items: stretch;
+      }
+      .panel-header > div:last-child {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        width: 100%;
+      }
+      .progress-bar-wrap {
+        width: 120px;
+      }
+      .hero-big-num {
+        font-size: 26px;
+      }
+      .chart-main-row {
+        height: 135px;
+      }
+      .y-axis-labels {
+        width: 44px;
+        font-size: 9px;
+        padding-right: 4px;
+      }
+      .x-axis-labels {
+        padding-left: 44px;
+        font-size: 9px;
+      }
+      .x-tick:nth-child(2),
+      .x-tick:nth-child(4) {
+        display: none; /* Hide alternating ticks on mobile to guarantee zero overlap */
+      }
+      .grafana-legend {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 4px;
+        font-size: 10px;
+        padding: 5px 8px;
+      }
+      .legend-stats {
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+
+      /* Correlation Strip */
+      .correlation-strip {
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+        padding: 8px 10px;
+        font-size: 10px;
+      }
+
+      /* Tooltip mobile bounds */
+      .unified-chart-tooltip {
+        min-width: 220px;
+        max-width: calc(100vw - 28px);
+        padding: 8px 10px;
+        font-size: 10px;
+      }
+      .tt-row {
+        font-size: 10px;
+        gap: 6px;
+      }
+      .tt-primary-val {
+        font-size: 14px;
+      }
+
+      /* KPI Cards */
+      .shadcn-kpi-card {
+        padding: 12px 14px;
+      }
+      .kpi-number {
+        font-size: 22px;
+      }
+    }
+
   </style>
 </head>
 <body>
@@ -1284,7 +1755,7 @@ export function renderDashboardHtml(options: DashboardRenderOptions): string {
       <div class="tele-card tele-card-http" id="cardHttp">
         <div class="tele-header-row">
           <div class="tele-label-bold">HTTP</div>
-          <div class="tele-rate-badge"><span id="miniValReqs">${initialTelemetry.requestsPerMinute}</span>req/min</div>
+          <div class="tele-rate-badge"><span id="miniValReqs">${initialTelemetry.requestsPerMinute}</span> <span class="rate-unit-tag">req/min</span></div>
         </div>
         <div class="tele-desc">Real-time HTTP throughput</div>
       </div>
@@ -1531,8 +2002,8 @@ export function renderDashboardHtml(options: DashboardRenderOptions): string {
                 <path id="areaCpuWave" fill="url(#cpuGradient)"/>
                 <path id="pathCpuWave" fill="none" stroke="#38bdf8" stroke-width="2.2" stroke-linecap="round"/>
                 <line id="crosshairCpu" class="crosshair-v-line" x1="0" y1="0" x2="0" y2="135" stroke="#ffffff" stroke-width="1.5" stroke-dasharray="3,3" opacity="0" />
-                <circle id="dotCpu" class="crosshair-circle cpu-crosshair-circle" cx="0" cy="0" r="5.5" stroke="#38bdf8" stroke-width="2.5" fill="#06090f" opacity="0" />
-              </svg>
+                </svg>
+              <div class="chart-pointer-dot cpu-pointer-dot" id="dotCpu"></div>
             </div>
           </div>
           <div class="x-axis-labels" id="xAxisCpu">
@@ -1646,8 +2117,8 @@ export function renderDashboardHtml(options: DashboardRenderOptions): string {
                 <path id="areaRamWave" fill="url(#ramGradient)"/>
                 <path id="pathRamWave" fill="none" stroke="#34d399" stroke-width="2.2" stroke-linecap="round"/>
                 <line id="crosshairRam" class="crosshair-v-line" x1="0" y1="0" x2="0" y2="135" stroke="#ffffff" stroke-width="1.5" stroke-dasharray="3,3" opacity="0" />
-                <circle id="dotRam" class="crosshair-circle ram-crosshair-circle" cx="0" cy="0" r="5.5" stroke="#34d399" stroke-width="2.5" fill="#06090f" opacity="0" />
-              </svg>
+                </svg>
+              <div class="chart-pointer-dot ram-pointer-dot" id="dotRam"></div>
             </div>
           </div>
           <div class="x-axis-labels" id="xAxisRam">
@@ -1720,8 +2191,8 @@ export function renderDashboardHtml(options: DashboardRenderOptions): string {
             <path id="areaSparkReq" fill="url(#sparkReqGrad)"/>
             <path id="pathSparkReq" fill="none" stroke="#22d3ee" stroke-width="2" stroke-linecap="round"/>
             <line id="crosshairSparkReq" class="spark-crosshair" x1="0" y1="0" x2="0" y2="45" opacity="0"/>
-            <circle id="dotSparkReq" class="spark-dot" cx="0" cy="0" r="3.5" fill="#06090f" stroke="#22d3ee" stroke-width="2" opacity="0"/>
-          </svg>
+            </svg>
+          <div class="spark-pointer-dot spark-dot-req" id="dotSparkReq"></div>
         </div>
         <div class="kpi-footer">
           <span id="footerReqLabel">Rolling 60s window</span>
@@ -1752,8 +2223,8 @@ export function renderDashboardHtml(options: DashboardRenderOptions): string {
             <path id="areaSparkHeap" fill="url(#sparkHeapGrad)"/>
             <path id="pathSparkHeap" fill="none" stroke="#c084fc" stroke-width="2" stroke-linecap="round"/>
             <line id="crosshairSparkHeap" class="spark-crosshair" x1="0" y1="0" x2="0" y2="45" opacity="0"/>
-            <circle id="dotSparkHeap" class="spark-dot" cx="0" cy="0" r="3.5" fill="#06090f" stroke="#c084fc" stroke-width="2" opacity="0"/>
-          </svg>
+            </svg>
+          <div class="spark-pointer-dot spark-dot-heap" id="dotSparkHeap"></div>
         </div>
         <div class="kpi-footer">
           <span id="footerHeapLabel">Allocated: ${initialTelemetry.memory.heapTotalMb} MiB</span>
@@ -1784,8 +2255,8 @@ export function renderDashboardHtml(options: DashboardRenderOptions): string {
             <path id="areaSparkLag" fill="url(#sparkLagGrad)"/>
             <path id="pathSparkLag" fill="none" stroke="#fbbf24" stroke-width="2" stroke-linecap="round"/>
             <line id="crosshairSparkLag" class="spark-crosshair" x1="0" y1="0" x2="0" y2="45" opacity="0"/>
-            <circle id="dotSparkLag" class="spark-dot" cx="0" cy="0" r="3.5" fill="#06090f" stroke="#fbbf24" stroke-width="2" opacity="0"/>
-          </svg>
+            </svg>
+          <div class="spark-pointer-dot spark-dot-lag" id="dotSparkLag"></div>
         </div>
         <div class="kpi-footer">
           <span id="footerLagLabel">Voice SLA: &lt; 10ms</span>
@@ -1816,8 +2287,8 @@ export function renderDashboardHtml(options: DashboardRenderOptions): string {
             <path id="areaSparkLat" fill="url(#sparkLatGrad)"/>
             <path id="pathSparkLat" fill="none" stroke="#38bdf8" stroke-width="2" stroke-linecap="round"/>
             <line id="crosshairSparkLat" class="spark-crosshair" x1="0" y1="0" x2="0" y2="45" opacity="0"/>
-            <circle id="dotSparkLat" class="spark-dot" cx="0" cy="0" r="3.5" fill="#06090f" stroke="#38bdf8" stroke-width="2" opacity="0"/>
-          </svg>
+            </svg>
+          <div class="spark-pointer-dot spark-dot-lat" id="dotSparkLat"></div>
         </div>
         <div class="kpi-footer">
           <span id="footerLatLabel">p95: 1.2ms</span>
@@ -1848,8 +2319,8 @@ export function renderDashboardHtml(options: DashboardRenderOptions): string {
             <path id="areaSparkHandles" fill="url(#sparkHandlesGrad)"/>
             <path id="pathSparkHandles" fill="none" stroke="#34d399" stroke-width="2" stroke-linecap="round"/>
             <line id="crosshairSparkHandles" class="spark-crosshair" x1="0" y1="0" x2="0" y2="45" opacity="0"/>
-            <circle id="dotSparkHandles" class="spark-dot" cx="0" cy="0" r="3.5" fill="#06090f" stroke="#34d399" stroke-width="2" opacity="0"/>
-          </svg>
+            </svg>
+          <div class="spark-pointer-dot spark-dot-handles" id="dotSparkHandles"></div>
         </div>
         <div class="kpi-footer">
           <span id="footerHandlesLabel">Libuv file descriptors</span>
@@ -2170,12 +2641,15 @@ export function renderDashboardHtml(options: DashboardRenderOptions): string {
 
     function handleChartMouseMove(e) {
       if (!cpuSeries || cpuSeries.length < 2) return;
-      const el = e.currentTarget;
-      const targetWrap = el.classList.contains("sparkline-wrap") || el.classList.contains("chart-svg-wrap")
+      const el = e.currentTarget || e.target || document.getElementById("svgWrapCpu");
+      if (!el) return;
+      const targetWrap = (el.classList && (el.classList.contains("sparkline-wrap") || el.classList.contains("chart-svg-wrap")))
         ? el
-        : (el.querySelector(".sparkline-wrap") || el.querySelector(".chart-svg-wrap") || el);
+        : (el.querySelector ? (el.querySelector(".sparkline-wrap") || el.querySelector(".chart-svg-wrap") || el) : el);
       const rect = targetWrap.getBoundingClientRect();
-      const relX = e.clientX - rect.left;
+      const clientX = (e.touches && e.touches.length > 0) ? e.touches[0].clientX : e.clientX;
+      if (typeof clientX !== 'number') return;
+      const relX = clientX - rect.left;
       const ratio = Math.max(0, Math.min(1, relX / rect.width));
       const len = cpuSeries.length;
       const idx = Math.min(len - 1, Math.max(0, Math.round(ratio * (len - 1))));
@@ -2196,9 +2670,9 @@ export function renderDashboardHtml(options: DashboardRenderOptions): string {
       const ttRam = document.getElementById("tooltipRam");
 
       if (crosshairCpu) { crosshairCpu.classList.remove("active"); crosshairCpu.setAttribute("opacity", "0"); crosshairCpu.style.opacity = "0"; }
-      if (dotCpu) { dotCpu.classList.remove("active"); dotCpu.setAttribute("opacity", "0"); dotCpu.style.opacity = "0"; }
+      if (dotCpu) { dotCpu.classList.remove("active"); dotCpu.style.opacity = "0"; dotCpu.style.display = "none"; }
       if (crosshairRam) { crosshairRam.classList.remove("active"); crosshairRam.setAttribute("opacity", "0"); crosshairRam.style.opacity = "0"; }
-      if (dotRam) { dotRam.classList.remove("active"); dotRam.setAttribute("opacity", "0"); dotRam.style.opacity = "0"; }
+      if (dotRam) { dotRam.classList.remove("active"); dotRam.style.opacity = "0"; dotRam.style.display = "none"; }
       if (ttCpu) { ttCpu.classList.remove("active"); ttCpu.style.opacity = "0"; ttCpu.style.display = "none"; }
       if (ttRam) { ttRam.classList.remove("active"); ttRam.style.opacity = "0"; ttRam.style.display = "none"; }
 
@@ -2219,7 +2693,7 @@ export function renderDashboardHtml(options: DashboardRenderOptions): string {
         const f = document.getElementById(item.footerId);
 
         if (c) { c.classList.remove("active"); c.setAttribute("opacity", "0"); c.style.opacity = "0"; }
-        if (d) { d.classList.remove("active"); d.setAttribute("opacity", "0"); d.style.opacity = "0"; }
+        if (d) { d.classList.remove("active"); d.style.opacity = "0"; d.style.display = "none"; }
         if (t) { t.classList.remove("active"); t.style.opacity = "0"; t.style.display = "none"; }
         if (v && item.liveVal !== undefined) v.innerText = item.liveVal;
         if (f) f.innerHTML = item.defaultFooter;
@@ -2265,12 +2739,11 @@ export function renderDashboardHtml(options: DashboardRenderOptions): string {
         crosshairCpu.style.display = "inline";
       }
       if (dotCpu) {
-        dotCpu.setAttribute("cx", pointX);
-        dotCpu.setAttribute("cy", cpuY);
-        dotCpu.setAttribute("opacity", "1");
+        dotCpu.style.left = ((pointX / 500) * 100).toFixed(2) + "%";
+        dotCpu.style.top = ((cpuY / 135) * 100).toFixed(2) + "%";
         dotCpu.classList.add("active");
         dotCpu.style.opacity = "1";
-        dotCpu.style.display = "inline";
+        dotCpu.style.display = "block";
       }
 
       if (crosshairRam) {
@@ -2282,12 +2755,11 @@ export function renderDashboardHtml(options: DashboardRenderOptions): string {
         crosshairRam.style.display = "inline";
       }
       if (dotRam) {
-        dotRam.setAttribute("cx", pointX);
-        dotRam.setAttribute("cy", ramY);
-        dotRam.setAttribute("opacity", "1");
+        dotRam.style.left = ((pointX / 500) * 100).toFixed(2) + "%";
+        dotRam.style.top = ((ramY / 135) * 100).toFixed(2) + "%";
         dotRam.classList.add("active");
         dotRam.style.opacity = "1";
-        dotRam.style.display = "inline";
+        dotRam.style.display = "block";
       }
 
       const cpuVal = cpuSeries[idx] || 0;
@@ -2435,14 +2907,13 @@ export function renderDashboardHtml(options: DashboardRenderOptions): string {
           cross.style.display = "inline";
         }
 
-        // B. Intersection dot
+        // B. Intersection dot (HTML circle, never oval)
         if (dot) {
-          dot.setAttribute("cx", pt.x.toFixed(1));
-          dot.setAttribute("cy", pt.y.toFixed(1));
-          dot.setAttribute("opacity", "1");
+          dot.style.left = ((pt.x / 240) * 100).toFixed(2) + "%";
+          dot.style.top = ((pt.y / 45) * 100).toFixed(2) + "%";
           dot.classList.add("active");
           dot.style.opacity = "1";
-          dot.style.display = "inline";
+          dot.style.display = "block";
         }
 
         // C. Update Big Value on Card
@@ -2520,6 +2991,19 @@ export function renderDashboardHtml(options: DashboardRenderOptions): string {
       updateCorrelationStripSlice(cpuCur, ramCur, lagCur, heapCur);
     }
 
+    let touchDismissTimer = null;
+    function handleChartTouch(e) {
+      if (touchDismissTimer) clearTimeout(touchDismissTimer);
+      handleChartMouseMove(e);
+    }
+
+    function handleChartTouchEnd() {
+      if (touchDismissTimer) clearTimeout(touchDismissTimer);
+      touchDismissTimer = setTimeout(() => {
+        handleChartMouseLeave();
+      }, 2500);
+    }
+
     function initChartListeners() {
       const interactiveEls = [
         document.getElementById("svgWrapCpu"),
@@ -2540,8 +3024,17 @@ export function renderDashboardHtml(options: DashboardRenderOptions): string {
         if (!el) return;
         el.removeEventListener("mousemove", handleChartMouseMove);
         el.removeEventListener("mouseleave", handleChartMouseLeave);
+        el.removeEventListener("touchstart", handleChartTouch);
+        el.removeEventListener("touchmove", handleChartTouch);
+        el.removeEventListener("touchend", handleChartTouchEnd);
+        el.removeEventListener("touchcancel", handleChartTouchEnd);
+
         el.addEventListener("mousemove", handleChartMouseMove);
         el.addEventListener("mouseleave", handleChartMouseLeave);
+        el.addEventListener("touchstart", handleChartTouch, { passive: true });
+        el.addEventListener("touchmove", handleChartTouch, { passive: true });
+        el.addEventListener("touchend", handleChartTouchEnd, { passive: true });
+        el.addEventListener("touchcancel", handleChartTouchEnd, { passive: true });
       });
     }
 
@@ -2882,7 +3375,14 @@ export function renderDashboardHtml(options: DashboardRenderOptions): string {
         const badgeClass = log.level === "ERROR" ? "badge-err" : log.level === "WARN" ? "badge-warn" : "badge-info";
         const rowClass = log.level === "ERROR" ? "row-error" : log.level === "WARN" ? "row-warn" : "";
 
-        let safeContent = escapeHtml(log.content);
+        // Strip leading redundant timestamp, level, and service tag from the message body
+        let cleanMsg = log.content || '';
+        cleanMsg = cleanMsg.replace(/^\\[?\\d{4}-\\d{2}-\\d{2}[ T]\\d{2}:\\d{2}:\\d{2}\\]?\\s*/i, '');
+        cleanMsg = cleanMsg.replace(/^\\[(INFO|WARN|WARNING|ERROR|DEBUG|ERR)\\]\\s*/i, '');
+        cleanMsg = cleanMsg.replace(/^\\[(WebSocket|AiService|Auth|R2Service|Payment|Security|Health|Server|Queue|System-Error)\\]\\s*/i, '');
+        if (!cleanMsg.trim()) cleanMsg = log.content;
+
+        let safeContent = escapeHtml(cleanMsg);
         if (query) {
           const safeQuery = escapeHtml(query).replace(/[.*+?^$\\{}()|[\\]\\\\]/g, '\\\\$&');
           const regex = new RegExp("(" + safeQuery + ")", "gi");
@@ -2890,10 +3390,17 @@ export function renderDashboardHtml(options: DashboardRenderOptions): string {
         }
 
         return '<div class="log-line ' + rowClass + '">' +
-          '<span class="line-time">' + escapeHtml(log.time) + '</span>' +
-          '<span class="line-badge ' + badgeClass + '">[' + escapeHtml(log.level) + ']</span>' +
-          '<span class="mod-tag">' + escapeHtml(log.service) + '</span>' +
-          '<span>' + safeContent + '</span>' +
+          '<div class="log-meta-row">' +
+            '<div class="log-meta-left">' +
+              '<span class="line-time">' + escapeHtml(log.time) + '</span>' +
+              '<span class="line-badge ' + badgeClass + '">[' + escapeHtml(log.level) + ']</span>' +
+              '<span class="mod-tag">' + escapeHtml(log.service) + '</span>' +
+            '</div>' +
+            '<button class="btn-copy-log" onclick="copyLogCard(this)" title="Copy log line">' +
+              '<span>📋</span> Copy' +
+            '</button>' +
+          '</div>' +
+          '<div class="log-msg">' + safeContent + '</div>' +
         '</div>';
       }).join("");
 
@@ -2941,6 +3448,39 @@ export function renderDashboardHtml(options: DashboardRenderOptions): string {
         btn.innerHTML = "<span>▶</span> Live Tail";
         clearInterval(liveTimer);
       }
+    }
+
+    function copyLogCard(btn) {
+      const card = btn.closest(".log-line");
+      let textToCopy = "";
+      if (card) {
+        const time = card.querySelector(".line-time") ? card.querySelector(".line-time").innerText.trim() : "";
+        const badge = card.querySelector(".line-badge") ? card.querySelector(".line-badge").innerText.trim() : "";
+        const mod = card.querySelector(".mod-tag") ? card.querySelector(".mod-tag").innerText.trim() : "";
+        const msg = card.querySelector(".log-msg") ? card.querySelector(".log-msg").innerText.trim() : "";
+        textToCopy = (time + " " + badge + " " + mod + " " + msg).trim();
+      }
+      if (!textToCopy) return;
+
+      if (!navigator.clipboard) {
+        const ta = document.createElement("textarea");
+        ta.value = textToCopy;
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand("copy");
+        document.body.removeChild(ta);
+      } else {
+        navigator.clipboard.writeText(textToCopy);
+      }
+      const original = btn.innerHTML;
+      btn.innerHTML = "<span>✓</span> Copied";
+      btn.style.borderColor = "#34d399";
+      btn.style.color = "#34d399";
+      setTimeout(() => {
+        btn.innerHTML = original;
+        btn.style.borderColor = "";
+        btn.style.color = "";
+      }, 1500);
     }
 
     function exportLogs() {

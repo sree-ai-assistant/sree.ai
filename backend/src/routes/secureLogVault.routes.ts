@@ -109,8 +109,48 @@ export function createSessionToken(username: string): string {
   return `${payload}.${signature}`;
 }
 
+// ─── In-Memory Token Revocation Store (ASVS V3.3 Session Termination) ──
+const revokedTokens = new Map<string, number>();
+
+export function revokeSessionToken(token: string): void {
+  if (!token || typeof token !== 'string') return;
+  const parts = token.split('.');
+  if (parts.length === 2 && parts[1]) {
+    revokedTokens.set(parts[1], Date.now() + 24 * 60 * 60 * 1000);
+  }
+}
+
+export function isTokenRevoked(token: string): boolean {
+  if (!token || typeof token !== 'string') return true;
+  const parts = token.split('.');
+  if (parts.length !== 2 || !parts[1]) return true;
+  const expiry = revokedTokens.get(parts[1]);
+  if (!expiry) return false;
+  if (Date.now() > expiry) {
+    revokedTokens.delete(parts[1]);
+    return false;
+  }
+  return true;
+}
+
+export function clearRevocationList(): void {
+  revokedTokens.clear();
+}
+
+export function applySecurityHeaders(res: Response): void {
+  res.setHeader('Content-Type', 'text/html');
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
+  res.setHeader('Pragma', 'no-cache');
+  res.setHeader('Content-Security-Policy', CSP_HEADER);
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'DENY');
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+  res.setHeader('Permissions-Policy', 'geolocation=(), microphone=(), camera=()');
+}
+
 export function verifySessionToken(token: string): { valid: boolean; username?: string } {
   if (!token || typeof token !== 'string') return { valid: false };
+  if (isTokenRevoked(token)) return { valid: false };
   const secret = process.env.LOG_VAULT_SESSION_SECRET;
   if (!secret || secret.length < 16) return { valid: false };
 
@@ -153,7 +193,11 @@ const LOCKOUT_MS = 15 * 60 * 1000; // 15 minutes
 const WINDOW_MS = 15 * 60 * 1000;
 
 export function getClientIp(req: Request): string {
-  return req.ip || req.socket.remoteAddress || '127.0.0.1';
+  let ip = req.ip || req.socket.remoteAddress || '127.0.0.1';
+  if (typeof ip === 'string' && ip.startsWith('::ffff:')) {
+    ip = ip.substring(7);
+  }
+  return ip;
 }
 
 export function checkRateLimit(ip: string): { limited: boolean; retryAfterSec?: number } {
@@ -202,8 +246,11 @@ export function clearRateLimit(ip: string): void {
 // ─── Directory Jailing & Path Traversal Mitigations (CWE-22) ───────────
 export function getSafeLogPath(fileName: string): string | null {
   if (!fileName || typeof fileName !== 'string') return null;
+  // Neutralize null bytes, path separators, or URL-encoded manipulations (CWE-22)
+  if (fileName.includes('\0') || fileName.includes('/') || fileName.includes('\\') || fileName.includes('%')) return null;
+
   const base = path.basename(fileName);
-  if (base !== fileName) return null; // Contains slashes or path manipulation
+  if (base !== fileName) return null; // Contains path manipulation
   if (!base.endsWith('.log') && !base.endsWith('.log.gz')) return null;
 
   const resolved = path.resolve(LOG_DIR, base);
@@ -412,8 +459,7 @@ export function createSecureLogVaultRouter(basePath: string = '/ops-log-vault-9x
       path: basePath
     });
 
-    res.setHeader('Content-Type', 'text/html');
-    res.setHeader('Content-Security-Policy', CSP_HEADER);
+    applySecurityHeaders(res);
     res.send(renderLoginHtml({
       basePath,
       error,
@@ -429,6 +475,7 @@ export function createSecureLogVaultRouter(basePath: string = '/ops-log-vault-9x
     const config = getVaultConfig();
 
     if (limit.limited) {
+      applySecurityHeaders(res);
       res.status(429).send(renderLoginHtml({
         basePath,
         error: 'Too many failed login attempts.',
@@ -438,6 +485,7 @@ export function createSecureLogVaultRouter(basePath: string = '/ops-log-vault-9x
     }
 
     if (!config.isConfigured || !config.user || !config.pass) {
+      applySecurityHeaders(res);
       res.status(503).send(renderLoginHtml({
         basePath,
         error: 'Ops Vault credentials are not configured on this server.'
@@ -445,24 +493,35 @@ export function createSecureLogVaultRouter(basePath: string = '/ops-log-vault-9x
       return;
     }
 
-    // Validate anti-CSRF token if cookie is present
+    // 1. Enforce Mandatory Anti-CSRF Token (OWASP ASVS V4.2 / CWE-352)
     const expectedCsrf = req.cookies[CSRF_COOKIE_NAME];
     const suppliedCsrf = req.body?._csrf;
-    if (expectedCsrf) {
-      if (!suppliedCsrf || !timingSafeEqual(String(suppliedCsrf), String(expectedCsrf))) {
-        res.status(403).send(renderLoginHtml({
-          basePath,
-          error: 'Invalid or expired CSRF token. Please refresh and try again.'
-        }));
-        return;
-      }
+    if (!expectedCsrf || !suppliedCsrf || !timingSafeEqual(String(suppliedCsrf), String(expectedCsrf))) {
+      recordFailedAttempt(ip);
+      const newLimit = checkRateLimit(ip);
+      applySecurityHeaders(res);
+      res.status(403).send(renderLoginHtml({
+        basePath,
+        error: 'Invalid, missing, or expired CSRF security token. Please reload the page.',
+        retryAfter: newLimit.retryAfterSec
+      }));
+      return;
     }
 
     const { username, password } = req.body || {};
 
-    if (!username || !password) {
+    // 2. Strict Input Type, Non-Empty, and Bounded Length Validation (CWE-20)
+    if (
+      typeof username !== 'string' ||
+      typeof password !== 'string' ||
+      !username.trim() ||
+      !password.trim() ||
+      username.length > 128 ||
+      password.length > 256
+    ) {
       recordFailedAttempt(ip);
       const newLimit = checkRateLimit(ip);
+      applySecurityHeaders(res);
       res.status(401).send(renderLoginHtml({
         basePath,
         error: 'Invalid operator credentials.',
@@ -471,12 +530,14 @@ export function createSecureLogVaultRouter(basePath: string = '/ops-log-vault-9x
       return;
     }
 
+    // 3. Constant-Time Timing-Safe Comparison (CWE-208 Timing Attack Prevention)
     const validUser = timingSafeEqual(username, config.user);
     const validPass = timingSafeEqual(password, config.pass);
 
     if (!validUser || !validPass) {
       recordFailedAttempt(ip);
       const newLimit = checkRateLimit(ip);
+      applySecurityHeaders(res);
       res.status(401).send(renderLoginHtml({
         basePath,
         error: 'Invalid operator credentials.',
@@ -497,25 +558,29 @@ export function createSecureLogVaultRouter(basePath: string = '/ops-log-vault-9x
       maxAge: 24 * 60 * 60 * 1000,
       path: basePath
     });
-    if (expectedCsrf) {
-      res.clearCookie(CSRF_COOKIE_NAME, { path: basePath });
-    }
+    res.clearCookie(CSRF_COOKIE_NAME, { path: basePath });
 
     res.redirect(basePath);
   });
 
-  // 3. GET /logout — Clear Session
-  router.get('/logout', (_req: Request, res: Response) => {
+  // 3. GET/POST /logout — Invalidate Session (ASVS V3.3)
+  const handleLogout = (req: Request, res: Response) => {
+    const token = req.cookies[COOKIE_NAME];
+    if (token) {
+      revokeSessionToken(token);
+    }
     res.clearCookie(COOKIE_NAME, { path: basePath });
     res.clearCookie(CSRF_COOKIE_NAME, { path: basePath });
     res.redirect(`${basePath}/login`);
-  });
+  };
+
+  router.get('/logout', handleLogout);
+  router.post('/logout', handleLogout);
 
   // 4. GET / — Main Ops Vault SPA Dashboard
   router.get('/', requireAuth, (_req: Request, res: Response) => {
     const telemetry = telemetryService.getTelemetry();
-    res.setHeader('Content-Type', 'text/html');
-    res.setHeader('Content-Security-Policy', CSP_HEADER);
+    applySecurityHeaders(res);
     res.send(renderDashboardHtml({
       basePath,
       nodeVersion: process.version,
