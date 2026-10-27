@@ -1218,110 +1218,205 @@ export function renderDashboardHtml(options: DashboardRenderOptions): string {
     .btn-link { text-decoration: none; color: inherit; }
     .terminal-container {
       flex: 1;
-      background: #03060a;
-      overflow-y: auto;
-      padding: 12px 18px;
-      font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
-      font-size: 11.5px;
-      line-height: 1.6;
-      color: #e2e8f0;
-    }
-    .log-line {
+      background: #06090e;
+      overflow: hidden;
       display: flex;
       flex-direction: column;
-      gap: 4px;
-      padding: 9px 12px;
-      margin-bottom: 6px;
-      background: rgba(13, 21, 39, 0.65);
-      border: 1px solid rgba(255, 255, 255, 0.07);
-      border-left: 3px solid #38bdf8;
-      border-radius: 6px;
-      transition: background 0.15s ease, border-color 0.15s ease;
       position: relative;
+      border-top: 1px solid rgba(255, 255, 255, 0.05);
     }
-    .log-line:hover {
-      background: rgba(22, 34, 59, 0.85);
-      border-color: rgba(56, 189, 248, 0.3);
-    }
-    .row-error {
-      border-left-color: #f87171 !important;
-      background: rgba(248, 113, 113, 0.07) !important;
-    }
-    .row-warn {
-      border-left-color: #fbbf24 !important;
-      background: rgba(251, 191, 36, 0.07) !important;
-    }
-    .log-meta-row {
+
+    /* Fixed Column Header Bar (Railway style) */
+    .railway-header-row {
       display: flex;
       align-items: center;
-      justify-content: space-between;
-      gap: 8px;
-      width: 100%;
-    }
-    .log-meta-left {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      flex-wrap: wrap;
-    }
-    .line-time {
-      color: #94a3b8;
-      font-size: 10.5px;
-      user-select: none;
-      font-weight: 600;
-    }
-    .line-badge {
+      padding: 7px 16px;
+      background: #090e18;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+      font-size: 11px;
       font-weight: 700;
-      padding: 1px 6px;
-      border-radius: 4px;
-      font-size: 9.5px;
-      letter-spacing: 0.03em;
+      color: #64748b;
+      letter-spacing: 0.04em;
       user-select: none;
-      white-space: nowrap;
       flex-shrink: 0;
-    }
-    .mod-tag {
-      color: #c084fc;
-      font-weight: 700;
-      font-size: 10.5px;
-      white-space: nowrap;
-      flex-shrink: 0;
-    }
-    .btn-copy-log {
-      background: rgba(255, 255, 255, 0.05);
-      border: 1px solid rgba(255, 255, 255, 0.1);
-      color: #94a3b8;
-      font-size: 9.5px;
-      padding: 2px 6px;
-      border-radius: 4px;
-      cursor: pointer;
-      display: inline-flex;
-      align-items: center;
-      gap: 3px;
-      transition: all 0.15s ease;
-      font-family: inherit;
-    }
-    .btn-copy-log:hover {
-      background: rgba(56, 189, 248, 0.2);
-      color: #38bdf8;
-      border-color: #38bdf8;
-    }
-    .log-msg {
-      font-size: 12px;
-      line-height: 1.55;
-      color: #f1f5f9;
-      word-break: break-word;
-      overflow-wrap: anywhere;
-      padding-top: 2px;
       font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
     }
-    .badge-info { background: rgba(56, 189, 248, 0.15); color: var(--color-info); }
-    .badge-warn { background: rgba(251, 191, 36, 0.15); color: var(--color-warn); }
-    .badge-err { background: rgba(248, 113, 113, 0.15); color: var(--color-error); }
-    .row-error { background: rgba(248, 113, 113, 0.05); }
-    .row-warn { background: rgba(251, 191, 36, 0.05); }
-    .mod-tag { color: #a78bfa; font-weight: 600; min-width: 85px; }
-    .highlight { background: #fbbf24; color: #000; font-weight: 700; padding: 0 2px; border-radius: 2px; }
+
+    .col-bar-head { width: 3.5px; min-width: 3.5px; margin-right: 12px; }
+    .col-time-head { width: 155px; min-width: 155px; }
+    .col-data-head { flex: 1; min-width: 0; }
+
+    /* Scrollable Rows Viewport */
+    .railway-rows-scroll {
+      flex: 1;
+      overflow-y: auto;
+      overflow-x: auto;
+      padding: 4px 0 24px 0;
+      font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+      font-size: 12px;
+      line-height: 1.5;
+      color: #e2e8f0;
+      scroll-behavior: smooth;
+    }
+
+    /* Log Stream Row */
+    .railway-row {
+      display: flex;
+      align-items: flex-start;
+      padding: 3px 16px;
+      min-height: 24px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.015);
+      transition: background 0.08s ease;
+      position: relative;
+      user-select: text;
+    }
+
+    .railway-row:hover {
+      background: rgba(255, 255, 255, 0.035);
+    }
+
+    /* Left Indicator Bar */
+    .railway-row .row-bar {
+      width: 3.5px;
+      min-width: 3.5px;
+      align-self: stretch;
+      margin-right: 12px;
+      border-radius: 2px;
+      background: #38bdf8;
+      opacity: 0.9;
+    }
+
+    /* Level Styling */
+    .railway-row.lvl-error {
+      background: rgba(220, 38, 38, 0.12) !important;
+    }
+    .railway-row.lvl-error:hover {
+      background: rgba(220, 38, 38, 0.18) !important;
+    }
+    .railway-row.lvl-error .row-bar {
+      background: #ef4444 !important;
+      box-shadow: 0 0 6px rgba(239, 68, 68, 0.45);
+    }
+    .railway-row.lvl-error .col-data {
+      color: #fecaca;
+    }
+
+    .railway-row.lvl-warn {
+      background: rgba(245, 158, 11, 0.07) !important;
+    }
+    .railway-row.lvl-warn:hover {
+      background: rgba(245, 158, 11, 0.13) !important;
+    }
+    .railway-row.lvl-warn .row-bar {
+      background: #f59e0b !important;
+    }
+
+    /* Columns */
+    .col-time {
+      width: 155px;
+      min-width: 155px;
+      color: #64748b;
+      font-size: 11.5px;
+      white-space: nowrap;
+      user-select: text;
+      flex-shrink: 0;
+      padding-top: 1px;
+    }
+
+    .col-data {
+      flex: 1;
+      min-width: 0;
+      white-space: pre-wrap;
+      word-break: break-word;
+      overflow-wrap: anywhere;
+      color: #f1f5f9;
+      font-family: inherit;
+      font-size: 12px;
+      line-height: 1.5;
+    }
+
+    /* In-line syntax highlighting for terminal readability */
+    .term-method { font-weight: 700; color: #cbd5e1; }
+    .term-path { color: #f8fafc; font-weight: 500; }
+    .term-status-2xx { color: #34d399; font-weight: 700; }
+    .term-status-3xx { color: #38bdf8; font-weight: 700; }
+    .term-status-4xx { color: #fbbf24; font-weight: 700; }
+    .term-status-5xx { color: #f87171; font-weight: 700; }
+    .term-latency { color: #94a3b8; font-size: 11.5px; }
+    .term-subsystem { font-weight: 600; color: #c084fc; }
+    .term-subsystem.tag-ai { color: #c084fc; }
+    .term-subsystem.tag-route { color: #60a5fa; }
+    .term-subsystem.tag-api { color: #fbbf24; }
+    .term-subsystem.tag-observer { color: #818cf8; }
+    .term-subsystem.tag-r2 { color: #2dd4bf; }
+    .term-subsystem.tag-cors { color: #fb923c; }
+    .term-subsystem.tag-ws { color: #38bdf8; }
+    .term-subsystem.tag-token { color: #a78bfa; }
+    .term-subsystem.tag-cleanup { color: #94a3b8; }
+    .term-subsystem.tag-server { color: #38bdf8; }
+    .term-subsystem.tag-err { color: #f87171; }
+    .term-dim { color: #64748b; }
+
+    /* Stack frame lines inside Data */
+    .term-trace-line {
+      display: block;
+      color: #fca5a5;
+      opacity: 0.92;
+      font-size: 11.5px;
+      line-height: 1.45;
+      padding-left: 14px;
+    }
+    .term-trace-toggle {
+      display: inline-block;
+      margin-left: 14px;
+      margin-top: 2px;
+      color: #38bdf8;
+      font-size: 11px;
+      cursor: pointer;
+      text-decoration: underline;
+      user-select: none;
+      padding: 1px 4px;
+    }
+    .term-trace-toggle:hover {
+      color: #7dd3fc;
+    }
+
+    /* Row Copy Button on Hover */
+    .row-copy-btn {
+      position: absolute;
+      right: 14px;
+      top: 50%;
+      transform: translateY(-50%);
+      background: rgba(15, 23, 42, 0.9);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      color: #94a3b8;
+      border-radius: 4px;
+      padding: 1px 6px;
+      font-size: 10px;
+      cursor: pointer;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.1s ease, color 0.1s, border-color 0.1s;
+      font-family: inherit;
+    }
+    .railway-row:hover .row-copy-btn {
+      opacity: 1;
+      pointer-events: auto;
+    }
+    .row-copy-btn:hover {
+      color: #38bdf8;
+      border-color: #38bdf8;
+      background: rgba(56, 189, 248, 0.15);
+    }
+
+    .highlight {
+      background: #fbbf24;
+      color: #000;
+      font-weight: 700;
+      padding: 0 2px;
+      border-radius: 2px;
+    }
+
     .redacted-token {
       background: rgba(248, 113, 113, 0.15);
       color: #f87171;
@@ -1330,6 +1425,7 @@ export function renderDashboardHtml(options: DashboardRenderOptions): string {
       border-radius: 3px;
       font-size: 10px;
     }
+
     .footer {
       background: #090e18;
       border-top: 1px solid var(--border);
@@ -1342,6 +1438,18 @@ export function renderDashboardHtml(options: DashboardRenderOptions): string {
     }
     .footer-tags { display: flex; gap: 12px; }
     .hidden-view { display: none !important; }
+    .chip-toggle {
+      border-color: rgba(245, 158, 11, 0.4);
+      color: #fbbf24;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .chip-toggle.active {
+      background: rgba(245, 158, 11, 0.25) !important;
+      border-color: #f59e0b !important;
+      color: #fef08a !important;
+    }
 
     /* ─── COMPREHENSIVE MOBILE RESPONSIVE DESIGN SYSTEM (<= 900px, <= 640px) ─── */
     @media (max-width: 900px) {
@@ -1815,6 +1923,7 @@ export function renderDashboardHtml(options: DashboardRenderOptions): string {
           <div class="chip" data-level="ERROR" onclick="setLevel('ERROR')">🔴 Errors</div>
           <div class="chip" data-level="WARN" onclick="setLevel('WARN')">🟡 Warnings</div>
           <div class="chip" data-level="INFO" onclick="setLevel('INFO')">🔵 Info</div>
+          <div class="chip chip-toggle" id="toggleHideProbes" onclick="toggleHideScannerProbes()" title="Toggle visibility of automated bot vulnerability scanner probes"><span>🛡️</span> Hide Scanners</div>
         </div>
 
         <select id="serviceSelect" onchange="renderLogs()">
@@ -1822,8 +1931,15 @@ export function renderDashboardHtml(options: DashboardRenderOptions): string {
           <option value="Server">[Server]</option>
           <option value="WebSocket">[WebSocket Voice]</option>
           <option value="AiService">[AiService]</option>
+          <option value="AI Route">[AI Route]</option>
+          <option value="ApiKeyPool">[ApiKeyPool]</option>
+          <option value="ModelObserver">[ModelObserver]</option>
+          <option value="R2">[R2 Maintenance]</option>
+          <option value="TokenManager">[TokenManager]</option>
+          <option value="CORS">[CORS]</option>
+          <option value="HTTP">[HTTP Traffic]</option>
+          <option value="Bot-Probe">[Bot-Probe]</option>
           <option value="Auth">[Auth]</option>
-          <option value="R2Service">[R2Service]</option>
           <option value="Security">[Security]</option>
           <option value="Health">[Health]</option>
         </select>
@@ -1867,10 +1983,17 @@ export function renderDashboardHtml(options: DashboardRenderOptions): string {
       </div>
     </div>
 
-    <!-- Terminal Screen -->
-    <div class="terminal-container" id="logContainer">
-      <div style="padding: 40px; text-align: center; color: var(--text-dim);">
-        Connecting to Sree AI hardened log stream...
+    <!-- Terminal Screen (Railway Style) -->
+    <div class="terminal-container">
+      <div class="railway-header-row">
+        <div class="col-bar-head"></div>
+        <div class="col-time-head">Time (GMT+5:30)</div>
+        <div class="col-data-head">Data</div>
+      </div>
+      <div class="railway-rows-scroll" id="logContainer">
+        <div style="padding: 40px; text-align: center; color: var(--text-dim);">
+          Connecting to Sree AI hardened log stream...
+        </div>
       </div>
     </div>
 
@@ -2396,6 +2519,7 @@ export function renderDashboardHtml(options: DashboardRenderOptions): string {
     const BASE_PATH = "${basePath}";
     let currentLogs = [];
     let selectedLevel = "ALL";
+    let hideScannerProbes = false;
     let liveTimer = null;
     let isLive = false;
     let uptimeSeconds = ${initialTelemetry.uptimeSeconds};
@@ -3308,6 +3432,13 @@ export function renderDashboardHtml(options: DashboardRenderOptions): string {
       }
     }
 
+    function toggleHideScannerProbes() {
+      hideScannerProbes = !hideScannerProbes;
+      const btn = document.getElementById("toggleHideProbes");
+      if (btn) btn.classList.toggle("active", hideScannerProbes);
+      renderLogs();
+    }
+
     function renderLogs() {
       const container = document.getElementById("logContainer");
       const query = document.getElementById("searchBox").value.trim().toLowerCase();
@@ -3322,12 +3453,20 @@ export function renderDashboardHtml(options: DashboardRenderOptions): string {
         return true;
       });
 
+      if (hideScannerProbes) {
+        filtered = filtered.filter(log => !log.isProbe);
+      }
+
       if (selectedLevel !== "ALL") {
         filtered = filtered.filter(log => log.level === selectedLevel);
       }
 
       if (service !== "ALL") {
-        filtered = filtered.filter(log => log.service.includes(service.replace(/[\\[\\]]/g, '')));
+        filtered = filtered.filter(log => {
+          const rawService = (log.service || '').toLowerCase();
+          const target = service.toLowerCase().replace(/[\\[\\]]/g, '');
+          return rawService.includes(target);
+        });
       }
 
       if (dateStartVal) {
@@ -3341,7 +3480,7 @@ export function renderDashboardHtml(options: DashboardRenderOptions): string {
 
       if (query) {
         filtered = filtered.filter(log => {
-          const rawText = (log.time + " " + log.level + " " + log.service + " " + log.content).toLowerCase();
+          const rawText = (log.time + " " + log.level + " " + log.service + " " + log.content + " " + (log.stackFrames ? log.stackFrames.join(" ") : "")).toLowerCase();
           return rawText.includes(query);
         });
       }
@@ -3350,18 +3489,25 @@ export function renderDashboardHtml(options: DashboardRenderOptions): string {
       const totalErr = currentLogs.filter(l => l.level === 'ERROR').length;
       const totalWarn = currentLogs.filter(l => l.level === 'WARN').length;
       const totalInfo = currentLogs.filter(l => l.level === 'INFO').length;
+      const totalProbes = currentLogs.filter(l => l.isProbe).length;
 
       const chipAll = document.querySelector('.chip[data-level="ALL"]');
       const chipErr = document.querySelector('.chip[data-level="ERROR"]');
       const chipWarn = document.querySelector('.chip[data-level="WARN"]');
       const chipInfo = document.querySelector('.chip[data-level="INFO"]');
+      const btnProbes = document.getElementById("toggleHideProbes");
+
       if (chipAll) chipAll.innerText = "All (" + totalAll + ")";
       if (chipErr) chipErr.innerText = "🔴 Errors (" + totalErr + ")";
       if (chipWarn) chipWarn.innerText = "🟡 Warnings (" + totalWarn + ")";
       if (chipInfo) chipInfo.innerText = "🔵 Info (" + totalInfo + ")";
+      if (btnProbes) {
+        btnProbes.innerHTML = "<span>🛡️</span> " + (hideScannerProbes ? "Hidden (" + totalProbes + " Probes)" : "Hide Scanners (" + totalProbes + ")");
+      }
 
       const dateActiveTag = (dateStartVal || dateEndVal) ? " • 📅 Date Range Active" : "";
-      document.getElementById("lineCounter").innerText = "Showing " + filtered.length + " of " + currentLogs.length + " lines" + dateActiveTag;
+      const probeActiveTag = hideScannerProbes ? " • 🛡️ Bot Probes Hidden" : "";
+      document.getElementById("lineCounter").innerText = "Showing " + filtered.length + " of " + currentLogs.length + " lines" + dateActiveTag + probeActiveTag;
 
       if (filtered.length === 0) {
         container.innerHTML = '<div style="padding: 40px; text-align: center; color: var(--text-dim);">' +
@@ -3371,36 +3517,97 @@ export function renderDashboardHtml(options: DashboardRenderOptions): string {
         return;
       }
 
-      container.innerHTML = filtered.map(log => {
-        const badgeClass = log.level === "ERROR" ? "badge-err" : log.level === "WARN" ? "badge-warn" : "badge-info";
-        const rowClass = log.level === "ERROR" ? "row-error" : log.level === "WARN" ? "row-warn" : "";
+      container.innerHTML = filtered.map((log, index) => {
+        const lvlLower = (log.level || 'info').toLowerCase();
+        const lvlClass = lvlLower === 'error' ? 'lvl-error' : lvlLower === 'warn' ? 'lvl-warn' : 'lvl-info';
 
-        // Strip leading redundant timestamp, level, and service tag from the message body
-        let cleanMsg = log.content || '';
-        cleanMsg = cleanMsg.replace(/^\\[?\\d{4}-\\d{2}-\\d{2}[ T]\\d{2}:\\d{2}:\\d{2}\\]?\\s*/i, '');
-        cleanMsg = cleanMsg.replace(/^\\[(INFO|WARN|WARNING|ERROR|DEBUG|ERR)\\]\\s*/i, '');
-        cleanMsg = cleanMsg.replace(/^\\[(WebSocket|AiService|Auth|R2Service|Payment|Security|Health|Server|Queue|System-Error)\\]\\s*/i, '');
-        if (!cleanMsg.trim()) cleanMsg = log.content;
+        let dataHtml = '';
 
-        let safeContent = escapeHtml(cleanMsg);
+        if (log.isHttp && log.httpData) {
+          const h = log.httpData;
+          let statusSpan = '';
+          if (h.status >= 500) {
+            statusSpan = '<span class="term-status-5xx">' + h.status + '</span>';
+          } else if (h.status >= 400) {
+            statusSpan = '<span class="term-status-4xx">' + h.status + '</span>';
+          } else if (h.status >= 300) {
+            statusSpan = '<span class="term-status-3xx">' + h.status + '</span>';
+          } else {
+            statusSpan = '<span class="term-status-2xx">' + h.status + '</span>';
+          }
+
+          const methodSpan = '<span class="term-method">' + escapeHtml(h.method) + '</span>';
+          const pathSpan = '<span class="term-path">' + escapeHtml(h.route) + '</span>';
+          const latencySpan = '<span class="term-latency">' + escapeHtml(h.duration) + '</span>';
+          const bytesSpan = (h.bytes && h.bytes !== '-') ? '<span class="term-dim">- ' + escapeHtml(h.bytes) + '</span>' : '<span class="term-dim">- -</span>';
+          const probeBadge = log.isProbe ? '<span class="term-dim" style="color:#f59e0b; font-size:10.5px; margin-left:6px;">🛡️ blocked</span>' : '';
+
+          dataHtml = methodSpan + ' ' + pathSpan + ' ' + statusSpan + ' ' + latencySpan + ' ' + bytesSpan + probeBadge;
+        } else {
+          // Internal system/service log
+          let rawContent = log.content || '';
+
+          // Highlight subsystem tag if present e.g. [AiService], [ApiKeyPool], [ModelObserver], [R2 Health]
+          let subTagHtml = '';
+          let serviceTag = '';
+          const subMatch = rawContent.match(/^(\[(?:AiService|AI Route|ApiKeyPool|ModelObserver|R2 Maintenance|R2 Health|TempCleanup|TokenManager|VideoService|WebSocket|CORS|Auth|Payment|Security|Health|Server|Queue|System-Error|Error)\])/i);
+          if (subMatch) {
+            serviceTag = subMatch[1];
+            rawContent = rawContent.substring(serviceTag.length).trim();
+          } else if (log.service && log.service !== '[Server]' && log.service !== '[HTTP]' && log.service !== '[Bot-Probe]') {
+            serviceTag = log.service;
+          }
+
+          if (serviceTag) {
+            let tagColorClass = 'tag-server';
+            if (/AiService/i.test(serviceTag)) tagColorClass = 'tag-ai';
+            else if (/AI Route/i.test(serviceTag)) tagColorClass = 'tag-route';
+            else if (/ApiKeyPool/i.test(serviceTag)) tagColorClass = 'tag-api';
+            else if (/ModelObserver/i.test(serviceTag)) tagColorClass = 'tag-observer';
+            else if (/R2/i.test(serviceTag)) tagColorClass = 'tag-r2';
+            else if (/CORS/i.test(serviceTag)) tagColorClass = 'tag-cors';
+            else if (/WebSocket/i.test(serviceTag)) tagColorClass = 'tag-ws';
+            else if (/TokenManager/i.test(serviceTag)) tagColorClass = 'tag-token';
+            else if (/TempCleanup/i.test(serviceTag)) tagColorClass = 'tag-cleanup';
+            else if (/System-Error|Error/i.test(serviceTag)) tagColorClass = 'tag-err';
+
+            subTagHtml = '<span class="term-subsystem ' + tagColorClass + '">' + escapeHtml(serviceTag) + '</span> ';
+          }
+
+          let escapedContent = escapeHtml(rawContent);
+
+          // Highlight HTTP status codes inside message content (e.g. 410, 503, 500, 200)
+          escapedContent = escapedContent.replace(/\\b(50[0-9]|4[0-9]{2}|200)\\b/g, (match) => {
+            const code = parseInt(match, 10);
+            if (code >= 500) return '<span class="term-status-5xx">' + match + '</span>';
+            if (code >= 400) return '<span class="term-status-4xx">' + match + '</span>';
+            return '<span class="term-status-2xx">' + match + '</span>';
+          });
+
+          // Highlight critical tags like 🔴 COOLDOWN
+          escapedContent = escapedContent.replace(/🔴\\s*COOLDOWN\\s*(\\d+[smh]?)/gi, '<strong style="color:#f87171;">🔴 COOLDOWN $1</strong>');
+
+          dataHtml = subTagHtml + escapedContent;
+        }
+
+        // Apply search query highlight if active
         if (query) {
           const safeQuery = escapeHtml(query).replace(/[.*+?^$\\{}()|[\\]\\\\]/g, '\\\\$&');
           const regex = new RegExp("(" + safeQuery + ")", "gi");
-          safeContent = safeContent.replace(regex, '<span class="highlight">$1</span>');
+          dataHtml = dataHtml.replace(regex, '<span class="highlight">$1</span>');
         }
 
-        return '<div class="log-line ' + rowClass + '">' +
-          '<div class="log-meta-row">' +
-            '<div class="log-meta-left">' +
-              '<span class="line-time">' + escapeHtml(log.time) + '</span>' +
-              '<span class="line-badge ' + badgeClass + '">[' + escapeHtml(log.level) + ']</span>' +
-              '<span class="mod-tag">' + escapeHtml(log.service) + '</span>' +
-            '</div>' +
-            '<button class="btn-copy-log" onclick="copyLogCard(this)" title="Copy log line">' +
-              '<span>📋</span> Copy' +
-            '</button>' +
-          '</div>' +
-          '<div class="log-msg">' + safeContent + '</div>' +
+        // Stack Trace Frames handling - render all frames directly, zero lines missed or cut
+        let stackHtml = '';
+        if (log.stackFrames && log.stackFrames.length > 0) {
+          stackHtml = log.stackFrames.map(f => '<div class="term-trace-line">' + escapeHtml(f) + '</div>').join('');
+        }
+
+        return '<div class="railway-row ' + lvlClass + (log.isProbe ? ' is-probe' : '') + '">' +
+          '<div class="row-bar"></div>' +
+          '<div class="col-time">' + escapeHtml(log.time) + '</div>' +
+          '<div class="col-data">' + dataHtml + stackHtml + '</div>' +
+          '<button class="row-copy-btn" onclick="copyRailwayRow(this)" title="Copy log line">📋</button>' +
         '</div>';
       }).join("");
 
@@ -3415,6 +3622,8 @@ export function renderDashboardHtml(options: DashboardRenderOptions): string {
         btn.classList.toggle("active", btn.getAttribute("data-level") === lvl);
       });
       renderLogs();
+      const container = document.getElementById("logContainer");
+      if (container) container.scrollTop = 0;
     }
 
     function toggleLiveTail() {
@@ -3450,17 +3659,16 @@ export function renderDashboardHtml(options: DashboardRenderOptions): string {
       }
     }
 
-    function copyLogCard(btn) {
-      const card = btn.closest(".log-line");
-      let textToCopy = "";
-      if (card) {
-        const time = card.querySelector(".line-time") ? card.querySelector(".line-time").innerText.trim() : "";
-        const badge = card.querySelector(".line-badge") ? card.querySelector(".line-badge").innerText.trim() : "";
-        const mod = card.querySelector(".mod-tag") ? card.querySelector(".mod-tag").innerText.trim() : "";
-        const msg = card.querySelector(".log-msg") ? card.querySelector(".log-msg").innerText.trim() : "";
-        textToCopy = (time + " " + badge + " " + mod + " " + msg).trim();
+    function copyRailwayRow(btn) {
+      const row = btn.closest(".railway-row");
+      if (!row) return;
+      const time = row.querySelector(".col-time") ? row.querySelector(".col-time").innerText.trim() : "";
+      const dataEl = row.querySelector(".col-data");
+      let dataText = "";
+      if (dataEl) {
+        dataText = dataEl.innerText.trim();
       }
-      if (!textToCopy) return;
+      const textToCopy = "[" + time + "] " + dataText;
 
       if (!navigator.clipboard) {
         const ta = document.createElement("textarea");
@@ -3472,15 +3680,33 @@ export function renderDashboardHtml(options: DashboardRenderOptions): string {
       } else {
         navigator.clipboard.writeText(textToCopy);
       }
+
       const original = btn.innerHTML;
-      btn.innerHTML = "<span>✓</span> Copied";
-      btn.style.borderColor = "#34d399";
+      btn.innerHTML = "✓";
       btn.style.color = "#34d399";
+      btn.style.borderColor = "#34d399";
       setTimeout(() => {
         btn.innerHTML = original;
-        btn.style.borderColor = "";
         btn.style.color = "";
-      }, 1500);
+        btn.style.borderColor = "";
+      }, 1200);
+    }
+
+    function copyLogCard(btn) {
+      copyRailwayRow(btn);
+    }
+
+    function toggleTraceFrames(id, toggleEl) {
+      const hiddenEl = document.getElementById("trace_" + id);
+      if (!hiddenEl) return;
+      if (hiddenEl.style.display === "none" || !hiddenEl.style.display) {
+        hiddenEl.style.display = "block";
+        toggleEl.innerText = "▴ hide frames";
+      } else {
+        hiddenEl.style.display = "none";
+        const count = hiddenEl.querySelectorAll(".term-trace-line").length;
+        toggleEl.innerText = "▾ +" + count + " more frames";
+      }
     }
 
     function exportLogs() {

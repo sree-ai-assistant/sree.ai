@@ -14,6 +14,16 @@ export interface LogEntry {
   type: 'out' | 'err';
   service: string;
   content: string;
+  isHttp?: boolean;
+  isProbe?: boolean;
+  httpData?: {
+    method: string;
+    route: string;
+    status: number;
+    duration: string;
+    bytes?: string;
+  };
+  stackFrames?: string[];
 }
 
 export interface DateFilterOptions {
@@ -339,8 +349,16 @@ export async function streamLogFileLines(
   for await (const rawLine of rl) {
     if (!rawLine || !rawLine.trim()) continue;
 
-    // Extract timestamp
-    const tsMatch = rawLine.match(/^\[?(\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}:\d{2})/);
+    // 1. Scrub ANSI escape sequences and leftover bracket codes
+    let line = rawLine
+      .replace(/\u001b\[[0-9;]*m/g, '')
+      .replace(/\[(?:0|31|32|33|34|35|36|37|90)m/g, '')
+      .trimEnd();
+
+    if (!line || !line.trim()) continue;
+
+    // 2. Extract Timestamp and completely scrub timezone offset (+05:30:) from line
+    const tsMatch = line.match(/^\[?(\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}:\d{2})(?:\s*[+-]\d{2}:?\d{2})?\]?:?\s*/);
     let lineTime = lastTimestamp;
     let epochTime = 0;
 
@@ -348,9 +366,12 @@ export async function streamLogFileLines(
       lineTime = tsMatch[1].replace('T', ' ');
       lastTimestamp = lineTime;
       epochTime = new Date(lineTime.replace(' ', 'T')).getTime();
+      line = line.substring(tsMatch[0].length).trim();
     } else {
       epochTime = new Date(lastTimestamp.replace(' ', 'T')).getTime();
     }
+
+    if (!line) continue;
 
     // Filter by date range on the fly without accumulating memory
     if (epochTime > 0) {
@@ -359,24 +380,119 @@ export async function streamLogFileLines(
       }
     }
 
-    // Determine log level
+    // 3. Multi-line Stack Trace & Error Header Aggregation
+    const isStackOrTraceFrame = /^\s*(?:at\s+|headers:\s*Headers|'content-length'|'content-type'|connection:|date:|vary:|code:|error:|param:|requestID:|status:\s*\d+|type:|\}|\},)/i.test(line);
+
+    if (isStackOrTraceFrame) {
+      let target = lines.length > 0 ? lines[lines.length - 1] : undefined;
+      if (target && !(target.level === 'ERROR' || (target.stackFrames && target.stackFrames.length > 0))) {
+        for (let k = lines.length - 1; k >= Math.max(0, lines.length - 8); k--) {
+          const candidate = lines[k];
+          if (candidate && candidate.level === 'ERROR' && candidate.stackFrames && candidate.stackFrames.length > 0) {
+            target = candidate;
+            break;
+          }
+        }
+      }
+      if (target && (target.level === 'ERROR' || (target.stackFrames && target.stackFrames.length > 0))) {
+        if (!target.stackFrames) target.stackFrames = [];
+        target.stackFrames.push(redactSecrets(line.trim()));
+        continue;
+      }
+      if (/^\s*[\}\],]+\s*$/.test(line)) {
+        continue;
+      }
+      lines.push({
+        id: idCounter++,
+        time: lineTime,
+        level: 'ERROR',
+        type: 'err',
+        service: '[System-Error]',
+        content: redactSecrets(line.trim()),
+        isHttp: false,
+        isProbe: false,
+        stackFrames: []
+      });
+      continue;
+    }
+
+    // If this line is the error message following a stack trace block, merge with it
+    if (/AI Stream Error:|AI Provider Error:/i.test(line)) {
+      const prev = lines.length > 0 ? lines[lines.length - 1] : undefined;
+      if (prev && prev.level === 'ERROR' && prev.stackFrames && prev.stackFrames.length > 0 && prev.content.includes('Stack Trace & Headers')) {
+        prev.content = redactSecrets(line.trim());
+        continue;
+      }
+    }
+
+    // 4. HTTP Access Log Recognition
+    const httpMatch = line.match(/^(GET|POST|PUT|DELETE|PATCH|HEAD|OPTIONS)\s+(\S+)\s+(\d{3})\s+([\d\.]+\s*ms)(?:\s*-\s*([0-9\-]+))?/i);
+    if (httpMatch && httpMatch[1] && httpMatch[2] && httpMatch[3] && httpMatch[4]) {
+      const method = httpMatch[1].toUpperCase();
+      const route = httpMatch[2];
+      const status = parseInt(httpMatch[3], 10);
+      const duration = httpMatch[4];
+      const bytes = httpMatch[5] || '-';
+
+      // Detect automated bot probes and scanners
+      const isProbe = /phpunit|eval-stdin|phpinfo|\.sql|dump|backup|laravel\.log|bash_history|\.npmrc|\.ssh|sftp\.json|service\.pwd|heapdump|secrets|server\.key|user_secrets|wp-admin|wp-config|allow_url_include|auto_prepend_file|pearcmd|invokefunction|remote\/login|CSCOE|LogonPoint|developmentserver|think\\app|docker-compose|\.yml|\.yaml|\/pub\/|\/files\/|\/downloads\/|cache\.php|\/raw|\/socket\.io\/|\/manage\/account|hello\.world|test\.hello/i.test(route);
+
+      lines.push({
+        id: idCounter++,
+        time: lineTime,
+        level: isProbe ? (status >= 500 ? 'ERROR' : 'WARN') : (status >= 500 ? 'ERROR' : status >= 400 ? 'WARN' : 'INFO'),
+        type: status >= 500 ? 'err' : 'out',
+        service: isProbe ? '[Bot-Probe]' : '[HTTP]',
+        content: redactSecrets(line),
+        isHttp: true,
+        isProbe,
+        httpData: { method, route, status, duration, bytes },
+        stackFrames: []
+      });
+      continue;
+    }
+
+    // 5. Categorize Subsystem & Clean Log Message
+    let service = type === 'err' ? '[System-Error]' : '[Server]';
     let level: 'INFO' | 'WARN' | 'ERROR' = type === 'err' ? 'ERROR' : 'INFO';
-    const upper = rawLine.toUpperCase();
-    if (upper.includes('[ERROR]') || upper.includes('ERROR:') || upper.includes('ERR:')) {
+    let cleanBody = line;
+
+    // Subsystem match
+    const subMatch = line.match(/\[(AiService|AI Route|ApiKeyPool|ModelObserver|R2 Maintenance|R2 Health|TempCleanup|TokenManager|VideoService|WebSocket|CORS|Auth|Payment|Security|Health|Server|Queue|System-Error|Error)\]/i);
+
+    if (subMatch && subMatch[1] && subMatch[0]) {
+      const matchedTag = subMatch[1];
+      if (/^Error$/i.test(matchedTag)) {
+        service = '[System-Error]';
+      } else {
+        service = `[${matchedTag}]`;
+      }
+      cleanBody = line.replace(subMatch[0], '').replace(/^[:\-\|]\s*/, '').trim();
+    } else if (/SIGINT received|Shutting down|injected env|Environment:|Server running on port/i.test(line)) {
+      service = '[Server]';
+    }
+
+    // Level detection with false-positive safeguards
+    if (
+      /\berrors:\s*0\b/i.test(line) ||
+      /\bthreshold:\s*\d+\s*errors\b/i.test(line) ||
+      /✅|🔄|🔍|Complete —|Started \|/i.test(line)
+    ) {
+      level = 'INFO';
+    } else if (
+      /\b(error|failed|failure|exception|fatal|unhandled)\b/i.test(line) ||
+      /AI Stream Error:|AI Provider Error:|status code 410/i.test(line)
+    ) {
       level = 'ERROR';
-    } else if (upper.includes('[WARN]') || upper.includes('WARN:') || upper.includes('WARNING:')) {
+    } else if (
+      /not allowed by cors|blocked request/i.test(line) ||
+      /\b(warn|warning|spike|exceeded|pruning|limit reached)\b/i.test(line)
+    ) {
       level = 'WARN';
     }
 
-    // Determine subsystem / module
-    let service = type === 'err' ? '[System-Error]' : '[Server]';
-    const serviceMatch = rawLine.match(/\[(WebSocket|AiService|Auth|R2Service|Payment|Security|Health|Server|Queue)\]/i);
-    if (serviceMatch) {
-      service = `[${serviceMatch[1]}]`;
-    }
-
     // Scrub secrets
-    const sanitized = redactSecrets(rawLine);
+    const sanitized = redactSecrets(cleanBody || line);
 
     lines.push({
       id: idCounter++,
@@ -385,6 +501,9 @@ export async function streamLogFileLines(
       type,
       service,
       content: sanitized,
+      isHttp: false,
+      isProbe: false,
+      stackFrames: []
     });
 
     // Keep bounded memory window

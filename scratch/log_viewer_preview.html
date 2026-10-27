@@ -1311,143 +1311,195 @@
 
     .terminal-container {
       flex: 1;
-      background: #03060a;
-      overflow-y: auto;
-      padding: 12px 18px;
-      font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
-      font-size: 11.5px;
-      line-height: 1.6;
-      color: #e2e8f0;
-    }
-
-    .log-line {
+      background: #06090e;
+      overflow: hidden;
       display: flex;
       flex-direction: column;
-      gap: 4px;
-      padding: 9px 12px;
-      margin-bottom: 6px;
-      background: rgba(13, 21, 39, 0.65);
-      border: 1px solid rgba(255, 255, 255, 0.07);
-      border-left: 3px solid #38bdf8;
-      border-radius: 6px;
-      transition: background 0.15s ease, border-color 0.15s ease;
       position: relative;
+      border-top: 1px solid rgba(255, 255, 255, 0.05);
     }
 
-    .log-line:hover {
-      background: rgba(22, 34, 59, 0.85);
-      border-color: rgba(56, 189, 248, 0.3);
-    }
-
-    .row-error {
-      border-left-color: #f87171 !important;
-      background: rgba(248, 113, 113, 0.07) !important;
-    }
-
-    .row-warn {
-      border-left-color: #fbbf24 !important;
-      background: rgba(251, 191, 36, 0.07) !important;
-    }
-
-    .log-meta-row {
+    /* Fixed Column Header Bar (Railway style) */
+    .railway-header-row {
       display: flex;
       align-items: center;
-      justify-content: space-between;
-      gap: 8px;
-      width: 100%;
-    }
-
-    .log-meta-left {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      flex-wrap: wrap;
-    }
-
-    .line-time {
-      color: #94a3b8;
-      font-size: 10.5px;
-      user-select: none;
-      font-weight: 600;
-    }
-
-    .line-badge {
+      padding: 7px 16px;
+      background: #090e18;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+      font-size: 11px;
       font-weight: 700;
-      padding: 1px 6px;
-      border-radius: 4px;
-      font-size: 9.5px;
-      letter-spacing: 0.03em;
+      color: #64748b;
+      letter-spacing: 0.04em;
       user-select: none;
-      white-space: nowrap;
       flex-shrink: 0;
-    }
-
-    .mod-tag {
-      color: #c084fc;
-      font-weight: 700;
-      font-size: 10.5px;
-      white-space: nowrap;
-      flex-shrink: 0;
-    }
-
-    .btn-copy-log {
-      background: rgba(255, 255, 255, 0.05);
-      border: 1px solid rgba(255, 255, 255, 0.1);
-      color: #94a3b8;
-      font-size: 9.5px;
-      padding: 2px 7px;
-      border-radius: 4px;
-      cursor: pointer;
-      display: inline-flex;
-      align-items: center;
-      gap: 3px;
-      transition: all 0.15s ease;
-      font-family: inherit;
-    }
-
-    .btn-copy-log:hover {
-      background: rgba(56, 189, 248, 0.2);
-      color: #38bdf8;
-      border-color: #38bdf8;
-    }
-
-    .log-msg {
-      font-size: 12px;
-      line-height: 1.55;
-      color: #f1f5f9;
-      word-break: break-word;
-      overflow-wrap: anywhere;
-      padding-top: 2px;
       font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
     }
 
-    .badge-info {
+    .col-bar-head { width: 3.5px; min-width: 3.5px; margin-right: 12px; }
+    .col-time-head { width: 155px; min-width: 155px; }
+    .col-data-head { flex: 1; min-width: 0; }
+
+    /* Scrollable Rows Viewport */
+    .railway-rows-scroll {
+      flex: 1;
+      overflow-y: auto;
+      overflow-x: auto;
+      padding: 4px 0 24px 0;
+      font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+      font-size: 12px;
+      line-height: 1.5;
+      color: #e2e8f0;
+      scroll-behavior: smooth;
+    }
+
+    /* Log Stream Row */
+    .railway-row {
+      display: flex;
+      align-items: flex-start;
+      padding: 3px 16px;
+      min-height: 24px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.015);
+      transition: background 0.08s ease;
+      position: relative;
+      user-select: text;
+    }
+
+    .railway-row:hover {
+      background: rgba(255, 255, 255, 0.035);
+    }
+
+    /* Left Indicator Bar */
+    .railway-row .row-bar {
+      width: 3.5px;
+      min-width: 3.5px;
+      align-self: stretch;
+      margin-right: 12px;
+      border-radius: 2px;
+      background: #38bdf8; /* Blue for info */
+      opacity: 0.9;
+    }
+
+    /* Level Styling */
+    .railway-row.lvl-error {
+      background: rgba(220, 38, 38, 0.12) !important;
+    }
+    .railway-row.lvl-error:hover {
+      background: rgba(220, 38, 38, 0.18) !important;
+    }
+    .railway-row.lvl-error .row-bar {
+      background: #ef4444 !important;
+      box-shadow: 0 0 6px rgba(239, 68, 68, 0.45);
+    }
+    .railway-row.lvl-error .col-data {
+      color: #fecaca;
+    }
+
+    .railway-row.lvl-warn {
+      background: rgba(245, 158, 11, 0.07) !important;
+    }
+    .railway-row.lvl-warn:hover {
+      background: rgba(245, 158, 11, 0.13) !important;
+    }
+    .railway-row.lvl-warn .row-bar {
+      background: #f59e0b !important;
+    }
+
+    /* Columns */
+    .col-time {
+      width: 155px;
+      min-width: 155px;
+      color: #64748b;
+      font-size: 11.5px;
+      white-space: nowrap;
+      user-select: text;
+      flex-shrink: 0;
+      padding-top: 1px;
+    }
+
+    .col-data {
+      flex: 1;
+      min-width: 0;
+      white-space: pre-wrap;
+      word-break: break-word;
+      overflow-wrap: anywhere;
+      color: #f1f5f9;
+      font-family: inherit;
+      font-size: 12px;
+      line-height: 1.5;
+    }
+
+    /* In-line syntax highlighting for terminal readability */
+    .term-method { font-weight: 700; color: #cbd5e1; }
+    .term-status-2xx { color: #34d399; font-weight: 700; }
+    .term-status-3xx { color: #38bdf8; font-weight: 700; }
+    .term-status-4xx { color: #fbbf24; font-weight: 700; }
+    .term-status-5xx { color: #f87171; font-weight: 700; }
+    .term-latency { color: #94a3b8; font-size: 11.5px; }
+    .term-path { color: #f8fafc; font-weight: 500; }
+    .term-subsystem { font-weight: 600; color: #c084fc; }
+    .term-subsystem.tag-ai { color: #c084fc; }
+    .term-subsystem.tag-route { color: #60a5fa; }
+    .term-subsystem.tag-api { color: #fbbf24; }
+    .term-subsystem.tag-observer { color: #818cf8; }
+    .term-subsystem.tag-r2 { color: #2dd4bf; }
+    .term-subsystem.tag-cors { color: #fb923c; }
+    .term-subsystem.tag-ws { color: #38bdf8; }
+    .term-subsystem.tag-token { color: #a78bfa; }
+    .term-subsystem.tag-cleanup { color: #94a3b8; }
+    .term-subsystem.tag-server { color: #38bdf8; }
+    .term-subsystem.tag-err { color: #f87171; }
+    .term-dim { color: #64748b; }
+
+    /* Stack frame lines inside Data */
+    .term-trace-line {
+      display: block;
+      color: #fca5a5;
+      opacity: 0.92;
+      font-size: 11.5px;
+      line-height: 1.45;
+      padding-left: 14px;
+    }
+    .term-trace-toggle {
+      display: inline-block;
+      margin-left: 14px;
+      margin-top: 2px;
+      color: #38bdf8;
+      font-size: 11px;
+      cursor: pointer;
+      text-decoration: underline;
+      user-select: none;
+      padding: 1px 4px;
+    }
+    .term-trace-toggle:hover {
+      color: #7dd3fc;
+    }
+
+    /* Row Copy Button on Hover */
+    .row-copy-btn {
+      position: absolute;
+      right: 14px;
+      top: 50%;
+      transform: translateY(-50%);
+      background: rgba(15, 23, 42, 0.9);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      color: #94a3b8;
+      border-radius: 4px;
+      padding: 1px 6px;
+      font-size: 10px;
+      cursor: pointer;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.1s ease, color 0.1s, border-color 0.1s;
+      font-family: inherit;
+    }
+    .railway-row:hover .row-copy-btn {
+      opacity: 1;
+      pointer-events: auto;
+    }
+    .row-copy-btn:hover {
+      color: #38bdf8;
+      border-color: #38bdf8;
       background: rgba(56, 189, 248, 0.15);
-      color: var(--color-info);
-    }
-
-    .badge-warn {
-      background: rgba(251, 191, 36, 0.15);
-      color: var(--color-warn);
-    }
-
-    .badge-err {
-      background: rgba(248, 113, 113, 0.15);
-      color: var(--color-error);
-    }
-
-    .row-error {
-      background: rgba(248, 113, 113, 0.05);
-    }
-
-    .row-warn {
-      background: rgba(251, 191, 36, 0.05);
-    }
-
-    .mod-tag {
-      color: #a78bfa;
-      font-weight: 600;
-      min-width: 85px;
     }
 
     .highlight {
@@ -1485,6 +1537,20 @@
 
     .hidden-view {
       display: none !important;
+    }
+
+    .chip-toggle {
+      border-color: rgba(245, 158, 11, 0.4);
+      color: #fbbf24;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .chip-toggle.active {
+      background: rgba(245, 158, 11, 0.25);
+      border-color: #fbbf24;
+      color: #fff;
+      box-shadow: 0 0 10px rgba(245, 158, 11, 0.25);
     }
 
     /* ─── COMPREHENSIVE MOBILE RESPONSIVE DESIGN SYSTEM (<= 900px, <= 640px) ─── */
@@ -2041,17 +2107,28 @@
           <div class="chip" data-level="ERROR" onclick="setLevel('ERROR')">🔴 Errors</div>
           <div class="chip" data-level="WARN" onclick="setLevel('WARN')">🟡 Warnings</div>
           <div class="chip" data-level="INFO" onclick="setLevel('INFO')">🔵 Info</div>
+          <div class="chip chip-toggle" id="toggleHideProbes" onclick="toggleHideScannerProbes()" title="Toggle hiding automated bot probes and 404 scans">
+            <span>🛡️</span> Hide Scanners (404)
+          </div>
         </div>
 
         <select id="serviceSelect" onchange="renderLogs()">
           <option value="ALL">All Subsystems</option>
-          <option value="Server">[Server]</option>
-          <option value="WebSocket">[WebSocket Voice]</option>
           <option value="AiService">[AiService]</option>
-          <option value="Auth">[Auth]</option>
-          <option value="R2Service">[R2Service]</option>
+          <option value="AI Route">[AI Route]</option>
+          <option value="ApiKeyPool">[ApiKeyPool]</option>
+          <option value="ModelObserver">[ModelObserver]</option>
+          <option value="HTTP">[HTTP Requests]</option>
+          <option value="Bot-Probe">[Bot-Probe Scans]</option>
+          <option value="R2">[R2 Storage &amp; Health]</option>
+          <option value="TempCleanup">[TempCleanup]</option>
+          <option value="TokenManager">[TokenManager]</option>
+          <option value="CORS">[CORS Security]</option>
+          <option value="WebSocket">[WebSocket Voice]</option>
+          <option value="Server">[Server &amp; Lifecycle]</option>
+          <option value="Auth">[Auth &amp; Session]</option>
+          <option value="Payment">[Payment]</option>
           <option value="Security">[Security]</option>
-          <option value="Health">[Health]</option>
         </select>
 
         <!-- Date Range Filter -->
@@ -2095,10 +2172,17 @@
       </div>
     </div>
 
-    <!-- Terminal Screen -->
-    <div class="terminal-container" id="logContainer">
-      <div style="padding: 40px; text-align: center; color: var(--text-dim);">
-        Connecting to Sree AI hardened log stream...
+    <!-- Terminal Screen (Railway Style) -->
+    <div class="terminal-container">
+      <div class="railway-header-row">
+        <div class="col-bar-head"></div>
+        <div class="col-time-head">Time (GMT+5:30)</div>
+        <div class="col-data-head">Data</div>
+      </div>
+      <div class="railway-rows-scroll" id="logContainer">
+        <div style="padding: 40px; text-align: center; color: var(--text-dim);">
+          Connecting to Sree AI hardened log stream...
+        </div>
       </div>
     </div>
 
@@ -2650,18 +2734,594 @@
     }
 
     const BASE_PATH = "/ops-log-vault-9x2k";
-    const DEMO_MOCK_LOGS = [
-      { id: 1, time: "2026-10-25 17:01:43", level: "INFO", service: "[Server]", type: "out", content: "[2026-10-25 17:01:43] [INFO] [Server] Log vault initialized with 10 secret redactors active on port 5000." },
-      { id: 2, time: "2026-10-25 17:01:44", level: "INFO", service: "[Auth]", type: "out", content: "[2026-10-25 17:01:44] [INFO] [Auth] HMAC SHA256 timing-safe session tokens and CSRF protection enabled." },
-      { id: 3, time: "2026-10-25 17:02:10", level: "WARN", service: "[Queue]", type: "out", content: "[2026-10-25 17:02:10] [WARN] [Queue] BullMQ job latency spike detected: 14.2ms > SLA 10ms threshold." },
-      { id: 4, time: "2026-10-25 17:03:05", level: "INFO", service: "[AiService]", type: "out", content: "[2026-10-25 17:03:05] [INFO] [AiService] Claude 3.7 Sonnet streaming completion dispatched in 218ms." },
-      { id: 5, time: "2026-10-25 17:03:40", level: "INFO", service: "[Payment]", type: "out", content: "[2026-10-25 17:03:40] [INFO] [Payment] Razorpay webhook verified: order_Nz091873918 validated successfully." },
-      { id: 6, time: "2026-10-25 17:04:12", level: "ERROR", service: "[System-Error]", type: "err", content: "[2026-10-25 17:04:12] [ERROR] [System-Error] Upstream provider timeout on Gemini multimodal endpoint (retrying 1/3)." },
-      { id: 7, time: "2026-10-25 17:05:00", level: "INFO", service: "[WebSocket]", type: "out", content: "[2026-10-25 17:05:00] [INFO] [WebSocket] Realtime telemetry subscriber connected from 127.0.0.1:5173." },
-      { id: 8, time: "2026-10-25 17:05:30", level: "WARN", service: "[Security]", type: "err", content: "[2026-10-25 17:05:30] [WARN] [Security] Rate limiter alert: IP 192.168.1.42 reached 95% of burst threshold." }
-    ];
+    const RAW_PRODUCTION_TERMINAL_LOGS = `2026-10-27 15:39:55 +05:30: GET /docker-compose.yml 404 0.271 ms - 157
+2026-10-27 15:39:55 +05:30: GET /dump.sql 404 0.309 ms - 147
+2026-10-27 15:39:55 +05:30: GET /phpinfo.php 404 0.298 ms - 150
+2026-10-27 15:39:55 +05:30: GET /storage/logs/laravel.log 404 0.316 ms - 163
+2026-10-27 15:39:55 +05:30: HEAD / 404 0.288 ms - 140
+2026-10-27 15:39:55 +05:30: POST / 404 0.342 ms - 140
+2026-10-27 15:39:56 +05:30: GET /.bash_history 404 0.294 ms - 152
+2026-10-27 15:39:56 +05:30: GET /.npmrc 404 0.289 ms - 145
+2026-10-27 15:39:56 +05:30: GET /.ssh/id_ed25519 404 0.355 ms - 154
+2026-10-27 15:39:56 +05:30: GET /.ssh/id_rsa 404 0.372 ms - 150
+2026-10-27 15:39:56 +05:30: GET /.vscode/sftp.json 404 0.296 ms - 156
+2026-10-27 15:39:56 +05:30: GET /_vti_pvt/service.pwd 404 0.304 ms - 159
+2026-10-27 15:39:56 +05:30: GET /actuator/heapdump 404 0.269 ms - 156
+2026-10-27 15:39:56 +05:30: GET /backup.sql 404 0.312 ms - 149
+2026-10-27 15:39:56 +05:30: GET /backup.tar.gz 404 0.298 ms - 152
+2026-10-27 15:39:56 +05:30: GET /backup.zip 404 0.289 ms - 149
+2026-10-27 15:39:56 +05:30: GET /database_backup.sql 404 0.266 ms - 158
+2026-10-27 15:39:56 +05:30: GET /secrets.json 404 0.286 ms - 151
+2026-10-27 15:39:56 +05:30: GET /server.key 404 0.270 ms - 149
+2026-10-27 15:39:56 +05:30: GET /user_secrets.yml 404 0.312 ms - 155
+2026-10-27 15:39:56 +05:30: GET /wp-admin/setup-config.php 404 0.302 ms - 164
+2026-10-27 15:39:56 +05:30: GET /wp-config.php 404 0.306 ms - 152
+2026-10-27 15:48:16 +05:30: GET / 404 0.286 ms - 139
+2026-10-27 15:49:19 +05:30: POST /?%ADd+allow_url_include%3d1+%ADd+auto_prepend_file%3dphp://input 404 0.603 ms - 140
+2026-10-27 15:49:43 +05:30: POST /index.php?%25ADd+allow_url_include%3D1+%25ADd+auto_prepend_file%3Dphp://input 404 0.494 ms - 149
+2026-10-27 15:49:44 +05:30: POST /index.php?-d+allow_url_include%3don+-d+auto_prepend_file%3dphp%3a//input 404 0.481 ms - 149
+2026-10-27 15:49:44 +05:30: POST /test.hello?%25ADd+allow_url_include%3D1+%25ADd+auto_prepend_file%3Dphp://input 404 0.531 ms - 150
+2026-10-27 15:49:45 +05:30: GET /vendor/phpunit/phpunit/Util/PHP/eval-stdin.php 404 0.351 ms - 185
+2026-10-27 15:49:45 +05:30: GET /vendor/phpunit/phpunit/src/Util/PHP/eval-stdin.php 404 0.376 ms - 189
+2026-10-27 15:49:46 +05:30: GET /vendor/phpunit/Util/PHP/eval-stdin.php 404 0.335 ms - 177
+2026-10-27 15:49:46 +05:30: GET /vendor/phpunit/src/Util/PHP/eval-stdin.php 404 0.336 ms - 181
+2026-10-27 15:49:47 +05:30: GET /vendor/phpunit/phpunit/LICENSE/eval-stdin.php 404 0.344 ms - 184
+2026-10-27 15:49:47 +05:30: GET /vendor/vendor/phpunit/phpunit/src/Util/PHP/eval-stdin.php 404 0.335 ms - 196
+2026-10-27 15:49:48 +05:30: GET /phpunit/phpunit/src/Util/PHP/eval-stdin.php 404 0.323 ms - 182
+2026-10-27 15:50:00 +05:30: GET /phpunit/Util/PHP/eval-stdin.php 404 0.332 ms - 170
+2026-10-27 15:50:00 +05:30: GET /phpunit/phpunit/Util/PHP/eval-stdin.php 404 0.337 ms - 178
+2026-10-27 15:50:00 +05:30: GET /phpunit/src/Util/PHP/eval-stdin.php 404 0.343 ms - 174
+2026-10-27 15:50:02 +05:30: GET /lib/phpunit/phpunit/src/Util/PHP/eval-stdin.php 404 0.515 ms - 186
+2026-10-27 15:50:03 +05:30: GET /lib/phpunit/phpunit/Util/PHP/eval-stdin.php 404 0.404 ms - 182
+2026-10-27 15:50:03 +05:30: GET /lib/phpunit/src/Util/PHP/eval-stdin.php 404 0.419 ms - 178
+2026-10-27 15:50:17 +05:30: GET /lib/phpunit/Util/PHP/eval-stdin.php 404 0.370 ms - 174
+2026-10-27 15:50:18 +05:30: GET /laravel/vendor/phpunit/phpunit/src/Util/PHP/eval-stdin.php 404 0.352 ms - 197
+2026-10-27 15:50:18 +05:30: GET /lib/vendor/phpunit/phpunit/src/Util/PHP/eval-stdin.php 404 0.358 ms - 193
+2026-10-27 15:50:19 +05:30: GET /ws/vendor/phpunit/phpunit/src/Util/PHP/eval-stdin.php 404 0.482 ms - 192
+2026-10-27 15:50:19 +05:30: GET /www/vendor/phpunit/phpunit/src/Util/PHP/eval-stdin.php 404 0.411 ms - 193
+2026-10-27 15:50:20 +05:30: GET /yii/vendor/phpunit/phpunit/src/Util/PHP/eval-stdin.php 404 0.347 ms - 193
+2026-10-27 15:50:20 +05:30: GET /zend/vendor/phpunit/phpunit/src/Util/PHP/eval-stdin.php 404 0.328 ms - 194
+2026-10-27 15:50:21 +05:30: GET /V2/vendor/phpunit/phpunit/src/Util/PHP/eval-stdin.php 404 0.323 ms - 192
+2026-10-27 15:50:21 +05:30: GET /ws/ec/vendor/phpunit/phpunit/src/Util/PHP/eval-stdin.php 404 0.331 ms - 195
+2026-10-27 15:50:22 +05:30: GET /test/vendor/phpunit/phpunit/src/Util/PHP/eval-stdin.php 404 0.366 ms - 194
+2026-10-27 15:50:22 +05:30: GET /tests/vendor/phpunit/phpunit/src/Util/PHP/eval-stdin.php 404 0.333 ms - 195
+2026-10-27 15:50:25 +05:30: GET /api/vendor/phpunit/phpunit/src/Util/PHP/eval-stdin.php 404 0.364 ms - 193
+2026-10-27 15:50:25 +05:30: GET /testing/vendor/phpunit/phpunit/src/Util/PHP/eval-stdin.php 404 0.357 ms - 197
+2026-10-27 15:53:43 +05:30: [R2 Health] Starting health check (dryRun: false, bucket: chat-files, limit: 1000)
+2026-10-27 15:53:43 +05:30: [R2 Maintenance] 🔍 Running scheduled health check...
+2026-10-27 15:53:44 +05:30: [ModelObserver] 🔄 Counter reset complete | in-memory: 0 models cleared | db: 0 stale rows reset
+2026-10-27 15:54:07 +05:30: [R2 Health] Complete — checked: 35, healthy: 35, stale: 0, errors: 0, cleaned: 0
+2026-10-27 15:54:07 +05:30: [R2 Maintenance] 🔍 Health check done — checked: 35, healthy: 35, stale: 0, cleaned: 0
+2026-10-27 16:05:19 +05:30: GET / 404 0.323 ms - 139
+2026-10-27 16:05:24 +05:30: GET / 404 0.321 ms - 139
+2026-10-27 16:05:25 +05:30: GET /pub/ 404 0.321 ms - 143
+2026-10-27 16:05:26 +05:30: GET /files/ 404 0.317 ms - 145
+2026-10-27 16:05:27 +05:30: GET /downloads/ 404 0.316 ms - 149
+2026-10-27 16:18:47 +05:30: GET /images/images/images/cache.php 404 0.338 ms - 169
+2026-10-27 16:22:54 +05:30: GET / 404 0.326 ms - 139
+2026-10-27 16:22:54 +05:30: GET /raw 404 0.318 ms - 142
+2026-10-27 16:22:55 +05:30: GET /socket.io/?EIO=4&transport=websocket 404 0.313 ms - 149
+2026-10-27 16:22:55 +05:30: GET /ws 404 0.316 ms - 141
+2026-10-27 16:22:58 +05:30: GET / 404 0.308 ms - 139
+2026-10-27 16:23:00 +05:30: GET / 404 0.309 ms - 139
+2026-10-27 16:23:01 +05:30: GET /favicon.ico 404 0.309 ms - 150
+2026-10-27 16:47:50 +05:30: GET / 404 0.289 ms - 139
+2026-10-27 17:28:53 +05:30: GET /logon/LogonPoint/index.html 404 0.312 ms - 166
+2026-10-27 17:33:34 +05:30: GET /developmentserver/metadatauploader 404 0.290 ms - 173
+2026-10-27 18:17:32 +05:30: GET /logon/LogonPoint/index.html 404 0.293 ms - 166
+2026-10-27 18:23:15 +05:30: GET / 404 0.374 ms - 139
+2026-10-27 18:24:52 +05:30: GET / 404 0.332 ms - 139
+2026-10-27 18:59:23 +05:30: POST /?%ADd+allow_url_include%3d1+%ADd+auto_prepend_file%3dphp://input 404 0.596 ms - 140
+2026-10-27 19:36:27 +05:30: GET / 404 0.311 ms - 139
+2026-10-27 19:42:02 +05:30: GET / 404 0.326 ms - 139
+2026-10-27 19:42:03 +05:30: GET / 404 0.317 ms - 139
+2026-10-27 20:13:52 +05:30: GET /ws 404 0.292 ms - 141
+2026-10-27 20:21:31 +05:30: GET / 404 0.321 ms - 139
+2026-10-27 20:21:32 +05:30: GET /favicon.ico 404 0.319 ms - 150
+2026-10-27 20:25:14 +05:30: GET / 404 0.286 ms - 139
+2026-10-27 20:25:18 +05:30: GET /manage/account/login 404 0.315 ms - 159
+2026-10-27 20:34:36 +05:30: POST /mcp 404 0.729 ms - 143
+2026-10-27 20:38:21 +05:30: POST /hello.world?%ADd+allow_url_include%3d1+%ADd+auto_prepend_file%3dphp://input 404 0.553 ms - 151
+2026-10-27 20:38:22 +05:30: POST /?%ADd+allow_url_include%3d1+%ADd+auto_prepend_file%3dphp://input 404 0.506 ms - 140
+2026-10-27 20:38:22 +05:30: POST /index.php?%25ADd+allow_url_include%3D1+%25ADd+auto_prepend_file%3Dphp://input 404 0.485 ms - 149
+2026-10-27 20:38:23 +05:30: POST /index.php?-d+allow_url_include%3don+-d+auto_prepend_file%3dphp%3a//input 404 0.503 ms - 149
+2026-10-27 20:38:23 +05:30: POST /test.hello?%25ADd+allow_url_include%3D1+%25ADd+auto_prepend_file%3Dphp://input 404 0.581 ms - 150
+2026-10-27 20:38:24 +05:30: GET /vendor/phpunit/phpunit/Util/PHP/eval-stdin.php 404 0.364 ms - 185
+2026-10-27 20:38:24 +05:30: GET /vendor/phpunit/phpunit/src/Util/PHP/eval-stdin.php 404 0.361 ms - 189
+2026-10-27 20:38:25 +05:30: GET /vendor/phpunit/src/Util/PHP/eval-stdin.php 404 0.446 ms - 181
+2026-10-27 20:38:26 +05:30: GET /vendor/phpunit/Util/PHP/eval-stdin.php 404 0.366 ms - 177
+2026-10-27 20:38:26 +05:30: GET /vendor/phpunit/phpunit/LICENSE/eval-stdin.php 404 0.378 ms - 184
+2026-10-27 20:38:27 +05:30: GET /vendor/vendor/phpunit/phpunit/src/Util/PHP/eval-stdin.php 404 0.352 ms - 196
+2026-10-27 20:38:28 +05:30: GET /phpunit/phpunit/Util/PHP/eval-stdin.php 404 0.346 ms - 178
+2026-10-27 20:38:28 +05:30: GET /phpunit/phpunit/src/Util/PHP/eval-stdin.php 404 0.340 ms - 182
+2026-10-27 20:38:29 +05:30: GET /phpunit/Util/PHP/eval-stdin.php 404 0.358 ms - 170
+2026-10-27 20:38:29 +05:30: GET /phpunit/src/Util/PHP/eval-stdin.php 404 0.351 ms - 174
+2026-10-27 20:38:30 +05:30: GET /lib/phpunit/phpunit/Util/PHP/eval-stdin.php 404 0.382 ms - 182
+2026-10-27 20:38:30 +05:30: GET /lib/phpunit/phpunit/src/Util/PHP/eval-stdin.php 404 0.365 ms - 186
+2026-10-27 20:38:31 +05:30: GET /lib/phpunit/src/Util/PHP/eval-stdin.php 404 0.375 ms - 178
+2026-10-27 20:38:32 +05:30: GET /lib/phpunit/Util/PHP/eval-stdin.php 404 0.350 ms - 174
+2026-10-27 20:38:32 +05:30: GET /lib/vendor/phpunit/phpunit/src/Util/PHP/eval-stdin.php 404 0.338 ms - 193
+2026-10-27 20:38:33 +05:30: GET /laravel/vendor/phpunit/phpunit/src/Util/PHP/eval-stdin.php 404 0.551 ms - 197
+2026-10-27 20:38:34 +05:30: GET /ws/vendor/phpunit/phpunit/src/Util/PHP/eval-stdin.php 404 0.386 ms - 192
+2026-10-27 20:38:34 +05:30: GET /www/vendor/phpunit/phpunit/src/Util/PHP/eval-stdin.php 404 0.544 ms - 193
+2026-10-27 20:38:35 +05:30: GET /yii/vendor/phpunit/phpunit/src/Util/PHP/eval-stdin.php 404 0.363 ms - 193
+2026-10-27 20:38:35 +05:30: GET /zend/vendor/phpunit/phpunit/src/Util/PHP/eval-stdin.php 404 0.369 ms - 194
+2026-10-27 20:38:36 +05:30: GET /V2/vendor/phpunit/phpunit/src/Util/PHP/eval-stdin.php 404 0.425 ms - 192
+2026-10-27 20:38:36 +05:30: GET /ws/ec/vendor/phpunit/phpunit/src/Util/PHP/eval-stdin.php 404 0.334 ms - 195
+2026-10-27 20:38:37 +05:30: GET /tests/vendor/phpunit/phpunit/src/Util/PHP/eval-stdin.php 404 0.436 ms - 195
+2026-10-27 20:38:38 +05:30: GET /test/vendor/phpunit/phpunit/src/Util/PHP/eval-stdin.php 404 0.373 ms - 194
+2026-10-27 20:38:38 +05:30: GET /testing/vendor/phpunit/phpunit/src/Util/PHP/eval-stdin.php 404 0.388 ms - 197
+2026-10-27 20:38:39 +05:30: GET /api/vendor/phpunit/phpunit/src/Util/PHP/eval-stdin.php 404 0.489 ms - 193
+2026-10-27 20:38:40 +05:30: GET /demo/vendor/phpunit/phpunit/src/Util/PHP/eval-stdin.php 404 0.346 ms - 194
+2026-10-27 20:38:41 +05:30: GET /cms/vendor/phpunit/phpunit/src/Util/PHP/eval-stdin.php 404 0.366 ms - 193
+2026-10-27 20:38:41 +05:30: GET /crm/vendor/phpunit/phpunit/src/Util/PHP/eval-stdin.php 404 0.354 ms - 193
+2026-10-27 20:38:42 +05:30: GET /admin/vendor/phpunit/phpunit/src/Util/PHP/eval-stdin.php 404 0.363 ms - 195
+2026-10-27 20:38:42 +05:30: GET /backup/vendor/phpunit/phpunit/src/Util/PHP/eval-stdin.php 404 0.340 ms - 196
+2026-10-27 20:38:43 +05:30: GET /blog/vendor/phpunit/phpunit/src/Util/PHP/eval-stdin.php 404 0.377 ms - 194
+2026-10-27 20:38:43 +05:30: GET /workspace/drupal/vendor/phpunit/phpunit/src/Util/PHP/eval-stdin.php 404 0.339 ms - 206
+2026-10-27 20:38:44 +05:30: GET /panel/vendor/phpunit/phpunit/src/Util/PHP/eval-stdin.php 404 0.341 ms - 195
+2026-10-27 20:38:44 +05:30: GET /public/vendor/phpunit/phpunit/src/Util/PHP/eval-stdin.php 404 0.364 ms - 196
+2026-10-27 20:38:45 +05:30: GET /apps/vendor/phpunit/phpunit/src/Util/PHP/eval-stdin.php 404 0.398 ms - 194
+2026-10-27 20:38:46 +05:30: GET /app/vendor/phpunit/phpunit/src/Util/PHP/eval-stdin.php 404 0.394 ms - 193
+2026-10-27 20:38:46 +05:30: GET /index.php?s=/index/\\think\\app/invokefunction&function=call_user_func_array&vars[0]=md5&vars[1][]=Hello 404 0.296 ms - 148
+2026-10-27 20:38:47 +05:30: GET /index.php?lang=../../../../../../../../usr/local/lib/php/pearcmd&+config-create+/&/<?echo(md5("hi"));?>+/tmp/index1.php 404 0.327 ms - 148
+2026-10-27 20:38:47 +05:30: GET /public/index.php?s=/index/\\think\\app/invokefunction&function=call_user_func_array&vars[0]=md5&vars[1][]=Hello 404 0.303 ms - 155
+2026-10-27 20:38:48 +05:30: GET /containers/json 404 0.319 ms - 154
+2026-10-27 20:38:48 +05:30: GET /index.php?lang=../../../../../../../../tmp/index1 404 0.294 ms - 148
+2026-10-27 20:48:36 +05:30: POST / 404 0.946 ms - 140
+2026-10-27 20:48:37 +05:30: POST / 404 0.372 ms - 140
+2026-10-27 20:48:37 +05:30: POST / 404 0.385 ms - 140
+2026-10-27 20:48:38 +05:30: POST / 404 0.377 ms - 140
+2026-10-27 21:10:02 +05:30: GET / 404 0.333 ms - 139
+2026-10-27 21:10:03 +05:30: GET /remote/login 404 0.323 ms - 151
+2026-10-27 21:10:04 +05:30: GET /+CSCOE+/logon.html 404 0.302 ms - 157
+2026-10-27 21:18:06 +05:30: SIGINT received. Shutting down gracefully...
+2026-10-27 21:18:07 +05:30: [ModelObserver] Reset cron stopped
+2026-10-27 21:18:07 +05:30: [R2 Maintenance] Cron stopped
+2026-10-27 21:18:07 +05:30: [TempCleanup] 🛑 Stopped
+2026-10-27 21:18:08 +05:30: ◇ injected env (31) from .env // tip: ⌘ multiple files { path: ['.env.local', '.env'] }
+2026-10-27 21:18:10 +05:30: [ApiKeyPool] ✅ deepgram: 1 key(s) loaded
+2026-10-27 21:18:10 +05:30: [ApiKeyPool] ✅ google: 3 key(s) loaded
+2026-10-27 21:18:10 +05:30: [ApiKeyPool] ✅ groq: 2 key(s) loaded
+2026-10-27 21:18:10 +05:30: [ApiKeyPool] ✅ nvidia: 1 key(s) loaded
+2026-10-27 21:18:10 +05:30: [ModelObserver] ✅ Started | threshold: 5 errors | reset: every 12h | tracking: [404, 410, 500, 502, 503]
+2026-10-27 21:18:10 +05:30: [R2 Maintenance] ✅ Started | health check: every 24h | GC: every 7d (orphans > 30d)
+2026-10-27 21:18:10 +05:30: [TempCleanup] ✅ Started | interval: 60m | threshold: 30m
+2026-10-27 21:18:14 +05:30: Environment: production
+2026-10-27 21:18:14 +05:30: [VideoService] Set FFmpeg path: /var/www/sree-ai/app/node_modules/ffmpeg-static/ffmpeg
+2026-10-27 21:18:14 +05:30: [VideoService] Set FFprobe path: /var/www/sree-ai/app/node_modules/ffprobe-static/bin/linux/x64/ffprobe
+2026-10-27 21:18:14 +05:30: [WebSocket] Live voice endpoint ready at /api/live/voice
+2026-10-27 21:18:14 +05:30: 🚀 Server running on port 5000
+2026-10-27 21:24:35 +05:30: SIGINT received. Shutting down gracefully...
+2026-10-27 21:24:35 +05:30: [ModelObserver] Reset cron stopped
+2026-10-27 21:24:35 +05:30: [R2 Maintenance] Cron stopped
+2026-10-27 21:24:35 +05:30: [TempCleanup] 🛑 Stopped
+2026-10-27 21:24:36 +05:30: [ApiKeyPool] ✅ deepgram: 1 key(s) loaded
+2026-10-27 21:24:36 +05:30: [ApiKeyPool] ✅ google: 3 key(s) loaded
+2026-10-27 21:24:36 +05:30: [ApiKeyPool] ✅ groq: 2 key(s) loaded
+2026-10-27 21:24:36 +05:30: [ApiKeyPool] ✅ nvidia: 1 key(s) loaded
+2026-10-27 21:24:36 +05:30: [ModelObserver] ✅ Started | threshold: 5 errors | reset: every 12h | tracking: [404, 410, 500, 502, 503]
+2026-10-27 21:24:36 +05:30: [R2 Maintenance] ✅ Started | health check: every 24h | GC: every 7d (orphans > 30d)
+2026-10-27 21:24:36 +05:30: [TempCleanup] ✅ Started | interval: 60m | threshold: 30m
+2026-10-27 21:24:36 +05:30: ◇ injected env (36) from .env // tip: ◈ secrets for agents [www.dotenvx.com]
+2026-10-27 21:24:40 +05:30: Environment: production
+2026-10-27 21:24:40 +05:30: [VideoService] Set FFmpeg path: /var/www/sree-ai/app/node_modules/ffmpeg-static/ffmpeg
+2026-10-27 21:24:40 +05:30: [VideoService] Set FFprobe path: /var/www/sree-ai/app/node_modules/ffprobe-static/bin/linux/x64/ffprobe
+2026-10-27 21:24:40 +05:30: [WebSocket] Live voice endpoint ready at /api/live/voice
+2026-10-27 21:24:40 +05:30: 🚀 Server running on port 5000
+2026-10-27 21:25:18 +05:30: GET / 404 3.363 ms - 139
+2026-10-27 21:25:26 +05:30: GET /favicon.ico 404 0.519 ms - 150
+2026-10-27 21:25:26 +05:30: [CORS] Blocked request from origin: https://api.sreeai.qzz.io
+2026-10-27 21:25:26 +05:30: [Error]: Not allowed by CORS
+2026-10-27 21:25:34 +05:30: [CORS] Blocked request from origin: https://api.sreeai.qzz.io
+2026-10-27 21:25:34 +05:30: [Error]: Not allowed by CORS
+2026-10-27 21:26:03 +05:30: [CORS] Blocked request from origin: https://api.sreeai.qzz.io
+2026-10-27 21:26:03 +05:30: [Error]: Not allowed by CORS
+2026-10-27 21:27:29 +05:30: [CORS] Blocked request from origin: https://api.sreeai.qzz.io
+2026-10-27 21:27:29 +05:30: [Error]: Not allowed by CORS
+2026-10-27 21:29:25 +05:30: SIGINT received. Shutting down gracefully...
+2026-10-27 21:29:25 +05:30: [ModelObserver] Reset cron stopped
+2026-10-27 21:29:25 +05:30: [R2 Maintenance] Cron stopped
+2026-10-27 21:29:25 +05:30: [TempCleanup] 🛑 Stopped
+2026-10-27 21:29:26 +05:30: ◇ injected env (36) from .env // tip: ⌘ override existing { override: true }
+2026-10-27 21:29:27 +05:30: [ApiKeyPool] ✅ deepgram: 1 key(s) loaded
+2026-10-27 21:29:27 +05:30: [ApiKeyPool] ✅ google: 3 key(s) loaded
+2026-10-27 21:29:27 +05:30: [ApiKeyPool] ✅ groq: 2 key(s) loaded
+2026-10-27 21:29:27 +05:30: [ApiKeyPool] ✅ nvidia: 1 key(s) loaded
+2026-10-27 21:29:27 +05:30: [ModelObserver] ✅ Started | threshold: 5 errors | reset: every 12h | tracking: [404, 410, 500, 502, 503]
+2026-10-27 21:29:27 +05:30: [R2 Maintenance] ✅ Started | health check: every 24h | GC: every 7d (orphans > 30d)
+2026-10-27 21:29:27 +05:30: [TempCleanup] ✅ Started | interval: 60m | threshold: 30m
+2026-10-27 21:29:30 +05:30: Environment: production
+2026-10-27 21:29:30 +05:30: [VideoService] Set FFmpeg path: /var/www/sree-ai/app/node_modules/ffmpeg-static/ffmpeg
+2026-10-27 21:29:30 +05:30: [VideoService] Set FFprobe path: /var/www/sree-ai/app/node_modules/ffprobe-static/bin/linux/x64/ffprobe
+2026-10-27 21:29:30 +05:30: [WebSocket] Live voice endpoint ready at /api/live/voice
+2026-10-27 21:29:30 +05:30: 🚀 Server running on port 5000
+2026-10-27 21:29:31 +05:30: [CORS] Blocked request from origin: https://api.sreeai.qzz.io
+2026-10-27 21:29:31 +05:30: [Error]: Not allowed by CORS
+2026-10-27 21:30:00 +05:30: [CORS] Blocked request from origin: https://api.sreeai.qzz.io
+2026-10-27 21:30:00 +05:30: [Error]: Not allowed by CORS
+2026-10-27 21:30:28 +05:30: GET /api/ai/usage 304 2524.780 ms - -
+2026-10-27 21:30:28 +05:30: GET /api/models 304 2194.157 ms - -
+2026-10-27 21:30:30 +05:30: GET /api/ai/usage 304 1700.194 ms - -
+2026-10-27 21:30:30 +05:30: GET /api/models 304 1548.908 ms - -
+2026-10-27 21:30:31 +05:30: GET /api/ai/usage 304 1265.986 ms - -
+2026-10-27 21:30:31 +05:30: GET /api/models 304 982.478 ms - -
+2026-10-27 21:30:34 +05:30: GET /api/ai/usage 304 870.984 ms - -
+2026-10-27 21:30:35 +05:30: GET /api/ai/usage 304 791.985 ms - -
+2026-10-27 21:30:49 +05:30: POST /api/ai/chat 403 2728.611 ms - 159
+2026-10-27 21:30:50 +05:30: POST /api/ai/chat 403 1255.486 ms - 159
+2026-10-27 21:31:33 +05:30: [CORS] Blocked request from origin: https://api.sreeai.qzz.io
+2026-10-27 21:31:33 +05:30: [Error]: Not allowed by CORS
+2026-10-27 21:32:04 +05:30: GET / 404 1.257 ms - 139
+2026-10-27 21:35:35 +05:30: [CORS] Blocked request from origin: https://api.sreeai.qzz.io
+2026-10-27 21:35:35 +05:30: [Error]: Not allowed by CORS
+2026-10-27 21:37:38 +05:30: SIGINT received. Shutting down gracefully...
+2026-10-27 21:37:38 +05:30: [ModelObserver] Reset cron stopped
+2026-10-27 21:37:38 +05:30: [R2 Maintenance] Cron stopped
+2026-10-27 21:37:38 +05:30: [TempCleanup] 🛑 Stopped
+2026-10-27 21:37:39 +05:30: ◇ injected env (36) from .env // tip: ⌁ auth for agents [www.vestauth.com]
+2026-10-27 21:37:40 +05:30: [ApiKeyPool] ✅ deepgram: 1 key(s) loaded
+2026-10-27 21:37:40 +05:30: [ApiKeyPool] ✅ google: 3 key(s) loaded
+2026-10-27 21:37:40 +05:30: [ApiKeyPool] ✅ groq: 2 key(s) loaded
+2026-10-27 21:37:40 +05:30: [ApiKeyPool] ✅ nvidia: 1 key(s) loaded
+2026-10-27 21:37:40 +05:30: [ModelObserver] ✅ Started | threshold: 5 errors | reset: every 12h | tracking: [404, 410, 500, 502, 503]
+2026-10-27 21:37:40 +05:30: [R2 Maintenance] ✅ Started | health check: every 24h | GC: every 7d (orphans > 30d)
+2026-10-27 21:37:40 +05:30: [TempCleanup] ✅ Started | interval: 60m | threshold: 30m
+2026-10-27 21:37:43 +05:30: Environment: production
+2026-10-27 21:37:43 +05:30: [VideoService] Set FFmpeg path: /var/www/sree-ai/app/node_modules/ffmpeg-static/ffmpeg
+2026-10-27 21:37:43 +05:30: [VideoService] Set FFprobe path: /var/www/sree-ai/app/node_modules/ffprobe-static/bin/linux/x64/ffprobe
+2026-10-27 21:37:43 +05:30: [WebSocket] Live voice endpoint ready at /api/live/voice
+2026-10-27 21:37:43 +05:30: 🚀 Server running on port 5000
+2026-10-27 21:37:56 +05:30: SIGINT received. Shutting down gracefully...
+2026-10-27 21:37:56 +05:30: [ModelObserver] Reset cron stopped
+2026-10-27 21:37:56 +05:30: [R2 Maintenance] Cron stopped
+2026-10-27 21:37:56 +05:30: [TempCleanup] 🛑 Stopped
+2026-10-27 21:37:57 +05:30: ◇ injected env (36) from .env // tip: ⌘ suppress logs { quiet: true }
+2026-10-27 21:37:58 +05:30: [ApiKeyPool] ✅ deepgram: 1 key(s) loaded
+2026-10-27 21:37:58 +05:30: [ApiKeyPool] ✅ google: 3 key(s) loaded
+2026-10-27 21:37:58 +05:30: [ApiKeyPool] ✅ groq: 2 key(s) loaded
+2026-10-27 21:37:58 +05:30: [ApiKeyPool] ✅ nvidia: 1 key(s) loaded
+2026-10-27 21:37:58 +05:30: [ModelObserver] ✅ Started | threshold: 5 errors | reset: every 12h | tracking: [404, 410, 500, 502, 503]
+2026-10-27 21:37:58 +05:30: [R2 Maintenance] ✅ Started | health check: every 24h | GC: every 7d (orphans > 30d)
+2026-10-27 21:37:58 +05:30: [TempCleanup] ✅ Started | interval: 60m | threshold: 30m
+2026-10-27 21:38:01 +05:30: [VideoService] Set FFmpeg path: /var/www/sree-ai/app/node_modules/ffmpeg-static/ffmpeg
+2026-10-27 21:38:01 +05:30: [VideoService] Set FFprobe path: /var/www/sree-ai/app/node_modules/ffprobe-static/bin/linux/x64/ffprobe
+2026-10-27 21:38:02 +05:30: Environment: production
+2026-10-27 21:38:02 +05:30: [WebSocket] Live voice endpoint ready at /api/live/voice
+2026-10-27 21:38:02 +05:30: 🚀 Server running on port 5000
+2026-10-27 21:38:33 +05:30: SIGINT received. Shutting down gracefully...
+2026-10-27 21:38:33 +05:30: [ModelObserver] Reset cron stopped
+2026-10-27 21:38:33 +05:30: [R2 Maintenance] Cron stopped
+2026-10-27 21:38:33 +05:30: [TempCleanup] 🛑 Stopped
+2026-10-27 21:38:33 +05:30: ◇ injected env (36) from .env // tip: ◈ encrypted .env [www.dotenvx.com]
+2026-10-27 21:38:34 +05:30: [ApiKeyPool] ✅ deepgram: 1 key(s) loaded
+2026-10-27 21:38:34 +05:30: [ApiKeyPool] ✅ google: 3 key(s) loaded
+2026-10-27 21:38:34 +05:30: [ApiKeyPool] ✅ groq: 2 key(s) loaded
+2026-10-27 21:38:34 +05:30: [ApiKeyPool] ✅ nvidia: 1 key(s) loaded
+2026-10-27 21:38:34 +05:30: [ModelObserver] ✅ Started | threshold: 5 errors | reset: every 12h | tracking: [404, 410, 500, 502, 503]
+2026-10-27 21:38:34 +05:30: [R2 Maintenance] ✅ Started | health check: every 24h | GC: every 7d (orphans > 30d)
+2026-10-27 21:38:34 +05:30: [TempCleanup] ✅ Started | interval: 60m | threshold: 30m
+2026-10-27 21:38:39 +05:30: Environment: production
+2026-10-27 21:38:39 +05:30: [VideoService] Set FFmpeg path: /var/www/sree-ai/app/node_modules/ffmpeg-static/ffmpeg
+2026-10-27 21:38:39 +05:30: [VideoService] Set FFprobe path: /var/www/sree-ai/app/node_modules/ffprobe-static/bin/linux/x64/ffprobe
+2026-10-27 21:38:39 +05:30: [WebSocket] Live voice endpoint ready at /api/live/voice
+2026-10-27 21:38:39 +05:30: 🚀 Server running on port 5000
+2026-10-27 21:39:21 +05:30: GET / 404 1.436 ms - 139
+2026-10-27 21:47:47 +05:30: POST /api/ai/chat 403 3741.514 ms - 159
+2026-10-27 21:47:50 +05:30: POST /api/ai/chat 403 1488.505 ms - 159
+2026-10-27 21:47:55 +05:30: POST /api/ai/chat 200 1331.023 ms - -
+2026-10-27 21:47:55 +05:30:     'content-length': '187',
+2026-10-27 21:47:55 +05:30:     'content-type': 'application/problem+json',
+2026-10-27 21:47:55 +05:30:     at Function.generate (/var/www/sree-ai/app/node_modules/openai/src/core/error.ts:104:12)
+2026-10-27 21:47:55 +05:30:     at OpenAI.makeRequest (/var/www/sree-ai/app/node_modules/openai/src/client.ts:875:24)
+2026-10-27 21:47:55 +05:30:     at OpenAI.makeStatusError (/var/www/sree-ai/app/node_modules/openai/src/client.ts:591:28)
+2026-10-27 21:47:55 +05:30:     at async <anonymous> (/var/www/sree-ai/app/backend/src/routes/ai.routes.ts:531:5)
+2026-10-27 21:47:55 +05:30:     at async <anonymous> (/var/www/sree-ai/app/backend/src/routes/ai.routes.ts:536:24)
+2026-10-27 21:47:55 +05:30:     at async AiService.streamChat (/var/www/sree-ai/app/backend/src/services/ai.service.ts:987:16)
+2026-10-27 21:47:55 +05:30:     at async PriorityQueueService.processNext (/var/www/sree-ai/app/backend/src/services/queue.service.ts:87:22) {
+2026-10-27 21:47:55 +05:30:     at async executeWithKeyRotation (/var/www/sree-ai/app/backend/src/services/apiKeyPool.service.ts:288:14)
+2026-10-27 21:47:55 +05:30:     at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+2026-10-27 21:47:55 +05:30:     connection: 'keep-alive',
+2026-10-27 21:47:55 +05:30:     date: 'Tue, 27 Oct 2026 16:17:55 GMT',
+2026-10-27 21:47:55 +05:30:     vary: 'Origin'
+2026-10-27 21:47:55 +05:30:   code: undefined,
+2026-10-27 21:47:55 +05:30:   error: undefined,
+2026-10-27 21:47:55 +05:30:   headers: Headers {
+2026-10-27 21:47:55 +05:30:   param: undefined,
+2026-10-27 21:47:55 +05:30:   requestID: null,
+2026-10-27 21:47:55 +05:30:   status: 410,
+2026-10-27 21:47:55 +05:30:   type: undefined
+2026-10-27 21:47:55 +05:30:   },
+2026-10-27 21:47:55 +05:30: AI Stream Error: APIError: 410 status code (no body)
+2026-10-27 21:47:55 +05:30: [AiService] AI Provider Error: 410 status code (no body) | Status: 410 | Details: {"status":410,"headers":{},"requestID":null}
+2026-10-27 21:47:55 +05:30: [AiService] Context limit reached. Pruning history to 1948 to preserve 2048 output tokens.
+2026-10-27 21:47:55 +05:30: [AiService] Final allocation: Prompt=6890, Reserved=2048, Total=8938, Limit=4096
+2026-10-27 21:47:55 +05:30: [AiService] Final failure after 1 attempts: 410 status code (no body)
+2026-10-27 21:47:55 +05:30: [AiService] Final sanitized messages count: 1
+2026-10-27 21:47:55 +05:30: [AiService] Last message role: system | Content type: string | Multimodal: false
+2026-10-27 21:47:55 +05:30: [AiService] Request for model: nvidia/nemotron-mini-4b-instruct | Found in DB: true | Is Vision: false | Img limit: 0
+2026-10-27 21:47:55 +05:30: [AiService] Sending request to model nvidia/nemotron-mini-4b-instruct with 1 messages. Provider: nvidia
+2026-10-27 21:47:55 +05:30: [ApiKeyPool] ⚪ LOGGED | nvidia key nvapi-w6...grny | Error: 410 status code (no body)
+2026-10-27 21:47:55 +05:30: [ModelObserver] 📊 nvidia/nemotron-mini-4b-instruct | 410 | count: 1/5
+2026-10-27 21:47:55 +05:30: [TokenManager] Pruned to 1 messages. New tokens: 6890
+2026-10-27 21:47:55 +05:30: [TokenManager] Pruning messages. Current tokens: 6904, Target: 1948
+2026-10-27 21:47:55 +05:30: }
+2026-10-27 21:47:58 +05:30: POST /api/ai/chat 200 1491.506 ms - -
+2026-10-27 21:47:58 +05:30:     'content-length': '187',
+2026-10-27 21:47:58 +05:30:     'content-type': 'application/problem+json',
+2026-10-27 21:47:58 +05:30:     at Function.generate (/var/www/sree-ai/app/node_modules/openai/src/core/error.ts:104:12)
+2026-10-27 21:47:58 +05:30:     at OpenAI.makeRequest (/var/www/sree-ai/app/node_modules/openai/src/client.ts:875:24)
+2026-10-27 21:47:58 +05:30:     at OpenAI.makeStatusError (/var/www/sree-ai/app/node_modules/openai/src/client.ts:591:28)
+2026-10-27 21:47:58 +05:30:     at async <anonymous> (/var/www/sree-ai/app/backend/src/routes/ai.routes.ts:531:5)
+2026-10-27 21:47:58 +05:30:     at async <anonymous> (/var/www/sree-ai/app/backend/src/routes/ai.routes.ts:536:24)
+2026-10-27 21:47:58 +05:30:     at async AiService.streamChat (/var/www/sree-ai/app/backend/src/services/ai.service.ts:987:16)
+2026-10-27 21:47:58 +05:30:     at async PriorityQueueService.processNext (/var/www/sree-ai/app/backend/src/services/queue.service.ts:87:22) {
+2026-10-27 21:47:58 +05:30:     at async executeWithKeyRotation (/var/www/sree-ai/app/backend/src/services/apiKeyPool.service.ts:288:14)
+2026-10-27 21:47:58 +05:30:     at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+2026-10-27 21:47:58 +05:30:     connection: 'keep-alive',
+2026-10-27 21:47:58 +05:30:     date: 'Tue, 27 Oct 2026 16:17:58 GMT',
+2026-10-27 21:47:58 +05:30:     vary: 'Origin'
+2026-10-27 21:47:58 +05:30:   code: undefined,
+2026-10-27 21:47:58 +05:30:   error: undefined,
+2026-10-27 21:47:58 +05:30:   headers: Headers {
+2026-10-27 21:47:58 +05:30:   param: undefined,
+2026-10-27 21:47:58 +05:30:   requestID: null,
+2026-10-27 21:47:58 +05:30:   status: 410,
+2026-10-27 21:47:58 +05:30:   type: undefined
+2026-10-27 21:47:58 +05:30:   },
+2026-10-27 21:47:58 +05:30: AI Stream Error: APIError: 410 status code (no body)
+2026-10-27 21:47:58 +05:30: [AiService] AI Provider Error: 410 status code (no body) | Status: 410 | Details: {"status":410,"headers":{},"requestID":null}
+2026-10-27 21:47:58 +05:30: [AiService] Context limit reached. Pruning history to 1948 to preserve 2048 output tokens.
+2026-10-27 21:47:58 +05:30: [AiService] Final allocation: Prompt=6890, Reserved=2048, Total=8938, Limit=4096
+2026-10-27 21:47:58 +05:30: [AiService] Final failure after 1 attempts: 410 status code (no body)
+2026-10-27 21:47:58 +05:30: [AiService] Final sanitized messages count: 1
+2026-10-27 21:47:58 +05:30: [AiService] Last message role: system | Content type: string | Multimodal: false
+2026-10-27 21:47:58 +05:30: [AiService] Request for model: nvidia/nemotron-mini-4b-instruct | Found in DB: true | Is Vision: false | Img limit: 0
+2026-10-27 21:47:58 +05:30: [AiService] Sending request to model nvidia/nemotron-mini-4b-instruct with 1 messages. Provider: nvidia
+2026-10-27 21:47:58 +05:30: [ApiKeyPool] ⚪ LOGGED | nvidia key nvapi-w6...grny | Error: 410 status code (no body)
+2026-10-27 21:47:58 +05:30: [ModelObserver] 📊 nvidia/nemotron-mini-4b-instruct | 410 | count: 2/5
+2026-10-27 21:47:58 +05:30: [TokenManager] Pruned to 1 messages. New tokens: 6890
+2026-10-27 21:47:58 +05:30: [TokenManager] Pruning messages. Current tokens: 6904, Target: 1948
+2026-10-27 21:47:58 +05:30: }
+2026-10-27 21:48:10 +05:30: POST /api/ai/chat 200 2521.761 ms - -
+2026-10-27 21:48:10 +05:30:     'content-length': '182',
+2026-10-27 21:48:10 +05:30:     'content-type': 'application/problem+json',
+2026-10-27 21:48:10 +05:30:     at Function.generate (/var/www/sree-ai/app/node_modules/openai/src/core/error.ts:104:12)
+2026-10-27 21:48:10 +05:30:     at OpenAI.makeRequest (/var/www/sree-ai/app/node_modules/openai/src/client.ts:875:24)
+2026-10-27 21:48:10 +05:30:     at OpenAI.makeStatusError (/var/www/sree-ai/app/node_modules/openai/src/client.ts:591:28)
+2026-10-27 21:48:10 +05:30:     at async <anonymous> (/var/www/sree-ai/app/backend/src/routes/ai.routes.ts:531:5)
+2026-10-27 21:48:10 +05:30:     at async <anonymous> (/var/www/sree-ai/app/backend/src/routes/ai.routes.ts:536:24)
+2026-10-27 21:48:10 +05:30:     at async AiService.streamChat (/var/www/sree-ai/app/backend/src/services/ai.service.ts:987:16)
+2026-10-27 21:48:10 +05:30:     at async PriorityQueueService.processNext (/var/www/sree-ai/app/backend/src/services/queue.service.ts:87:22) {
+2026-10-27 21:48:10 +05:30:     at async executeWithKeyRotation (/var/www/sree-ai/app/backend/src/services/apiKeyPool.service.ts:288:14)
+2026-10-27 21:48:10 +05:30:     at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+2026-10-27 21:48:10 +05:30:     connection: 'keep-alive',
+2026-10-27 21:48:10 +05:30:     date: 'Tue, 27 Oct 2026 16:18:10 GMT',
+2026-10-27 21:48:10 +05:30:     vary: 'Origin'
+2026-10-27 21:48:10 +05:30:   code: undefined,
+2026-10-27 21:48:10 +05:30:   error: undefined,
+2026-10-27 21:48:10 +05:30:   headers: Headers {
+2026-10-27 21:48:10 +05:30:   param: undefined,
+2026-10-27 21:48:10 +05:30:   requestID: null,
+2026-10-27 21:48:10 +05:30:   status: 410,
+2026-10-27 21:48:10 +05:30:   type: undefined
+2026-10-27 21:48:10 +05:30:   },
+2026-10-27 21:48:10 +05:30: AI Stream Error: APIError: 410 status code (no body)
+2026-10-27 21:48:10 +05:30: [AiService] AI Provider Error: 410 status code (no body) | Status: 410 | Details: {"status":410,"headers":{},"requestID":null}
+2026-10-27 21:48:10 +05:30: [AiService] Final allocation: Prompt=6906, Reserved=4096, Total=11002, Limit=131072
+2026-10-27 21:48:10 +05:30: [AiService] Final failure after 1 attempts: 410 status code (no body)
+2026-10-27 21:48:10 +05:30: [AiService] Final sanitized messages count: 2
+2026-10-27 21:48:10 +05:30: [AiService] Last message role: user | Content type: string | Multimodal: false
+2026-10-27 21:48:10 +05:30: [AiService] Request for model: meta/llama-3.1-70b-instruct | Found in DB: true | Is Vision: false | Img limit: 0
+2026-10-27 21:48:10 +05:30: [AiService] Sending request to model meta/llama-3.1-70b-instruct with 2 messages. Provider: nvidia
+2026-10-27 21:48:10 +05:30: [ApiKeyPool] ⚪ LOGGED | nvidia key nvapi-w6...grny | Error: 410 status code (no body)
+2026-10-27 21:48:10 +05:30: [ModelObserver] 📊 meta/llama-3.1-70b-instruct | 410 | count: 1/5
+2026-10-27 21:48:10 +05:30: }
+2026-10-27 21:48:13 +05:30: POST /api/ai/chat 200 1504.989 ms - -
+2026-10-27 21:48:13 +05:30:     'content-length': '182',
+2026-10-27 21:48:13 +05:30:     'content-type': 'application/problem+json',
+2026-10-27 21:48:13 +05:30:     at Function.generate (/var/www/sree-ai/app/node_modules/openai/src/core/error.ts:104:12)
+2026-10-27 21:48:13 +05:30:     at OpenAI.makeRequest (/var/www/sree-ai/app/node_modules/openai/src/client.ts:875:24)
+2026-10-27 21:48:13 +05:30:     at OpenAI.makeStatusError (/var/www/sree-ai/app/node_modules/openai/src/client.ts:591:28)
+2026-10-27 21:48:13 +05:30:     at async <anonymous> (/var/www/sree-ai/app/backend/src/routes/ai.routes.ts:531:5)
+2026-10-27 21:48:13 +05:30:     at async <anonymous> (/var/www/sree-ai/app/backend/src/routes/ai.routes.ts:536:24)
+2026-10-27 21:48:13 +05:30:     at async AiService.streamChat (/var/www/sree-ai/app/backend/src/services/ai.service.ts:987:16)
+2026-10-27 21:48:13 +05:30:     at async PriorityQueueService.processNext (/var/www/sree-ai/app/backend/src/services/queue.service.ts:87:22) {
+2026-10-27 21:48:13 +05:30:     at async executeWithKeyRotation (/var/www/sree-ai/app/backend/src/services/apiKeyPool.service.ts:288:14)
+2026-10-27 21:48:13 +05:30:     at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+2026-10-27 21:48:13 +05:30:     connection: 'keep-alive',
+2026-10-27 21:48:13 +05:30:     date: 'Tue, 27 Oct 2026 16:18:13 GMT',
+2026-10-27 21:48:13 +05:30:     vary: 'Origin'
+2026-10-27 21:48:13 +05:30:   code: undefined,
+2026-10-27 21:48:13 +05:30:   error: undefined,
+2026-10-27 21:48:13 +05:30:   headers: Headers {
+2026-10-27 21:48:13 +05:30:   param: undefined,
+2026-10-27 21:48:13 +05:30:   requestID: null,
+2026-10-27 21:48:13 +05:30:   status: 410,
+2026-10-27 21:48:13 +05:30:   type: undefined
+2026-10-27 21:48:13 +05:30:   },
+2026-10-27 21:48:13 +05:30: AI Stream Error: APIError: 410 status code (no body)
+2026-10-27 21:48:13 +05:30: [AiService] AI Provider Error: 410 status code (no body) | Status: 410 | Details: {"status":410,"headers":{},"requestID":null}
+2026-10-27 21:48:13 +05:30: [AiService] Final allocation: Prompt=6906, Reserved=4096, Total=11002, Limit=131072
+2026-10-27 21:48:13 +05:30: [AiService] Final failure after 1 attempts: 410 status code (no body)
+2026-10-27 21:48:13 +05:30: [AiService] Final sanitized messages count: 2
+2026-10-27 21:48:13 +05:30: [AiService] Last message role: user | Content type: string | Multimodal: false
+2026-10-27 21:48:13 +05:30: [AiService] Request for model: meta/llama-3.1-70b-instruct | Found in DB: true | Is Vision: false | Img limit: 0
+2026-10-27 21:48:13 +05:30: [AiService] Sending request to model meta/llama-3.1-70b-instruct with 2 messages. Provider: nvidia
+2026-10-27 21:48:13 +05:30: [ApiKeyPool] ⚪ LOGGED | nvidia key nvapi-w6...grny | Error: 410 status code (no body)
+2026-10-27 21:48:13 +05:30: [ModelObserver] 📊 meta/llama-3.1-70b-instruct | 410 | count: 2/5
+2026-10-27 21:48:13 +05:30: }
+2026-10-27 21:49:29 +05:30: [AiService] Fast model detected. Space available (123663 tokens). Expanding output reservation from 4096 to 8192.
+2026-10-27 21:49:29 +05:30: [AiService] Final allocation: Prompt=6909, Reserved=8192, Total=15101, Limit=131072
+2026-10-27 21:49:29 +05:30: [AiService] Final sanitized messages count: 2
+2026-10-27 21:49:29 +05:30: [AiService] Last message role: user | Content type: string | Multimodal: false
+2026-10-27 21:49:29 +05:30: [AiService] Request for model: meta/llama-3.2-11b-vision-instruct | Found in DB: true | Is Vision: true | Img limit: 1
+2026-10-27 21:49:29 +05:30: [AiService] Sending request to model meta/llama-3.2-11b-vision-instruct with 2 messages. Provider: nvidia
+2026-10-27 21:49:31 +05:30: POST /api/ai/chat 200 2720.448 ms - -
+2026-10-27 21:49:31 +05:30: [AI Route] Successfully charged chat credit for user: 0aa36a6c-00af-4063-9c6a-c9b43b4c67cd`;
+
+    function parseRawLogLines(rawText) {
+      if (!rawText) return [];
+      const rawLines = rawText.split('\n');
+      const parsed = [];
+      let currentId = 1;
+      let lastTime = "2026-10-27 21:49:31";
+
+      for (let i = 0; i < rawLines.length; i++) {
+        let line = rawLines[i];
+        if (!line || !line.trim()) continue;
+
+        // 1. Scrub ANSI escape sequences and leftover bracket codes
+        line = line
+          .replace(/\u001b\[[0-9;]*m/g, '')
+          .replace(/\[(?:0|31|32|33|34|35|36|37|90)m/g, '')
+          .trimEnd();
+
+        // 2. Extract Timestamp and completely scrub timezone offset (+05:30:) from line
+        const tsMatch = line.match(/^\[?(\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}:\d{2})(?:\s*[+-]\d{2}:?\d{2})?\]?:?\s*/);
+        let time = lastTime;
+        if (tsMatch && tsMatch[1]) {
+          time = tsMatch[1].replace('T', ' ');
+          lastTime = time;
+          // Strip timestamp and timezone from line body
+          line = line.substring(tsMatch[0].length).trim();
+        }
+
+        if (!line) continue;
+
+        // 3. Multi-line Stack Trace & Error Header Aggregation
+        const isStackOrTraceFrame = /^\s*(?:at\s+|headers:\s*Headers|'content-length'|'content-type'|connection:|date:|vary:|code:|error:|param:|requestID:|status:\s*\d+|type:|\}|\},)/i.test(line);
+
+        if (isStackOrTraceFrame) {
+          let target = parsed.length > 0 ? parsed[parsed.length - 1] : null;
+          if (target && !(target.level === 'ERROR' || (target.stackFrames && target.stackFrames.length > 0))) {
+            for (let k = parsed.length - 1; k >= Math.max(0, parsed.length - 8); k--) {
+              if (parsed[k].level === 'ERROR' && parsed[k].stackFrames && parsed[k].stackFrames.length > 0) {
+                target = parsed[k];
+                break;
+              }
+            }
+          }
+          if (target && (target.level === 'ERROR' || (target.stackFrames && target.stackFrames.length > 0))) {
+            if (!target.stackFrames) target.stackFrames = [];
+            target.stackFrames.push(line.trim());
+            continue;
+          }
+          if (/^\s*[\}\],]+\s*$/.test(line)) {
+            continue;
+          }
+          parsed.push({
+            id: currentId++,
+            time,
+            level: 'ERROR',
+            type: 'err',
+            service: '[System-Error]',
+            content: line.trim(),
+            isHttp: false,
+            isProbe: false,
+            stackFrames: []
+          });
+          continue;
+        }
+
+        // If this line is the error message following a stack trace block, merge with it
+        if (/AI Stream Error:|AI Provider Error:/i.test(line) && parsed.length > 0) {
+          const prev = parsed[parsed.length - 1];
+          if (prev.level === 'ERROR' && prev.stackFrames && prev.stackFrames.length > 0 && prev.content.includes('Stack Trace & Headers')) {
+            prev.content = line.trim();
+            continue;
+          }
+        }
+
+        // 4. HTTP Access Log Recognition
+        const httpMatch = line.match(/^(GET|POST|PUT|DELETE|PATCH|HEAD|OPTIONS)\s+(\S+)\s+(\d{3})\s+([\d\.]+\s*ms)(?:\s*-\s*([0-9\-]+))?/i);
+        if (httpMatch) {
+          const method = httpMatch[1].toUpperCase();
+          const route = httpMatch[2];
+          const status = parseInt(httpMatch[3], 10);
+          const duration = httpMatch[4];
+          const bytes = httpMatch[5] || '-';
+
+          // Detect bot vulnerability probes / scans
+          const isProbe = /phpunit|eval-stdin|phpinfo|\.sql|dump|backup|laravel\.log|bash_history|\.npmrc|\.ssh|sftp\.json|service\.pwd|heapdump|secrets|server\.key|user_secrets|wp-admin|wp-config|allow_url_include|auto_prepend_file|pearcmd|invokefunction|remote\/login|CSCOE|LogonPoint|developmentserver|think\\app|docker-compose|\.yml|\.yaml|\/pub\/|\/files\/|\/downloads\/|cache\.php|\/raw|\/socket\.io\/|\/manage\/account|hello\.world|test\.hello/i.test(route);
+
+          parsed.push({
+            id: currentId++,
+            time,
+            level: isProbe ? (status >= 500 ? 'ERROR' : 'WARN') : (status >= 500 ? 'ERROR' : status >= 400 ? 'WARN' : 'INFO'),
+            type: status >= 500 ? 'err' : 'out',
+            service: isProbe ? '[Bot-Probe]' : '[HTTP]',
+            content: line,
+            isHttp: true,
+            isProbe,
+            httpData: { method, route, status, duration, bytes },
+            stackFrames: []
+          });
+          continue;
+        }
+
+        // 5. Categorize Subsystem & Clean Log Message
+        let service = '[Server]';
+        let level = 'INFO';
+        let type = 'out';
+        let cleanBody = line;
+
+        // Subsystem match
+        const subMatch = line.match(/\[(AiService|AI Route|ApiKeyPool|ModelObserver|R2 Maintenance|R2 Health|TempCleanup|TokenManager|VideoService|WebSocket|CORS|Auth|Payment|Security|Health|Server|Queue|System-Error|Error)\]/i);
+
+        if (subMatch) {
+          const matchedTag = subMatch[1];
+          if (/^Error$/i.test(matchedTag)) {
+            service = '[System-Error]';
+          } else {
+            service = `[${matchedTag}]`;
+          }
+          // Strip duplicate [Subsystem] tag from message body and leading punctuation artifacts
+          cleanBody = line.replace(subMatch[0], '').replace(/^[:\-\|]\s*/, '').trim();
+        } else if (/SIGINT received|Shutting down|injected env|Environment:|Server running on port/i.test(line)) {
+          service = '[Server]';
+        }
+
+        // Level detection with false-positive safeguards
+        if (
+          /\berrors:\s*0\b/i.test(line) ||
+          /\bthreshold:\s*\d+\s*errors\b/i.test(line) ||
+          /✅|🔄|🔍|Complete —|Started \|/i.test(line)
+        ) {
+          level = 'INFO';
+        } else if (
+          /\b(error|failed|failure|exception|fatal|unhandled)\b/i.test(line) ||
+          /AI Stream Error:|AI Provider Error:|status code 410/i.test(line)
+        ) {
+          level = 'ERROR';
+          type = 'err';
+        } else if (
+          /not allowed by cors|blocked request/i.test(line) ||
+          /\b(warn|warning|spike|exceeded|pruning|limit reached)\b/i.test(line)
+        ) {
+          level = 'WARN';
+        }
+
+        parsed.push({
+          id: currentId++,
+          time,
+          level,
+          type,
+          service,
+          content: cleanBody || line,
+          isHttp: false,
+          isProbe: false,
+          stackFrames: []
+        });
+      }
+
+      return parsed;
+    }
+
+    const DEMO_MOCK_LOGS = parseRawLogLines(RAW_PRODUCTION_TERMINAL_LOGS);
     let currentLogs = [...DEMO_MOCK_LOGS];
     let selectedLevel = "ALL";
+    let hideScannerProbes = false;
     let liveTimer = null;
     let isLive = false;
     let uptimeSeconds = 46;
@@ -3592,6 +4252,13 @@
       }
     }
 
+    function toggleHideScannerProbes() {
+      hideScannerProbes = !hideScannerProbes;
+      const btn = document.getElementById("toggleHideProbes");
+      if (btn) btn.classList.toggle("active", hideScannerProbes);
+      renderLogs();
+    }
+
     function renderLogs() {
       const container = document.getElementById("logContainer");
       const query = document.getElementById("searchBox").value.trim().toLowerCase();
@@ -3606,12 +4273,20 @@
         return true;
       });
 
+      if (hideScannerProbes) {
+        filtered = filtered.filter(log => !log.isProbe);
+      }
+
       if (selectedLevel !== "ALL") {
         filtered = filtered.filter(log => log.level === selectedLevel);
       }
 
       if (service !== "ALL") {
-        filtered = filtered.filter(log => log.service.includes(service.replace(/[\[\]]/g, '')));
+        filtered = filtered.filter(log => {
+          const rawService = (log.service || '').toLowerCase();
+          const target = service.toLowerCase().replace(/[\[\]]/g, '');
+          return rawService.includes(target);
+        });
       }
 
       if (dateStartVal) {
@@ -3625,7 +4300,7 @@
 
       if (query) {
         filtered = filtered.filter(log => {
-          const rawText = (log.time + " " + log.level + " " + log.service + " " + log.content).toLowerCase();
+          const rawText = (log.time + " " + log.level + " " + log.service + " " + log.content + " " + (log.stackFrames ? log.stackFrames.join(" ") : "")).toLowerCase();
           return rawText.includes(query);
         });
       }
@@ -3634,18 +4309,25 @@
       const totalErr = currentLogs.filter(l => l.level === 'ERROR').length;
       const totalWarn = currentLogs.filter(l => l.level === 'WARN').length;
       const totalInfo = currentLogs.filter(l => l.level === 'INFO').length;
+      const totalProbes = currentLogs.filter(l => l.isProbe).length;
 
       const chipAll = document.querySelector('.chip[data-level="ALL"]');
       const chipErr = document.querySelector('.chip[data-level="ERROR"]');
       const chipWarn = document.querySelector('.chip[data-level="WARN"]');
       const chipInfo = document.querySelector('.chip[data-level="INFO"]');
+      const btnProbes = document.getElementById("toggleHideProbes");
+
       if (chipAll) chipAll.innerText = "All (" + totalAll + ")";
       if (chipErr) chipErr.innerText = "🔴 Errors (" + totalErr + ")";
       if (chipWarn) chipWarn.innerText = "🟡 Warnings (" + totalWarn + ")";
       if (chipInfo) chipInfo.innerText = "🔵 Info (" + totalInfo + ")";
+      if (btnProbes) {
+        btnProbes.innerHTML = "<span>🛡️</span> " + (hideScannerProbes ? "Hidden (" + totalProbes + " Probes)" : "Hide Scanners (" + totalProbes + ")");
+      }
 
       const dateActiveTag = (dateStartVal || dateEndVal) ? " • 📅 Date Range Active" : "";
-      document.getElementById("lineCounter").innerText = "Showing " + filtered.length + " of " + currentLogs.length + " lines" + dateActiveTag;
+      const probeActiveTag = hideScannerProbes ? " • 🛡️ Bot Probes Hidden" : "";
+      document.getElementById("lineCounter").innerText = "Showing " + filtered.length + " of " + currentLogs.length + " lines" + dateActiveTag + probeActiveTag;
 
       if (filtered.length === 0) {
         container.innerHTML = '<div style="padding: 40px; text-align: center; color: var(--text-dim);">' +
@@ -3655,36 +4337,97 @@
         return;
       }
 
-      container.innerHTML = filtered.map(log => {
-        const badgeClass = log.level === "ERROR" ? "badge-err" : log.level === "WARN" ? "badge-warn" : "badge-info";
-        const rowClass = log.level === "ERROR" ? "row-error" : log.level === "WARN" ? "row-warn" : "";
+      container.innerHTML = filtered.map((log, index) => {
+        const lvlLower = (log.level || 'info').toLowerCase();
+        const lvlClass = lvlLower === 'error' ? 'lvl-error' : lvlLower === 'warn' ? 'lvl-warn' : 'lvl-info';
 
-        // Strip leading redundant timestamp, level, and service tag from the message body
-        let cleanMsg = log.content || '';
-        cleanMsg = cleanMsg.replace(/^\[?\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}:\d{2}\]?\s*/i, '');
-        cleanMsg = cleanMsg.replace(/^\[(INFO|WARN|WARNING|ERROR|DEBUG|ERR)\]\s*/i, '');
-        cleanMsg = cleanMsg.replace(/^\[(WebSocket|AiService|Auth|R2Service|Payment|Security|Health|Server|Queue|System-Error)\]\s*/i, '');
-        if (!cleanMsg.trim()) cleanMsg = log.content;
+        let dataHtml = '';
 
-        let safeContent = escapeHtml(cleanMsg);
+        if (log.isHttp && log.httpData) {
+          const h = log.httpData;
+          let statusSpan = '';
+          if (h.status >= 500) {
+            statusSpan = '<span class="term-status-5xx">' + h.status + '</span>';
+          } else if (h.status >= 400) {
+            statusSpan = '<span class="term-status-4xx">' + h.status + '</span>';
+          } else if (h.status >= 300) {
+            statusSpan = '<span class="term-status-3xx">' + h.status + '</span>';
+          } else {
+            statusSpan = '<span class="term-status-2xx">' + h.status + '</span>';
+          }
+
+          const methodSpan = '<span class="term-method">' + escapeHtml(h.method) + '</span>';
+          const pathSpan = '<span class="term-path">' + escapeHtml(h.route) + '</span>';
+          const latencySpan = '<span class="term-latency">' + escapeHtml(h.duration) + '</span>';
+          const bytesSpan = (h.bytes && h.bytes !== '-') ? '<span class="term-dim">- ' + escapeHtml(h.bytes) + '</span>' : '<span class="term-dim">- -</span>';
+          const probeBadge = log.isProbe ? '<span class="term-dim" style="color:#f59e0b; font-size:10.5px; margin-left:6px;">🛡️ blocked</span>' : '';
+
+          dataHtml = methodSpan + ' ' + pathSpan + ' ' + statusSpan + ' ' + latencySpan + ' ' + bytesSpan + probeBadge;
+        } else {
+          // Internal system/service log
+          let rawContent = log.content || '';
+
+          // Highlight subsystem tag if present e.g. [AiService], [ApiKeyPool], [ModelObserver], [R2 Health]
+          let subTagHtml = '';
+          let serviceTag = '';
+          const subMatch = rawContent.match(/^(\[(?:AiService|AI Route|ApiKeyPool|ModelObserver|R2 Maintenance|R2 Health|TempCleanup|TokenManager|VideoService|WebSocket|CORS|Auth|Payment|Security|Health|Server|Queue|System-Error|Error)\])/i);
+          if (subMatch) {
+            serviceTag = subMatch[1];
+            rawContent = rawContent.substring(serviceTag.length).trim();
+          } else if (log.service && log.service !== '[Server]' && log.service !== '[HTTP]' && log.service !== '[Bot-Probe]') {
+            serviceTag = log.service;
+          }
+
+          if (serviceTag) {
+            let tagColorClass = 'tag-server';
+            if (/AiService/i.test(serviceTag)) tagColorClass = 'tag-ai';
+            else if (/AI Route/i.test(serviceTag)) tagColorClass = 'tag-route';
+            else if (/ApiKeyPool/i.test(serviceTag)) tagColorClass = 'tag-api';
+            else if (/ModelObserver/i.test(serviceTag)) tagColorClass = 'tag-observer';
+            else if (/R2/i.test(serviceTag)) tagColorClass = 'tag-r2';
+            else if (/CORS/i.test(serviceTag)) tagColorClass = 'tag-cors';
+            else if (/WebSocket/i.test(serviceTag)) tagColorClass = 'tag-ws';
+            else if (/TokenManager/i.test(serviceTag)) tagColorClass = 'tag-token';
+            else if (/TempCleanup/i.test(serviceTag)) tagColorClass = 'tag-cleanup';
+            else if (/System-Error|Error/i.test(serviceTag)) tagColorClass = 'tag-err';
+
+            subTagHtml = '<span class="term-subsystem ' + tagColorClass + '">' + escapeHtml(serviceTag) + '</span> ';
+          }
+
+          let escapedContent = escapeHtml(rawContent);
+
+          // Highlight HTTP status codes inside message content (e.g. 410, 503, 500, 200)
+          escapedContent = escapedContent.replace(/\b(50[0-9]|4[0-9]{2}|200)\b/g, (match) => {
+            const code = parseInt(match, 10);
+            if (code >= 500) return '<span class="term-status-5xx">' + match + '</span>';
+            if (code >= 400) return '<span class="term-status-4xx">' + match + '</span>';
+            return '<span class="term-status-2xx">' + match + '</span>';
+          });
+
+          // Highlight critical tags like 🔴 COOLDOWN
+          escapedContent = escapedContent.replace(/🔴\s*COOLDOWN\s*(\d+[smh]?)/gi, '<strong style="color:#f87171;">🔴 COOLDOWN $1</strong>');
+
+          dataHtml = subTagHtml + escapedContent;
+        }
+
+        // Apply search query highlight if active
         if (query) {
           const safeQuery = escapeHtml(query).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
           const regex = new RegExp("(" + safeQuery + ")", "gi");
-          safeContent = safeContent.replace(regex, '<span class="highlight">$1</span>');
+          dataHtml = dataHtml.replace(regex, '<span class="highlight">$1</span>');
         }
 
-        return '<div class="log-line ' + rowClass + '">' +
-          '<div class="log-meta-row">' +
-          '<div class="log-meta-left">' +
-          '<span class="line-time">' + escapeHtml(log.time) + '</span>' +
-          '<span class="line-badge ' + badgeClass + '">[' + escapeHtml(log.level) + ']</span>' +
-          '<span class="mod-tag">' + escapeHtml(log.service) + '</span>' +
-          '</div>' +
-          '<button class="btn-copy-log" onclick="copyLogCard(this)" title="Copy log line">' +
-          '<span>📋</span> Copy' +
-          '</button>' +
-          '</div>' +
-          '<div class="log-msg">' + safeContent + '</div>' +
+        // Stack Trace Frames handling - render all frames directly, zero lines missed or cut
+        let stackHtml = '';
+        if (log.stackFrames && log.stackFrames.length > 0) {
+          stackHtml = log.stackFrames.map(f => '<div class="term-trace-line">' + escapeHtml(f) + '</div>').join('');
+        }
+
+        return '<div class="railway-row ' + lvlClass + (log.isProbe ? ' is-probe' : '') + '">' +
+          '<div class="row-bar"></div>' +
+          '<div class="col-time">' + escapeHtml(log.time) + '</div>' +
+          '<div class="col-data">' + dataHtml + stackHtml + '</div>' +
+          '<button class="row-copy-btn" onclick="copyRailwayRow(this)" title="Copy log line">📋</button>' +
           '</div>';
       }).join("");
 
@@ -3699,6 +4442,8 @@
         btn.classList.toggle("active", btn.getAttribute("data-level") === lvl);
       });
       renderLogs();
+      const container = document.getElementById("logContainer");
+      if (container) container.scrollTop = 0;
     }
 
     function toggleLiveTail() {
@@ -3734,17 +4479,16 @@
       }
     }
 
-    function copyLogCard(btn) {
-      const card = btn.closest(".log-line");
-      let textToCopy = "";
-      if (card) {
-        const time = card.querySelector(".line-time") ? card.querySelector(".line-time").innerText.trim() : "";
-        const badge = card.querySelector(".line-badge") ? card.querySelector(".line-badge").innerText.trim() : "";
-        const mod = card.querySelector(".mod-tag") ? card.querySelector(".mod-tag").innerText.trim() : "";
-        const msg = card.querySelector(".log-msg") ? card.querySelector(".log-msg").innerText.trim() : "";
-        textToCopy = (time + " " + badge + " " + mod + " " + msg).trim();
+    function copyRailwayRow(btn) {
+      const row = btn.closest(".railway-row");
+      if (!row) return;
+      const time = row.querySelector(".col-time") ? row.querySelector(".col-time").innerText.trim() : "";
+      const dataEl = row.querySelector(".col-data");
+      let dataText = "";
+      if (dataEl) {
+        dataText = dataEl.innerText.trim();
       }
-      if (!textToCopy) return;
+      const textToCopy = `[${time}] ${dataText}`;
 
       if (!navigator.clipboard) {
         const ta = document.createElement("textarea");
@@ -3756,15 +4500,33 @@
       } else {
         navigator.clipboard.writeText(textToCopy);
       }
+
       const original = btn.innerHTML;
-      btn.innerHTML = "<span>✓</span> Copied";
-      btn.style.borderColor = "#34d399";
+      btn.innerHTML = "✓";
       btn.style.color = "#34d399";
+      btn.style.borderColor = "#34d399";
       setTimeout(() => {
         btn.innerHTML = original;
-        btn.style.borderColor = "";
         btn.style.color = "";
-      }, 1500);
+        btn.style.borderColor = "";
+      }, 1200);
+    }
+
+    function copyLogCard(btn) {
+      copyRailwayRow(btn);
+    }
+
+    function toggleTraceFrames(id, toggleEl) {
+      const hiddenEl = document.getElementById("trace_" + id);
+      if (!hiddenEl) return;
+      if (hiddenEl.style.display === "none" || !hiddenEl.style.display) {
+        hiddenEl.style.display = "block";
+        toggleEl.innerText = "▴ hide frames";
+      } else {
+        hiddenEl.style.display = "none";
+        const count = hiddenEl.querySelectorAll(".term-trace-line").length;
+        toggleEl.innerText = "▾ +" + count + " more frames";
+      }
     }
 
     function exportLogs() {
