@@ -103,7 +103,7 @@ export function timingSafeEqual(a: unknown, b: unknown): boolean {
 // ─── Session Management (Signed HMAC-SHA256 Stateless Cookie) ──────────
 const COOKIE_NAME = 'sree_log_session';
 const CSRF_COOKIE_NAME = 'sree_log_csrf';
-const CSP_HEADER = "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: https://app.sreeai.qzz.io; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self';";
+const CSP_HEADER = "default-src 'self'; script-src 'self' 'unsafe-inline' https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: https://app.sreeai.qzz.io; connect-src 'self' https://cloudflareinsights.com; frame-ancestors 'none'; base-uri 'self'; form-action 'self';";
 
 export function createSessionToken(username: string): string {
   const secret = getVaultSessionSecret();
