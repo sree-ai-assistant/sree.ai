@@ -3550,7 +3550,7 @@ export function renderDashboardHtml(options: DashboardRenderOptions): string {
           // Highlight subsystem tag if present e.g. [AiService], [ApiKeyPool], [ModelObserver], [R2 Health]
           let subTagHtml = '';
           let serviceTag = '';
-          const subMatch = rawContent.match(/^(\[(?:AiService|AI Route|ApiKeyPool|ModelObserver|R2 Maintenance|R2 Health|TempCleanup|TokenManager|VideoService|WebSocket|CORS|Auth|Payment|Security|Health|Server|Queue|System-Error|Error)\])/i);
+          const subMatch = rawContent.match(/^(\\[(?:AiService|AI Route|ApiKeyPool|ModelObserver|R2 Maintenance|R2 Health|TempCleanup|TokenManager|VideoService|WebSocket|CORS|Auth|Payment|Security|Health|Server|Queue|System-Error|Error)\\])/i);
           if (subMatch) {
             serviceTag = subMatch[1];
             rawContent = rawContent.substring(serviceTag.length).trim();
