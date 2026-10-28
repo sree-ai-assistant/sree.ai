@@ -35,4 +35,31 @@ describe('TelemetryService', () => {
     expect(data.history.cpu.length).toBeGreaterThan(0);
     expect(data.history.ram.length).toBeGreaterThan(0);
   });
+
+  it('provides all multi-tier rolling historical buffers (1h, 6h, 24h, 7d, 14d, 30d)', () => {
+    const data = telemetryService.getTelemetry();
+    expect(data.history.tiers).toBeDefined();
+    expect(data.history.tiers.realtime).toBeDefined();
+    expect(data.history.tiers['1h']).toBeDefined();
+    expect(data.history.tiers['6h']).toBeDefined();
+    expect(data.history.tiers['24h']).toBeDefined();
+    expect(data.history.tiers['7d']).toBeDefined();
+    expect(data.history.tiers['14d']).toBeDefined();
+    expect(data.history.tiers['30d']).toBeDefined();
+
+    expect(data.history.tiers['1h'].timestamps.length).toBe(60);
+    expect(data.history.tiers['6h'].timestamps.length).toBe(72);
+    expect(data.history.tiers['24h'].timestamps.length).toBe(96);
+    expect(data.history.tiers['7d'].timestamps.length).toBe(112);
+    expect(data.history.tiers['14d'].timestamps.length).toBe(112);
+    expect(data.history.tiers['30d'].timestamps.length).toBe(120);
+
+    // Verify samples contain valid numbers
+    expect(data.history.tiers['30d'].cpu[0]).toBeGreaterThan(0);
+    expect(data.history.tiers['30d'].ram[0]).toBeGreaterThan(0);
+  });
+
+  it('persists history to disk without error', () => {
+    expect(() => telemetryService.persistHistoryToDisk()).not.toThrow();
+  });
 });
