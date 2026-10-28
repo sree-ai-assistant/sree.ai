@@ -1319,6 +1319,45 @@
       border-top: 1px solid rgba(255, 255, 255, 0.05);
     }
 
+    /* Floating Scroll-to-Bottom Button */
+    .scroll-bottom-fab {
+      position: absolute;
+      bottom: 16px;
+      right: 18px;
+      background: linear-gradient(135deg, #0284c7, #2563eb);
+      color: #fff;
+      border: 1px solid rgba(56, 189, 248, 0.5);
+      border-radius: 9999px;
+      padding: 6px 14px;
+      font-size: 11.5px;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.6), 0 0 14px rgba(56, 189, 248, 0.35);
+      z-index: 50;
+      opacity: 0;
+      pointer-events: none;
+      transform: translateY(10px);
+      transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+      user-select: none;
+    }
+    .scroll-bottom-fab.visible {
+      opacity: 1;
+      pointer-events: auto;
+      transform: translateY(0);
+    }
+    .scroll-bottom-fab:hover {
+      background: linear-gradient(135deg, #0369a1, #1d4ed8);
+      box-shadow: 0 6px 20px rgba(2, 132, 199, 0.6);
+      transform: translateY(-1px);
+    }
+    .scroll-bottom-fab:active {
+      transform: translateY(1px);
+    }
+
     /* Fixed Column Header Bar (Railway style) */
     .railway-header-row {
       display: flex;
@@ -1745,62 +1784,131 @@
         flex: 1 1 auto;
       }
 
-      /* Log Terminal Container & Clean Line Structure */
+      /* Log Terminal Container (Railway Mobile Responsive System) */
       .terminal-container {
-        padding: 8px 10px;
-        font-size: 11px;
-        line-height: 1.5;
+        padding: 0;
       }
 
-      .log-line {
-        flex-direction: column;
-        align-items: stretch;
-        gap: 4px;
-        padding: 7px 10px;
-        margin-bottom: 5px;
-        border-radius: 6px;
+      /* Hide rigid 2-column desktop header on mobile */
+      .railway-header-row {
+        display: none !important;
       }
 
-      .log-meta-row {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: 6px;
-        width: 100%;
+      .railway-rows-scroll {
+        padding: 6px 6px 54px 6px !important;
       }
 
-      .log-meta-left {
-        display: flex;
-        align-items: center;
-        gap: 5px;
-        flex-wrap: wrap;
+      /* Stacked Mobile Log Card: Full width readable cards */
+      .railway-row {
+        display: flex !important;
+        flex-direction: column !important;
+        align-items: stretch !important;
+        padding: 8px 10px 8px 16px !important;
+        margin-bottom: 4px !important;
+        border-radius: 6px !important;
+        border: 1px solid rgba(255, 255, 255, 0.04) !important;
+        background: rgba(12, 18, 32, 0.65) !important;
+        position: relative !important;
+        min-height: auto !important;
       }
 
-      .line-time {
-        min-width: auto;
-        font-size: 10px;
+      .railway-row:hover {
+        background: rgba(22, 34, 59, 0.75) !important;
       }
 
-      .line-badge {
-        font-size: 9.5px;
+      /* Full-height status indicator bar on mobile card */
+      .railway-row .row-bar {
+        position: absolute !important;
+        left: 5px !important;
+        top: 8px !important;
+        bottom: 8px !important;
+        width: 3.5px !important;
+        min-width: 3.5px !important;
+        height: auto !important;
+        border-radius: 2px !important;
+        margin-right: 0 !important;
       }
 
-      .mod-tag {
-        min-width: auto;
-        font-size: 10px;
+      .railway-row.lvl-error {
+        background: rgba(220, 38, 38, 0.12) !important;
+        border-color: rgba(248, 113, 113, 0.28) !important;
+      }
+      .railway-row.lvl-error .row-bar {
+        background: #ef4444 !important;
+        box-shadow: 0 0 6px rgba(239, 68, 68, 0.5) !important;
       }
 
-      .btn-copy-log {
-        padding: 2px 5px;
-        font-size: 9px;
+      .railway-row.lvl-warn {
+        background: rgba(245, 158, 11, 0.09) !important;
+        border-color: rgba(251, 191, 36, 0.24) !important;
+      }
+      .railway-row.lvl-warn .row-bar {
+        background: #f59e0b !important;
       }
 
-      .log-msg {
-        padding-left: 1px;
-        font-size: 11.5px;
-        line-height: 1.5;
-        word-break: break-word;
-        overflow-wrap: anywhere;
+      /* Mobile Timestamp Header: full-width bar at top of card */
+      .col-time {
+        width: 100% !important;
+        min-width: 0 !important;
+        color: #94a3b8 !important;
+        font-size: 10.5px !important;
+        font-weight: 600 !important;
+        font-family: ui-monospace, SFMono-Regular, monospace !important;
+        letter-spacing: 0.02em !important;
+        margin-bottom: 4px !important;
+        padding-right: 32px !important; /* space for copy button */
+        display: flex !important;
+        align-items: center !important;
+        gap: 6px !important;
+        opacity: 0.9;
+      }
+
+      /* Mobile Log Data: 100% full width, comfortable font & spacing */
+      .col-data {
+        width: 100% !important;
+        min-width: 0 !important;
+        font-size: 12px !important;
+        line-height: 1.55 !important;
+        word-break: break-word !important;
+        overflow-wrap: anywhere !important;
+        color: #f1f5f9 !important;
+      }
+
+      /* Touch-friendly Copy Button on Mobile */
+      .row-copy-btn {
+        position: absolute !important;
+        top: 6px !important;
+        right: 6px !important;
+        transform: none !important;
+        opacity: 0.75 !important;
+        pointer-events: auto !important;
+        background: rgba(15, 23, 42, 0.85) !important;
+        border: 1px solid rgba(255, 255, 255, 0.16) !important;
+        border-radius: 4px !important;
+        padding: 3px 7px !important;
+        font-size: 11px !important;
+      }
+      .row-copy-btn:active {
+        opacity: 1 !important;
+        border-color: var(--accent) !important;
+        background: rgba(56, 189, 248, 0.25) !important;
+      }
+
+      /* Stack traces indented and formatted for mobile */
+      .term-trace-line {
+        padding-left: 6px !important;
+        font-size: 11px !important;
+        line-height: 1.45 !important;
+        border-left: 2px solid rgba(248, 113, 113, 0.35) !important;
+        margin-left: 2px !important;
+        margin-top: 2px !important;
+      }
+
+      .scroll-bottom-fab {
+        bottom: 12px !important;
+        right: 12px !important;
+        padding: 6px 12px !important;
+        font-size: 11px !important;
       }
 
       .footer {
@@ -2184,6 +2292,9 @@
           Connecting to Sree AI hardened log stream...
         </div>
       </div>
+      <button id="scrollToBottomFab" class="scroll-bottom-fab" onclick="scrollLogsToBottom()" title="Scroll to latest logs">
+        <span>↓ Latest</span>
+      </button>
     </div>
 
     <!-- Terminal Footer -->
@@ -3400,22 +3511,44 @@
       fetchLogs();
     }
 
-    function switchNavTab(tab) {
-      document.getElementById('tabLogs').classList.toggle('active', tab === 'logs');
-      document.getElementById('tabMetrics').classList.toggle('active', tab === 'metrics');
+    function switchNavTab(tab, updateHistory = true) {
+      const activeTab = (tab === 'metrics') ? 'metrics' : 'logs';
+      document.getElementById('tabLogs').classList.toggle('active', activeTab === 'logs');
+      document.getElementById('tabMetrics').classList.toggle('active', activeTab === 'metrics');
 
       const viewLogs = document.getElementById('viewLogs');
       const viewMetrics = document.getElementById('viewMetrics');
 
-      if (tab === 'logs') {
+      if (activeTab === 'logs') {
         viewLogs.classList.remove('hidden-view');
         viewMetrics.classList.remove('active-view');
+        requestAnimationFrame(() => {
+          scrollLogsToBottom(false);
+        });
       } else {
         viewLogs.classList.add('hidden-view');
         viewMetrics.classList.add('active-view');
         renderGrafanaDashboard();
       }
+
+      // Persist active tab across reload in localStorage
+      try {
+        localStorage.setItem('sree_log_active_tab', activeTab);
+      } catch (e) {}
+
+      // Keep URL hash synchronized (#metrics or #logs)
+      if (updateHistory && window.history && window.history.replaceState) {
+        window.history.replaceState(null, '', '#' + activeTab);
+      }
     }
+
+    // Synchronize tab if user uses browser Back / Forward buttons
+    window.addEventListener('hashchange', () => {
+      const hash = window.location.hash.replace('#', '');
+      if (hash === 'metrics' || hash === 'logs') {
+        switchNavTab(hash, false);
+      }
+    });
 
     function toggleSettingsMenu() {
       document.getElementById('settingsMenu').classList.toggle('show');
@@ -4431,9 +4564,41 @@
           '</div>';
       }).join("");
 
-      if (isLive) {
+      if (isLive || isInitialRender) {
+        requestAnimationFrame(() => {
+          scrollLogsToBottom(false);
+        });
+        isInitialRender = false;
+      }
+    }
+
+    let isInitialRender = true;
+
+    function scrollLogsToBottom(smooth = true) {
+      const container = document.getElementById("logContainer");
+      if (!container) return;
+      if (smooth) {
+        container.scrollTo({ top: container.scrollHeight, behavior: "smooth" });
+      } else {
         container.scrollTop = container.scrollHeight;
       }
+      const fab = document.getElementById("scrollToBottomFab");
+      if (fab) fab.classList.remove("visible");
+    }
+
+    // Floating scroll-to-latest button listener
+    const logScrollContainer = document.getElementById("logContainer");
+    if (logScrollContainer) {
+      logScrollContainer.addEventListener("scroll", () => {
+        const fab = document.getElementById("scrollToBottomFab");
+        if (!fab) return;
+        const distanceFromBottom = logScrollContainer.scrollHeight - logScrollContainer.scrollTop - logScrollContainer.clientHeight;
+        if (distanceFromBottom > 150) {
+          fab.classList.add("visible");
+        } else {
+          fab.classList.remove("visible");
+        }
+      });
     }
 
     function setLevel(lvl) {
@@ -4538,7 +4703,34 @@
       a.click();
     }
 
-    fetchLogs();
+    // ─── STARTUP INITIALIZATION ──────────────────────────────────────────
+    // 1. Restore Active Tab (URL hash takes precedence, then localStorage fallback)
+    const initialHash = window.location.hash.replace('#', '');
+    let initialTab = 'logs';
+    if (initialHash === 'metrics' || initialHash === 'logs') {
+      initialTab = initialHash;
+    } else {
+      try {
+        const savedTab = localStorage.getItem('sree_log_active_tab');
+        if (savedTab === 'metrics' || savedTab === 'logs') {
+          initialTab = savedTab;
+        }
+      } catch (e) {}
+    }
+    switchNavTab(initialTab, false);
+
+    // 2. Fetch Logs and scroll to bottom
+    fetchLogs().then(() => {
+      requestAnimationFrame(() => {
+        scrollLogsToBottom(false);
+      });
+    }).catch(() => {
+      requestAnimationFrame(() => {
+        scrollLogsToBottom(false);
+      });
+    });
+
+    // 3. Render telemetry metrics
     renderGrafanaDashboard();
   </script>
 </body>
