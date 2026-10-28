@@ -1226,11 +1226,28 @@ export function renderDashboardHtml(options: DashboardRenderOptions): string {
       border-top: 1px solid rgba(255, 255, 255, 0.05);
     }
 
-    /* Floating Scroll-to-Bottom Button */
-    .scroll-bottom-fab {
+    /* Floating Action Buttons Group */
+    .terminal-fab-group {
       position: absolute;
       bottom: 16px;
       right: 18px;
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 10px;
+      z-index: 50;
+      pointer-events: none;
+    }
+    .terminal-fab-group > * {
+      pointer-events: auto;
+    }
+    .fab-fullscreen {
+      display: none; /* Mobile only */
+    }
+
+    /* Floating Scroll-to-Bottom Button */
+    .scroll-bottom-fab {
+      position: relative;
       background: linear-gradient(135deg, #0284c7, #2563eb);
       color: #fff;
       border: 1px solid rgba(56, 189, 248, 0.5);
@@ -1244,7 +1261,6 @@ export function renderDashboardHtml(options: DashboardRenderOptions): string {
       align-items: center;
       gap: 6px;
       box-shadow: 0 4px 16px rgba(0, 0, 0, 0.6), 0 0 14px rgba(56, 189, 248, 0.35);
-      z-index: 50;
       opacity: 0;
       pointer-events: none;
       transform: translateY(10px);
@@ -1795,11 +1811,119 @@ export function renderDashboardHtml(options: DashboardRenderOptions): string {
         margin-top: 2px !important;
       }
 
-      .scroll-bottom-fab {
+      .terminal-fab-group {
         bottom: 12px !important;
         right: 12px !important;
-        padding: 6px 12px !important;
-        font-size: 11px !important;
+        gap: 6px !important;
+      }
+
+      /* Mobile Fullscreen Button (Image 4: rounded-square dark glass, 30px compact) */
+      .fab-fullscreen {
+        display: flex !important;
+        align-items: center;
+        justify-content: center;
+        width: 30px !important;
+        height: 30px !important;
+        min-width: 30px !important;
+        min-height: 30px !important;
+        background: rgba(15, 23, 42, 0.88) !important;
+        backdrop-filter: blur(8px);
+        -webkit-backdrop-filter: blur(8px);
+        border: 1px solid rgba(255, 255, 255, 0.16) !important;
+        border-radius: 7px !important;
+        color: #ffffff !important;
+        cursor: pointer;
+        box-shadow: 0 4px 14px rgba(0, 0, 0, 0.55), 0 0 1px rgba(255, 255, 255, 0.2);
+        opacity: 0 !important;
+        pointer-events: none !important;
+        transform: translateY(8px) !important;
+        transition: opacity 0.25s ease, transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), background 0.18s ease;
+        user-select: none;
+      }
+      .fab-fullscreen.visible {
+        opacity: 1 !important;
+        pointer-events: auto !important;
+        transform: translateY(0) !important;
+      }
+      .fab-fullscreen:active {
+        transform: scale(0.92) !important;
+        background: rgba(30, 41, 59, 0.98) !important;
+      }
+      .fab-fullscreen.is-fullscreen {
+        background: rgba(12, 74, 110, 0.9) !important;
+        border-color: rgba(56, 189, 248, 0.5) !important;
+        box-shadow: 0 4px 14px rgba(0, 0, 0, 0.6), 0 0 12px rgba(56, 189, 248, 0.35);
+      }
+
+      /* Mobile Down Arrow Button (Image 3: dark circle glass, 30px compact, white arrow only, NO text) */
+      .scroll-bottom-fab {
+        display: none !important;
+        width: 30px !important;
+        height: 30px !important;
+        min-width: 30px !important;
+        min-height: 30px !important;
+        padding: 0 !important;
+        border-radius: 50% !important;
+        background: rgba(15, 23, 42, 0.88) !important;
+        backdrop-filter: blur(8px);
+        -webkit-backdrop-filter: blur(8px);
+        border: 1px solid rgba(255, 255, 255, 0.16) !important;
+        color: #ffffff !important;
+        box-shadow: 0 4px 14px rgba(0, 0, 0, 0.55), 0 0 1px rgba(255, 255, 255, 0.2) !important;
+        align-items: center !important;
+        justify-content: center !important;
+        gap: 0 !important;
+        opacity: 0 !important;
+        pointer-events: none !important;
+        transform: translateY(8px) !important;
+        transition: opacity 0.25s ease, transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), background 0.18s ease;
+      }
+      .scroll-bottom-fab.visible {
+        display: flex !important;
+        opacity: 1 !important;
+        pointer-events: auto !important;
+        transform: translateY(0) !important;
+      }
+      .scroll-bottom-fab .fab-text {
+        display: none !important;
+      }
+      .scroll-bottom-fab:active {
+        transform: scale(0.92) !important;
+        background: rgba(30, 41, 59, 0.98) !important;
+      }
+
+      /* Mobile Fullscreen Mode: Nav bar + logs only */
+      body.mobile-log-fullscreen {
+        overflow: hidden !important;
+      }
+      body.mobile-log-fullscreen .system-status,
+      body.mobile-log-fullscreen .log-telemetry,
+      body.mobile-log-fullscreen .controls,
+      body.mobile-log-fullscreen .footer {
+        display: none !important;
+      }
+      body.mobile-log-fullscreen #viewLogs {
+        padding: 0 !important;
+        margin: 0 !important;
+        height: calc(100vh - 56px) !important;
+        height: calc(100dvh - 56px) !important;
+        display: flex !important;
+        flex-direction: column !important;
+      }
+      body.mobile-log-fullscreen .terminal-container {
+        flex: 1 1 100% !important;
+        height: 100% !important;
+        max-height: calc(100vh - 56px) !important;
+        max-height: calc(100dvh - 56px) !important;
+        border-radius: 0 !important;
+        border: none !important;
+        margin: 0 !important;
+      }
+      body.mobile-log-fullscreen .railway-rows-scroll {
+        height: 100% !important;
+        max-height: calc(100vh - 56px) !important;
+        max-height: calc(100dvh - 56px) !important;
+        padding-bottom: 74px !important;
       }
       .footer {
         padding: 6px 12px;
@@ -2152,9 +2276,32 @@ export function renderDashboardHtml(options: DashboardRenderOptions): string {
           Connecting to Sree AI hardened log stream...
         </div>
       </div>
-      <button id="scrollToBottomFab" class="scroll-bottom-fab" onclick="scrollLogsToBottom()" title="Scroll to latest logs">
-        <span>↓ Latest</span>
-      </button>
+      <!-- Floating Action Buttons (Mobile Fullscreen & Scroll-to-Bottom) -->
+      <div class="terminal-fab-group">
+        <button id="toggleFullscreenFab" class="fab-btn fab-fullscreen" onclick="toggleLogFullscreen()"
+          title="Toggle full screen logs" aria-label="Toggle full screen logs">
+          <svg id="fullscreenExpandIcon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="15 3 21 3 21 9"></polyline>
+            <polyline points="9 21 3 21 3 15"></polyline>
+            <line x1="21" y1="3" x2="14" y2="10"></line>
+            <line x1="3" y1="21" x2="10" y2="14"></line>
+          </svg>
+          <svg id="fullscreenCompressIcon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#38bdf8" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="display:none;">
+            <polyline points="4 14 10 14 10 20"></polyline>
+            <polyline points="20 10 14 10 14 4"></polyline>
+            <line x1="14" y1="10" x2="21" y2="3"></line>
+            <line x1="10" y1="14" x2="3" y2="21"></line>
+          </svg>
+        </button>
+        <button id="scrollToBottomFab" class="scroll-bottom-fab" onclick="scrollLogsToBottom()"
+          title="Scroll to latest logs" aria-label="Scroll to latest logs">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="12" y1="5" x2="12" y2="19"></line>
+            <polyline points="19 12 12 19 5 12"></polyline>
+          </svg>
+          <span class="fab-text">Latest</span>
+        </button>
+      </div>
     </div>
 
     <!-- Terminal Footer -->
@@ -2684,6 +2831,9 @@ export function renderDashboardHtml(options: DashboardRenderOptions): string {
     let hideScannerProbes = false;
     let liveTimer = null;
     let isLive = false;
+    let isInitialRender = true;
+    let isProgrammaticScroll = false;
+    let mobileFabFadeTimer = null;
     let uptimeSeconds = ${initialTelemetry.uptimeSeconds};
 
     // Continuous Live Ticking Counter
@@ -2778,6 +2928,21 @@ export function renderDashboardHtml(options: DashboardRenderOptions): string {
       } else {
         viewLogs.classList.add('hidden-view');
         viewMetrics.classList.add('active-view');
+        document.body.classList.remove('mobile-log-fullscreen');
+        const expandIcon = document.getElementById('fullscreenExpandIcon');
+        const compressIcon = document.getElementById('fullscreenCompressIcon');
+        const btn = document.getElementById('toggleFullscreenFab');
+        if (btn) {
+          btn.classList.remove('is-fullscreen');
+          btn.classList.remove('visible');
+        }
+        const scrollFab = document.getElementById('scrollToBottomFab');
+        if (scrollFab) scrollFab.classList.remove('visible');
+        if (mobileFabFadeTimer) clearTimeout(mobileFabFadeTimer);
+        if (expandIcon && compressIcon) {
+          expandIcon.style.display = 'block';
+          compressIcon.style.display = 'none';
+        }
         renderGrafanaDashboard();
       }
 
@@ -3926,38 +4091,135 @@ export function renderDashboardHtml(options: DashboardRenderOptions): string {
       if (isLive || isInitialRender) {
         requestAnimationFrame(() => {
           scrollLogsToBottom(false);
+          setTimeout(() => {
+            isInitialRender = false;
+          }, 250);
         });
-        isInitialRender = false;
       }
     }
-
-    let isInitialRender = true;
 
     function scrollLogsToBottom(smooth = true) {
       const container = document.getElementById("logContainer");
       if (!container) return;
+      isProgrammaticScroll = true;
       if (smooth) {
         container.scrollTo({ top: container.scrollHeight, behavior: "smooth" });
       } else {
         container.scrollTop = container.scrollHeight;
       }
+      setTimeout(() => { isProgrammaticScroll = false; }, 200);
       const fab = document.getElementById("scrollToBottomFab");
       if (fab) fab.classList.remove("visible");
     }
 
-    // Floating scroll-to-latest button listener
+    function handleLogScrollActivity() {
+      if (isProgrammaticScroll || isInitialRender) return;
+      const container = document.getElementById("logContainer");
+      if (!container) return;
+
+      const fsFab = document.getElementById("toggleFullscreenFab");
+      const scrollFab = document.getElementById("scrollToBottomFab");
+      const isMobile = window.innerWidth <= 640;
+      const distanceFromBottom = container.scrollHeight - container.scrollTop - container.clientHeight;
+
+      if (isMobile) {
+        // Fullscreen button appears on mobile when scrolling/touching
+        if (fsFab) fsFab.classList.add("visible");
+
+        // Down-arrow FAB appears if scrolled away from bottom (>80px)
+        if (scrollFab) {
+          if (distanceFromBottom > 80) {
+            scrollFab.classList.add("visible");
+          } else {
+            scrollFab.classList.remove("visible");
+          }
+        }
+
+        // Auto-disappear after 3 seconds of inactivity
+        if (mobileFabFadeTimer) clearTimeout(mobileFabFadeTimer);
+        mobileFabFadeTimer = setTimeout(() => {
+          if (fsFab) fsFab.classList.remove("visible");
+          if (scrollFab) scrollFab.classList.remove("visible");
+        }, 3000);
+      } else {
+        // Desktop: fullscreen button is hidden by CSS; scrollFab shows if scrolled up
+        if (scrollFab) {
+          if (distanceFromBottom > 150) {
+            scrollFab.classList.add("visible");
+          } else {
+            scrollFab.classList.remove("visible");
+          }
+        }
+      }
+    }
+
     const logScrollContainer = document.getElementById("logContainer");
     if (logScrollContainer) {
-      logScrollContainer.addEventListener("scroll", () => {
-        const fab = document.getElementById("scrollToBottomFab");
-        if (!fab) return;
-        const distanceFromBottom = logScrollContainer.scrollHeight - logScrollContainer.scrollTop - logScrollContainer.clientHeight;
-        if (distanceFromBottom > 150) {
-          fab.classList.add("visible");
-        } else {
-          fab.classList.remove("visible");
+      logScrollContainer.addEventListener("scroll", handleLogScrollActivity, { passive: true });
+      logScrollContainer.addEventListener("touchstart", handleLogScrollActivity, { passive: true });
+      logScrollContainer.addEventListener("touchmove", handleLogScrollActivity, { passive: true });
+    }
+
+    // Keep visible if user touches or hovers the buttons
+    const fabGroup = document.querySelector(".terminal-fab-group");
+    if (fabGroup) {
+      fabGroup.addEventListener("mouseenter", () => {
+        if (mobileFabFadeTimer) clearTimeout(mobileFabFadeTimer);
+      });
+      fabGroup.addEventListener("touchstart", () => {
+        if (mobileFabFadeTimer) clearTimeout(mobileFabFadeTimer);
+      }, { passive: true });
+      fabGroup.addEventListener("mouseleave", () => {
+        if (window.innerWidth <= 640) {
+          if (mobileFabFadeTimer) clearTimeout(mobileFabFadeTimer);
+          mobileFabFadeTimer = setTimeout(() => {
+            const fsFab = document.getElementById("toggleFullscreenFab");
+            const scrollFab = document.getElementById("scrollToBottomFab");
+            if (fsFab) fsFab.classList.remove("visible");
+            if (scrollFab) scrollFab.classList.remove("visible");
+          }, 3000);
         }
       });
+      fabGroup.addEventListener("touchend", () => {
+        if (window.innerWidth <= 640) {
+          if (mobileFabFadeTimer) clearTimeout(mobileFabFadeTimer);
+          mobileFabFadeTimer = setTimeout(() => {
+            const fsFab = document.getElementById("toggleFullscreenFab");
+            const scrollFab = document.getElementById("scrollToBottomFab");
+            if (fsFab) fsFab.classList.remove("visible");
+            if (scrollFab) scrollFab.classList.remove("visible");
+          }, 3000);
+        }
+      }, { passive: true });
+    }
+
+    function toggleLogFullscreen() {
+      const isFull = document.body.classList.toggle('mobile-log-fullscreen');
+      const expandIcon = document.getElementById('fullscreenExpandIcon');
+      const compressIcon = document.getElementById('fullscreenCompressIcon');
+      const btn = document.getElementById('toggleFullscreenFab');
+
+      if (btn) {
+        btn.classList.toggle('is-fullscreen', isFull);
+        btn.classList.add('visible');
+      }
+      if (expandIcon && compressIcon) {
+        expandIcon.style.display = isFull ? 'none' : 'block';
+        compressIcon.style.display = isFull ? 'block' : 'none';
+      }
+
+      if (window.innerWidth <= 640) {
+        if (mobileFabFadeTimer) clearTimeout(mobileFabFadeTimer);
+        mobileFabFadeTimer = setTimeout(() => {
+          if (btn) btn.classList.remove('visible');
+          const scrollFab = document.getElementById("scrollToBottomFab");
+          if (scrollFab) scrollFab.classList.remove("visible");
+        }, 3000);
+      }
+
+      setTimeout(() => {
+        scrollLogsToBottom(false);
+      }, 50);
     }
 
     function setLevel(lvl) {
